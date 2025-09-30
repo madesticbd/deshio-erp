@@ -5,7 +5,7 @@ import Sidebar from '@/components/Sidebar';
 import Header from '@/components/Header';
 import PageHeader from '@/components/PageHeader';
 import StoreTable from '@/components/StoreTable';
-import { stores } from '@/data/storesData'; // ✅ import here
+import { stores } from '@/data/storesData'; 
 
 export default function StorePage() {
   const handleAddStore = () => {
