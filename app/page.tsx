@@ -1,10 +1,19 @@
-import Image from "next/image";
-import styles from "./page.module.css";
+"use client";
+
+import { useEffect } from "react";
+import { useRouter } from "next/navigation";
 
 export default function Home() {
-  return (
-    <>
-    <h1>Hello, Developers</h1>
-    </>
-  );
+  const router = useRouter();
+
+  useEffect(() => {
+    const loggedIn = localStorage.getItem("loggedIn");
+    /*if (loggedIn === "true") {
+        router.push("/store");
+    } else {*/
+      router.push("/login");
+    //}
+  }, [router]);
+
+  return null; // Nothing to render, just redirect
 }
