@@ -1,46 +1,40 @@
 'use client';
 
-import React from 'react';
+import { useState } from 'react';
 import Sidebar from '@/components/Sidebar';
 import Header from '@/components/Header';
-import PageHeader from '@/components/PageHeader';
-import StoreTable from '@/components/StoreTable';
-import { stores } from '@/data/storesData'; 
+import StoreCard from '@/components/StoreCard';
+import { generateDummyStores } from '@/lib/dummyData';
 
-export default function StorePage() {
-  const handleAddStore = () => {
-    console.log('Add Store clicked');
-    // Add your logic here
-  };
-
-  const handleEdit = (store: any) => {
-    console.log('Edit store:', store);
-  };
-
-  const handleDelete = (store: any) => {
-    console.log('Delete store:', store);
-  };
+export default function StoresPage() {
+  const [darkMode, setDarkMode] = useState(false);
+  const stores = generateDummyStores(6);
 
   return (
-    <div className="flex h-screen bg-black overflow-hidden">
-      <Sidebar activeMenu="Store" />
-      
-      <div className="flex-1 flex flex-col overflow-hidden">
-        <Header />
+    <div className={darkMode ? 'dark' : ''}>
+      <div className="flex h-screen bg-gray-50 dark:bg-gray-900">
+        <Sidebar />
         
-        <main className="flex-1 p-6 overflow-y-auto">
-          <PageHeader 
-            title="Store Management" 
-            buttonText="Add Store"
-            onButtonClick={handleAddStore}
-          />
+        <div className="flex-1 flex flex-col">
+          <Header darkMode={darkMode} setDarkMode={setDarkMode} />
           
-          <StoreTable 
-            stores={stores}
-            onEdit={handleEdit}
-            onDelete={handleDelete}
-          />
-        </main>
+          <main className="flex-1 overflow-auto p-6">
+            <div className="mb-6">
+              <h2 className="text-2xl font-semibold text-gray-900 dark:text-white mb-1">
+                Stores
+              </h2>
+              <p className="text-sm text-gray-500 dark:text-gray-400">
+                Manage and monitor all your store locations
+              </p>
+            </div>
+
+            <div className="grid grid-cols-3 gap-6">
+              {stores.map((store) => (
+                <StoreCard key={store.id} store={store} />
+              ))}
+            </div>
+          </main>
+        </div>
       </div>
     </div>
   );
