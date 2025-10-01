@@ -1,14 +1,31 @@
 'use client';
 
 import { LayoutDashboard, Store, FolderTree, Package, ClipboardList, CreditCard } from 'lucide-react';
+import { useState } from 'react';
 
 export default function Sidebar() {
+  const [activeMenu, setActiveMenu] = useState<string | null>(null); // Track which menu is active
+  
+  const handleMenuClick = (menu: string) => {
+    setActiveMenu(activeMenu === menu ? null : menu); // Toggle expand/collapse
+  };
+
   const menuItems = [
     { icon: LayoutDashboard, label: 'Dashboard', active: false },
-    { icon: Store, label: 'Store', active: true },
+    { icon: Store, label: 'Store', active: false },
     { icon: FolderTree, label: 'Category', active: false },
-    { icon: Package, label: 'Product', active: false },
-    { icon: ClipboardList, label: 'Inventory', active: false },
+    {
+      icon: Package,
+      label: 'Product',
+      active: activeMenu === 'product',
+      subMenu: ['Field', 'Product', 'Batch'],
+    },
+    {
+      icon: ClipboardList,
+      label: 'Inventory',
+      active: activeMenu === 'inventory',
+      subMenu: ['Store Inventory', 'Warehouse Inventory'],
+    },
     { icon: CreditCard, label: 'Transaction', active: false },
   ];
 
@@ -31,17 +48,35 @@ export default function Sidebar() {
         <ul className="space-y-1">
           {menuItems.map((item, index) => (
             <li key={index}>
-              <a
-                href="#"
-                className={`flex items-center gap-2 px-3 py-2 text-sm rounded transition-colors ${
-                  item.active
-                    ? 'text-gray-900 dark:text-white bg-gray-100 dark:bg-gray-700 font-medium'
-                    : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
-                }`}
-              >
-                <item.icon className="w-4 h-4" />
-                <span>{item.label}</span>
-              </a>
+              <div>
+                <a
+                  href="#"
+                  onClick={() => item.subMenu && handleMenuClick(item.label.toLowerCase())}
+                  className={`flex items-center gap-2 px-3 py-2 text-sm rounded transition-colors ${
+                    item.active
+                      ? 'text-gray-900 dark:text-white bg-gray-100 dark:bg-gray-700 font-medium'
+                      : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
+                  }`}
+                >
+                  <item.icon className="w-4 h-4" />
+                  <span>{item.label}</span>
+                </a>
+                {/* Sub-menu for Product and Inventory */}
+                {item.subMenu && activeMenu === item.label.toLowerCase() && (
+                  <ul className="pl-6 space-y-1 mt-1">
+                    {item.subMenu.map((subItem, subIndex) => (
+                      <li key={subIndex}>
+                        <a
+                          href="#"
+                          className="block text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 px-3 py-2 rounded"
+                        >
+                          {subItem}
+                        </a>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
             </li>
           ))}
         </ul>

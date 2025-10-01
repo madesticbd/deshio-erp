@@ -2,6 +2,7 @@
 
 import { MoreVertical, MapPin, User, TrendingUp, TrendingDown } from 'lucide-react';
 
+
 interface Store {
   id: string;
   name: string;
