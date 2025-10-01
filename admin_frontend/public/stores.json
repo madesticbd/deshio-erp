@@ -1,0 +1,25 @@
+[
+  {
+    "id": "store-1",
+    "name": "Uttara",
+    "location": "Uttara, Dhaka, Bangladesh",
+    "type": "Store",
+    "pathao_key": "UTTARA-12345",
+    "revenue": 50000,
+    "revenueChange": 1500,
+    "products": 500,
+    "orders": 20
+  },
+
+  {
+    "id": 1759338802801,
+    "name": "Mirpur",
+    "location": "Mirpur,Dhaka",
+    "type": "store",
+    "pathao_key": "MIR345",
+    "revenue": 0,
+    "revenueChange": 0,
+    "products": 0,
+    "orders": 0
+  }
+]
