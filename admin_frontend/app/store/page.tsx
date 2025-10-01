@@ -1,11 +1,13 @@
-'use client';
+'use client'; 
 
 import { useState } from 'react';
 import Sidebar from '@/components/Sidebar';
 import Header from '@/components/Header';
 import StoreCard from '@/components/StoreCard';
 import { generateDummyStores } from '@/lib/dummyData';
-import { Plus, Search } from 'lucide-react'; // Import Search icon for the search bar
+import { Plus, Search } from 'lucide-react'; 
+import Link from 'next/link'; 
+
 
 export default function StoresPage() {
   const [darkMode, setDarkMode] = useState(false);
@@ -20,11 +22,14 @@ export default function StoresPage() {
           <Header darkMode={darkMode} setDarkMode={setDarkMode} />
 
           <main className="flex-1 overflow-auto p-6 relative">
-            {/* Add Store Button positioned at the top-right corner */}
-            <button className="absolute top-4 right-4 flex items-center gap-2 bg-gray-900 dark:bg-white text-white dark:text-gray-900 px-4 py-2 rounded-lg text-sm font-medium hover:bg-gray-800 dark:hover:bg-gray-100 transition-colors">
-              <Plus className="w-4 h-4" />
-              Add Store
-            </button>
+         
+            <Link href="/store/add-store">
+              <button className="absolute top-4 right-4 flex items-center gap-2 bg-gray-900 dark:bg-white text-white dark:text-gray-900 px-4 py-2 rounded-lg text-sm font-medium hover:bg-gray-800 dark:hover:bg-gray-100 transition-colors">
+                <Plus className="w-4 h-4" />
+                <span className="text-sm">Add Store</span>
+
+              </button>
+            </Link>
 
             {/* Search Bar */}
             <div className="relative mb-6">
