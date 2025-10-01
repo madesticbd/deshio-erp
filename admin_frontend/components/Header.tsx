@@ -1,6 +1,6 @@
 'use client';
 
-import { Moon, Sun,Menu } from 'lucide-react';
+import { Moon, Sun, Menu } from 'lucide-react';
 
 interface HeaderProps {
   darkMode: boolean;
