@@ -40,45 +40,47 @@ export default function StoresPage() {
           <Header darkMode={darkMode} setDarkMode={setDarkMode} />
 
           <main className="flex-1 overflow-auto p-6 relative">
-            {/* Add Store Button */}
-            <Link href="/store/add-store">
-              <button className="absolute top-4 right-4 z-50 flex items-center gap-2 bg-gray-900 dark:bg-white text-white dark:text-gray-900 px-4 py-2 rounded-lg text-sm font-medium hover:bg-gray-800 dark:hover:bg-gray-100 transition-colors">
-                <Plus className="w-4 h-4" />
-                <span className="text-sm">Add Store</span>
-              </button>
-            </Link>
+  {/* Top Bar: Search + Add Store */}
+  <div className="flex justify-between items-center mb-6">
+    {/* Search Bar */}
+    <div className="relative">
+      <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+      <input
+        type="text"
+        placeholder="Search stores..."
+        className="pl-9 pr-4 py-2 border border-gray-200 dark:border-gray-600 rounded-lg text-sm w-80 bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-900 dark:focus:ring-gray-500"
+      />
+    </div>
 
-            {/* Search Bar */}
-            <div className="relative mb-6 mt-12"> {/* mt-12 so it doesn't clash with button */}
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
-              <input
-                type="text"
-                placeholder="Search stores..."
-                className="pl-9 pr-4 py-2 border border-gray-200 dark:border-gray-600 rounded-lg text-sm w-80 bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-900 dark:focus:ring-gray-500"
-              />
-            </div>
+    {/* Add Store Button */}
+    <Link href="/store/add-store">
+      <button className="flex items-center gap-2 bg-gray-900 dark:bg-white text-white dark:text-gray-900 px-4 py-2 rounded-lg text-sm font-medium hover:bg-gray-800 dark:hover:bg-gray-100 transition-colors">
+        <Plus className="w-4 h-4" />
+        <span className="text-sm">Add Store</span>
+      </button>
+    </Link>
+  </div>
 
-            {/* Stores Section Header */}
-            <div className="mb-6">
-              <h2 className="text-2xl font-semibold text-gray-900 dark:text-white mb-1">
-                Stores
-              </h2>
-              <p className="text-sm text-gray-500 dark:text-gray-400">
-                Manage and monitor all your store locations
-              </p>
-            </div>
+  {/* Stores Section Header */}
+  <div className="mb-6">
+    <h2 className="text-2xl font-semibold text-gray-900 dark:text-white mb-1">
+      Stores
+    </h2>
+    <p className="text-sm text-gray-500 dark:text-gray-400">
+      Manage and monitor all your store locations
+    </p>
+  </div>
 
-            {/* Store Cards */}
-            <div className="grid grid-cols-3 gap-6">
-              {stores.length === 0 ? (
-                <p className="text-center text-gray-500 dark:text-gray-400">No stores available.</p>
-              ) : (
-                stores.map((store) => (
-                  <StoreCard key={store.id} store={store} />
-                ))
-              )}
-            </div>
-          </main>
+  {/* Store Cards */}
+  <div className="grid grid-cols-3 gap-6">
+    {stores.length === 0 ? (
+      <p className="text-center text-gray-500 dark:text-gray-400">No stores available.</p>
+    ) : (
+      stores.map((store) => <StoreCard key={store.id} store={store} />)
+    )}
+  </div>
+</main>
+
         </div>
       </div>
     </div>

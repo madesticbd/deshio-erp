@@ -22,15 +22,15 @@ const writeStoresToFile = (stores: any[]) => {
 // Normalize incoming store data to match the structure of manually added stores
 const normalizeStoreData = (store: any) => {
   return {
-    id: store.id || `store-${Date.now()}`, // Generate a unique ID if it doesn't exist
-    name: store.storeName || store.name, // Normalize store name
-    location: store.address || store.location, // Normalize location
-    type: store.type || 'Store', // Default to 'Store' if type is missing
-    pathao_key: store.pathaoKey || store.pathao_key, // Normalize pathao key
-    revenue: store.revenue || 0, // Default revenue if not provided
-    revenueChange: store.revenueChange || 0, // Default revenue change if not provided
-    products: store.products || 0, // Default products if not provided
-    orders: store.orders || 0, // Default orders if not provided
+    id: store.id || `store-${Date.now()}`, 
+    name: store.storeName || store.name, 
+    location: store.address || store.location, 
+    type: store.type || 'Store', 
+    pathao_key: store.pathaoKey || store.pathao_key, 
+    revenue: store.revenue || 60000, 
+    revenueChange: store.revenueChange || 1500, 
+    products: store.products || 70, 
+    orders: store.orders || 20, 
   };
 };
 
