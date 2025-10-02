@@ -16,4 +16,3 @@ export default function Home() {
   }, [router]);
 
   return null; // Nothing to render, just redirect
-}

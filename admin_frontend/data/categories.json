@@ -1,0 +1,27 @@
+[
+  {
+    "id": "1",
+    "title": "Electronics",
+    "description": "Electronic devices and accessories",
+    "slug": "electronics",
+    "image": "/uploads/1759417036216-Electronic Device.jpeg",
+    "subcategories": [
+      {
+        "id": "3",
+        "title": "Fashion",
+        "description": "Clothing and accessories",
+        "slug": "fashion",
+        "image": "/uploads/1759417240207-Fashion.jpeg",
+        "subcategories": []
+      }
+    ]
+  },
+  {
+    "id": "2",
+    "title": "Fashion",
+    "description": "Clothing and accessories",
+    "slug": "fashion",
+    "image": "/uploads/1759417096591-Fashion.jpeg",
+    "subcategories": []
+  }
+]
