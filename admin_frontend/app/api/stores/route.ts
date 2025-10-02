@@ -3,7 +3,7 @@ import fs from 'fs';
 import path from 'path';
 
 // File path for the stores.json file
-const storesFilePath = path.resolve('public', 'stores.json');
+const storesFilePath = path.resolve('data', 'stores.json');
 
 // Helper function to read stores from the JSON file
 const readStoresFromFile = () => {

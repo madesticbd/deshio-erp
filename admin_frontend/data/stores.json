@@ -1,10 +1,10 @@
 [
   {
-    "id": 1759415974778,
+    "id": 1759417024369,
     "name": "Mirpur",
-    "location": "Dhaka,Bangladesh",
+    "location": "Mirpur,Dhaka",
     "type": "store",
-    "pathao_key": "MIR345",
+    "pathao_key": "UTT123",
     "revenue": 60000,
     "revenueChange": 1500,
     "products": 70,
