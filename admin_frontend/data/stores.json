@@ -1,0 +1,13 @@
+[
+  {
+    "id": 1759417024369,
+    "name": "Mirpur",
+    "location": "Mirpur,Dhaka",
+    "type": "store",
+    "pathao_key": "UTT123",
+    "revenue": 60000,
+    "revenueChange": 1500,
+    "products": 70,
+    "orders": 20
+  }
+]

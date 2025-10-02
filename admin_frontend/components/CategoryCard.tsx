@@ -27,20 +27,25 @@ function Dropdown({
   onClose,
   children,
 }: {
-  targetRef: React.RefObject<HTMLButtonElement>;
+  targetRef: React.RefObject<HTMLButtonElement | null>;
   onClose: () => void;
   children: React.ReactNode;
 }) {
   const [container, setContainer] = useState<HTMLElement | null>(null);
   const [position, setPosition] = useState({ top: 0, left: 0 });
 
+  // Create portal container
   useEffect(() => {
     const el = document.createElement('div');
     document.body.appendChild(el);
     setContainer(el);
-    return () => document.body.removeChild(el);
+
+    return () => {
+      if (el.parentNode) el.parentNode.removeChild(el);
+    };
   }, []);
 
+  // Position dropdown
   useEffect(() => {
     function updatePosition() {
       if (targetRef.current) {
@@ -54,15 +59,21 @@ function Dropdown({
     updatePosition();
     window.addEventListener('resize', updatePosition);
     window.addEventListener('scroll', updatePosition, true);
+
     return () => {
       window.removeEventListener('resize', updatePosition);
       window.removeEventListener('scroll', updatePosition, true);
     };
   }, [targetRef]);
 
+  // Close on outside click
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
-      if (container && !container.contains(e.target as Node) && !targetRef.current?.contains(e.target as Node)) {
+      if (
+        container &&
+        !container.contains(e.target as Node) &&
+        !targetRef.current?.contains(e.target as Node)
+      ) {
         onClose();
       }
     }
@@ -84,10 +95,15 @@ function Dropdown({
 }
 
 // ---------- Main Category Card ----------
-export default function CategoryCard({ category, onDelete, onEdit, onAddSubcategory }: CategoryCardProps) {
+export default function CategoryCard({
+  category,
+  onDelete,
+  onEdit,
+  onAddSubcategory,
+}: CategoryCardProps) {
   const [showSubcategories, setShowSubcategories] = useState(false);
   const [showDropdown, setShowDropdown] = useState(false);
-  const dropdownButtonRef = useRef<HTMLButtonElement>(null);
+  const dropdownButtonRef = useRef<HTMLButtonElement | null>(null);
 
   return (
     <div
@@ -97,14 +113,20 @@ export default function CategoryCard({ category, onDelete, onEdit, onAddSubcateg
     >
       <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden hover:shadow-lg transition-shadow">
         <div className="relative h-40 bg-gray-100 dark:bg-gray-700">
-          <ImageWithFallback src={category.image} alt={category.title} className="w-full h-full object-cover" />
+          <ImageWithFallback
+            src={category.image}
+            alt={category.title}
+            className="w-full h-full object-cover"
+          />
         </div>
 
         <div className="p-4">
           <div className="flex items-start justify-between mb-2">
             <div className="flex-1">
               <h3 className="text-gray-900 dark:text-white mb-1">{category.title}</h3>
-              <p className="text-sm text-gray-600 dark:text-gray-400 line-clamp-2">{category.description}</p>
+              <p className="text-sm text-gray-600 dark:text-gray-400 line-clamp-2">
+                {category.description}
+              </p>
             </div>
 
             {/* Dropdown trigger */}
@@ -166,7 +188,7 @@ export default function CategoryCard({ category, onDelete, onEdit, onAddSubcateg
         <div className="absolute left-0 top-full mt-2 w-full z-10 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-xl p-3 max-h-96 overflow-y-auto">
           <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">Subcategories</p>
           <div className="space-y-2">
-            {category.subcategories?.map((sub) => (
+            {category.subcategories.map((sub) => (
               <SubcategoryItem
                 key={sub.id}
                 category={sub}
@@ -199,12 +221,16 @@ function SubcategoryItem({
 }) {
   const [showNested, setShowNested] = useState(false);
   const [showDropdown, setShowDropdown] = useState(false);
-  const dropdownButtonRef = useRef<HTMLButtonElement>(null);
+  const dropdownButtonRef = useRef<HTMLButtonElement | null>(null);
 
   return (
     <div className="relative" onMouseEnter={() => setShowNested(true)} onMouseLeave={() => setShowNested(false)}>
       <div className="flex items-start gap-2 p-2 hover:bg-gray-50 dark:hover:bg-gray-700 rounded group/item">
-        <ImageWithFallback src={category.image} alt={category.title} className="w-12 h-12 rounded object-cover flex-shrink-0" />
+        <ImageWithFallback
+          src={category.image}
+          alt={category.title}
+          className="w-12 h-12 rounded object-cover flex-shrink-0"
+        />
         <div className="flex-1 min-w-0">
           <h4 className="text-sm text-gray-900 dark:text-white truncate">{category.title}</h4>
           <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{category.description}</p>
@@ -259,7 +285,7 @@ function SubcategoryItem({
         <div className="absolute left-full top-0 ml-2 w-64 z-20 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-xl p-2">
           <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">Nested Subcategories</p>
           <div className="space-y-1">
-            {category.subcategories?.map((nested) => (
+            {category.subcategories.map((nested) => (
               <SubcategoryItem
                 key={nested.id}
                 category={nested}
@@ -272,6 +298,6 @@ function SubcategoryItem({
           </div>
         </div>
       )}
-    </div>
-  );
+    </div>
+  );
 }
