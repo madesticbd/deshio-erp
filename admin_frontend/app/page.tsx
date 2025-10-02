@@ -1,41 +1,19 @@
-'use client';
+"use client";
 
-import { useState } from 'react';
-import Sidebar from '@/components/Sidebar';
-import Header from '@/components/Header';
-import StoreCard from '@/components/StoreCard';
-import { generateDummyStores } from '@/lib/dummyData';
+import { useEffect } from "react";
+import { useRouter } from "next/navigation";
 
-export default function StoresPage() {
-  const [darkMode, setDarkMode] = useState(false);
-  const stores = generateDummyStores(6);
+export default function Home() {
+  const router = useRouter();
 
-  return (
-    <div className={darkMode ? 'dark' : ''}>
-      <div className="flex h-screen bg-gray-50 dark:bg-gray-900">
-        <Sidebar />
-        
-        <div className="flex-1 flex flex-col">
-          <Header darkMode={darkMode} setDarkMode={setDarkMode} />
-          
-          <main className="flex-1 overflow-auto p-6">
-            <div className="mb-6">
-              <h2 className="text-2xl font-semibold text-gray-900 dark:text-white mb-1">
-                Stores
-              </h2>
-              <p className="text-sm text-gray-500 dark:text-gray-400">
-                Manage and monitor all your store locations
-              </p>
-            </div>
+  useEffect(() => {
+    const loggedIn = localStorage.getItem("loggedIn");
+    /*if (loggedIn === "true") {
+        router.push("/dashboard);
+    } else {*/
+      router.push("/login");
+    //}
+  }, [router]);
 
-            <div className="grid grid-cols-3 gap-6">
-              {stores.map((store) => (
-                <StoreCard key={store.id} store={store} />
-              ))}
-            </div>
-          </main>
-        </div>
-      </div>
-    </div>
-  );
+  return null; // Nothing to render, just redirect
 }
