@@ -59,3 +59,50 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Failed to add store' }, { status: 500 });
   }
 }
+
+export async function DELETE(request: Request) {
+  try {
+    const { id } = await request.json();
+    let stores = readStoresFromFile();
+    stores = stores.filter((s: any) => s.id !== id);
+    writeStoresToFile(stores);
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    return NextResponse.json({ error: 'Failed to delete store' }, { status: 500 });
+  }
+}
+
+// PUT store (update)
+// PUT store (update)
+export async function PUT(request: Request) {
+  try {
+    const updatedStore = await request.json();
+    let stores = readStoresFromFile();
+
+    const index = stores.findIndex((s: any) => s.id === updatedStore.id);
+    if (index !== -1) {
+      // Normalize updated store so fields match your file format
+      const normalizedStore = normalizeStoreData(updatedStore);
+
+      // Keep existing values for revenue, revenueChange, products, orders if not sent
+      stores[index] = {
+        ...stores[index],
+        ...normalizedStore,
+        revenue: updatedStore.revenue ?? stores[index].revenue,
+        revenueChange: updatedStore.revenueChange ?? stores[index].revenueChange,
+        products: updatedStore.products ?? stores[index].products,
+        orders: updatedStore.orders ?? stores[index].orders,
+      };
+
+      writeStoresToFile(stores);
+      return NextResponse.json(stores[index]);
+    }
+
+    return NextResponse.json({ error: 'Store not found' }, { status: 404 });
+  } catch (error) {
+    console.error('Error updating store:', error);
+    return NextResponse.json({ error: 'Failed to update store' }, { status: 500 });
+  }
+}
+
+

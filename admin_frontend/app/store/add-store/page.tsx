@@ -1,6 +1,7 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useSearchParams, useRouter } from 'next/navigation';
 import Sidebar from '@/components/Sidebar';
 import Header from '@/components/Header';
 import { ArrowLeft, Save, ChevronDown } from 'lucide-react';
@@ -9,33 +10,58 @@ import Link from 'next/link';
 export default function AddStorePage() {
   const [darkMode, setDarkMode] = useState(false);
   const [isTypeOpen, setIsTypeOpen] = useState(false);
+
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const editId = searchParams.get('id'); // if provided → edit mode
+
   const [formData, setFormData] = useState({
+    id: '',
     storeName: '',
     address: '',
     pathaoKey: '',
     type: 'store'
   });
 
+  // Load store data when editing
+  useEffect(() => {
+    if (editId) {
+      fetch('/api/stores')
+        .then(res => res.json())
+        .then(data => {
+          const store = data.find((s: any) => String(s.id) === String(editId));
+          if (store) {
+            setFormData({
+              id: store.id,
+              storeName: store.name,
+              address: store.location,
+              pathaoKey: store.pathao_key,
+              type: store.type?.toLowerCase() || 'store',
+            });
+          }
+        });
+    }
+  }, [editId]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const newStore = { ...formData, id: Date.now() };
+    const method = editId ? 'PUT' : 'POST';
+    const payload = editId ? formData : { ...formData, id: Date.now() };
 
     try {
       const response = await fetch('/api/stores', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(newStore),
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
       });
 
       if (response.ok) {
-        console.log('Store added:', newStore);
+        router.push('/store'); // back to store list
       } else {
-        console.error('Failed to add store');
+        console.error('Failed to save store');
       }
     } catch (error) {
-      console.error('Error adding store:', error);
+      console.error('Error saving store:', error);
     }
   };
 
@@ -68,10 +94,10 @@ export default function AddStorePage() {
                   </button>
                 </Link>
                 <h1 className="text-xl font-semibold text-gray-900 dark:text-white mb-1">
-                  Add New Store
+                  {editId ? 'Edit Store' : 'Add New Store'}
                 </h1>
                 <p className="text-xs text-gray-500 dark:text-gray-400">
-                  Create a new store location
+                  {editId ? 'Update this store information' : 'Create a new store location'}
                 </p>
               </div>
 
@@ -147,7 +173,7 @@ export default function AddStorePage() {
                     </Link>
                     <button type="submit" className="flex-1 flex items-center justify-center gap-2 bg-gray-900 dark:bg-white text-white dark:text-gray-900 px-3 py-2 rounded-lg text-sm font-medium hover:bg-gray-800 dark:hover:bg-gray-100 transition-colors">
                       <Save className="w-4 h-4" />
-                      Save Store
+                      {editId ? 'Update Store' : 'Save Store'}
                     </button>
                   </div>
                 </form>
