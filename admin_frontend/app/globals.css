@@ -1,5 +1,8 @@
 @import "tailwindcss";
 
+/* stylelint-disable-next-line */
+@variant dark (&:where(.dark, .dark *));
+
 * {
   box-sizing: border-box;
 }
@@ -10,11 +13,8 @@ body {
     sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  margin: 0;
-  padding: 0;
 }
 
-/* Custom scrollbar styles */
 ::-webkit-scrollbar {
   width: 8px;
   height: 8px;
@@ -24,7 +24,7 @@ body {
   background: #f3f4f6;
 }
 
-:where(.dark) ::-webkit-scrollbar-track {
+.dark ::-webkit-scrollbar-track {
   background: #0a0a0a;
 }
 
@@ -33,7 +33,7 @@ body {
   border-radius: 4px;
 }
 
-:where(.dark) ::-webkit-scrollbar-thumb {
+.dark ::-webkit-scrollbar-thumb {
   background: #262626;
 }
 
@@ -41,6 +41,6 @@ body {
   background: #9ca3af;
 }
 
-:where(.dark) ::-webkit-scrollbar-thumb:hover {
+.dark ::-webkit-scrollbar-thumb:hover {
   background: #404040;
 }

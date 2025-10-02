@@ -16,7 +16,7 @@ export default function Sidebar() {
   const menuItems = [
     { icon: LayoutDashboard, label: 'Dashboard', href: '/dashboard' },
     { icon: Store, label: 'Store', href: '/store' },
-    { icon: FolderTree, label: 'Category', href: '#' },
+    { icon: FolderTree, label: 'Category', href: '/category' },
     {
       icon: Package,
       label: 'Product',
