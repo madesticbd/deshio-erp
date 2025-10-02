@@ -7,29 +7,44 @@ import Image from "next/image"
 
 export default function LoginPage() {
   const router = useRouter()
-  const [username, setUsername] = useState("")
+  const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
+  const [error, setError] = useState("")
 
   // If already logged in, skip login form
   useEffect(() => {
     const loggedIn = localStorage.getItem("loggedIn")
     /*if (loggedIn === "true") {
-      router.push("/store")
+      router.push("/dashboard")
     }*/
   }, [router])
 
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault()
-    // Fake login: just set localStorage
+
+    // Validation: ensure email and password are entered
+    if (!email.trim() || !password.trim()) {
+      setError("Please enter both email and password.")
+      return
+    }
+
+    // Simple email format check
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+    if (!emailRegex.test(email)) {
+      setError("Please enter a valid email address.")
+      return
+    }
+
+    // Fake login
     localStorage.setItem("loggedIn", "true")
-    console.log("Logged in:", { username, password })
-    router.push("/store") // Redirect to StorePage
+    console.log("Logged in:", { email, password })
+    router.push("/dashboard") // Redirect
   }
 
   return (
     <div className="flex min-h-screen bg-gradient-to-br from-gray-100 to-gray-200 items-center justify-center px-4 py-12">
       <div className="w-full max-w-md overflow-hidden rounded-2xl shadow-2xl">
-        {/* Logo section with dark background */}
+        {/* Logo */}
         <div className="bg-gray-900 px-12 py-4 flex justify-center">
           <Image
             src="/deshiologo.png"
@@ -41,21 +56,20 @@ export default function LoginPage() {
           />
         </div>
 
-        {/* Login form section with white background */}
+        {/* Login form */}
         <div className="bg-white p-8 space-y-6">
-
           <form onSubmit={handleLogin} className="space-y-4">
-            {/* Username */}
+            {/* Email */}
             <div>
-              <label htmlFor="username" className="block mb-2 text-sm font-medium text-gray-700">
-                Username
+              <label htmlFor="email" className="block mb-2 text-sm font-medium text-gray-700">
+                Email Address
               </label>
               <input
-                id="username"
-                type="text"
-                placeholder="Enter your username"
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
+                id="email"
+                type="email"
+                placeholder="Enter your email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
                 className="w-full px-4 py-3 rounded-lg border border-gray-300 bg-gray-50 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent transition"
               />
             </div>
@@ -74,6 +88,11 @@ export default function LoginPage() {
                 className="w-full px-4 py-3 rounded-lg border border-gray-300 bg-gray-50 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent transition"
               />
             </div>
+
+            {/* Error message */}
+            {error && (
+              <p className="text-red-600 text-sm font-medium">{error}</p>
+            )}
 
             {/* Login Button */}
             <button
