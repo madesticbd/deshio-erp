@@ -8,5 +8,10 @@
     "id": 1759562348849,
     "name": "Image",
     "type": "Image"
+  },
+  {
+    "id": 1759592514799,
+    "name": "Price",
+    "type": "Number"
   }
 ]

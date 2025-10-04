@@ -15,6 +15,14 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
+@media print {
+  body { -webkit-print-color-adjust: exact; }
+  .no-print { display: none !important; }
+  .print-only { display: block !important; }
+  .page-break-avoid { page-break-inside: avoid; -webkit-column-break-inside: avoid; }
+}
+
+
 ::-webkit-scrollbar {
   width: 8px;
   height: 8px;
