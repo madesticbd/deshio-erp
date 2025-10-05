@@ -119,7 +119,7 @@ export default function BarcodeSelectionModal({
             onClick={handlePrint}
             className="px-6 py-2 bg-black text-white rounded hover:bg-gray-800 flex items-center gap-2"
           >
-            <span>🖨️</span>
+          
             Print Barcodes
           </button>
         </div>
