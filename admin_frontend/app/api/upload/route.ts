@@ -31,4 +31,8 @@ export async function POST(req: NextRequest) {
     console.error(err);
     return NextResponse.json({ error: "Upload failed" }, { status: 500 });
   }
+<<<<<<< HEAD
 }
+=======
+}
+>>>>>>> 82ae619dfdc4d7b96e1259ff74d4c55c28bee72a
