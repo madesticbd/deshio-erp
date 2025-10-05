@@ -38,7 +38,6 @@ export default function CategoryPageWrapper() {
 
   const itemsPerPage = 6;
 
-  // Fetch categories from API on mount
   useEffect(() => {
     refresh();
   }, []);
@@ -49,7 +48,6 @@ export default function CategoryPageWrapper() {
     setCategories(data);
   };
 
-  // Flatten categories for searching
   const flattenCategories = (cats: Category[]): Category[] => {
     return cats.reduce((acc: Category[], cat) => {
       acc.push(cat);
@@ -101,9 +99,6 @@ export default function CategoryPageWrapper() {
 
   setCategories(prev => deleteCategoryRecursive(prev, id));
 };
-
-
-
   const handleEdit = (category: Category) => {
     setEditCategory(category);
     setParentId(null);
@@ -139,7 +134,7 @@ export default function CategoryPageWrapper() {
       // Create new category (could be root or subcategory)
       const res = await fetch('/api/categories', {
         method: 'POST',
-        body: JSON.stringify(newCategory),
+         body: JSON.stringify({ ...newCategory, parentId }),
       });
       const created = await res.json();
 
@@ -159,9 +154,6 @@ export default function CategoryPageWrapper() {
       }
     }
   };
-
-
-
   return (
     <div className={darkMode ? "dark" : ""}>
       <div className="flex h-screen bg-gray-50 dark:bg-gray-900">

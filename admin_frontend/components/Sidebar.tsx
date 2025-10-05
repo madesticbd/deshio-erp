@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { LayoutDashboard, Store, FolderTree, Package, ClipboardList, CreditCard } from 'lucide-react';
+import { LayoutDashboard, Store, FolderTree, Package, ClipboardList, CreditCard, ShoppingCart } from 'lucide-react';
 import { useState } from 'react';
 
 export default function Sidebar() {
@@ -36,7 +36,11 @@ export default function Sidebar() {
         { label: 'Warehouse Inventory', href: '/inventory/warehouse' },
       ],
     },
-    { icon: CreditCard, label: 'Transaction', href: '#' },
+
+
+    { icon: ShoppingCart, label: 'POS', href: '/pos' },
+
+    { icon: CreditCard, label: 'Transaction', href: '/transaction' },
   ];
 
   return (

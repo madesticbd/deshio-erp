@@ -1,0 +1,78 @@
+[
+  {
+    "id": 1759575698352,
+    "name": "Adrita's Dress",
+    "attributes": {
+      "mainImage": "/uploads/1759575670493-Fashion.jpeg",
+      "category": "1",
+      "subcategory": "6",
+      "Colour": "Black",
+      "Image": "/uploads/1759575696486-deshiologo.png"
+    }
+  },
+  {
+    "id": 1759575946222,
+    "name": "Help",
+    "attributes": {
+      "mainImage": "/uploads/1759575935995-figma.jpg",
+      "category": "4",
+      "subcategory": "",
+      "Colour": "Red"
+    }
+  },
+  {
+    "id": 1759576126423,
+    "name": "Hi",
+    "attributes": {
+      "mainImage": "/uploads/1759576113143-delete.png",
+      "category": "3",
+      "subcategory": "",
+      "1759558320729": "Blue"
+    }
+  },
+  {
+    "id": 1759576337960,
+    "name": "help",
+    "attributes": {
+      "mainImage": "/uploads/1759576323691-—Pngtree—vector edit icon_4144236.png",
+      "category": "1",
+      "subcategory": "",
+      "Colour": "black"
+    }
+  },
+  {
+    "id": 1759588498591,
+    "name": "Aroni",
+    "attributes": {
+      "mainImage": "/uploads/1759588488722-Fashion.jpeg",
+      "category": "1",
+      "subcategory": "",
+      "Colour": "Black"
+    }
+  },
+  {
+    "id": 1759624144706,
+    "name": "Saree",
+    "attributes": {
+      "mainImage": "/uploads/1759624107111-Saree.webp",
+      "category": "2",
+      "subcategory": "",
+      "Colour": "White and Pink, Purple",
+      "Image": "/uploads/1759624140864-Saree2.webp"
+    }
+  },
+  {
+    "id": 1759624350500,
+    "name": "Jamdani",
+    "attributes": {
+      "mainImage": "/uploads/1759624314670-Capa-do-Blog-Marketing-Digital.png",
+      "category": "5",
+      "subcategory": "",
+      "Colour": "Red, Blue",
+      "Image": [
+        "/uploads/1759624339187-Screenshot 2025-09-28 183307.png",
+        "/uploads/1759624348473-536873682_786287374258798_8983336687629207081_n.jpg"
+      ]
+    }
+  }
+]

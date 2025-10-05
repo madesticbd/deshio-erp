@@ -7,12 +7,12 @@
     "image": "/uploads/1759427356199-delete (1).png",
     "subcategories": [
       {
-        "id": "3",
-        "title": "Fashion",
-        "description": "Clothing and accessories",
-        "slug": "fashion",
-        "image": "/uploads/1759417240207-Fashion.jpeg",
-        "subcategories": []
+        "title": "mel",
+        "description": "mew",
+        "slug": "mew",
+        "image": "/uploads/1759574083225-deshiologo.png",
+        "subcategories": [],
+        "id": "6"
       }
     ]
   },
@@ -22,6 +22,64 @@
     "description": "Clothing and accessories",
     "slug": "fashion",
     "image": "/uploads/1759417096591-Fashion.jpeg",
-    "subcategories": []
+    "subcategories": [
+      {
+        "title": "baw",
+        "description": "lnesln",
+        "slug": "baw",
+        "image": "/uploads/1759625720386-1759417036216-Electronic Device.jpeg",
+        "subcategories": [],
+        "id": "8"
+      }
+    ]
+  },
+  {
+    "title": "Blender",
+    "description": "Blender",
+    "slug": "blender",
+    "image": "/uploads/1759573508874-Screenshot 2025-09-28 183307.png",
+    "subcategories": [
+      {
+        "title": "juicer",
+        "description": "grinder",
+        "slug": "juicer",
+        "image": "/uploads/1759625752271-1759417240207-Fashion.jpeg",
+        "subcategories": [],
+        "id": "9"
+      }
+    ],
+    "id": "3"
+  },
+  {
+    "title": "meow",
+    "description": "mew",
+    "slug": "meow",
+    "image": "/uploads/1759573699906-deshiologo.png",
+    "subcategories": [],
+    "id": "4"
+  },
+  {
+    "title": "hello",
+    "description": "Hello",
+    "slug": "hello",
+    "image": "/uploads/1759573966699-deshiologo.png",
+    "subcategories": [],
+    "id": "5"
+  },
+  {
+    "title": "del",
+    "description": "keaflkn",
+    "slug": "del",
+    "image": "/uploads/1759625548127-1759417036216-Electronic Device.jpeg",
+    "subcategories": [],
+    "id": "7"
+  },
+  {
+    "title": "r3lk",
+    "description": "bjfea",
+    "slug": "r3lk",
+    "image": "/uploads/1759625778880-edit.png",
+    "subcategories": [],
+    "id": "10"
   }
 ]
