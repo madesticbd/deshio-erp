@@ -22,7 +22,6 @@ export async function POST(req: NextRequest) {
     const data = fs.readFileSync(filePath, 'utf-8');
     const categories: Category[] = JSON.parse(data);
 
-    // Generate next ID
     const allIds: number[] = [];
     const collectIds = (cats: Category[]) => {
       cats.forEach(c => {
@@ -34,9 +33,12 @@ export async function POST(req: NextRequest) {
 
     const nextId = allIds.length > 0 ? Math.max(...allIds) + 1 : 1;
 
-    const categoryWithId: Category = { ...newCategoryData, id: String(nextId), subcategories: [] };
+    const categoryWithId: Category = { 
+      ...newCategoryData, 
+      id: String(nextId), 
+      subcategories: [] 
+    };
 
-    // If parentId is provided, insert recursively
     const insertRecursive = (cats: Category[]): Category[] => {
       return cats.map(cat => {
         if (cat.id === parentId) {
@@ -57,24 +59,66 @@ export async function POST(req: NextRequest) {
   }
 }
 
-
 export async function PUT(req: NextRequest) {
   try {
-    const updatedCategory: Category = await req.json();
+    const body = await req.json();
+    const { moveToParentId, ...updatedCategory }: Category & { moveToParentId?: string | null } = body;
+    
     const data = fs.readFileSync(filePath, 'utf-8');
-    const categories: Category[] = JSON.parse(data);
+    let categories: Category[] = JSON.parse(data);
 
-    const updateRecursive = (cats: Category[]): Category[] => {
-      return cats.map(cat => {
-        if (cat.id === updatedCategory.id) return updatedCategory;
-        if (cat.subcategories) return { ...cat, subcategories: updateRecursive(cat.subcategories) };
-        return cat;
-      });
-    };
+    // If moveToParentId is provided, we're moving the category
+    if (moveToParentId !== undefined) {
+      // First, remove the category from its current location
+      const deleteRecursive = (cats: Category[]): Category[] => {
+        return cats
+          .filter(cat => cat.id !== updatedCategory.id)
+          .map(cat => ({
+            ...cat,
+            subcategories: cat.subcategories ? deleteRecursive(cat.subcategories) : undefined,
+          }));
+      };
+      
+      categories = deleteRecursive(categories);
 
-    const newCategories = updateRecursive(categories);
+      // Then add it to the new location
+      if (moveToParentId) {
+        // Add as subcategory
+        const addToParent = (cats: Category[]): Category[] => {
+          return cats.map(cat => {
+            if (cat.id === moveToParentId) {
+              return { 
+                ...cat, 
+                subcategories: [...(cat.subcategories || []), updatedCategory] 
+              };
+            }
+            return { 
+              ...cat, 
+              subcategories: cat.subcategories ? addToParent(cat.subcategories) : [] 
+            };
+          });
+        };
+        categories = addToParent(categories);
+      } else {
+        // Add to root level
+        categories = [...categories, updatedCategory];
+      }
+    } else {
+      // Regular update (no move)
+      const updateRecursive = (cats: Category[]): Category[] => {
+        return cats.map(cat => {
+          if (cat.id === updatedCategory.id) return updatedCategory;
+          if (cat.subcategories) {
+            return { ...cat, subcategories: updateRecursive(cat.subcategories) };
+          }
+          return cat;
+        });
+      };
 
-    fs.writeFileSync(filePath, JSON.stringify(newCategories, null, 2), 'utf-8');
+      categories = updateRecursive(categories);
+    }
+
+    fs.writeFileSync(filePath, JSON.stringify(categories, null, 2), 'utf-8');
 
     return NextResponse.json(updatedCategory);
   } catch (err) {
@@ -111,4 +155,3 @@ export async function DELETE(req: NextRequest) {
     return NextResponse.json({ error: 'Failed to delete category' }, { status: 500 });
   }
 }
-

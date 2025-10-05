@@ -222,70 +222,104 @@ function SubcategoryItem({
   const [showNested, setShowNested] = useState(false);
   const [showDropdown, setShowDropdown] = useState(false);
   const dropdownButtonRef = useRef<HTMLButtonElement | null>(null);
+  const itemRef = useRef<HTMLDivElement | null>(null);
+  const [nestedPosition, setNestedPosition] = useState({ top: 0, left: 0 });
+
+  const hasNestedSubcategories = category.subcategories && category.subcategories.length > 0;
+
+  // Calculate nested dropdown position
+  useEffect(() => {
+    if (showNested && itemRef.current) {
+      const rect = itemRef.current.getBoundingClientRect();
+      setNestedPosition({
+        top: rect.top + window.scrollY,
+        left: rect.right + window.scrollX + 8,
+      });
+    }
+  }, [showNested]);
 
   return (
-    <div className="relative" onMouseEnter={() => setShowNested(true)} onMouseLeave={() => setShowNested(false)}>
-      <div className="flex items-start gap-2 p-2 hover:bg-gray-50 dark:hover:bg-gray-700 rounded group/item">
-        <ImageWithFallback
-          src={category.image}
-          alt={category.title}
-          className="w-12 h-12 rounded object-cover flex-shrink-0"
-        />
-        <div className="flex-1 min-w-0">
-          <h4 className="text-sm text-gray-900 dark:text-white truncate">{category.title}</h4>
-          <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{category.description}</p>
-          <span className="text-xs text-gray-400 dark:text-gray-500">/{category.slug}</span>
+    <>
+      <div
+        ref={itemRef}
+        className="relative"
+        onMouseEnter={() => setShowNested(true)}
+        onMouseLeave={() => setShowNested(false)}
+      >
+        <div className="flex items-start gap-2 p-2 hover:bg-gray-50 dark:hover:bg-gray-700 rounded group/item">
+          <ImageWithFallback
+            src={category.image}
+            alt={category.title}
+            className="w-12 h-12 rounded object-cover flex-shrink-0"
+          />
+          <div className="flex-1 min-w-0">
+            <h4 className="text-sm text-gray-900 dark:text-white truncate">{category.title}</h4>
+            <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{category.description}</p>
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-gray-400 dark:text-gray-500">/{category.slug}</span>
+              {hasNestedSubcategories && (
+                <span className="text-xs bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 px-1.5 py-0.5 rounded">
+                  {category.subcategories?.length} sub
+                </span>
+              )}
+            </div>
+          </div>
+
+          {/* Dropdown trigger */}
+          <button
+            ref={dropdownButtonRef}
+            onClick={() => setShowDropdown(!showDropdown)}
+            className="h-6 w-6 flex items-center justify-center opacity-0 group-hover/item:opacity-100 hover:bg-gray-200 dark:hover:bg-gray-600 rounded transition-all"
+          >
+            <MoreVertical className="w-3 h-3" />
+          </button>
         </div>
 
-        {/* Dropdown trigger */}
-        <button
-          ref={dropdownButtonRef}
-          onClick={() => setShowDropdown(!showDropdown)}
-          className="h-6 w-6 flex items-center justify-center opacity-0 group-hover/item:opacity-100 hover:bg-gray-200 dark:hover:bg-gray-600 rounded transition-all"
-        >
-          <MoreVertical className="w-3 h-3" />
-        </button>
+        {/* Dropdown menu */}
+        {showDropdown && (
+          <Dropdown targetRef={dropdownButtonRef} onClose={() => setShowDropdown(false)}>
+            <button
+              onClick={() => {
+                onEdit(category);
+                setShowDropdown(false);
+              }}
+              className="w-full flex items-center gap-2 px-4 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-700 rounded"
+            >
+              <Edit className="w-4 h-4" /> Edit
+            </button>
+            <button
+              onClick={() => {
+                onAddSubcategory(category.id);
+                setShowDropdown(false);
+              }}
+              className="w-full flex items-center gap-2 px-4 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-700 rounded"
+            >
+              <Plus className="w-4 h-4" /> Add Subcategory
+            </button>
+            <button
+              onClick={() => {
+                onDelete(category.id);
+                setShowDropdown(false);
+              }}
+              className="w-full flex items-center gap-2 px-4 py-2 text-sm text-red-600 hover:bg-gray-100 dark:hover:bg-gray-700 rounded"
+            >
+              <Trash2 className="w-4 h-4" /> Delete
+            </button>
+          </Dropdown>
+        )}
       </div>
 
-      {/* Dropdown menu */}
-      {showDropdown && (
-        <Dropdown targetRef={dropdownButtonRef} onClose={() => setShowDropdown(false)}>
-          <button
-            onClick={() => {
-              onEdit(category);
-              setShowDropdown(false);
-            }}
-            className="w-full flex items-center gap-2 px-4 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-700 rounded"
-          >
-            <Edit className="w-4 h-4" /> Edit
-          </button>
-          <button
-            onClick={() => {
-              onAddSubcategory(category.id);
-              setShowDropdown(false);
-            }}
-            className="w-full flex items-center gap-2 px-4 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-700 rounded"
-          >
-            <Plus className="w-4 h-4" /> Add Subcategory
-          </button>
-          <button
-            onClick={() => {
-              onDelete(category.id);
-              setShowDropdown(false);
-            }}
-            className="w-full flex items-center gap-2 px-4 py-2 text-sm text-red-600 hover:bg-gray-100 dark:hover:bg-gray-700 rounded"
-          >
-            <Trash2 className="w-4 h-4" /> Delete
-          </button>
-        </Dropdown>
-      )}
-
-      {/* Nested subcategories */}
-      {showNested && category.subcategories && category.subcategories.length > 0 && (
-        <div className="absolute left-full top-0 ml-2 w-64 z-20 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-xl p-2">
-          <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">Nested Subcategories</p>
+      {/* Nested subcategories using portal for proper positioning */}
+      {showNested && hasNestedSubcategories && createPortal(
+        <div
+          className="fixed w-64 z-[9998] bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-xl p-2"
+          style={{ top: nestedPosition.top, left: nestedPosition.left }}
+          onMouseEnter={() => setShowNested(true)}
+          onMouseLeave={() => setShowNested(false)}
+        >
+          <p className="text-xs text-gray-500 dark:text-gray-400 mb-2 px-1">Nested Subcategories</p>
           <div className="space-y-1">
-            {category.subcategories.map((nested) => (
+            {category.subcategories?.map((nested) => (
               <SubcategoryItem
                 key={nested.id}
                 category={nested}
@@ -296,8 +330,9 @@ function SubcategoryItem({
               />
             ))}
           </div>
-        </div>
+        </div>,
+        document.body
       )}
-    </div>
+    </>
   );
 }
