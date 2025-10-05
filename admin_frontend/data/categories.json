@@ -1,7 +1,6 @@
 [
   {
     "id": "1",
-<<<<<<< HEAD
     "title": "Sharee",
     "description": "Cotton Sharee",
     "slug": "Sharee",
@@ -14,31 +13,25 @@
         "image": "/uploads/1759662125836-Nike Air Force 1 white 11.png",
         "subcategories": [],
         "id": "7"
-=======
-    "title": "Electronics",
-    "description": "Electronic devices and accessories",
-    "slug": "electronics",
-    "image": "/uploads/1759417036216-Electronic Device.jpeg",
-    "subcategories": [
-      {
-        "id": "3",
-        "title": "Fashion",
-        "description": "Clothing and accessories",
-        "slug": "fashion",
-        "image": "/uploads/1759417240207-Fashion.jpeg",
-        "subcategories": []
->>>>>>> 82ae619dfdc4d7b96e1259ff74d4c55c28bee72a
       }
     ]
   },
   {
     "id": "2",
     "title": "Fashion",
-<<<<<<< HEAD
     "description": "Clothing ",
     "slug": "fashion",
     "image": "https://images.unsplash.com/photo-1607082348824-0a96f2a4b9da?w=400",
-    "subcategories": []
+    "subcategories": [
+      {
+        "title": "Oishee",
+        "description": "OIshee",
+        "slug": "oishee",
+        "image": "/uploads/1759690443980-7005f1c3-3f5d-4ee3-acac-f1024e2d30fd.jpg",
+        "subcategories": [],
+        "id": "11"
+      }
+    ]
   },
   {
     "title": "Jama",
@@ -97,11 +90,5 @@
     "image": "/uploads/1759685413026-Coursera-Certificates.png",
     "subcategories": [],
     "id": "8"
-=======
-    "description": "Clothing and accessories",
-    "slug": "fashion",
-    "image": "/uploads/1759417096591-Fashion.jpeg",
-    "subcategories": []
->>>>>>> 82ae619dfdc4d7b96e1259ff74d4c55c28bee72a
   }
 ]

@@ -41,63 +41,40 @@ export default function CategoryListItem({
         className="flex items-center gap-3 p-3 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors group"
         style={{ marginLeft: `${level * 24}px` }}
       >
-<<<<<<< HEAD
         {/* Subcategory toggle button */}
-=======
->>>>>>> 82ae619dfdc4d7b96e1259ff74d4c55c28bee72a
         {hasSubcategories ? (
           <button
             onClick={() => setShowSubcategories(!showSubcategories)}
             className="h-6 w-6 flex items-center justify-center hover:bg-gray-200 dark:hover:bg-gray-600 rounded transition-colors"
           >
-<<<<<<< HEAD
             {showSubcategories ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
-=======
-            {showSubcategories ? (
-              <ChevronDown className="w-4 h-4" />
-            ) : (
-              <ChevronRight className="w-4 h-4" />
-            )}
->>>>>>> 82ae619dfdc4d7b96e1259ff74d4c55c28bee72a
           </button>
         ) : (
           <div className="w-6" />
         )}
 
-<<<<<<< HEAD
         {/* Category Image */}
-=======
->>>>>>> 82ae619dfdc4d7b96e1259ff74d4c55c28bee72a
         <ImageWithFallback
           src={category.image}
           alt={category.title}
           className="w-16 h-16 rounded object-cover flex-shrink-0"
         />
 
-<<<<<<< HEAD
         {/* Category Details */}
-=======
->>>>>>> 82ae619dfdc4d7b96e1259ff74d4c55c28bee72a
         <div className="flex-1 min-w-0">
           <h3 className="text-gray-900 dark:text-white mb-1">{category.title}</h3>
           <p className="text-sm text-gray-600 dark:text-gray-400 line-clamp-1">{category.description}</p>
           <span className="text-xs text-gray-500 dark:text-gray-400">/{category.slug}</span>
         </div>
 
-<<<<<<< HEAD
         {/* Subcategory count */}
-=======
->>>>>>> 82ae619dfdc4d7b96e1259ff74d4c55c28bee72a
         {hasSubcategories && (
           <span className="text-xs bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 px-2 py-1 rounded">
             {category.subcategories?.length} subcategories
           </span>
         )}
 
-<<<<<<< HEAD
         {/* Dropdown menu */}
-=======
->>>>>>> 82ae619dfdc4d7b96e1259ff74d4c55c28bee72a
         <div className="relative" ref={dropdownRef}>
           <button
             onClick={() => setShowDropdown(!showDropdown)}
@@ -105,11 +82,7 @@ export default function CategoryListItem({
           >
             <MoreVertical className="w-4 h-4" />
           </button>
-<<<<<<< HEAD
 
-=======
-          
->>>>>>> 82ae619dfdc4d7b96e1259ff74d4c55c28bee72a
           {showDropdown && (
             <div className="absolute right-0 mt-1 w-48 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg z-50">
               <button
@@ -147,11 +120,7 @@ export default function CategoryListItem({
         </div>
       </div>
 
-<<<<<<< HEAD
       {/* Subcategories recursively */}
-=======
-      {/* Subcategories */}
->>>>>>> 82ae619dfdc4d7b96e1259ff74d4c55c28bee72a
       {showSubcategories && hasSubcategories && (
         <div className="mt-2 space-y-2">
           {category.subcategories?.map((sub) => (
