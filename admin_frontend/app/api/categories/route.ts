@@ -18,20 +18,37 @@ export async function GET() {
 
 export async function POST(req: NextRequest) {
   try {
-    const newCategory: Omit<Category, 'id'> = await req.json();
+    const { parentId, ...newCategoryData }: Omit<Category, 'id'> & { parentId?: string } = await req.json();
     const data = fs.readFileSync(filePath, 'utf-8');
     const categories: Category[] = JSON.parse(data);
-    
 
-    const nextId =
-    categories.length > 0
-      ? Math.max(...categories.map(c => Number(c.id))) + 1
-      : 1;
-    const categoryWithId: Category = { ...newCategory, id: String(nextId) };
+    // Generate next ID
+    const allIds: number[] = [];
+    const collectIds = (cats: Category[]) => {
+      cats.forEach(c => {
+        allIds.push(Number(c.id));
+        if (c.subcategories) collectIds(c.subcategories);
+      });
+    };
+    collectIds(categories);
 
-    categories.push(categoryWithId);
+    const nextId = allIds.length > 0 ? Math.max(...allIds) + 1 : 1;
 
-    fs.writeFileSync(filePath, JSON.stringify(categories, null, 2), 'utf-8');
+    const categoryWithId: Category = { ...newCategoryData, id: String(nextId), subcategories: [] };
+
+    // If parentId is provided, insert recursively
+    const insertRecursive = (cats: Category[]): Category[] => {
+      return cats.map(cat => {
+        if (cat.id === parentId) {
+          return { ...cat, subcategories: [...(cat.subcategories || []), categoryWithId] };
+        }
+        return { ...cat, subcategories: cat.subcategories ? insertRecursive(cat.subcategories) : [] };
+      });
+    };
+
+    const newCategories = parentId ? insertRecursive(categories) : [...categories, categoryWithId];
+
+    fs.writeFileSync(filePath, JSON.stringify(newCategories, null, 2), 'utf-8');
 
     return NextResponse.json(categoryWithId, { status: 201 });
   } catch (err) {
@@ -39,6 +56,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Failed to save category' }, { status: 500 });
   }
 }
+
 
 export async function PUT(req: NextRequest) {
   try {
@@ -93,3 +111,4 @@ export async function DELETE(req: NextRequest) {
     return NextResponse.json({ error: 'Failed to delete category' }, { status: 500 });
   }
 }
+

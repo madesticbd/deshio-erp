@@ -7,6 +7,7 @@ interface BarcodeItemProps {
   quantity: number;
   productName?: string;
   price?: number;
+  batchNumber?: string;
   onToggle: (code: string) => void;
   onQuantityChange: (code: string, qty: number) => void;
 }
@@ -17,17 +18,18 @@ export default function BarcodeItem({
   quantity,
   productName,
   price,
+  batchNumber,
   onToggle,
   onQuantityChange,
 }: BarcodeItemProps) {
   return (
-    <div className="flex items-center gap-3 border rounded p-2.5 bg-gray-50">
+    <div className="flex items-center gap-4 border rounded p-3 bg-gray-50">
       {/* Checkbox */}
       <input
         type="checkbox"
         checked={isSelected}
         onChange={() => onToggle(code)}
-        className="w-4 h-4 flex-shrink-0"
+        className="w-4 h-4"
       />
 
       {/* Barcode Display with Product Info */}
@@ -35,34 +37,38 @@ export default function BarcodeItem({
         <div className="text-center">
           {/* Product Name */}
           {productName && (
-            <div className="font-semibold text-xs mb-0.5">{productName}</div>
+            <div className="font-bold text-sm mb-1">{productName}</div>
+          )}
+          {/* Batch Number */}
+          {batchNumber && (
+            <div className="text-xs text-gray-600 mb-1">Batch: {batchNumber}</div>
           )}
           {/* Price */}
           {price !== undefined && (
-            <div className="font-bold text-sm mb-1">৳{price}</div>
+            <div className="font-bold text-base mb-2">৳{price}</div>
           )}
           {/* Barcode */}
           <Barcode
             value={code}
             format="CODE128"
             renderer="svg"
-            width={1.2}
-            height={40}
+            width={1.5}
+            height={60}
             displayValue={true}
-            fontSize={11}
+            fontSize={14}
           />
         </div>
       </div>
 
       {/* Quantity Selector */}
-      <div className="flex items-center gap-2 flex-shrink-0">
+      <div className="flex items-center gap-2">
         <input
           type="number"
           min="1"
           value={quantity}
           onChange={(e) => onQuantityChange(code, parseInt(e.target.value) || 1)}
           disabled={!isSelected}
-          className="w-14 px-2 py-1 border rounded text-center text-sm"
+          className="w-16 px-2 py-1 border rounded text-center"
         />
       </div>
     </div>

@@ -13,6 +13,8 @@ interface Field {
   id: number;
   name: string;
   type: string;
+  mode?: string;
+  description?: string;
 }
 
 export default function FieldPage() {
@@ -70,7 +72,8 @@ export default function FieldPage() {
       const newField = { 
         id: Date.now(), 
         name: data.name as string,
-        type: data.type as string
+        type: data.type as string,
+        mode: data.mode as string, 
       };
 
       console.log('Sending new field:', newField);
@@ -104,7 +107,8 @@ export default function FieldPage() {
       const updatedField = {
         ...editingField,
         name: data.name as string,
-        type: data.type as string
+        type: data.type as string,
+        mode: data.mode as string,
       };
 
       console.log('Updating field:', updatedField);
@@ -211,11 +215,17 @@ export default function FieldPage() {
             fields={[
               { name: 'name', label: 'Field Name', type: 'text' },
               { name: 'type', label: 'Type', type: 'select', options: ['Text', 'Number', 'Image'] },
+              { name: 'mode', label: 'Selection Mode', type: 'radio', options: ['Single', 'Multiple'] },
             ]}
-            initialData={editingField ? { name: editingField.name, type: editingField.type } : undefined}
+            initialData={
+              editingField
+                ? { name: editingField.name, type: editingField.type, mode: 'Single' }
+                : undefined
+            }
             onClose={handleCloseModal}
             onSave={editingField ? handleEditField : handleAddField}
           />
+
         </main>
       </div>
     </div>

@@ -10,8 +10,9 @@
     "type": "Image"
   },
   {
-    "id": 1759592514799,
-    "name": "Price",
-    "type": "Number"
+    "id": 1759661894685,
+    "name": "size",
+    "type": "Text",
+    "mode": "Multiple"
   }
 ]

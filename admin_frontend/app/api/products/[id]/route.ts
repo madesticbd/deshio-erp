@@ -22,6 +22,43 @@ function ensureDataFile() {
   }
 }
 
+// GET: fetch a single product by ID
+export async function GET(
+  req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const { id: idStr } = await params;
+    const id = parseInt(idStr);
+    
+    console.log('GET request for ID:', id);
+
+    ensureDataFile();
+
+    // Read existing products
+    const data = fs.readFileSync(filePath, 'utf-8');
+    const products = JSON.parse(data);
+
+    // Find the product
+    const product = products.find((p: any) => p.id === id);
+    
+    if (!product) {
+      return NextResponse.json({ 
+        error: 'Product not found' 
+      }, { status: 404 });
+    }
+
+    console.log('Product found:', product);
+    return NextResponse.json(product);
+  } catch (error) {
+    console.error('GET Error:', error);
+    return NextResponse.json({ 
+      error: 'Failed to fetch product',
+      details: error instanceof Error ? error.message : String(error)
+    }, { status: 500 });
+  }
+}
+
 // PUT: update an existing product
 export async function PUT(
   req: NextRequest,

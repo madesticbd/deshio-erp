@@ -18,18 +18,20 @@ import AddCategoryDialog from "@/components/AddCategoryDialog";
 
 function deleteCategoryRecursive(cats: Category[], id: string): Category[] {
   return cats
-    .filter(cat => cat.id !== id) // remove if matches at this level
-    .map(cat => ({
+    .filter((cat) => cat.id !== id) // remove if matches at this level
+    .map((cat) => ({
       ...cat,
       subcategories: deleteCategoryRecursive(cat.subcategories || [], id), // recurse
     }));
 }
 
-
 export default function CategoryPageWrapper() {
   const [darkMode, setDarkMode] = useState(false);
   const [categories, setCategories] = useState<Category[]>([]);
+  
+  // ✅ Always start with "grid" for hydration safety
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
+  
   const [searchQuery, setSearchQuery] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -38,10 +40,30 @@ export default function CategoryPageWrapper() {
 
   const itemsPerPage = 6;
 
-  // Fetch categories from API on mount
   useEffect(() => {
     refresh();
   }, []);
+
+  // ✅ Load viewMode from localStorage after hydration
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem("categories_view_mode");
+      if (stored === "grid" || stored === "list") {
+        setViewMode(stored);
+      }
+    } catch (err) {
+      console.error("Failed to load view mode", err);
+    }
+  }, []);
+
+  // ✅ Save viewMode to localStorage whenever it changes
+  useEffect(() => {
+    try {
+      localStorage.setItem("categories_view_mode", viewMode);
+    } catch (err) {
+      console.error("Failed to save view mode", err);
+    }
+  }, [viewMode]);
 
   const refresh = async () => {
     const res = await fetch("/api/categories");
@@ -49,7 +71,6 @@ export default function CategoryPageWrapper() {
     setCategories(data);
   };
 
-  // Flatten categories for searching
   const flattenCategories = (cats: Category[]): Category[] => {
     return cats.reduce((acc: Category[], cat) => {
       acc.push(cat);
@@ -95,14 +116,12 @@ export default function CategoryPageWrapper() {
 
   // CRUD Actions
   const handleDelete = async (id: string) => {
-  await fetch(`/api/categories?id=${id}`, {
-    method: 'DELETE',
-  });
+    await fetch(`/api/categories?id=${id}`, {
+      method: "DELETE",
+    });
 
-  setCategories(prev => deleteCategoryRecursive(prev, id));
-};
-
-
+    setCategories((prev) => deleteCategoryRecursive(prev, id));
+  };
 
   const handleEdit = (category: Category) => {
     setEditCategory(category);
@@ -116,50 +135,48 @@ export default function CategoryPageWrapper() {
     setDialogOpen(true);
   };
 
-  // For adding a category
- const handleSave = async (newCategory: Omit<Category, 'id'>) => {
-    if (editCategory) {
-      // Edit existing category
-      const res = await fetch('/api/categories', {
-        method: 'PUT',
-        body: JSON.stringify({ ...editCategory, ...newCategory }),
-      });
-      const updated = await res.json();
+const handleSave = async (newCategory: Omit<Category, "id">, parentId?: string | null) => {
+  if (editCategory) {
+    // Edit existing category
+    const res = await fetch("/api/categories", {
+      method: "PUT",
+      body: JSON.stringify({ ...editCategory, ...newCategory }),
+    });
+    const updated = await res.json();
 
-      // Replace category (recursively if nested)
-      const updateCategoryRecursive = (cats: Category[]): Category[] =>
-        cats.map(cat =>
-          cat.id === updated.id
-            ? updated
-            : { ...cat, subcategories: updateCategoryRecursive(cat.subcategories || []) }
+    const updateCategoryRecursive = (cats: Category[]): Category[] =>
+      cats.map((cat) =>
+        cat.id === updated.id
+          ? updated
+          : {
+              ...cat,
+              subcategories: updateCategoryRecursive(cat.subcategories || []),
+            }
+      );
+
+    setCategories((prev) => updateCategoryRecursive(prev));
+  } else {
+    // Create new category (root or subcategory)
+    const res = await fetch("/api/categories", {
+      method: "POST",
+      body: JSON.stringify({ ...newCategory, parentId }), // ✅ use dialog's parentId
+    });
+    const created = await res.json();
+
+    if (parentId) {
+      const addSubcategoryRecursive = (cats: Category[]): Category[] =>
+        cats.map((cat) =>
+          cat.id === parentId
+            ? { ...cat, subcategories: [...(cat.subcategories || []), created] }
+            : { ...cat, subcategories: addSubcategoryRecursive(cat.subcategories || []) }
         );
 
-      setCategories(prev => updateCategoryRecursive(prev));
+      setCategories((prev) => addSubcategoryRecursive(prev));
     } else {
-      // Create new category (could be root or subcategory)
-      const res = await fetch('/api/categories', {
-        method: 'POST',
-        body: JSON.stringify(newCategory),
-      });
-      const created = await res.json();
-
-      if (parentId) {
-        // Insert as subcategory
-        const addSubcategoryRecursive = (cats: Category[]): Category[] =>
-          cats.map(cat =>
-            cat.id === parentId
-              ? { ...cat, subcategories: [...(cat.subcategories || []), created] }
-              : { ...cat, subcategories: addSubcategoryRecursive(cat.subcategories || []) }
-          );
-
-        setCategories(prev => addSubcategoryRecursive(prev));
-      } else {
-        // Insert as top-level category
-        setCategories(prev => [...prev, created]);
-      }
+      setCategories((prev) => [...prev, created]);
     }
-  };
-
+  }
+};
 
 
   return (

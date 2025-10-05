@@ -4,6 +4,7 @@ interface Field {
   id: number;
   name: string;
   type: string;
+  mode?: string;
   description?: string;
 }
 
@@ -22,6 +23,7 @@ export default function FieldTable({ fields, onDelete, onEdit }: FieldTableProps
             <th className="px-4 py-2">#</th>
             <th className="px-4 py-2">Name</th>
             <th className="px-4 py-2">Type</th>
+            <th className="px-4 py-2">Mode</th>
             <th className="px-4 py-2 text-right">Actions</th>
           </tr>
         </thead>
@@ -35,21 +37,22 @@ export default function FieldTable({ fields, onDelete, onEdit }: FieldTableProps
                 <td className="px-4 py-2">{index + 1}</td>
                 <td className="px-4 py-2">{field.name}</td>
                 <td className="px-4 py-2">{field.type}</td>
+                <td className="px-4 py-2">{field.mode ?? 'Single'}</td>
                 <td className="px-4 py-2 text-right">
                   <div className="flex justify-end gap-2">
                     <button
                       onClick={() => onEdit(field)}
-                      className="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 flex items-center gap-1"
+                      className="text-gray-600 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-300 flex items-center gap-1"
                       title="Edit field"
                     >
-                      <Edit className="w-4 h-4" /> Edit
+                      <Edit className="w-4 h-4" /> 
                     </button>
                     <button
                       onClick={() => onDelete(field.id)}
-                      className="text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300 flex items-center gap-1"
+                      className="text-gray-600 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-300 flex items-center gap-1"
                       title="Delete field"
                     >
-                      <Trash2 className="w-4 h-4" /> Delete
+                      <Trash2 className="w-4 h-4" /> 
                     </button>
                   </div>
                 </td>
