@@ -18,7 +18,6 @@ export async function GET() {
 
 export async function POST(req: NextRequest) {
   try {
-<<<<<<< HEAD
     const { parentId, ...newCategoryData }: Omit<Category, 'id'> & { parentId?: string } = await req.json();
     const data = fs.readFileSync(filePath, 'utf-8');
     const categories: Category[] = JSON.parse(data);
@@ -52,22 +51,6 @@ export async function POST(req: NextRequest) {
     const newCategories = parentId ? insertRecursive(categories) : [...categories, categoryWithId];
 
     fs.writeFileSync(filePath, JSON.stringify(newCategories, null, 2), 'utf-8');
-=======
-    const newCategory: Omit<Category, 'id'> = await req.json();
-    const data = fs.readFileSync(filePath, 'utf-8');
-    const categories: Category[] = JSON.parse(data);
-    
-
-    const nextId =
-    categories.length > 0
-      ? Math.max(...categories.map(c => Number(c.id))) + 1
-      : 1;
-    const categoryWithId: Category = { ...newCategory, id: String(nextId) };
-
-    categories.push(categoryWithId);
-
-    fs.writeFileSync(filePath, JSON.stringify(categories, null, 2), 'utf-8');
->>>>>>> 82ae619dfdc4d7b96e1259ff74d4c55c28bee72a
 
     return NextResponse.json(categoryWithId, { status: 201 });
   } catch (err) {
@@ -78,7 +61,6 @@ export async function POST(req: NextRequest) {
 
 export async function PUT(req: NextRequest) {
   try {
-<<<<<<< HEAD
     const body = await req.json();
     const { moveToParentId, ...updatedCategory }: Category & { moveToParentId?: string | null } = body;
     
@@ -137,23 +119,6 @@ export async function PUT(req: NextRequest) {
     }
 
     fs.writeFileSync(filePath, JSON.stringify(categories, null, 2), 'utf-8');
-=======
-    const updatedCategory: Category = await req.json();
-    const data = fs.readFileSync(filePath, 'utf-8');
-    const categories: Category[] = JSON.parse(data);
-
-    const updateRecursive = (cats: Category[]): Category[] => {
-      return cats.map(cat => {
-        if (cat.id === updatedCategory.id) return updatedCategory;
-        if (cat.subcategories) return { ...cat, subcategories: updateRecursive(cat.subcategories) };
-        return cat;
-      });
-    };
-
-    const newCategories = updateRecursive(categories);
-
-    fs.writeFileSync(filePath, JSON.stringify(newCategories, null, 2), 'utf-8');
->>>>>>> 82ae619dfdc4d7b96e1259ff74d4c55c28bee72a
 
     return NextResponse.json(updatedCategory);
   } catch (err) {
@@ -189,8 +154,4 @@ export async function DELETE(req: NextRequest) {
     console.error(err);
     return NextResponse.json({ error: 'Failed to delete category' }, { status: 500 });
   }
-<<<<<<< HEAD
 }
-=======
-}
->>>>>>> 82ae619dfdc4d7b96e1259ff74d4c55c28bee72a

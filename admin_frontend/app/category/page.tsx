@@ -18,7 +18,6 @@ import AddCategoryDialog from "@/components/AddCategoryDialog";
 
 function deleteCategoryRecursive(cats: Category[], id: string): Category[] {
   return cats
-<<<<<<< HEAD
     .filter((cat) => cat.id !== id)
     .map((cat) => ({
       ...cat,
@@ -37,15 +36,6 @@ function findParentId(cats: Category[], targetId: string, parentId: string | nul
   }
   return undefined as any;
 }
-=======
-    .filter(cat => cat.id !== id) // remove if matches at this level
-    .map(cat => ({
-      ...cat,
-      subcategories: deleteCategoryRecursive(cat.subcategories || [], id), // recurse
-    }));
-}
-
->>>>>>> 82ae619dfdc4d7b96e1259ff74d4c55c28bee72a
 
 export default function CategoryPageWrapper() {
   const [darkMode, setDarkMode] = useState(false);
@@ -59,15 +49,10 @@ export default function CategoryPageWrapper() {
 
   const itemsPerPage = 6;
 
-<<<<<<< HEAD
-=======
-  // Fetch categories from API on mount
->>>>>>> 82ae619dfdc4d7b96e1259ff74d4c55c28bee72a
   useEffect(() => {
     refresh();
   }, []);
 
-<<<<<<< HEAD
   useEffect(() => {
     try {
       const stored = localStorage.getItem("categories_view_mode");
@@ -87,18 +72,12 @@ export default function CategoryPageWrapper() {
     }
   }, [viewMode]);
 
-=======
->>>>>>> 82ae619dfdc4d7b96e1259ff74d4c55c28bee72a
   const refresh = async () => {
     const res = await fetch("/api/categories");
     const data = await res.json();
     setCategories(data);
   };
 
-<<<<<<< HEAD
-=======
-  // Flatten categories for searching
->>>>>>> 82ae619dfdc4d7b96e1259ff74d4c55c28bee72a
   const flattenCategories = (cats: Category[]): Category[] => {
     return cats.reduce((acc: Category[], cat) => {
       acc.push(cat);
@@ -109,10 +88,6 @@ export default function CategoryPageWrapper() {
     }, []);
   };
 
-<<<<<<< HEAD
-=======
-  // Filter categories
->>>>>>> 82ae619dfdc4d7b96e1259ff74d4c55c28bee72a
   const filteredCategories = useMemo(() => {
     if (!searchQuery) return categories;
 
@@ -138,17 +113,12 @@ export default function CategoryPageWrapper() {
     });
   }, [categories, searchQuery]);
 
-<<<<<<< HEAD
-=======
-  // Pagination
->>>>>>> 82ae619dfdc4d7b96e1259ff74d4c55c28bee72a
   const totalPages = Math.ceil(filteredCategories.length / itemsPerPage);
   const paginatedCategories = filteredCategories.slice(
     (currentPage - 1) * itemsPerPage,
     currentPage * itemsPerPage
   );
 
-<<<<<<< HEAD
   const handleDelete = async (id: string) => {
     await fetch(`/api/categories?id=${id}`, {
       method: "DELETE",
@@ -162,22 +132,6 @@ export default function CategoryPageWrapper() {
     // Find the current parent of this category
     const currentParent = findParentId(categories, category.id);
     setParentId(currentParent);
-=======
-  // CRUD Actions
-  const handleDelete = async (id: string) => {
-  await fetch(`/api/categories?id=${id}`, {
-    method: 'DELETE',
-  });
-
-  setCategories(prev => deleteCategoryRecursive(prev, id));
-};
-
-
-
-  const handleEdit = (category: Category) => {
-    setEditCategory(category);
-    setParentId(null);
->>>>>>> 82ae619dfdc4d7b96e1259ff74d4c55c28bee72a
     setDialogOpen(true);
   };
 
@@ -187,7 +141,6 @@ export default function CategoryPageWrapper() {
     setDialogOpen(true);
   };
 
-<<<<<<< HEAD
   const handleSave = async (
     newCategory: Omit<Category, "id">, 
     newParentId?: string | null,
@@ -258,45 +211,10 @@ export default function CategoryPageWrapper() {
         const addSubcategoryRecursive = (cats: Category[]): Category[] =>
           cats.map((cat) =>
             cat.id === newParentId
-=======
-  // For adding a category
- const handleSave = async (newCategory: Omit<Category, 'id'>) => {
-    if (editCategory) {
-      // Edit existing category
-      const res = await fetch('/api/categories', {
-        method: 'PUT',
-        body: JSON.stringify({ ...editCategory, ...newCategory }),
-      });
-      const updated = await res.json();
-
-      // Replace category (recursively if nested)
-      const updateCategoryRecursive = (cats: Category[]): Category[] =>
-        cats.map(cat =>
-          cat.id === updated.id
-            ? updated
-            : { ...cat, subcategories: updateCategoryRecursive(cat.subcategories || []) }
-        );
-
-      setCategories(prev => updateCategoryRecursive(prev));
-    } else {
-      // Create new category (could be root or subcategory)
-      const res = await fetch('/api/categories', {
-        method: 'POST',
-        body: JSON.stringify(newCategory),
-      });
-      const created = await res.json();
-
-      if (parentId) {
-        // Insert as subcategory
-        const addSubcategoryRecursive = (cats: Category[]): Category[] =>
-          cats.map(cat =>
-            cat.id === parentId
->>>>>>> 82ae619dfdc4d7b96e1259ff74d4c55c28bee72a
               ? { ...cat, subcategories: [...(cat.subcategories || []), created] }
               : { ...cat, subcategories: addSubcategoryRecursive(cat.subcategories || []) }
           );
 
-<<<<<<< HEAD
         setCategories((prev) => addSubcategoryRecursive(prev));
       } else {
         setCategories((prev) => [...prev, created]);
@@ -307,18 +225,6 @@ export default function CategoryPageWrapper() {
     setParentId(null);
   };
 
-=======
-        setCategories(prev => addSubcategoryRecursive(prev));
-      } else {
-        // Insert as top-level category
-        setCategories(prev => [...prev, created]);
-      }
-    }
-  };
-
-
-
->>>>>>> 82ae619dfdc4d7b96e1259ff74d4c55c28bee72a
   return (
     <div className={darkMode ? "dark" : ""}>
       <div className="flex h-screen bg-gray-50 dark:bg-gray-900">
@@ -327,10 +233,6 @@ export default function CategoryPageWrapper() {
           <Header darkMode={darkMode} setDarkMode={setDarkMode} />
 
           <main className="flex-1 overflow-auto p-6">
-<<<<<<< HEAD
-=======
-            {/* Header Section */}
->>>>>>> 82ae619dfdc4d7b96e1259ff74d4c55c28bee72a
             <div className="mb-6">
               <div className="flex items-center justify-between mb-4">
                 <div>
@@ -342,15 +244,11 @@ export default function CategoryPageWrapper() {
                   </p>
                 </div>
                 <button
-<<<<<<< HEAD
                   onClick={() => {
                     setEditCategory(null);
                     setParentId(null);
                     setDialogOpen(true);
                   }}
-=======
-                  onClick={() => setDialogOpen(true)}
->>>>>>> 82ae619dfdc4d7b96e1259ff74d4c55c28bee72a
                   className="flex items-center gap-2 px-4 py-2 bg-gray-900 dark:bg-white text-white dark:text-gray-900 rounded-lg hover:bg-gray-800 dark:hover:bg-gray-100 transition-colors text-sm font-medium"
                 >
                   <Plus className="w-4 h-4" />
@@ -358,10 +256,6 @@ export default function CategoryPageWrapper() {
                 </button>
               </div>
 
-<<<<<<< HEAD
-=======
-              {/* Search & View Toggle */}
->>>>>>> 82ae619dfdc4d7b96e1259ff74d4c55c28bee72a
               <div className="flex items-center gap-3">
                 <div className="relative flex-1 max-w-md">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
@@ -402,10 +296,6 @@ export default function CategoryPageWrapper() {
               </div>
             </div>
 
-<<<<<<< HEAD
-=======
-            {/* Categories Display */}
->>>>>>> 82ae619dfdc4d7b96e1259ff74d4c55c28bee72a
             {paginatedCategories.length === 0 ? (
               <div className="text-center py-12">
                 <p className="text-gray-500 dark:text-gray-400">
@@ -438,10 +328,6 @@ export default function CategoryPageWrapper() {
               </div>
             )}
 
-<<<<<<< HEAD
-=======
-            {/* Pagination */}
->>>>>>> 82ae619dfdc4d7b96e1259ff74d4c55c28bee72a
             {totalPages > 1 && (
               <div className="flex items-center justify-between mt-6 pt-6 border-t border-gray-200 dark:border-gray-700">
                 <p className="text-sm text-gray-600 dark:text-gray-400">
@@ -483,10 +369,6 @@ export default function CategoryPageWrapper() {
               </div>
             )}
 
-<<<<<<< HEAD
-=======
-            {/* Add/Edit Dialog */}
->>>>>>> 82ae619dfdc4d7b96e1259ff74d4c55c28bee72a
             <AddCategoryDialog
               open={dialogOpen}
               onOpenChange={setDialogOpen}
@@ -499,8 +381,4 @@ export default function CategoryPageWrapper() {
       </div>
     </div>
   );
-<<<<<<< HEAD
 }
-=======
-}
->>>>>>> 82ae619dfdc4d7b96e1259ff74d4c55c28bee72a
