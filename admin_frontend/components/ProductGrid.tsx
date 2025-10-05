@@ -9,6 +9,12 @@ interface Product {
   attributes: Record<string, any>;
 }
 
+interface Field {
+  id: number;
+  name: string;
+  type: string;
+}
+
 interface Category {
   id: string | number;
   title?: string;
@@ -18,6 +24,7 @@ interface Category {
 
 interface ProductGridProps {
   products: Product[];
+  fields?: Field[];
   categories?: Category[];
   onDelete: (id: number | string) => void;
   onEdit: (product: Product) => void;
@@ -52,6 +59,7 @@ function ImageWithFallback({
 /* ---------- Product Grid ---------- */
 export default function ProductGrid({
   products,
+  fields = [],
   categories = [],
   onDelete,
   onEdit,

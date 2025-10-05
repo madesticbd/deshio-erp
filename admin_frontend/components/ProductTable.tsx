@@ -10,6 +10,12 @@ interface Product {
   attributes: Record<string, any>;
 }
 
+interface Field {
+  id: number;
+  name: string;
+  type: string;
+}
+
 interface Category {
   id: string | number;
   title?: string;
@@ -20,6 +26,7 @@ interface Category {
 
 interface ProductTableProps {
   products: Product[];
+  fields?: Field[];
   categories?: Category[];
   onDelete: (id: number | string) => void;
   onEdit: (product: Product) => void;
@@ -152,6 +159,7 @@ function ProductListItem({
 /* ---------- Main Product Table ---------- */
 export default function ProductTable({
   products,
+  fields = [],
   categories = [],
   onDelete,
   onEdit,
@@ -206,7 +214,7 @@ export default function ProductTable({
       let subName: string | null = null;
       if (top && Array.isArray(top.subcategories) && subId) {
         const sub = top.subcategories.find((s) => String(s.id) === String(subId));
-        subName = sub ? (sub.title ?? sub.name ?? sub.slug) : null;
+        subName = (sub ? (sub.title ?? sub.name ?? sub.slug) : null) ?? null;
       }
 
       if (topName && subName) return `${topName} / ${subName}`;

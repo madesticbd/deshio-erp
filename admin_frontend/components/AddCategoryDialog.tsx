@@ -1,7 +1,8 @@
+/// <reference types="react" />
 // AddCategoryDialog.tsx (replace file contents with this)
 "use client";
 
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { X } from "lucide-react";
 import { Category } from "./CategoryCard";
 
@@ -78,7 +79,7 @@ export default function AddCategoryDialog({
     return false;
   };
 
-  const renderCategoryOptions = (cats: Category[], depth = 0): JSX.Element[] => {
+  const renderCategoryOptions = (cats: Category[], depth = 0): React.ReactNode[] => {
     return cats.flatMap((cat) => {
       // If we're editing, don't allow selecting the category itself or its descendants as parent
       if (editCategory && (cat.id === editCategory.id || isInSubtree(editCategory, cat.id))) {
