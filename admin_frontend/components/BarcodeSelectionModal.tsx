@@ -7,6 +7,7 @@ interface BarcodeModalProps {
   onClose: () => void;
   codes: string[];
   productName: string;
+  price?: number;
   onPrint: (selected: string[], quantities: Record<string, number>) => void;
 }
 
@@ -15,6 +16,7 @@ export default function BarcodeSelectionModal({
   onClose,
   codes,
   productName,
+  price,
   onPrint,
 }: BarcodeModalProps) {
   const [selected, setSelected] = useState<string[]>([]);
@@ -64,11 +66,11 @@ export default function BarcodeSelectionModal({
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full mx-4 max-h-[90vh] flex flex-col">
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-lg shadow-xl max-w-xl w-full max-h-[85vh] flex flex-col">
         {/* Modal Header */}
-        <div className="flex items-center justify-between p-4 border-b">
-          <h2 className="text-xl font-semibold">Barcodes for {productName}</h2>
+        <div className="flex items-center justify-between px-3 py-2.5 border-b">
+          <h2 className="text-base font-semibold">Barcodes for {productName}</h2>
           <button
             onClick={onClose}
             className="text-gray-500 hover:text-gray-700 text-2xl leading-none"
@@ -78,9 +80,9 @@ export default function BarcodeSelectionModal({
         </div>
 
         {/* Modal Body */}
-        <div className="flex-1 overflow-y-auto p-4">
+        <div className="flex-1 overflow-y-auto px-3 py-2.5">
           {/* Select All Checkbox */}
-          <div className="mb-4">
+          <div className="mb-2.5">
             <label className="flex items-center gap-2 cursor-pointer">
               <input
                 type="checkbox"
@@ -88,18 +90,20 @@ export default function BarcodeSelectionModal({
                 onChange={toggleSelectAll}
                 className="w-4 h-4"
               />
-              <span className="font-medium">Select All</span>
+              <span className="font-medium text-sm">Select All</span>
             </label>
           </div>
 
           {/* Barcode List */}
-          <div className="space-y-3">
+          <div className="space-y-2">
             {codes.map((code) => (
               <BarcodeItem
                 key={code}
                 code={code}
                 isSelected={selected.includes(code)}
                 quantity={quantities[code] || 1}
+                productName={productName}
+                price={price}
                 onToggle={toggleSelect}
                 onQuantityChange={updateQuantity}
               />
@@ -108,18 +112,17 @@ export default function BarcodeSelectionModal({
         </div>
 
         {/* Modal Footer */}
-        <div className="p-4 border-t bg-gray-50 flex justify-end gap-3">
+        <div className="px-3 py-2.5 border-t bg-gray-50 flex justify-end gap-2">
           <button
             onClick={onClose}
-            className="px-4 py-2 border rounded hover:bg-gray-100"
+            className="px-3 py-1.5 text-sm border rounded hover:bg-gray-100"
           >
             Cancel
           </button>
           <button
             onClick={handlePrint}
-            className="px-6 py-2 bg-black text-white rounded hover:bg-gray-800 flex items-center gap-2"
+            className="px-4 py-1.5 text-sm bg-black text-white rounded hover:bg-gray-800 flex items-center gap-2"
           >
-          
             Print Barcodes
           </button>
         </div>

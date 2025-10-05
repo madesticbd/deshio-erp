@@ -98,10 +98,17 @@ export default function BatchPrinter({ batch, product }: BatchPrinterProps) {
               <html>
                 <head>
                   <script src="https://cdnjs.cloudflare.com/ajax/libs/jsbarcode/3.11.5/JsBarcode.all.min.js"></script>
+                  <style>
+                    body { margin: 0; padding: 10px; font-family: Arial, sans-serif; }
+                    .barcode-container { text-align: center; }
+                    .product-name { font-weight: bold; font-size: 14px; margin-bottom: 3px; }
+                    .price { font-size: 16px; font-weight: bold; color: #000; margin-bottom: 5px; }
+                  </style>
                 </head>
                 <body>
-                  <div style="text-align:center;margin:10px;">
-                    <div style="font-weight:bold;margin-bottom:5px;">${product?.name || 'Product'}</div>
+                  <div class="barcode-container">
+                    <div class="product-name">${product?.name || 'Product'}</div>
+                    <div class="price">৳${batch.sellingPrice}</div>
                     <svg id="barcode-${code}-${i}"></svg>
                     <script>
                       JsBarcode("#barcode-${code}-${i}", "${code}", {
@@ -157,6 +164,7 @@ export default function BatchPrinter({ batch, product }: BatchPrinterProps) {
         onClose={() => setIsModalOpen(false)}
         codes={codes}
         productName={product?.name || "Product"}
+        price={batch.sellingPrice}
         onPrint={handleQZPrint}
       />
     </div>

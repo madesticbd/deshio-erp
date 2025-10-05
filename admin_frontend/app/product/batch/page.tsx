@@ -87,6 +87,10 @@ export default function BatchPage() {
     }
   };
 
+  const handleDeleteBatch = (batchId: number) => {
+    setBatches(prev => prev.filter(b => b.id !== batchId));
+  };
+
   const handleClear = () => {
     setSelectedProductId(null);
     setCostPrice('');
@@ -124,7 +128,14 @@ export default function BatchPage() {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {batches.map(batch => {
               const product = products.find(p => p.id === batch.productId);
-              return <BatchCard key={batch.id} batch={batch} product={product} />;
+              return (
+                <BatchCard 
+                  key={batch.id} 
+                  batch={batch} 
+                  product={product}
+                  onDelete={handleDeleteBatch}
+                />
+              );
             })}
           </div>
         </main>

@@ -20,19 +20,50 @@ interface Batch {
 interface BatchCardProps {
   batch: Batch;
   product?: Product;
+  onDelete?: (batchId: number) => void;
 }
 
-export default function BatchCard({ batch, product }: BatchCardProps) {
+export default function BatchCard({ batch, product, onDelete }: BatchCardProps) {
+  const handleDelete = async () => {
+    if (!confirm('Are you sure you want to delete this batch?')) return;
+    
+    try {
+      const res = await fetch(`/api/batch/${batch.id}`, {
+        method: 'DELETE',
+      });
+      
+      if (res.ok) {
+        onDelete?.(batch.id);
+      } else {
+        alert('Failed to delete batch');
+      }
+    } catch (err) {
+      console.error('Delete error:', err);
+      alert('Failed to delete batch');
+    }
+  };
+
   return (
     <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-5 hover:shadow-lg transition-shadow">
       <div className="flex items-start justify-between mb-4">
-        <div>
+        <div className="flex-1">
           <div className="text-sm text-gray-500">Product</div>
           <div className="font-medium text-gray-900 dark:text-white">{product?.name ?? '—'}</div>
         </div>
-        <div className="text-right">
-          <div className="text-xs text-gray-500">Qty</div>
-          <div className="font-medium">{batch.quantity}</div>
+        <div className="flex items-center gap-3">
+          <div className="text-right">
+            <div className="text-xs text-gray-500">Qty</div>
+            <div className="font-medium">{batch.quantity}</div>
+          </div>
+          <button
+            onClick={handleDelete}
+            className="group relative p-2 rounded-lg border border-gray-200 dark:border-gray-700 hover:border-red-300 dark:hover:border-red-800 bg-white dark:bg-gray-800 hover:bg-red-50 dark:hover:bg-red-950/30 transition-all duration-200 shadow-sm hover:shadow"
+            title="Delete batch"
+          >
+            <svg className="w-4 h-4 text-gray-400 group-hover:text-red-500 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+            </svg>
+          </button>
         </div>
       </div>
 
