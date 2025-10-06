@@ -1,0 +1,27 @@
+[
+  {
+    "id": 1759562400497,
+    "name": "Sharee",
+    "attributes": {
+      "Color": "Red",
+      "Image": "/uploads/1759562395558-1759417036216-Electronic Device.jpeg"
+    }
+  },
+  {
+    "id": 1759570205971,
+    "name": "Shotoronji",
+    "attributes": {
+      "Image": "/uploads/1759570203256-1759417036216-Electronic Device.jpeg"
+    }
+  },
+  {
+    "id": 1759661990174,
+    "name": "Shirt",
+    "attributes": {
+      "mainImage": "/uploads/1759661921527-wall1.jpg",
+      "category": "3",
+      "subcategory": "",
+      "size": "XL, S"
+    }
+  }
+]

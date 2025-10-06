@@ -1,0 +1,82 @@
+[
+  {
+    "id": "sale-1759555765380",
+    "salesBy": "Admin",
+    "outletId": "1759417024369",
+    "date": "2025-10-04",
+    "customer": {
+      "name": "Rumy Parvez",
+      "mobile": "01818316964",
+      "address": "International Affairs Division ,Paramanu Bhaban ,Bangladesh Atomic Energy Commission,"
+    },
+    "items": [
+      {
+        "id": 1759555662559,
+        "productName": "Jamdani",
+        "size": "",
+        "qty": 2,
+        "price": 2000,
+        "discount": 200,
+        "amount": 3800
+      }
+    ],
+    "amounts": {
+      "subtotal": 3800,
+      "totalDiscount": 8000,
+      "vat": 114,
+      "vatRate": 3,
+      "transportCost": 200,
+      "total": 4114
+    },
+    "payments": {
+      "cash": 4000,
+      "card": 114,
+      "bkash": 0,
+      "nagad": 0,
+      "transactionFee": 0,
+      "totalPaid": 4114,
+      "due": 0
+    },
+    "createdAt": "2025-10-04T05:29:25.380Z"
+  },
+  {
+    "id": "sale-1759557571750",
+    "salesBy": "Admin",
+    "outletId": "1759417024369",
+    "date": "2025-10-04",
+    "customer": {
+      "name": "Samin",
+      "mobile": "011293275",
+      "address": "Uttara,Dhaka"
+    },
+    "items": [
+      {
+        "id": 1759557516834,
+        "productName": "Jama",
+        "size": "",
+        "qty": 2,
+        "price": 1000,
+        "discount": 200,
+        "amount": 1800
+      }
+    ],
+    "amounts": {
+      "subtotal": 1800,
+      "totalDiscount": 200,
+      "vat": 90,
+      "vatRate": 5,
+      "transportCost": 100,
+      "total": 1990
+    },
+    "payments": {
+      "cash": 1500,
+      "card": 400,
+      "bkash": 50,
+      "nagad": 40,
+      "transactionFee": 0,
+      "totalPaid": 1990,
+      "due": 0
+    },
+    "createdAt": "2025-10-04T05:59:31.750Z"
+  }
+]
