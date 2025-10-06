@@ -20,5 +20,16 @@
     "revenueChange": 1500,
     "products": 70,
     "orders": 20
+  },
+  {
+    "id": 1759727314801,
+    "name": "Agargaon",
+    "location": "Dhk,bd",
+    "type": "store",
+    "pathao_key": "MIR345",
+    "revenue": 60000,
+    "revenueChange": 1500,
+    "products": 70,
+    "orders": 20
   }
 ]

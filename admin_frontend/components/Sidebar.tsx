@@ -39,6 +39,7 @@ export default function Sidebar() {
 
 
     { icon: ShoppingCart, label: 'POS', href: '/pos' },
+      { icon: ShoppingCart, label: 'Social commerce orders', href: '/social-commerce' },
 
     { icon: CreditCard, label: 'Transaction', href: '/transaction' },
   ];
