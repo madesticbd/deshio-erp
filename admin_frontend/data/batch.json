@@ -1,18 +1,18 @@
 [
   {
-    "productId": 1759570205971,
-    "costPrice": 500,
-    "sellingPrice": 800,
-    "quantity": 20,
-    "id": 1759571986344,
-    "baseCode": "BATCH1759571986344"
-  },
-  {
-    "productId": 1759562400497,
-    "costPrice": 1200,
+    "productId": 1759737987171,
+    "costPrice": 1000,
     "sellingPrice": 1500,
     "quantity": 20,
-    "id": 1759687530005,
-    "baseCode": "BATCH1759687530005"
+    "id": 1759738770680,
+    "baseCode": "BATCH1759738770680"
+  },
+  {
+    "productId": 1759738578875,
+    "costPrice": 700,
+    "sellingPrice": 1000,
+    "quantity": 30,
+    "id": 1759738838128,
+    "baseCode": "BATCH1759738838128"
   }
 ]

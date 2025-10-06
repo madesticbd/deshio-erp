@@ -1,36 +1,33 @@
 [
   {
-    "id": 1759562400497,
-    "name": "Sharee",
+    "id": 1759737987171,
+    "name": "Jamdani",
     "attributes": {
-      "Color": "Red",
-      "Image": "/uploads/1759562395558-1759417036216-Electronic Device.jpeg"
+      "mainImage": "/uploads/1759737875133-jamdani product.webp",
+      "category": "1",
+      "subcategory": "2",
+      "Fabric-type": "Cotton",
+      "origin": "Tangail, Bangladesh",
+      "care-instructions": "Better to dry wash",
+      "Price": "1500",
+      "Image": [
+        "/uploads/1759738411866-Shadam jamdani2.jpg",
+        "/uploads/1759738423655-jam2.jpg"
+      ]
     }
   },
   {
-    "id": 1759570205971,
-    "name": "Shotoronji",
+    "id": 1759738578875,
+    "name": "Cotton Sharee",
     "attributes": {
-      "Image": "/uploads/1759570203256-1759417036216-Electronic Device.jpeg"
-    }
-  },
-  {
-    "id": 1759661990174,
-    "name": "Shirt",
-    "attributes": {
-      "mainImage": "/uploads/1759661921527-wall1.jpg",
-      "category": "3",
+      "mainImage": "/uploads/1759738532116-cotton.webp",
+      "category": "1",
       "subcategory": "",
-      "size": "XL, S"
-    }
-  },
-  {
-    "id": 1759729877227,
-    "name": "Ear rings",
-    "attributes": {
-      "mainImage": "/uploads/1759729860001-Nike Air Force 1 white 11.png",
-      "category": "5",
-      "subcategory": "10"
+      "Fabric-type": "Cotton",
+      "origin": "Tangail, Bangladesh",
+      "care-instructions": "Better to dry wash",
+      "Price": "1000",
+      "Image": "/uploads/1759738721718-Shadam jamdani2.jpg"
     }
   }
 ]
