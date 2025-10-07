@@ -15,11 +15,12 @@ interface Product {
 
 interface Batch {
   id: number;
+  baseCode: string;
   productId: number;
-  quantity: number;
   costPrice: number;
   sellingPrice: number;
-  baseCode: string;
+  quantity: number;
+  admitted: string; // ✅ add this
 }
 
 export default function BatchPage() {
