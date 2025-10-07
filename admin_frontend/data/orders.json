@@ -90,5 +90,51 @@
       "due": 1785
     },
     "createdAt": "2025-10-07T08:21:37.224Z"
+  },
+  {
+    "id": 1759845794344,
+    "salesBy": "Admin User",
+    "date": "06-Oct-2025",
+    "customer": {
+      "name": "Nilufar yesmin",
+      "email": "tasneem.nishat.4953@gmail.com",
+      "phone": "01818316964"
+    },
+    "deliveryAddress": {
+      "division": "Dhaka",
+      "district": "Dhaka",
+      "city": "Agargaon",
+      "zone": "Dhaka",
+      "area": "",
+      "address": "International Affairs Division ,Paramanu Bhaban ,Bangladesh Atomic Energy Commission,",
+      "postalCode": "1212"
+    },
+    "products": [
+      {
+        "id": 1759845551616,
+        "productName": "Jamdani",
+        "size": "",
+        "qty": 1,
+        "price": 1500,
+        "discount": 150,
+        "amount": 1350
+      }
+    ],
+    "subtotal": 1350,
+    "amounts": {
+      "subtotal": 1350,
+      "totalDiscount": 150,
+      "vat": 27,
+      "vatRate": 2,
+      "transportCost": 100,
+      "total": 1477
+    },
+    "payments": {
+      "cash": 0,
+      "card": 1000,
+      "totalPaid": 1000,
+      "due": 477
+    },
+    "createdAt": "2025-10-07T14:03:14.344Z"
   }
 ]

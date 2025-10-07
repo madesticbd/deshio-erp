@@ -71,3 +71,25 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Failed to save order' }, { status: 500 });
   }
 }
+// ✅ DELETE — Remove an order by ID
+export async function DELETE(request: Request) {
+  try {
+    const { searchParams } = new URL(request.url);
+    const id = searchParams.get('id');
+
+    if (!id) {
+      return NextResponse.json({ error: 'Missing order ID' }, { status: 400 });
+    }
+
+    const orders = readOrdersFromFile();
+    const updatedOrders = orders.filter((order: any) => String(order.id) !== id);
+
+    writeOrdersToFile(updatedOrders);
+
+    return NextResponse.json({ success: true, message: 'Order cancelled successfully!' });
+  } catch (error) {
+    console.error('❌ Failed to delete order:', error);
+    return NextResponse.json({ error: 'Failed to delete order' }, { status: 500 });
+  }
+}
+
