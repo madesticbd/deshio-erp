@@ -2,63 +2,72 @@ import { NextResponse } from 'next/server';
 import fs from 'fs';
 import path from 'path';
 
-const ordersFilePath = path.resolve('data', 'social-orders.json');
+// ✅ Path to the JSON file
+const ordersFilePath = path.resolve('data', 'orders.json');
 
+// ✅ Helper: Read all orders
 const readOrdersFromFile = () => {
-  if (fs.existsSync(ordersFilePath)) {
-    const fileData = fs.readFileSync(ordersFilePath, 'utf8');
-    return JSON.parse(fileData);
+  try {
+    if (fs.existsSync(ordersFilePath)) {
+      const fileData = fs.readFileSync(ordersFilePath, 'utf8');
+      return JSON.parse(fileData);
+    } else {
+      return [];
+    }
+  } catch (error) {
+    console.error('❌ Error reading orders file:', error);
+    return [];
   }
-  return [];
 };
 
+// ✅ Helper: Write updated orders list
 const writeOrdersToFile = (orders: any[]) => {
-  const dataDir = path.resolve('data');
-  if (!fs.existsSync(dataDir)) {
-    fs.mkdirSync(dataDir, { recursive: true });
+  try {
+    // Ensure the data directory exists
+    fs.mkdirSync(path.dirname(ordersFilePath), { recursive: true });
+    fs.writeFileSync(ordersFilePath, JSON.stringify(orders, null, 2), 'utf8');
+  } catch (error) {
+    console.error('❌ Error writing orders file:', error);
+    throw error;
   }
-  fs.writeFileSync(ordersFilePath, JSON.stringify(orders, null, 2), 'utf8');
 };
 
+// ✅ GET — Fetch all orders
 export async function GET() {
   try {
     const orders = readOrdersFromFile();
     return NextResponse.json(orders);
   } catch (error) {
-    console.error('Error reading orders from file:', error);
+    console.error('❌ Failed to fetch orders:', error);
     return NextResponse.json({ error: 'Failed to load orders' }, { status: 500 });
   }
 }
 
+// ✅ POST — Save a new order
 export async function POST(request: Request) {
   try {
     const newOrder = await request.json();
-    const orders = readOrdersFromFile();
-    
-    const orderWithMetadata = {
-      id: `order-${Date.now()}`,
+
+    const existingOrders = readOrdersFromFile();
+
+    // Add metadata (ID + timestamp)
+    const orderWithMeta = {
+      id: Date.now(),
       ...newOrder,
       createdAt: new Date().toISOString(),
     };
-    
-    orders.push(orderWithMetadata);
-    writeOrdersToFile(orders);
-    
-    return NextResponse.json(orderWithMetadata, { status: 201 });
-  } catch (error) {
-    console.error('Error adding order:', error);
-    return NextResponse.json({ error: 'Failed to add order' }, { status: 500 });
-  }
-}
 
-export async function DELETE(request: Request) {
-  try {
-    const { id } = await request.json();
-    let orders = readOrdersFromFile();
-    orders = orders.filter((o: any) => o.id !== id);
-    writeOrdersToFile(orders);
-    return NextResponse.json({ success: true });
+    existingOrders.push(orderWithMeta);
+
+    writeOrdersToFile(existingOrders);
+
+    return NextResponse.json({
+      success: true,
+      message: 'Order saved successfully!',
+      order: orderWithMeta,
+    });
   } catch (error) {
-    return NextResponse.json({ error: 'Failed to delete order' }, { status: 500 });
+    console.error('❌ Failed to save order:', error);
+    return NextResponse.json({ error: 'Failed to save order' }, { status: 500 });
   }
 }
