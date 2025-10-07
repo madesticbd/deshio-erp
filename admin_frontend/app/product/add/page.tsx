@@ -160,7 +160,7 @@ export default function AddEditProductPage() {
 
     // If field mode is Single, prevent duplicate
     if (field.mode?.toLowerCase() === 'single' && alreadyExists) {
-      alert(`"${field.name}" can only be added once.`);
+      alert(`${field.name} can only be added once.`);
       return;
     }
 

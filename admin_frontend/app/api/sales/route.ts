@@ -43,9 +43,10 @@ export async function POST(request: Request) {
     
     // Add timestamp and ID
     const saleWithMetadata = {
-      id: `sale-${Date.now()},
+      id: `sale-${Date.now()}`,
       ...newSale,
-      createdAt: new Date().toISOString(),`};
+      createdAt: new Date().toISOString(),
+    };
     
     sales.push(saleWithMetadata);
     writeSalesToFile(sales);

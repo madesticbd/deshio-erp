@@ -142,7 +142,7 @@ export default function FieldPage() {
     if (!confirm('Are you sure you want to delete this field?')) return;
 
     try {
-      const res = await fetch(`/api/fields/${id}`, { 
+      const res = await fetch(`/api/fields/${id}`, {
         method: 'DELETE' 
       });
 

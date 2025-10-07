@@ -9,5 +9,16 @@
     "revenueChange": 1500,
     "products": 70,
     "orders": 20
+  },
+  {
+    "id": 1759507947778,
+    "name": "Banasree",
+    "location": "Dhaka,Bangladesh",
+    "type": "store",
+    "pathao_key": "UTT123",
+    "revenue": 60000,
+    "revenueChange": 1500,
+    "products": 70,
+    "orders": 20
   }
 ]

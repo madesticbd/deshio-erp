@@ -1,39 +1,27 @@
 [
   {
-    "id": 1759575698352,
-    "name": "Jamdani",
+    "id": 1759562400497,
+    "name": "Sharee",
     "attributes": {
-      "mainImage": "/uploads/1759739467583-7863dfd0-4fe7-4e29-8658-01728e8060a4.jpeg",
-      "category": "1",
-      "subcategory": "6",
-      "Colour": "Black",
-      "Image": [
-        "/uploads/1759739698837-images (1).jpeg",
-        "/uploads/1759740236564-407979720_935235804635275_5639139744451828270_n_935235807968608.webp",
-        "/uploads/1759740281841-stock-photo-dhakai-jamdani-saree-is-a-traditional-handloom-saree-that-originated-in-dhaka-bangladesh-it-is-a-2281360143.jpg",
-        "/uploads/1759740307270-olive-green-zari-woven-tissue-designer-saree-with-unstitched-blouse-ja1068.webp"
-      ]
+      "Color": "Red",
+      "Image": "/uploads/1759562395558-1759417036216-Electronic Device.jpeg"
     }
   },
   {
-    "id": 1759575946222,
-    "name": "Silk Sharee",
+    "id": 1759570205971,
+    "name": "Shotoronji",
     "attributes": {
-      "mainImage": "/uploads/1759727438635-Saree.webp",
-      "category": "4",
-      "subcategory": "",
-      "Colour": "Red"
+      "Image": "/uploads/1759570203256-1759417036216-Electronic Device.jpeg"
     }
   },
   {
-    "id": 1759624144706,
-    "name": "Saree",
+    "id": 1759661990174,
+    "name": "Shirt",
     "attributes": {
-      "mainImage": "/uploads/1759739650973-Saree.webp",
-      "category": "2",
+      "mainImage": "/uploads/1759661921527-wall1.jpg",
+      "category": "3",
       "subcategory": "",
-      "Colour": "White and Pink, Purple",
-      "Image": "/uploads/1759624140864-Saree2.webp"
+      "size": "XL, S"
     }
   }
 ]

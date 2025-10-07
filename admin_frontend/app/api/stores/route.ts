@@ -2,8 +2,10 @@ import { NextResponse } from 'next/server';
 import fs from 'fs';
 import path from 'path';
 
+// File path for the stores.json file
 const storesFilePath = path.resolve('data', 'stores.json');
 
+// Helper function to read stores from the JSON file
 const readStoresFromFile = () => {
   if (fs.existsSync(storesFilePath)) {
     const fileData = fs.readFileSync(storesFilePath, 'utf8');
@@ -12,10 +14,12 @@ const readStoresFromFile = () => {
   return [];
 };
 
+// Helper function to write stores to the JSON file
 const writeStoresToFile = (stores: any[]) => {
   fs.writeFileSync(storesFilePath, JSON.stringify(stores, null, 2), 'utf8');
 };
 
+// Normalize incoming store data to match the structure of manually added stores
 const normalizeStoreData = (store: any) => {
   return {
     id: store.id || `store-${Date.now()}`, 
@@ -100,3 +104,5 @@ export async function PUT(request: Request) {
     return NextResponse.json({ error: 'Failed to update store' }, { status: 500 });
   }
 }
+
+

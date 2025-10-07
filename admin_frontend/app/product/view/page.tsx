@@ -128,7 +128,7 @@ export default function ProductViewPage() {
       if (subName) return subName;
     }
 
-    if (catId && subId) return `${catId} / ${subId}`;
+    if (catId && subId) return `Category ${catId} / Subcategory ${subId}`;
     if (catId) return String(catId);
     return '-';
   };

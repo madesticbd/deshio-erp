@@ -28,9 +28,9 @@ export default function BatchCard({ batch, product, onDelete }: BatchCardProps) 
     if (!confirm('Are you sure you want to delete this batch?')) return;
     
     try {
-      const res = await fetch(`/api/batch/${batch.id}, {
+      const res = await fetch(`/api/batch/${batch.id}`, {
         method: 'DELETE',
-      }`);
+      });
       
       if (res.ok) {
         onDelete?.(batch.id);
