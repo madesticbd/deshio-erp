@@ -24,12 +24,12 @@
     "image": "https://images.unsplash.com/photo-1607082348824-0a96f2a4b9da?w=400",
     "subcategories": [
       {
-        "title": "Oishee",
-        "description": "OIshee",
-        "slug": "oishee",
-        "image": "/uploads/1759690443980-7005f1c3-3f5d-4ee3-acac-f1024e2d30fd.jpg",
+        "title": "Shoes",
+        "description": "Indian shoes",
+        "slug": "shoes",
+        "image": "/uploads/1759727440553-Nike Air Force 1 white 11.png",
         "subcategories": [],
-        "id": "11"
+        "id": "12"
       }
     ]
   },
