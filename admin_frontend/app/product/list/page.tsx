@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useMemo, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import {
   Plus,
   Search,
@@ -38,15 +38,34 @@ interface Category {
 
 export default function ProductPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const selectMode = searchParams.get('selectMode') === 'true';
+  const redirectPath = searchParams.get('redirect') || '';
+  
   const [darkMode, setDarkMode] = useState(false);
   const [products, setProducts] = useState<Product[]>([]);
   const [fields, setFields] = useState<Field[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
+  
+  // ✅ hydration-safe: always start with 'grid'
   const [viewMode, setViewMode] = useState<'grid' | 'table'>('grid');
+  
   const [currentPage, setCurrentPage] = useState(1);
   const [isLoading, setIsLoading] = useState(true);
   const itemsPerPage = 6;
+
+  // ✅ Load view mode from localStorage only after mount
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem('products_view_mode');
+      if (stored === 'table' || stored === 'grid') {
+        setViewMode(stored);
+      }
+    } catch (e) {
+      // ignore
+    }
+  }, []);
 
   // Fetch products, fields, categories
   useEffect(() => {
@@ -101,6 +120,23 @@ export default function ProductPage() {
 
   const handleAdd = () => router.push('/product/add');
 
+  const handleSelect = (product: Product) => {
+    if (selectMode && redirectPath) {
+      // Pass back product id and name via URL
+      const url = `${redirectPath}?productId=${product.id}&productName=${encodeURIComponent(product.name)}`;
+      router.push(url);
+    }
+  };
+
+  // ✅ Persist view mode so it survives reloads
+  useEffect(() => {
+    try {
+      localStorage.setItem('products_view_mode', viewMode);
+    } catch (e) {
+      // ignore
+    }
+  }, [viewMode]);
+
   return (
     <div className={darkMode ? 'dark' : ''}>
       <div className="flex h-screen bg-gray-50 dark:bg-gray-900">
@@ -114,19 +150,23 @@ export default function ProductPage() {
               <div className="flex items-center justify-between mb-4">
                 <div>
                   <h1 className="text-2xl font-semibold text-gray-900 dark:text-white mb-1">
-                    Products
+                    {selectMode ? 'Select a Product' : 'Products'}
                   </h1>
                   <p className="text-sm text-gray-600 dark:text-gray-400">
-                    Manage and organize your store’s products efficiently.
+                    {selectMode 
+                      ? 'Choose a product to add to your batch operation' 
+                      : "Manage and organize your store's products efficiently."}
                   </p>
                 </div>
-                <button
-                  onClick={handleAdd}
-                  className="flex items-center gap-2 px-4 py-2 bg-gray-900 dark:bg-white text-white dark:text-gray-900 rounded-lg hover:bg-gray-800 dark:hover:bg-gray-100 transition-colors text-sm font-medium"
-                >
-                  <Plus className="w-4 h-4" />
-                  Add Product
-                </button>
+                {!selectMode && (
+                  <button
+                    onClick={handleAdd}
+                    className="flex items-center gap-2 px-4 py-2 bg-gray-900 dark:bg-white text-white dark:text-gray-900 rounded-lg hover:bg-gray-800 dark:hover:bg-gray-100 transition-colors text-sm font-medium"
+                  >
+                    <Plus className="w-4 h-4" />
+                    Add Product
+                  </button>
+                )}
               </div>
 
               {/* Search & View Toggle */}
@@ -181,20 +221,20 @@ export default function ProductPage() {
               </div>
             ) : viewMode === 'grid' ? (
               <ProductGrid
-          products={paginated}
-          fields={fields}
-          categories={categories}
-          onEdit={handleEdit}
-          onDelete={handleDelete}
-          onView={(id) => router.push(`/product/view?id=${id}`)}
-        />)
-          : (
+                products={paginated}
+                fields={fields}
+                categories={categories}
+                onEdit={handleEdit}
+                onDelete={handleDelete}
+                onView={(id) => router.push(`/product/view?id=${id}`)}
+              />
+            ) : (
               <ProductTable
                 products={paginated}
                 fields={fields}
                 onDelete={handleDelete}
                 onEdit={handleEdit}
-                categories={categories}
+                {...(selectMode && { onSelect: handleSelect })}
               />
             )}
 

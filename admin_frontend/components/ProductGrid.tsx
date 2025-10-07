@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { MoreVertical, Edit, Trash2, Eye } from 'lucide-react';
+import { MoreVertical, Edit, Trash2 } from 'lucide-react';
 
 interface Product {
   id: number | string;
@@ -26,6 +26,8 @@ interface ProductGridProps {
   products: Product[];
   fields?: Field[];
   categories?: Category[];
+  selectable?: boolean;
+  onSelectChange?: (ids: (string | number)[]) => void;
   onDelete: (id: number | string) => void;
   onEdit: (product: Product) => void;
   onView: (id: number | string) => void;
@@ -61,10 +63,22 @@ export default function ProductGrid({
   products,
   fields = [],
   categories = [],
+  selectable = false,
+  onSelectChange,
   onDelete,
   onEdit,
   onView,
 }: ProductGridProps) {
+  const [selectedIds, setSelectedIds] = useState<(string | number)[]>([]);
+
+  const toggleSelect = (id: string | number) => {
+    setSelectedIds((prev) => {
+      const exists = prev.includes(id);
+      const next = exists ? prev.filter((x) => x !== id) : [...prev, id];
+      onSelectChange?.(next);
+      return next;
+    });
+  };
   const getMainImage = (attrs: Record<string, any>): string | null => {
     for (const key of ['MainImage', 'mainImage', 'image', 'images', 'gallery']) {
       const val = attrs[key];
@@ -130,9 +144,16 @@ function ProductCard({
   return (
     <div className="relative group">
       <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden hover:shadow-lg transition-shadow">
-        {/* Image */}
+        {/* Image (click to view) */}
         <div className="relative h-40 bg-gray-100 dark:bg-gray-700">
-          <ImageWithFallback src={image} alt={product.name} className="w-full h-full object-cover" />
+          <button
+            type="button"
+            onClick={() => onView(product.id)}
+            className="w-full h-full block p-0 text-left"
+            aria-label={`View ${product.name}`}
+          >
+            <ImageWithFallback src={image} alt={product.name} className="w-full h-full object-cover" />
+          </button>
         </div>
 
         {/* Details */}
@@ -155,16 +176,7 @@ function ProductCard({
       {/* Dropdown Menu */}
       {dropdownOpen && (
         <div className="absolute right-0 mt-1 w-48 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg z-50">
-          <button
-            onClick={() => {
-              onView(product.id);
-              setDropdownOpen(false);
-            }}
-            className="w-full flex items-center gap-2 px-4 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-          >
-            <Eye className="w-4 h-4" />
-            View
-          </button>
+          {/* View moved to image click - no separate view button */}
           <button
             onClick={() => {
               onEdit(product);

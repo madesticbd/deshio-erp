@@ -5,7 +5,7 @@ import { useState, useEffect } from 'react';
 interface FieldConfig {
   name: string;
   label: string;
-  type: 'text' | 'number' | 'select';
+  type: 'text' | 'number' | 'select' | 'radio';
   options?: string[];
 }
 
@@ -92,7 +92,7 @@ export default function AddItemModal({
                 {field.label}
               </label>
 
-              {field.type === 'select' ? (
+             {field.type === 'select' ? (
                 <select
                   value={formData[field.name] || ''}
                   onChange={(e) => handleChange(field.name, e.target.value)}
@@ -105,6 +105,22 @@ export default function AddItemModal({
                     </option>
                   ))}
                 </select>
+              ) : field.type === 'radio' ? (
+                <div className="flex gap-4">
+                  {field.options?.map((opt) => (
+                    <label key={opt} className="flex items-center gap-2 text-gray-900 dark:text-gray-200">
+                      <input
+                        type="radio"
+                        name={field.name}
+                        value={opt}
+                        checked={formData[field.name] === opt}
+                        onChange={(e) => handleChange(field.name, e.target.value)}
+                        className="text-gray-600 focus:ring-gray-500"
+                      />
+                      {opt}
+                    </label>
+                  ))}
+                </div>
               ) : (
                 <input
                   type={field.type}
@@ -113,6 +129,7 @@ export default function AddItemModal({
                   className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                 />
               )}
+
             </div>
           ))}
         </div>

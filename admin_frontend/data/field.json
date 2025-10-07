@@ -2,11 +2,19 @@
   {
     "id": 1759558320729,
     "name": "Colour",
-    "type": "Text"
+    "type": "Text",
+    "mode": "Single"
   },
   {
     "id": 1759559928724,
     "name": "Image",
-    "type": "Image"
+    "type": "Image",
+    "mode": "Multiple"
+  },
+  {
+    "id": 1759644885348,
+    "name": "Size",
+    "type": "Number",
+    "mode": "Multiple"
   }
 ]

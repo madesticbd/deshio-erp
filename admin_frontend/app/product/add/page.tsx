@@ -10,6 +10,7 @@ interface Field {
   id: number;
   name: string;
   type: string;
+  mode: string; // 'Single' or 'Multiple' or null
 }
 
 interface Category {
@@ -153,7 +154,16 @@ export default function AddEditProductPage() {
     fetchData();
   }, [isEditMode, productId, router]);
 
-  const handleAddFieldInstance = (field: Field) => {
+ const handleAddFieldInstance = (field: Field) => {
+  // Check if this field already exists
+    const alreadyExists = fieldInstances.some(fi => fi.field.id === field.id);
+
+    // If field mode is Single, prevent duplicate
+    if (field.mode?.toLowerCase() === 'single' && alreadyExists) {
+      alert(`"${field.name}" can only be added once.`);
+      return;
+    }
+
     const instanceId = `${field.id}-${Date.now()}-${Math.random()}`;
     setFieldInstances([...fieldInstances, { field, instanceId }]);
   };
@@ -545,7 +555,7 @@ export default function AddEditProductPage() {
                         {field.name}
                       </div>
                       <div className="text-xs text-gray-500 dark:text-gray-400">
-                        {field.type}
+                        {field.type} • {field.mode || 'Single'}
                       </div>
                     </div>
                     <Plus className="w-5 h-5 text-gray-400 group-hover:text-blue-500 dark:group-hover:text-blue-400" />

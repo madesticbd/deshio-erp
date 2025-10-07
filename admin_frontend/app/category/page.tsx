@@ -18,13 +18,24 @@ import AddCategoryDialog from "@/components/AddCategoryDialog";
 
 function deleteCategoryRecursive(cats: Category[], id: string): Category[] {
   return cats
-    .filter(cat => cat.id !== id) // remove if matches at this level
-    .map(cat => ({
+    .filter((cat) => cat.id !== id)
+    .map((cat) => ({
       ...cat,
-      subcategories: deleteCategoryRecursive(cat.subcategories || [], id), // recurse
+      subcategories: deleteCategoryRecursive(cat.subcategories || [], id),
     }));
 }
 
+// Helper to find the parent ID of a category
+function findParentId(cats: Category[], targetId: string, parentId: string | null = null): string | null {
+  for (const cat of cats) {
+    if (cat.id === targetId) return parentId;
+    if (cat.subcategories) {
+      const found = findParentId(cat.subcategories, targetId, cat.id);
+      if (found !== undefined) return found;
+    }
+  }
+  return undefined as any;
+}
 
 export default function CategoryPageWrapper() {
   const [darkMode, setDarkMode] = useState(false);
@@ -42,6 +53,25 @@ export default function CategoryPageWrapper() {
     refresh();
   }, []);
 
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem("categories_view_mode");
+      if (stored === "grid" || stored === "list") {
+        setViewMode(stored);
+      }
+    } catch (err) {
+      console.error("Failed to load view mode", err);
+    }
+  }, []);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem("categories_view_mode", viewMode);
+    } catch (err) {
+      console.error("Failed to save view mode", err);
+    }
+  }, [viewMode]);
+
   const refresh = async () => {
     const res = await fetch("/api/categories");
     const data = await res.json();
@@ -58,7 +88,6 @@ export default function CategoryPageWrapper() {
     }, []);
   };
 
-  // Filter categories
   const filteredCategories = useMemo(() => {
     if (!searchQuery) return categories;
 
@@ -84,24 +113,25 @@ export default function CategoryPageWrapper() {
     });
   }, [categories, searchQuery]);
 
-  // Pagination
   const totalPages = Math.ceil(filteredCategories.length / itemsPerPage);
   const paginatedCategories = filteredCategories.slice(
     (currentPage - 1) * itemsPerPage,
     currentPage * itemsPerPage
   );
 
-  // CRUD Actions
   const handleDelete = async (id: string) => {
-  await fetch(`/api/categories?id=${id}`, {
-    method: 'DELETE',
-  });
+    await fetch(`/api/categories?id=${id}`, {
+      method: "DELETE",
+    });
 
-  setCategories(prev => deleteCategoryRecursive(prev, id));
-};
+    setCategories((prev) => deleteCategoryRecursive(prev, id));
+  };
+
   const handleEdit = (category: Category) => {
     setEditCategory(category);
-    setParentId(null);
+    // Find the current parent of this category
+    const currentParent = findParentId(categories, category.id);
+    setParentId(currentParent);
     setDialogOpen(true);
   };
 
@@ -111,49 +141,90 @@ export default function CategoryPageWrapper() {
     setDialogOpen(true);
   };
 
-  // For adding a category
- const handleSave = async (newCategory: Omit<Category, 'id'>) => {
+  const handleSave = async (
+    newCategory: Omit<Category, "id">, 
+    newParentId?: string | null,
+    oldParentId?: string | null
+  ) => {
     if (editCategory) {
-      // Edit existing category
-      const res = await fetch('/api/categories', {
-        method: 'PUT',
-        body: JSON.stringify({ ...editCategory, ...newCategory }),
-      });
-      const updated = await res.json();
+      // Check if parent changed
+      const parentChanged = oldParentId !== newParentId;
 
-      // Replace category (recursively if nested)
-      const updateCategoryRecursive = (cats: Category[]): Category[] =>
-        cats.map(cat =>
-          cat.id === updated.id
-            ? updated
-            : { ...cat, subcategories: updateCategoryRecursive(cat.subcategories || []) }
-        );
+      if (parentChanged) {
+        // MOVE CATEGORY: Delete from old location, add to new location
+        const res = await fetch("/api/categories", {
+          method: "PUT",
+          body: JSON.stringify({ 
+            ...editCategory, 
+            ...newCategory,
+            moveToParentId: newParentId 
+          }),
+        });
+        const updated = await res.json();
 
-      setCategories(prev => updateCategoryRecursive(prev));
+        // Remove from old location
+        let updatedCategories = deleteCategoryRecursive(categories, editCategory.id);
+
+        // Add to new location
+        if (newParentId) {
+          const addToParent = (cats: Category[]): Category[] =>
+            cats.map((cat) =>
+              cat.id === newParentId
+                ? { ...cat, subcategories: [...(cat.subcategories || []), updated] }
+                : { ...cat, subcategories: addToParent(cat.subcategories || []) }
+            );
+          updatedCategories = addToParent(updatedCategories);
+        } else {
+          updatedCategories = [...updatedCategories, updated];
+        }
+
+        setCategories(updatedCategories);
+      } else {
+        // UPDATE IN PLACE: Just update the category data
+        const res = await fetch("/api/categories", {
+          method: "PUT",
+          body: JSON.stringify({ ...editCategory, ...newCategory }),
+        });
+        const updated = await res.json();
+
+        const updateCategoryRecursive = (cats: Category[]): Category[] =>
+          cats.map((cat) =>
+            cat.id === updated.id
+              ? updated
+              : {
+                  ...cat,
+                  subcategories: updateCategoryRecursive(cat.subcategories || []),
+                }
+          );
+
+        setCategories((prev) => updateCategoryRecursive(prev));
+      }
     } else {
-      // Create new category (could be root or subcategory)
-      const res = await fetch('/api/categories', {
-        method: 'POST',
-         body: JSON.stringify({ ...newCategory, parentId }),
+      // CREATE NEW
+      const res = await fetch("/api/categories", {
+        method: "POST",
+        body: JSON.stringify({ ...newCategory, parentId: newParentId }),
       });
       const created = await res.json();
 
-      if (parentId) {
-        // Insert as subcategory
+      if (newParentId) {
         const addSubcategoryRecursive = (cats: Category[]): Category[] =>
-          cats.map(cat =>
-            cat.id === parentId
+          cats.map((cat) =>
+            cat.id === newParentId
               ? { ...cat, subcategories: [...(cat.subcategories || []), created] }
               : { ...cat, subcategories: addSubcategoryRecursive(cat.subcategories || []) }
           );
 
-        setCategories(prev => addSubcategoryRecursive(prev));
+        setCategories((prev) => addSubcategoryRecursive(prev));
       } else {
-        // Insert as top-level category
-        setCategories(prev => [...prev, created]);
+        setCategories((prev) => [...prev, created]);
       }
     }
+
+    setEditCategory(null);
+    setParentId(null);
   };
+
   return (
     <div className={darkMode ? "dark" : ""}>
       <div className="flex h-screen bg-gray-50 dark:bg-gray-900">
@@ -162,7 +233,6 @@ export default function CategoryPageWrapper() {
           <Header darkMode={darkMode} setDarkMode={setDarkMode} />
 
           <main className="flex-1 overflow-auto p-6">
-            {/* Header Section */}
             <div className="mb-6">
               <div className="flex items-center justify-between mb-4">
                 <div>
@@ -174,7 +244,11 @@ export default function CategoryPageWrapper() {
                   </p>
                 </div>
                 <button
-                  onClick={() => setDialogOpen(true)}
+                  onClick={() => {
+                    setEditCategory(null);
+                    setParentId(null);
+                    setDialogOpen(true);
+                  }}
                   className="flex items-center gap-2 px-4 py-2 bg-gray-900 dark:bg-white text-white dark:text-gray-900 rounded-lg hover:bg-gray-800 dark:hover:bg-gray-100 transition-colors text-sm font-medium"
                 >
                   <Plus className="w-4 h-4" />
@@ -182,7 +256,6 @@ export default function CategoryPageWrapper() {
                 </button>
               </div>
 
-              {/* Search & View Toggle */}
               <div className="flex items-center gap-3">
                 <div className="relative flex-1 max-w-md">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
@@ -223,7 +296,6 @@ export default function CategoryPageWrapper() {
               </div>
             </div>
 
-            {/* Categories Display */}
             {paginatedCategories.length === 0 ? (
               <div className="text-center py-12">
                 <p className="text-gray-500 dark:text-gray-400">
@@ -256,7 +328,6 @@ export default function CategoryPageWrapper() {
               </div>
             )}
 
-            {/* Pagination */}
             {totalPages > 1 && (
               <div className="flex items-center justify-between mt-6 pt-6 border-t border-gray-200 dark:border-gray-700">
                 <p className="text-sm text-gray-600 dark:text-gray-400">
@@ -298,7 +369,6 @@ export default function CategoryPageWrapper() {
               </div>
             )}
 
-            {/* Add/Edit Dialog */}
             <AddCategoryDialog
               open={dialogOpen}
               onOpenChange={setDialogOpen}
