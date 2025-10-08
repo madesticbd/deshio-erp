@@ -1,51 +1,5 @@
 [
   {
-    "id": 1759823226186,
-    "salesBy": "Admin User",
-    "date": "06-Oct-2025",
-    "customer": {
-      "name": "Nishat Oishee",
-      "email": "tasneem.nishat.4953@gmail.com",
-      "phone": "01818316964"
-    },
-    "deliveryAddress": {
-      "division": "Dhaka",
-      "district": "Dhaka",
-      "city": "Agargaon",
-      "zone": "Dhaka",
-      "area": "",
-      "address": "International Affairs Division ,Paramanu Bhaban ,Bangladesh Atomic Energy Commission,",
-      "postalCode": "1213"
-    },
-    "products": [
-      {
-        "id": 1759822995411,
-        "productName": "Cotton Sharee",
-        "size": "",
-        "qty": 2,
-        "price": 1000,
-        "discount": 200,
-        "amount": 1800
-      }
-    ],
-    "subtotal": 1800,
-    "amounts": {
-      "subtotal": 1800,
-      "totalDiscount": 200,
-      "vat": 90,
-      "vatRate": 5,
-      "transportCost": 0,
-      "total": 1890
-    },
-    "payments": {
-      "cash": 1800,
-      "card": 90,
-      "totalPaid": 1890,
-      "due": 0
-    },
-    "createdAt": "2025-10-07T07:47:06.186Z"
-  },
-  {
     "id": 1759825297224,
     "salesBy": "Admin User",
     "date": "06-Oct-2025",
@@ -92,13 +46,14 @@
     "createdAt": "2025-10-07T08:21:37.224Z"
   },
   {
-    "id": 1759845794344,
+    "id": 1759900819500,
     "salesBy": "Admin User",
     "date": "06-Oct-2025",
     "customer": {
-      "name": "Nilufar yesmin",
+      "name": "Nishat Tasneem",
       "email": "tasneem.nishat.4953@gmail.com",
-      "phone": "01818316964"
+      "phone": "01818316964",
+      "socialId": "nishat oishee"
     },
     "deliveryAddress": {
       "division": "Dhaka",
@@ -111,30 +66,30 @@
     },
     "products": [
       {
-        "id": 1759845551616,
-        "productName": "Jamdani",
+        "id": 1759900789824,
+        "productName": "Cotton Sharee",
         "size": "",
-        "qty": 1,
-        "price": 1500,
-        "discount": 150,
-        "amount": 1350
+        "qty": 2,
+        "price": 1000,
+        "discount": 200,
+        "amount": 1800
       }
     ],
-    "subtotal": 1350,
+    "subtotal": 1800,
     "amounts": {
-      "subtotal": 1350,
-      "totalDiscount": 150,
-      "vat": 27,
-      "vatRate": 2,
+      "subtotal": 1800,
+      "totalDiscount": 200,
+      "vat": 90,
+      "vatRate": 5,
       "transportCost": 100,
-      "total": 1477
+      "total": 1990
     },
     "payments": {
       "cash": 0,
       "card": 1000,
       "totalPaid": 1000,
-      "due": 477
+      "due": 990
     },
-    "createdAt": "2025-10-07T14:03:14.344Z"
+    "createdAt": "2025-10-08T05:20:19.501Z"
   }
 ]

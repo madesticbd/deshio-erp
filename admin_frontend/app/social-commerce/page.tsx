@@ -29,6 +29,7 @@ export default function SocialCommercePage() {
   const [userName, setUserName] = useState('');
   const [userEmail, setUserEmail] = useState('');
   const [userPhone, setUserPhone] = useState('');
+  const [socialId, setSocialId] = useState('');
   const [division, setDivision] = useState('');
   const [district, setDistrict] = useState('');
   const [city, setCity] = useState('');
@@ -165,6 +166,7 @@ export default function SocialCommercePage() {
         name: userName,
         email: userEmail,
         phone: userPhone,
+        socialId: socialId
       },
       deliveryAddress: {
         division,
@@ -257,6 +259,17 @@ export default function SocialCommercePage() {
                           className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400"
                         />
                       </div>
+                      <div>
+                     <label className="block text-xs text-gray-700 dark:text-gray-300 mb-1">Social ID</label>
+                <input
+                  type="text"
+                 placeholder="Enter Social ID"
+                  value={socialId}
+                      onChange={(e) => setSocialId(e.target.value)}
+                      className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400"
+                        />
+                      </div>
+
                     </div>
                   </div>
 

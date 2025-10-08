@@ -71,6 +71,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Failed to save order' }, { status: 500 });
   }
 }
+
 // ✅ DELETE — Remove an order by ID
 export async function DELETE(request: Request) {
   try {
@@ -82,7 +83,11 @@ export async function DELETE(request: Request) {
     }
 
     const orders = readOrdersFromFile();
-    const updatedOrders = orders.filter((order: any) => String(order.id) !== id);
+    const updatedOrders = orders.filter((order: any) => String(order.id) !== String(id));
+
+    if (orders.length === updatedOrders.length) {
+      return NextResponse.json({ error: 'Order not found' }, { status: 404 });
+    }
 
     writeOrdersToFile(updatedOrders);
 
@@ -93,3 +98,41 @@ export async function DELETE(request: Request) {
   }
 }
 
+// ✅ PUT — Update an existing order (optional)
+export async function PUT(request: Request) {
+  try {
+    const { searchParams } = new URL(request.url);
+    const id = searchParams.get('id');
+
+    if (!id) {
+      return NextResponse.json({ error: 'Missing order ID' }, { status: 400 });
+    }
+
+    const updatedOrderData = await request.json();
+    const orders = readOrdersFromFile();
+    
+    const orderIndex = orders.findIndex((order: any) => String(order.id) === String(id));
+    
+    if (orderIndex === -1) {
+      return NextResponse.json({ error: 'Order not found' }, { status: 404 });
+    }
+
+    // Update the order
+    orders[orderIndex] = {
+      ...orders[orderIndex],
+      ...updatedOrderData,
+      updatedAt: new Date().toISOString(),
+    };
+
+    writeOrdersToFile(orders);
+
+    return NextResponse.json({
+      success: true,
+      message: 'Order updated successfully!',
+      order: orders[orderIndex],
+    });
+  } catch (error) {
+    console.error('❌ Failed to update order:', error);
+    return NextResponse.json({ error: 'Failed to update order' }, { status: 500 });
+  }
+}
