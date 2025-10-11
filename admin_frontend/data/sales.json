@@ -38,5 +38,45 @@
       "due": 0
     },
     "createdAt": "2025-10-06T08:25:35.018Z"
+  },
+  {
+    "id": "sale-1759902879012",
+    "salesBy": "Admin",
+    "outletId": "1759737104297",
+    "date": "2025-10-08",
+    "customer": {
+      "name": "Rumy Parvez",
+      "mobile": "01818316964",
+      "address": "International Affairs Division ,Paramanu Bhaban ,Bangladesh Atomic Energy Commission,"
+    },
+    "items": [
+      {
+        "id": 1759902854648,
+        "productName": "Cotton Sharee",
+        "size": "",
+        "qty": 1,
+        "price": 1500,
+        "discount": 150,
+        "amount": 1350
+      }
+    ],
+    "amounts": {
+      "subtotal": 1350,
+      "totalDiscount": 150,
+      "vat": 67.5,
+      "vatRate": 5,
+      "transportCost": 100,
+      "total": 1517.5
+    },
+    "payments": {
+      "cash": 1500,
+      "card": 17.5,
+      "bkash": 0,
+      "nagad": 0,
+      "transactionFee": 0,
+      "totalPaid": 1517.5,
+      "due": 0
+    },
+    "createdAt": "2025-10-08T05:54:39.012Z"
   }
 ]

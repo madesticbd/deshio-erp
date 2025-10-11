@@ -29,6 +29,7 @@ interface CartItem {
 
 export default function POSPage() {
   const [darkMode, setDarkMode] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [outlets, setOutlets] = useState<Store[]>([]);
   const [selectedOutlet, setSelectedOutlet] = useState('');
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
@@ -199,9 +200,9 @@ export default function POSPage() {
   return (
     <div className={darkMode ? 'dark' : ''}>
       <div className="flex h-screen bg-gray-50 dark:bg-gray-900">
-        <Sidebar />
+        <Sidebar isOpen={sidebarOpen} setIsOpen={setSidebarOpen} />
         <div className="flex-1 flex flex-col">
-          <Header darkMode={darkMode} setDarkMode={setDarkMode} />
+          <Header darkMode={darkMode} setDarkMode={setDarkMode} toggleSidebar={() => setSidebarOpen(!sidebarOpen)} />
 
           <main className="flex-1 overflow-auto p-6">
             <div className="max-w-7xl mx-auto">

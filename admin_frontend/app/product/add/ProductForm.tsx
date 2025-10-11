@@ -42,6 +42,7 @@ export default function AddEditProductPage() {
   const isEditMode = !!productId;
 
   const [darkMode, setDarkMode] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [formData, setFormData] = useState({
     name: '',
     mainImage: '',
@@ -383,9 +384,9 @@ export default function AddEditProductPage() {
 
   return (
     <div className={`${darkMode ? 'dark' : ''} flex h-screen`}>
-      <Sidebar />
+      <Sidebar isOpen={sidebarOpen} setIsOpen={setSidebarOpen} />
       <div className="flex-1 flex flex-col overflow-hidden">
-        <Header darkMode={darkMode} setDarkMode={setDarkMode} />
+        <Header darkMode={darkMode} setDarkMode={setDarkMode} toggleSidebar={() => setSidebarOpen(!sidebarOpen)} />
 
         <main className="flex-1 overflow-hidden flex bg-gray-50 dark:bg-gray-900">
           {/* Main Form Area */}

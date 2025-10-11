@@ -5,7 +5,7 @@ import path from 'path';
 // ✅ Path to the JSON file
 const ordersFilePath = path.resolve('data', 'orders.json');
 
-// ✅ Helper: Read all orders
+//  Helper: Read all orders
 const readOrdersFromFile = () => {
   try {
     if (fs.existsSync(ordersFilePath)) {
@@ -20,7 +20,7 @@ const readOrdersFromFile = () => {
   }
 };
 
-// ✅ Helper: Write updated orders list
+// Helper: Write updated orders list
 const writeOrdersToFile = (orders: any[]) => {
   try {
     // Ensure the data directory exists
@@ -32,7 +32,7 @@ const writeOrdersToFile = (orders: any[]) => {
   }
 };
 
-// ✅ GET — Fetch all orders
+//  GET — Fetch all orders
 export async function GET() {
   try {
     const orders = readOrdersFromFile();
@@ -43,7 +43,7 @@ export async function GET() {
   }
 }
 
-// ✅ POST — Save a new order
+//  POST — Save a new order
 export async function POST(request: Request) {
   try {
     const newOrder = await request.json();
@@ -72,7 +72,7 @@ export async function POST(request: Request) {
   }
 }
 
-// ✅ DELETE — Remove an order by ID
+//  DELETE — Remove an order by ID
 export async function DELETE(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
@@ -98,22 +98,29 @@ export async function DELETE(request: Request) {
   }
 }
 
-// ✅ PUT — Update an existing order (optional)
+
+//  PUT — Update an existing order
 export async function PUT(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
     const id = searchParams.get('id');
+
+    console.log('PUT request received for order ID:', id); // Debug log
 
     if (!id) {
       return NextResponse.json({ error: 'Missing order ID' }, { status: 400 });
     }
 
     const updatedOrderData = await request.json();
+    console.log('Updated order data:', updatedOrderData); // Debug log
+    
     const orders = readOrdersFromFile();
+    console.log('Current orders count:', orders.length); // Debug log
     
     const orderIndex = orders.findIndex((order: any) => String(order.id) === String(id));
     
     if (orderIndex === -1) {
+      console.log('Order not found with ID:', id); // Debug log
       return NextResponse.json({ error: 'Order not found' }, { status: 404 });
     }
 
@@ -121,10 +128,15 @@ export async function PUT(request: Request) {
     orders[orderIndex] = {
       ...orders[orderIndex],
       ...updatedOrderData,
+      id: orders[orderIndex].id, // Keep original ID
+      createdAt: orders[orderIndex].createdAt, // Keep original creation time
       updatedAt: new Date().toISOString(),
     };
 
+    console.log('Updated order:', orders[orderIndex]); // Debug log
+
     writeOrdersToFile(orders);
+    console.log('Order saved to file'); // Debug log
 
     return NextResponse.json({
       success: true,

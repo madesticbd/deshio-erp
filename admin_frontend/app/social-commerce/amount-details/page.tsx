@@ -14,8 +14,9 @@ export default function AmountDetailsPage() {
   // Amount details
   const [vatRate, setVatRate] = useState('5');
   const [transportCost, setTransportCost] = useState('0');
-  const [cashPaid, setCashPaid] = useState('0');
-  const [cardPaid, setCardPaid] = useState('0');
+  const [sslCommerzPaid, setSslCommerzPaid] = useState('0');
+  const [advancePaid, setAdvancePaid] = useState('0');
+  const [transactionId, setTransactionId] = useState('');
 
   useEffect(() => {
     const storedOrder = sessionStorage.getItem('pendingOrder');
@@ -40,9 +41,9 @@ export default function AmountDetailsPage() {
   const transport = parseFloat(transportCost) || 0;
   const total = subtotal + vat + transport;
   
-  const paidCash = parseFloat(cashPaid) || 0;
-  const paidCard = parseFloat(cardPaid) || 0;
-  const totalPaid = paidCash + paidCard;
+  const paidSslCommerz = parseFloat(sslCommerzPaid) || 0;
+  const paidAdvance = parseFloat(advancePaid) || 0;
+  const totalPaid = paidSslCommerz + paidAdvance;
   const dueAmount = total - totalPaid;
 
   const handlePlaceOrder = async () => {
@@ -57,8 +58,9 @@ export default function AmountDetailsPage() {
         total
       },
       payments: {
-        cash: paidCash,
-        card: paidCard,
+        sslCommerz: paidSslCommerz,
+        advance: paidAdvance,
+        transactionId,
         totalPaid,
         due: dueAmount
       }
@@ -182,7 +184,7 @@ export default function AmountDetailsPage() {
                           type="number"
                           value={vatRate}
                           onChange={(e) => setVatRate(e.target.value)}
-                          className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                          className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                         />
                       </div>
                     </div>
@@ -193,7 +195,7 @@ export default function AmountDetailsPage() {
                         type="number"
                         value={transportCost}
                         onChange={(e) => setTransportCost(e.target.value)}
-                        className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                        className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                       />
                     </div>
 
@@ -208,23 +210,33 @@ export default function AmountDetailsPage() {
                       <label className="block text-sm text-gray-700 dark:text-gray-300 mb-2">Paid Amount</label>
                       <div className="grid grid-cols-2 gap-3">
                         <div>
-                          <label className="block text-xs text-gray-500 dark:text-gray-500 mb-1">Cash Paid</label>
+                          <label className="block text-xs text-gray-500 dark:text-gray-500 mb-1">SSL Commerz</label>
                           <input
                             type="number"
-                            value={cashPaid}
-                            onChange={(e) => setCashPaid(e.target.value)}
-                            className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                            value={sslCommerzPaid}
+                            onChange={(e) => setSslCommerzPaid(e.target.value)}
+                            className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                           />
                         </div>
                         <div>
-                          <label className="block text-xs text-gray-500 dark:text-gray-500 mb-1">Card Paid</label>
+                          <label className="block text-xs text-gray-500 dark:text-gray-500 mb-1">Advance</label>
                           <input
                             type="number"
-                            value={cardPaid}
-                            onChange={(e) => setCardPaid(e.target.value)}
-                            className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                            value={advancePaid}
+                            onChange={(e) => setAdvancePaid(e.target.value)}
+                            className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                           />
                         </div>
+                      </div>
+                      <div className="mt-3">
+                        <label className="block text-xs text-gray-500 dark:text-gray-500 mb-1">Transaction ID (Optional)</label>
+                        <input
+                          type="text"
+                          value={transactionId}
+                          onChange={(e) => setTransactionId(e.target.value)}
+                          placeholder="Enter transaction ID"
+                          className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400"
+                        />
                       </div>
                     </div>
 

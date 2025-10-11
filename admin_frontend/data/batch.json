@@ -14,5 +14,13 @@
     "quantity": 30,
     "id": 1759738838128,
     "baseCode": "BATCH1759738838128"
+  },
+  {
+    "productId": 1759737987171,
+    "costPrice": 70000,
+    "sellingPrice": 110000,
+    "quantity": 20,
+    "id": 1759904043571,
+    "baseCode": "BATCH1759904043571"
   }
 ]

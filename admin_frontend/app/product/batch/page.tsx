@@ -27,6 +27,7 @@ export default function BatchPage() {
   const searchParams = useSearchParams();
 
   const [darkMode, setDarkMode] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [products, setProducts] = useState<Product[]>([]);
   const [batches, setBatches] = useState<Batch[]>([]);
   const [selectedProductId, setSelectedProductId] = useState<number | null>(null);
@@ -107,9 +108,9 @@ export default function BatchPage() {
 
   return (
     <div className={`${darkMode ? 'dark' : ''} flex h-screen`}>
-      <Sidebar />
+      <Sidebar isOpen={sidebarOpen} setIsOpen={setSidebarOpen} />
       <div className="flex-1 flex flex-col bg-gray-50 dark:bg-gray-900">
-        <Header darkMode={darkMode} setDarkMode={setDarkMode} />
+        <Header darkMode={darkMode} setDarkMode={setDarkMode} toggleSidebar={() => setSidebarOpen(!sidebarOpen)} />
 
         <main className="p-6 flex-1 overflow-y-auto">
           <div className="mb-6">

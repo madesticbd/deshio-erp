@@ -24,15 +24,15 @@
     "mode": "Single"
   },
   {
-    "id": 1759738068643,
-    "name": "Price",
-    "type": "Number",
-    "mode": "Single"
-  },
-  {
     "id": 1759738157290,
     "name": "Image",
     "type": "Image",
     "mode": "Multiple"
+  },
+  {
+    "id": 1759904094208,
+    "name": "price",
+    "type": "Number",
+    "mode": "Single"
   }
 ]

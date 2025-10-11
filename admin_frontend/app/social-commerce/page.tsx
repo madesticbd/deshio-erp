@@ -33,10 +33,17 @@ export default function SocialCommercePage() {
   const [division, setDivision] = useState('');
   const [district, setDistrict] = useState('');
   const [city, setCity] = useState('');
+ 
   const [zone, setZone] = useState('');
   const [area, setArea] = useState('');
   const [deliveryAddress, setDeliveryAddress] = useState('');
   const [postalCode, setPostalCode] = useState('');
+
+  const [divisions, setDivisions] = useState<any[]>([]);
+  const [districts, setDistricts] = useState<any[]>([]);
+  const [upazillas, setUpazillas] = useState<any[]>([]);
+
+  
   
   // Product search and selection
   const [searchQuery, setSearchQuery] = useState('');
@@ -65,6 +72,59 @@ export default function SocialCommercePage() {
     };
     fetchProducts();
   }, []);
+  
+  useEffect(() => {
+    const fetchDivisions = async () => {
+      try {
+        const res = await fetch('https://bdapi.vercel.app/api/v.1/division');
+        const data = await res.json();
+        setDivisions(data.data);
+      } catch (err) {
+        console.error('Error fetching divisions:', err);
+      }
+    };
+    fetchDivisions();
+  }, []);
+  
+  useEffect(() => {
+    if (!division) return;
+
+    const selectedDivision = divisions.find((d) => d.name === division);
+    if (!selectedDivision) return;
+
+    const fetchDistricts = async () => {
+      try {
+        const res = await fetch(`https://bdapi.vercel.app/api/v.1/district/${selectedDivision.id}`);
+        const data = await res.json();
+        setDistricts(data.data);
+        setUpazillas([]); // reset
+      } catch (err) {
+        console.error('Error fetching districts:', err);
+      }
+    };
+
+    fetchDistricts();
+  }, [division, divisions]);
+  
+  useEffect(() => {
+    if (!district) return;
+
+    const selectedDistrict = districts.find((d) => d.name === district);
+    if (!selectedDistrict) return;
+
+    const fetchUpazillas = async () => {
+      try {
+        const res = await fetch(`https://bdapi.vercel.app/api/v.1/upazilla/${selectedDistrict.id}`);
+        const data = await res.json();
+        setUpazillas(data.data);
+      } catch (err) {
+        console.error('Error fetching upazillas:', err);
+      }
+    };
+
+    fetchUpazillas();
+  }, [district, districts]);
+
 
   // Live search with debounce
   useEffect(() => {
@@ -88,6 +148,9 @@ export default function SocialCommercePage() {
     setSelectedProduct(product);
     setSearchQuery('');
     setSearchResults([]);
+    setQuantity('1'); // Auto-set quantity to 1
+    setDiscountPercent(''); // Reset discount
+    setDiscountTk(''); // Reset discount
   };
 
   // Calculate amount
@@ -108,8 +171,8 @@ export default function SocialCommercePage() {
   }, [selectedProduct, quantity, discountPercent, discountTk]);
 
   const addToCart = () => {
-    if (!selectedProduct || !quantity) {
-      alert('Please select a product and enter quantity');
+    if (!selectedProduct || !quantity || parseInt(quantity) <= 0) {
+      alert('Please select a product and enter a valid quantity');
       return;
     }
 
@@ -122,17 +185,44 @@ export default function SocialCommercePage() {
     const percentDiscount = (baseAmount * discPer) / 100;
     const totalDiscountValue = percentDiscount + discTk;
     
-    const newItem: Product = {
-      id: Date.now(),
-      productName: selectedProduct.name,
-      size: '',
-      qty: qty,
-      price: price,
-      discount: totalDiscountValue,
-      amount: baseAmount - totalDiscountValue
-    };
+    // Check if product already exists in cart
+    const existingItemIndex = cart.findIndex(
+      item => item.productName === selectedProduct.name && item.price === price
+    );
     
-    setCart([...cart, newItem]);
+    if (existingItemIndex !== -1) {
+      // Update existing item
+      const updatedCart = [...cart];
+      const existingItem = updatedCart[existingItemIndex];
+      
+      // Add quantities and recalculate
+      const newQty = existingItem.qty + qty;
+      const newBaseAmount = price * newQty;
+      const newPercentDiscount = (newBaseAmount * discPer) / 100;
+      const newTotalDiscount = existingItem.discount + totalDiscountValue;
+      
+      updatedCart[existingItemIndex] = {
+        ...existingItem,
+        qty: newQty,
+        discount: newTotalDiscount,
+        amount: newBaseAmount - newTotalDiscount
+      };
+      
+      setCart(updatedCart);
+    } else {
+      // Add new item
+      const newItem: Product = {
+        id: Date.now(),
+        productName: selectedProduct.name,
+        size: '1', // Set size as 1
+        qty: qty,
+        price: price,
+        discount: totalDiscountValue,
+        amount: baseAmount - totalDiscountValue
+      };
+      
+      setCart([...cart, newItem]);
+    }
     
     // Reset
     setSelectedProduct(null);
@@ -260,16 +350,15 @@ export default function SocialCommercePage() {
                         />
                       </div>
                       <div>
-                     <label className="block text-xs text-gray-700 dark:text-gray-300 mb-1">Social ID</label>
-                <input
-                  type="text"
-                 placeholder="Enter Social ID"
-                  value={socialId}
-                      onChange={(e) => setSocialId(e.target.value)}
-                      className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400"
+                        <label className="block text-xs text-gray-700 dark:text-gray-300 mb-1">Social ID</label>
+                        <input
+                          type="text"
+                          placeholder="Enter Social ID"
+                          value={socialId}
+                          onChange={(e) => setSocialId(e.target.value)}
+                          className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400"
                         />
                       </div>
-
                     </div>
                   </div>
 
@@ -278,40 +367,59 @@ export default function SocialCommercePage() {
                     <h3 className="text-sm font-medium text-gray-900 dark:text-white mb-4">Delivery Address</h3>
                     
                     <div className="space-y-3">
+                      {/* Division and District in one line */}
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         <div>
                           <label className="block text-xs text-gray-700 dark:text-gray-300 mb-1">Division*</label>
-                          <input
-                            type="text"
-                            placeholder="Search Division..."
+                          <select
                             value={division}
                             onChange={(e) => setDivision(e.target.value)}
-                            className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400"
-                          />
+                            className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                          >
+                            <option value="">Select Division</option>
+                            {divisions.map((d) => (
+                              <option key={d.id} value={d.name}>
+                                {d.name}
+                              </option>
+                            ))}
+                          </select>
                         </div>
 
                         <div>
                           <label className="block text-xs text-gray-700 dark:text-gray-300 mb-1">District*</label>
-                          <input
-                            type="text"
-                            placeholder="Search District..."
+                          <select
                             value={district}
                             onChange={(e) => setDistrict(e.target.value)}
-                            className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400"
-                          />
+                            disabled={!division}
+                            className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                          >
+                            <option value="">Select District</option>
+                            {districts.map((d) => (
+                              <option key={d.id} value={d.name}>
+                                {d.name}
+                              </option>
+                            ))}
+                          </select>
                         </div>
                       </div>
 
+                      {/* Upazilla and Zone in one line */}
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         <div>
-                          <label className="block text-xs text-gray-700 dark:text-gray-300 mb-1">City*</label>
-                          <input
-                            type="text"
-                            placeholder="Search City..."
+                          <label className="block text-xs text-gray-700 dark:text-gray-300 mb-1">Upazilla*</label>
+                          <select
                             value={city}
                             onChange={(e) => setCity(e.target.value)}
-                            className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400"
-                          />
+                            disabled={!district}
+                            className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                          >
+                            <option value="">Select Upazilla</option>
+                            {upazillas.map((u) => (
+                              <option key={u.id} value={u.name}>
+                                {u.name}
+                              </option>
+                            ))}
+                          </select>
                         </div>
 
                         <div>
@@ -407,7 +515,12 @@ export default function SocialCommercePage() {
                       <div className="mt-4 p-3 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded mb-4">
                         <div className="flex items-center justify-between mb-2">
                           <span className="text-sm font-medium text-gray-900 dark:text-white">Selected Product</span>
-                          <button onClick={() => setSelectedProduct(null)} className="text-red-600 hover:text-red-700">
+                          <button onClick={() => {
+                            setSelectedProduct(null);
+                            setQuantity('');
+                            setDiscountPercent('');
+                            setDiscountTk('');
+                          }} className="text-red-600 hover:text-red-700">
                             <X size={16} />
                           </button>
                         </div>
@@ -429,13 +542,43 @@ export default function SocialCommercePage() {
                     <div className="space-y-3">
                       <div>
                         <label className="block text-xs text-gray-700 dark:text-gray-300 mb-1">Quantity</label>
-                        <input
-                          type="number"
-                          placeholder="0"
-                          value={quantity}
-                          onChange={(e) => setQuantity(e.target.value)}
-                          className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                        />
+                        <div className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const currentQty = parseInt(quantity) || 0;
+                              if (currentQty > 1) {
+                                setQuantity(String(currentQty - 1));
+                              }
+                            }}
+                            disabled={!selectedProduct || !quantity || parseInt(quantity) <= 1}
+                            className="w-8 h-8 flex items-center justify-center border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors disabled:opacity-40 disabled:cursor-not-allowed text-lg"
+                            title="Decrease quantity"
+                          >
+                            −
+                          </button>
+                          <input
+                            type="number"
+                            placeholder="0"
+                            value={quantity}
+                            onChange={(e) => setQuantity(e.target.value)}
+                            disabled={!selectedProduct}
+                            min="1"
+                            className="flex-1 px-3 py-2 text-sm text-center border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white disabled:opacity-50 disabled:cursor-not-allowed [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const currentQty = parseInt(quantity) || 0;
+                              setQuantity(String(currentQty + 1));
+                            }}
+                            disabled={!selectedProduct}
+                            className="w-8 h-8 flex items-center justify-center border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors disabled:opacity-40 disabled:cursor-not-allowed text-lg"
+                            title="Increase quantity"
+                          >
+                            +
+                          </button>
+                        </div>
                       </div>
 
                       <div className="grid grid-cols-3 gap-2">
@@ -446,7 +589,8 @@ export default function SocialCommercePage() {
                             placeholder="0"
                             value={discountPercent}
                             onChange={(e) => setDiscountPercent(e.target.value)}
-                            className="w-full px-2 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                            disabled={!selectedProduct}
+                            className="w-full px-2 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white disabled:opacity-50 disabled:cursor-not-allowed [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                           />
                         </div>
                         <div>
@@ -456,7 +600,8 @@ export default function SocialCommercePage() {
                             placeholder="0"
                             value={discountTk}
                             onChange={(e) => setDiscountTk(e.target.value)}
-                            className="w-full px-2 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                            disabled={!selectedProduct}
+                            className="w-full px-2 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white disabled:opacity-50 disabled:cursor-not-allowed [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                           />
                         </div>
                         <div>
