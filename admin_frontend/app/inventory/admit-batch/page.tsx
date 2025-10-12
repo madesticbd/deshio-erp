@@ -56,11 +56,27 @@ export default function AdmitBatchPage() {
       setProductCode(`${batch.baseCode}-${String(currentCount).padStart(2, '0')}`);
     }
   }, [currentCount, batch]);
+  
+  async function getWarehouseLocation() {
+    try {
+      const response = await fetch('/api/stores');
+      if (response.ok) {
+        const stores = await response.json();
+        const warehouse = stores.find((store: any) => store.type === 'warehouse');
+        return warehouse ? warehouse.name : 'Mohammadpur'; // Fallback to 'Mohammadpur'
+      }
+    } catch (error) {
+      console.error('Error fetching warehouse:', error);
+    }
+      return 'Mohammadpur'; // Fallback
+    }
+
 
   const handleAdmitProduct = async () => {
     if (!batch) return;
 
     try {
+      const location = await getWarehouseLocation();
       // Create inventory item
       const inventoryItem = {
         productId: batch.productId,
@@ -68,7 +84,7 @@ export default function AdmitBatchPage() {
         barcode: productCode,
         costPrice: batch.costPrice,
         sellingPrice: batch.sellingPrice,
-        location: 'Mohammadpur',
+        location,
         status: 'available',
         admittedAt: new Date().toISOString()
       };

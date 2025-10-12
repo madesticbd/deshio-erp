@@ -29,9 +29,11 @@
     "toStore": "Mirpur",
     "toStoreId": 1759417024369,
     "toLocation": "Mirpur,Dhaka",
-    "status": "in-transit",
+    "status": "completed",
     "dispatchedAt": "2025-10-07T05:58:12.921Z",
-    "createdAt": "2025-10-07T05:58:12.921Z"
+    "createdAt": "2025-10-07T05:58:12.921Z",
+    "receivedAt": "2025-10-07T10:00:00.569Z",
+    "updatedAt": "2025-10-07T10:00:01.188Z"
   },
   {
     "id": 1759817586722.0242,
@@ -52,5 +54,59 @@
     "createdAt": "2025-10-07T06:13:06.722Z",
     "receivedAt": "2025-10-07T06:13:31.961Z",
     "updatedAt": "2025-10-07T06:13:32.315Z"
+  },
+  {
+    "id": 1759831130839.8044,
+    "inventoryId": 1759814770082,
+    "productId": 1759570205971,
+    "batchId": 1759577954426,
+    "barcode": "BATCH1759577954426-03",
+    "costPrice": 200,
+    "sellingPrice": 400,
+    "fromStore": "Mohammadpur",
+    "fromStoreId": 1759815526671,
+    "fromLocation": "Street no. 12",
+    "toStore": "Mirpur",
+    "toStoreId": 1759417024369,
+    "toLocation": "Mirpur,Dhaka",
+    "status": "in-transit",
+    "dispatchedAt": "2025-10-07T09:58:50.839Z",
+    "createdAt": "2025-10-07T09:58:50.839Z"
+  },
+  {
+    "id": 1759831130839.7524,
+    "inventoryId": 1759819598979,
+    "productId": 1759570205971,
+    "batchId": 1759577954426,
+    "barcode": "BATCH1759577954426-01",
+    "costPrice": 200,
+    "sellingPrice": 400,
+    "fromStore": "Mohammadpur",
+    "fromStoreId": 1759815526671,
+    "fromLocation": "Street no. 12",
+    "toStore": "Mirpur",
+    "toStoreId": 1759417024369,
+    "toLocation": "Mirpur,Dhaka",
+    "status": "in-transit",
+    "dispatchedAt": "2025-10-07T09:58:50.839Z",
+    "createdAt": "2025-10-07T09:58:50.839Z"
+  },
+  {
+    "id": 1759831130839.928,
+    "inventoryId": 1759819604638,
+    "productId": 1759570205971,
+    "batchId": 1759577954426,
+    "barcode": "BATCH1759577954426-02",
+    "costPrice": 200,
+    "sellingPrice": 400,
+    "fromStore": "Mohammadpur",
+    "fromStoreId": 1759815526671,
+    "fromLocation": "Street no. 12",
+    "toStore": "Mirpur",
+    "toStoreId": 1759417024369,
+    "toLocation": "Mirpur,Dhaka",
+    "status": "in-transit",
+    "dispatchedAt": "2025-10-07T09:58:50.839Z",
+    "createdAt": "2025-10-07T09:58:50.839Z"
   }
 ]

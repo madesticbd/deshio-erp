@@ -7,4 +7,8 @@ export interface Product {
     Colour?: string;
     [key: string]: any;
   };
+  variations?: {
+    id: string | number;  
+    attributes: Record<string, any>;
+  }[];
 }

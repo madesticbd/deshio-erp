@@ -5,6 +5,10 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import Header from '@/components/Header';
 import Sidebar from '@/components/Sidebar';
 import { ArrowLeft, Edit, Trash2 } from 'lucide-react';
+import { ImageWithFallback } from '@/components/figma/ImageWithFallback';
+
+const ERROR_IMG_SRC =
+  'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iODgiIGhlaWdodD0iODgiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyIgc3Ryb2tlPSIjMDAwIiBzdHJva2UtbGluZWpvaW49InJvdW5kIiBvcGFjaXR5PSIuMyIgZmlsbD0ibm9uZSIgc3Ryb2tlLXdpZHRoPSIzLjciPjxyZWN0IHg9IjE2IiB5PSIxNiIgd2lkdGg9IjU2IiBoZWlnaHQ9IjU2IiByeD0iNiIvPjxwYXRoIGQ9Im0xNiA1OCAxNi0xOCAzMiAzMiIvPjxjaXJjbGUgY3g9IjUzIiBjeT0iMzUiIHI9IjciLz48L3N2Zz4KCg==';
 
 interface Field {
   id: number;
@@ -15,7 +19,16 @@ interface Field {
 interface Product {
   id: number | string;
   name: string;
-  attributes: Record<string, any>;
+  attributes: {
+    mainImage?: string;
+    Image?: string | string[];
+    Colour?: string;
+    [key: string]: any;
+  };
+  variations?: {
+    id: string;
+    attributes: Record<string, any>;
+  }[];
 }
 
 interface Category {
@@ -32,12 +45,16 @@ export default function ProductViewPage() {
   const productId = searchParams.get('id');
   
   const [darkMode, setDarkMode] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [product, setProduct] = useState<Product | null>(null);
   const [fields, setFields] = useState<Field[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [mainImage, setMainImage] = useState<string>('');
   const [galleryImages, setGalleryImages] = useState<string[]>([]);
+  const [selectedVariation, setSelectedVariation] = useState<string | null>(null);
+  const [zoomedImage, setZoomedImage] = useState<string | null>(null);
+  const [variationMainImages, setVariationMainImages] = useState<Record<string, string>>({});
 
   // Reserved attribute names that shouldn't be displayed in the attributes list
   const reserved = new Set([
@@ -46,6 +63,7 @@ export default function ProductViewPage() {
     'image',
     'images',
     'gallery',
+    'Image',
     'category',
     'subcategory',
     'categoryId',
@@ -63,41 +81,29 @@ export default function ProductViewPage() {
     return /\.(jpg|jpeg|png|gif|webp|avif|svg)(\?.*)?$/.test(lower);
   };
 
-  // Extract all images from product attributes
+  // Check if key is an image key
+  const isImageKey = (key: string) => {
+    const lower = key.toLowerCase();
+    return lower.includes('image') || lower.includes('img') || lower === 'gallery';
+  };
+
+  // Extract all images from attributes
   const extractImages = (attributes: Record<string, any>): string[] => {
     if (!attributes) return [];
     
     const images: string[] = [];
-    const imageKeys = ['mainImage', 'main_image', 'image', 'images', 'gallery'];
     
-    // First, check priority keys
-    for (const key of imageKeys) {
-      const v = attributes[key];
-      if (!v) continue;
+    for (const [key, val] of Object.entries(attributes)) {
+      if (!isImageKey(key)) continue;
       
-      if (Array.isArray(v)) {
-        v.forEach(img => {
+      if (Array.isArray(val)) {
+        val.forEach(img => {
           if (typeof img === 'string' && isImageValue(img)) {
             images.push(img);
           }
         });
-      } else if (typeof v === 'string' && isImageValue(v)) {
-        images.push(v);
-      }
-    }
-    
-    // Then scan all other attributes for images
-    for (const [key, val] of Object.entries(attributes)) {
-      if (imageKeys.includes(key)) continue;
-      
-      if (isImageValue(val)) {
-        if (!images.includes(val)) images.push(val);
-      } else if (Array.isArray(val)) {
-        val.forEach(item => {
-          if (typeof item === 'string' && isImageValue(item) && !images.includes(item)) {
-            images.push(item);
-          }
-        });
+      } else if (typeof val === 'string' && isImageValue(val)) {
+        images.push(val);
       }
     }
     
@@ -167,6 +173,16 @@ export default function ProductViewPage() {
         if (images.length > 0) {
           setMainImage(images[0]);
         }
+
+        // Initialize variation main images
+        if (productData.variations && productData.variations.length > 0) {
+          const varImageMap: Record<string, string> = {};
+          productData.variations.forEach((variation: any) => {
+            const varImages = extractImages(variation.attributes);
+            varImageMap[variation.id] = varImages[0] || ERROR_IMG_SRC;
+          });
+          setVariationMainImages(varImageMap);
+        }
       } catch (err) {
         console.error(err);
         alert('Failed to load product');
@@ -205,9 +221,9 @@ export default function ProductViewPage() {
   if (isLoading) {
     return (
       <div className={`${darkMode ? 'dark' : ''} flex h-screen`}>
-        <Sidebar />
+        <Sidebar isOpen={sidebarOpen} setIsOpen={setSidebarOpen} />
         <div className="flex-1 flex flex-col">
-          <Header darkMode={darkMode} setDarkMode={setDarkMode} />
+          <Header darkMode={darkMode} setDarkMode={setDarkMode} toggleSidebar={() => setSidebarOpen(!sidebarOpen)} />
           <main className="flex-1 bg-gray-50 dark:bg-gray-900 p-6 flex items-center justify-center">
             <div className="text-gray-500 dark:text-gray-400">Loading product...</div>
           </main>
@@ -223,20 +239,26 @@ export default function ProductViewPage() {
   const categoryPath = getCategoryPath(product.attributes);
 
   // Get displayable attributes (excluding reserved and image fields)
-  const displayAttributes = fields
-    .filter(f => !reserved.has(f.name) && f.type?.toLowerCase() !== 'image')
-    .map(field => ({
-      label: field.name,
-      value: product.attributes[field.name],
-      type: field.type
-    }))
-    .filter(attr => attr.value !== undefined && attr.value !== null && attr.value !== '');
+  const displayAttributes = Object.entries(product.attributes)
+    .filter(([key, value]) => {
+      return !reserved.has(key) && 
+             !isImageKey(key) && 
+             value !== undefined && 
+             value !== null && 
+             value !== '';
+    })
+    .map(([key, value]) => ({ label: key, value }));
+
+  // Get variation attribute keys (excluding images)
+  const variationAttributeKeys = product.variations && product.variations.length > 0
+    ? Object.keys(product.variations[0].attributes).filter(key => !isImageKey(key))
+    : [];
 
   return (
     <div className={`${darkMode ? 'dark' : ''} flex h-screen`}>
-      <Sidebar />
+      <Sidebar isOpen={sidebarOpen} setIsOpen={setSidebarOpen} />
       <div className="flex-1 flex flex-col">
-        <Header darkMode={darkMode} setDarkMode={setDarkMode} />
+        <Header darkMode={darkMode} setDarkMode={setDarkMode} toggleSidebar={() => setSidebarOpen(!sidebarOpen)} />
 
         <main className="flex-1 bg-gray-50 dark:bg-gray-900 p-6 overflow-y-auto">
           {/* Header */}
@@ -258,7 +280,7 @@ export default function ProductViewPage() {
               </button>
               <button
                 onClick={handleDelete}
-                className="flex items-center gap-2 px-4 py-2 bg-gray-900 hover:bg-gray-800 text-white text-sm rounded-lg"
+                className="flex items-center gap-2 px-4 py-2 bg-red-600 hover:bg-red-700 text-white text-sm rounded-lg"
               >
                 <Trash2 className="w-4 h-4" />
               </button>
@@ -271,23 +293,16 @@ export default function ProductViewPage() {
               {/* Image Gallery */}
               <div className="space-y-4">
                 {/* Main Image */}
-                <div className="aspect-square bg-gray-100 dark:bg-gray-700 rounded-lg overflow-hidden border-2 border-gray-200 dark:border-gray-600">
-                  {mainImage ? (
-                    <img
-                      src={mainImage}
-                      alt={product.name}
-                      className="w-full h-full object-contain"
-                      onError={(e) => {
-                        e.currentTarget.src =
-                          "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='400' height='400' viewBox='0 0 400 400'%3E%3Crect width='400' height='400' fill='%23ddd'/%3E%3Ctext x='50%25' y='50%25' text-anchor='middle' dominant-baseline='middle' font-size='20' fill='%23999'%3ENo Image%3C/text%3E%3C/svg%3E";
-                      }}
-                    />
-                  ) : (
-                    <div className="w-full h-full flex items-center justify-center text-gray-400">
-                      No Image Available
-                    </div>
-                  )}
-                </div>
+                <button
+                  onClick={() => setZoomedImage(mainImage)}
+                  className="w-full aspect-square bg-gray-100 dark:bg-gray-700 rounded-lg overflow-hidden border-2 border-gray-200 dark:border-gray-600 hover:border-blue-500 dark:hover:border-blue-400 transition-colors cursor-zoom-in"
+                >
+                  <ImageWithFallback
+                    src={mainImage || ERROR_IMG_SRC}
+                    alt={product.name}
+                    className="w-full h-full object-contain"
+                  />
+                </button>
 
                 {/* Thumbnail Gallery */}
                 {galleryImages.length > 1 && (
@@ -302,14 +317,10 @@ export default function ProductViewPage() {
                             : 'border-gray-200 dark:border-gray-600 hover:border-gray-400 dark:hover:border-gray-500'
                         }`}
                       >
-                        <img
+                        <ImageWithFallback
                           src={img}
                           alt={`${product.name} ${idx + 1}`}
                           className="w-full h-full object-cover"
-                          onError={(e) => {
-                            e.currentTarget.src =
-                              "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='100' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' fill='%23ddd'/%3E%3Ctext x='50%25' y='50%25' text-anchor='middle' dominant-baseline='middle' font-size='12' fill='%23999'%3ENo Img%3C/text%3E%3C/svg%3E";
-                          }}
                         />
                       </button>
                     ))}
@@ -356,15 +367,141 @@ export default function ProductViewPage() {
                     </dl>
                   </div>
                 )}
-
-                {displayAttributes.length === 0 && (
-                  <div className="text-gray-500 dark:text-gray-400 text-center py-8">
-                    No additional details available
-                  </div>
-                )}
               </div>
             </div>
+
+            {/* Variations Section */}
+            {product.variations && product.variations.length > 0 && (
+              <div className="mt-8 border-t border-gray-200 dark:border-gray-700 pt-8">
+                <h2 className="text-2xl font-semibold text-gray-900 dark:text-white mb-6">
+                  Product Variations ({product.variations.length})
+                </h2>
+                
+                <div className="space-y-6">
+                  {product.variations.map((variation, varIndex) => {
+                    const varImages = extractImages(variation.attributes);
+                    const varMainImage = variationMainImages[variation.id] || varImages[0] || ERROR_IMG_SRC;
+                    
+                    return (
+                      <div
+                        key={variation.id}
+                        className="border border-gray-200 dark:border-gray-700 rounded-lg p-6 bg-gray-50 dark:bg-gray-800/50"
+                      >
+                        <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+                          Variation {varIndex + 1}
+                        </h3>
+                        
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                          {/* Variation Images */}
+                          <div className="space-y-3">
+                            {/* Main Variation Image */}
+                            <button
+                              onClick={() => setZoomedImage(varMainImage)}
+                              className="w-full aspect-square bg-gray-100 dark:bg-gray-700 rounded-lg overflow-hidden border-2 border-gray-200 dark:border-gray-600 hover:border-blue-500 dark:hover:border-blue-400 transition-colors cursor-zoom-in"
+                            >
+                              <ImageWithFallback
+                                src={varMainImage}
+                                alt={`Variation ${varIndex + 1}`}
+                                className="w-full h-full object-contain"
+                              />
+                            </button>
+
+                            {/* Variation Thumbnail Gallery */}
+                            {varImages.length > 1 && (
+                              <div className="grid grid-cols-5 gap-2">
+                                {varImages.map((img, idx) => (
+                                  <button
+                                    key={idx}
+                                    onClick={() => setVariationMainImages(prev => ({
+                                      ...prev,
+                                      [variation.id]: img
+                                    }))}
+                                    className={`aspect-square rounded-lg overflow-hidden border-2 transition ${
+                                      varMainImage === img
+                                        ? 'border-blue-500 dark:border-blue-400'
+                                        : 'border-gray-200 dark:border-gray-600 hover:border-gray-400 dark:hover:border-gray-500'
+                                    }`}
+                                  >
+                                    <ImageWithFallback
+                                      src={img}
+                                      alt={`Variation ${varIndex + 1} - ${idx + 1}`}
+                                      className="w-full h-full object-cover"
+                                    />
+                                  </button>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Variation Attributes */}
+                          <div>
+                            <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
+                              Attributes
+                            </h4>
+                            <dl className="space-y-2">
+                              {Object.entries(variation.attributes)
+                                .filter(([key]) => !isImageKey(key))
+                                .map(([key, value]) => (
+                                  <div
+                                    key={key}
+                                    className="grid grid-cols-2 gap-4 py-2 border-b border-gray-200 dark:border-gray-700 last:border-0"
+                                  >
+                                    <dt className="text-sm font-medium text-gray-700 dark:text-gray-300 capitalize">
+                                      {key.replace(/([A-Z_])/g, ' $1').trim()}:
+                                    </dt>
+                                    <dd className="text-sm text-gray-900 dark:text-white">
+                                      {value !== undefined && value !== null
+                                        ? String(value)
+                                        : '-'}
+                                    </dd>
+                                  </div>
+                                ))}
+                            </dl>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
           </div>
+
+          {/* Image Zoom Modal */}
+          {zoomedImage && (
+            <div
+              className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4 cursor-zoom-out"
+              onClick={() => setZoomedImage(null)}
+            >
+              <div className="relative max-w-7xl max-h-[90vh] w-full h-full flex items-center justify-center">
+                <button
+                  onClick={() => setZoomedImage(null)}
+                  className="absolute top-4 right-4 w-10 h-10 bg-white dark:bg-gray-800 rounded-full flex items-center justify-center hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors shadow-lg z-10"
+                  aria-label="Close"
+                >
+                  <svg
+                    className="w-6 h-6 text-gray-900 dark:text-white"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M6 18L18 6M6 6l12 12"
+                    />
+                  </svg>
+                </button>
+                <img
+                  src={zoomedImage}
+                  alt="Zoomed"
+                  className="max-w-full max-h-full object-contain rounded-lg shadow-2xl"
+                  onClick={(e) => e.stopPropagation()}
+                />
+              </div>
+            </div>
+          )}
         </main>
       </div>
     </div>
