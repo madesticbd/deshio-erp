@@ -47,5 +47,111 @@
     },
     "createdAt": "2025-10-10T06:55:39.824Z",
     "updatedAt": "2025-10-11T10:12:42.297Z"
+  },
+  {
+    "id": 1760243510571,
+    "salesBy": "Admin User",
+    "date": "06-Oct-2025",
+    "customer": {
+      "name": "Samin Tahmid",
+      "email": "tasneem.nishat.4953@gmail.com",
+      "phone": "01818316964",
+      "socialId": "samin tahmid"
+    },
+    "deliveryAddress": {
+      "division": "Rajshahi",
+      "district": "Pabna",
+      "city": "Pabna Sadar",
+      "zone": "Dilalpur",
+      "area": "",
+      "address": "International Affairs Division ,Paramanu Bhaban ,Bangladesh Atomic Energy Commission,",
+      "postalCode": "1212"
+    },
+    "products": [
+      {
+        "id": 1760243503339,
+        "productName": "Jamdani",
+        "size": "1",
+        "qty": 1,
+        "price": 1500,
+        "discount": 150,
+        "amount": 1350
+      }
+    ],
+    "subtotal": 1350,
+    "amounts": {
+      "subtotal": 1350,
+      "totalDiscount": 150,
+      "vat": 67.5,
+      "vatRate": 5,
+      "transportCost": 0,
+      "total": 1417.5
+    },
+    "payments": {
+      "sslCommerz": 0,
+      "advance": 0,
+      "transactionId": "",
+      "totalPaid": 0,
+      "due": 1417.5
+    },
+    "createdAt": "2025-10-12T04:31:50.571Z"
+  },
+  {
+    "id": 1760244115557,
+    "salesBy": "Admin User",
+    "date": "06-Oct-2025",
+    "customer": {
+      "name": "Adrita Ahsan",
+      "email": "tasneem.nishat.4953@gmail.com",
+      "phone": "01818316964",
+      "socialId": "Adrita"
+    },
+    "deliveryAddress": {
+      "division": "Rajshahi",
+      "district": "Pabna",
+      "city": "Ishurdi",
+      "zone": "Dilalpur",
+      "area": "",
+      "address": "International Affairs Division ,Paramanu Bhaban ,Bangladesh Atomic Energy Commission,",
+      "postalCode": "1212"
+    },
+    "products": [
+      {
+        "id": 1760243986614,
+        "productName": "Jamdani",
+        "size": "1",
+        "qty": 2,
+        "price": 1500,
+        "discount": 0,
+        "amount": 3000
+      },
+      {
+        "id": 1760244107455,
+        "productName": "Cotton Sharee",
+        "size": "1",
+        "qty": 1,
+        "price": 1000,
+        "discount": 0,
+        "amount": 1000
+      }
+    ],
+    "subtotal": 4000,
+    "amounts": {
+      "subtotal": 4000,
+      "totalDiscount": 0,
+      "vat": 200,
+      "vatRate": 5,
+      "transportCost": 0,
+      "total": 4200
+    },
+    "payments": {
+      "sslCommerz": 0,
+      "advance": 0,
+      "transactionId": "",
+      "totalPaid": 0,
+      "due": 4200
+    },
+    "createdAt": "2025-10-12T04:41:55.557Z",
+    "updatedAt": "2025-10-12T04:43:12.105Z"
   }
 ]
