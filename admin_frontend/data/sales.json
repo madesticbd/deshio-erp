@@ -1,9 +1,49 @@
 [
   {
-    "id": "sale-1759555765380",
+    "id": "sale-1759739135018",
     "salesBy": "Admin",
-    "outletId": "1759417024369",
-    "date": "2025-10-04",
+    "outletId": "1759737165411",
+    "date": "2025-10-06",
+    "customer": {
+      "name": "Rumy Parvez",
+      "mobile": "01924129777",
+      "address": "International Affairs division,Paramanu Bhaban,Agargaon,Dhaka"
+    },
+    "items": [
+      {
+        "id": 1759739092159,
+        "productName": "Jamdani",
+        "size": "",
+        "qty": 2,
+        "price": 1500,
+        "discount": 200,
+        "amount": 2800
+      }
+    ],
+    "amounts": {
+      "subtotal": 2800,
+      "totalDiscount": 200,
+      "vat": 140,
+      "vatRate": 5,
+      "transportCost": 0,
+      "total": 2940
+    },
+    "payments": {
+      "cash": 2000,
+      "card": 0,
+      "bkash": 940,
+      "nagad": 0,
+      "transactionFee": 0,
+      "totalPaid": 2940,
+      "due": 0
+    },
+    "createdAt": "2025-10-06T08:25:35.018Z"
+  },
+  {
+    "id": "sale-1759902879012",
+    "salesBy": "Admin",
+    "outletId": "1759737104297",
+    "date": "2025-10-08",
     "customer": {
       "name": "Rumy Parvez",
       "mobile": "01818316964",
@@ -11,72 +51,32 @@
     },
     "items": [
       {
-        "id": 1759555662559,
-        "productName": "Jamdani",
+        "id": 1759902854648,
+        "productName": "Cotton Sharee",
         "size": "",
-        "qty": 2,
-        "price": 2000,
-        "discount": 200,
-        "amount": 3800
+        "qty": 1,
+        "price": 1500,
+        "discount": 150,
+        "amount": 1350
       }
     ],
     "amounts": {
-      "subtotal": 3800,
-      "totalDiscount": 8000,
-      "vat": 114,
-      "vatRate": 3,
-      "transportCost": 200,
-      "total": 4114
-    },
-    "payments": {
-      "cash": 4000,
-      "card": 114,
-      "bkash": 0,
-      "nagad": 0,
-      "transactionFee": 0,
-      "totalPaid": 4114,
-      "due": 0
-    },
-    "createdAt": "2025-10-04T05:29:25.380Z"
-  },
-  {
-    "id": "sale-1759557571750",
-    "salesBy": "Admin",
-    "outletId": "1759417024369",
-    "date": "2025-10-04",
-    "customer": {
-      "name": "Samin",
-      "mobile": "011293275",
-      "address": "Uttara,Dhaka"
-    },
-    "items": [
-      {
-        "id": 1759557516834,
-        "productName": "Jama",
-        "size": "",
-        "qty": 2,
-        "price": 1000,
-        "discount": 200,
-        "amount": 1800
-      }
-    ],
-    "amounts": {
-      "subtotal": 1800,
-      "totalDiscount": 200,
-      "vat": 90,
+      "subtotal": 1350,
+      "totalDiscount": 150,
+      "vat": 67.5,
       "vatRate": 5,
       "transportCost": 100,
-      "total": 1990
+      "total": 1517.5
     },
     "payments": {
       "cash": 1500,
-      "card": 400,
-      "bkash": 50,
-      "nagad": 40,
+      "card": 17.5,
+      "bkash": 0,
+      "nagad": 0,
       "transactionFee": 0,
-      "totalPaid": 1990,
+      "totalPaid": 1517.5,
       "due": 0
     },
-    "createdAt": "2025-10-04T05:59:31.750Z"
+    "createdAt": "2025-10-08T05:54:39.012Z"
   }
 ]

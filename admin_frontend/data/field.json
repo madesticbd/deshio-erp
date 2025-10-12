@@ -1,5 +1,6 @@
 [
   {
+<<<<<<< HEAD
     "id": 1759562326602,
     "name": "Color",
     "type": "Text",
@@ -14,13 +15,47 @@
   {
     "id": 1759661894685,
     "name": "Size",
+=======
+    "id": 1759737538347,
+    "name": "Fabric-type",
+>>>>>>> 4bc6fea3d17cdcc2a0e3cadc7b81d8230827ad76
     "type": "Text",
+    "mode": "Single"
+  },
+  {
+    "id": 1759737605874,
+    "name": "Pattern",
+    "type": "Text",
+    "mode": "Single"
+  },
+  {
+    "id": 1759737660515,
+    "name": "origin",
+    "type": "Text",
+    "mode": "Single"
+  },
+  {
+    "id": 1759737681890,
+    "name": "care-instructions",
+    "type": "Text",
+    "mode": "Single"
+  },
+  {
+    "id": 1759738157290,
+    "name": "Image",
+    "type": "Image",
     "mode": "Multiple"
   },
   {
+<<<<<<< HEAD
     "id": 1760231363008,
     "name": "Description",
     "type": "Text",
+=======
+    "id": 1759904094208,
+    "name": "price",
+    "type": "Number",
+>>>>>>> 4bc6fea3d17cdcc2a0e3cadc7b81d8230827ad76
     "mode": "Single"
   }
 ]

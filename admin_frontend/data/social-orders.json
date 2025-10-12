@@ -1,0 +1,47 @@
+[
+  {
+    "id": "order-1759739311146",
+    "salesBy": "Admin User",
+    "date": "06-Oct-2025",
+    "customer": {
+      "name": "NIshat Tasneem",
+      "email": "nishat@gmail.com",
+      "phone": "01924129777"
+    },
+    "deliveryAddress": {
+      "division": "Dhaka",
+      "district": "Dhaka",
+      "city": "Dhaka",
+      "zone": "Uttara",
+      "area": "",
+      "address": "sector 13, road -01,house 20",
+      "postalCode": "1212"
+    },
+    "products": [
+      {
+        "id": 1759739260408,
+        "productName": "Cotton Sharee",
+        "size": "",
+        "qty": 2,
+        "price": 1000,
+        "discount": 0,
+        "amount": 2000
+      }
+    ],
+    "amounts": {
+      "subtotal": 2000,
+      "totalDiscount": 0,
+      "vat": 100,
+      "vatRate": 5,
+      "transportCost": 100,
+      "total": 2200
+    },
+    "payments": {
+      "cash": 2000,
+      "card": 200,
+      "totalPaid": 2200,
+      "due": 0
+    },
+    "createdAt": "2025-10-06T08:28:31.146Z"
+  }
+]

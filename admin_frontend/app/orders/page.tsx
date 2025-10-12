@@ -1,0 +1,226 @@
+// app/orders/page.tsx
+'use client';
+
+import { useState, useEffect } from 'react';
+import Header from '@/components/Header';
+import Sidebar from '@/components/Sidebar';
+import StatsCards from '@/components/orders/StatsCards';
+import OrderFilters from '@/components/orders/OrderFilters';
+import OrdersTable from '@/components/orders/OrdersTable';
+import OrderDetailsModal from '@/components/orders/OrderDetailsModal';
+import EditOrderModal from '@/components/orders/EditOrderModal';
+import { Order } from '@/types/order';
+
+export default function OrdersDashboard() {
+  const [darkMode, setDarkMode] = useState(false);
+  const [orders, setOrders] = useState<Order[]>([]);
+  const [filteredOrders, setFilteredOrders] = useState<Order[]>([]);
+  const [search, setSearch] = useState('');
+  const [dateFilter, setDateFilter] = useState('');
+  const [statusFilter, setStatusFilter] = useState('All Status');
+  const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
+  const [showDetailsModal, setShowDetailsModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [activeMenu, setActiveMenu] = useState<number | null>(null);
+
+  useEffect(() => {
+    loadOrders();
+  }, []);
+
+  const loadOrders = async () => {
+    try {
+      const response = await fetch('/api/orders');
+      if (response.ok) {
+        const data = await response.json();
+        setOrders(data);
+        setFilteredOrders(data);
+        return;
+      }
+    } catch (error) {
+      console.error('Failed to load from API:', error);
+    }
+    
+    try {
+      const data = (await import('@/data/orders.json')).default;
+      setOrders(data);
+      setFilteredOrders(data);
+    } catch (error) {
+      console.error('Failed to load orders:', error);
+    }
+  };
+
+  useEffect(() => {
+    let filtered = orders;
+
+    if (search.trim()) {
+      filtered = filtered.filter((o) =>
+        o.id.toString().includes(search.trim()) ||
+        o.customer.name.toLowerCase().includes(search.toLowerCase())
+      );
+    }
+
+    if (dateFilter.trim()) {
+      filtered = filtered.filter((o) => o.date === dateFilter);
+    }
+
+    if (statusFilter !== 'All Status') {
+      filtered = filtered.filter((o) =>
+        statusFilter === 'Paid' ? o.payments.due === 0 : o.payments.due > 0
+      );
+    }
+
+    setFilteredOrders(filtered);
+  }, [search, dateFilter, statusFilter, orders]);
+
+  const handleViewDetails = (order: Order) => {
+    setSelectedOrder(order);
+    setShowDetailsModal(true);
+    setActiveMenu(null);
+  };
+
+  const handleEditOrder = (order: Order) => {
+    setSelectedOrder(order);
+    setShowEditModal(true);
+    setActiveMenu(null);
+  };
+
+  const handleSaveOrder = async (updatedOrder: Order) => {
+  try {
+    console.log('Saving order:', updatedOrder); 
+    
+  const response = await fetch(`/api/social-orders?id=${updatedOrder.id}`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(updatedOrder),
+    });
+
+    console.log('Response status:', response.status); 
+
+    if (response.ok) {
+      const result = await response.json();
+      console.log('Save result:', result); 
+      await loadOrders();
+      setShowEditModal(false);
+      alert('Order updated successfully!');
+    } else {
+      const errorData = await response.json();
+      console.error('Error response:', errorData); 
+      alert(`Failed to update order: ${errorData.error || 'Unknown error'}`);
+    }
+  } catch (error) {
+    console.error('Error updating order:', error);
+    alert('Network error. Please check console for details.');
+    throw error;
+  }
+};
+
+  const handleCancelOrder = async (orderId: number) => {
+    if (!confirm('Are you sure you want to cancel this order?')) return;
+
+    try {
+      const response = await fetch(`/api/social-orders?id=${orderId}`, {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+
+      const contentType = response.headers.get('content-type');
+      if (!contentType || !contentType.includes('application/json')) {
+        alert('API endpoint not found. Please ensure /api/social-orders/route.ts exists with DELETE method.');
+        return;
+      }
+      
+      if (response.ok) {
+        await loadOrders();
+        setActiveMenu(null);
+        alert('Order cancelled successfully!');
+      } else {
+        const errorData = await response.json();
+        alert(`Failed to cancel order: ${errorData.error || 'Unknown error'}`);
+      }
+    } catch (error) {
+      console.error('Error cancelling order:', error);
+      alert(`API Error: Make sure /api/social-orders/route.ts exists with a DELETE export function`);
+    }
+  };
+
+  const totalRevenue = orders.reduce((sum, order) => sum + (order.amounts?.total || order.subtotal), 0);
+  const paidOrders = orders.filter(o => o.payments.due === 0).length;
+  const pendingOrders = orders.filter(o => o.payments.due > 0).length;
+
+  return (
+    <div className={darkMode ? 'dark' : ''}>
+      <div className="flex h-screen bg-gray-100 dark:bg-black">
+        <Sidebar />
+        <div className="flex-1 flex flex-col overflow-hidden">
+          <Header darkMode={darkMode} setDarkMode={setDarkMode} />
+
+          <main className="flex-1 overflow-auto bg-gray-100 dark:bg-black">
+            <div className="px-4 md:px-8 pt-6 pb-4">
+              <div className="max-w-7xl mx-auto">
+                <div className="mb-6">
+                  <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">Orders Dashboard</h1>
+                  <p className="text-gray-600 dark:text-gray-400">Overview of all your orders and sales</p>
+                </div>
+
+                <StatsCards 
+                  totalOrders={orders.length}
+                  paidOrders={paidOrders}
+                  pendingOrders={pendingOrders}
+                  totalRevenue={totalRevenue}
+                />
+              </div>
+            </div>
+
+            <div className="max-w-7xl mx-auto px-4 md:px-8 pb-6">
+              <OrderFilters
+                search={search}
+                setSearch={setSearch}
+                dateFilter={dateFilter}
+                setDateFilter={setDateFilter}
+                statusFilter={statusFilter}
+                setStatusFilter={setStatusFilter}
+              />
+
+              <OrdersTable
+                filteredOrders={filteredOrders}
+                totalOrders={orders.length}
+                activeMenu={activeMenu}
+                setActiveMenu={setActiveMenu}
+                onViewDetails={handleViewDetails}
+                onEditOrder={handleEditOrder}
+                onCancelOrder={handleCancelOrder}
+              />
+            </div>
+          </main>
+        </div>
+      </div>
+
+      {showDetailsModal && selectedOrder && (
+        <OrderDetailsModal
+          order={selectedOrder}
+          onClose={() => setShowDetailsModal(false)}
+          onEdit={handleEditOrder}
+        />
+      )}
+
+      {showEditModal && selectedOrder && (
+        <EditOrderModal
+          order={selectedOrder}
+          onClose={() => setShowEditModal(false)}
+          onSave={handleSaveOrder}
+        />
+      )}
+
+      {activeMenu !== null && (
+        <div
+          className="fixed inset-0 z-10"
+          onClick={() => setActiveMenu(null)}
+        />
+      )}
+    </div>
+  );
+}

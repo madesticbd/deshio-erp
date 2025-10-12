@@ -36,3 +36,4 @@ export default function Header({ darkMode, setDarkMode, toggleSidebar }: HeaderP
     </header>
   );
 }
+

@@ -1,80 +1,33 @@
 [
   {
-    "id": 1759562400497,
-    "name": "Sharee",
-    "attributes": {
-      "mainImage": "/uploads/1759927959798-Screenshot 2025-10-08 105735.png",
-      "category": "1",
-      "subcategory": "",
-      "Color": "Red",
-      "Image": "/uploads/1759562395558-1759417036216-Electronic Device.jpeg"
-    }
-  },
-  {
-    "id": 1759570205971,
-    "name": "Shotoronji",
-    "attributes": {
-      "Image": "/uploads/1759570203256-1759417036216-Electronic Device.jpeg"
-    }
-  },
-  {
-    "id": 1759661990174,
-    "name": "Shirt",
-    "attributes": {
-      "mainImage": "/uploads/1759661921527-wall1.jpg",
-      "category": "3",
-      "subcategory": "",
-      "size": "XL, S"
-    }
-  },
-  {
-    "id": 1759832116371,
+    "id": 1759737987171,
     "name": "Jamdani",
     "attributes": {
-      "mainImage": "/uploads/1759832095390-Saree.webp",
-      "category": "3",
-      "subcategory": "",
-      "Color": "Beige"
+      "mainImage": "/uploads/1759737875133-jamdani product.webp",
+      "category": "1",
+      "subcategory": "2",
+      "Fabric-type": "Cotton",
+      "origin": "Tangail, Bangladesh",
+      "care-instructions": "Better to dry wash",
+      "Price": "1500",
+      "Image": [
+        "/uploads/1759738411866-Shadam jamdani2.jpg",
+        "/uploads/1759738423655-jam2.jpg"
+      ]
     }
   },
   {
-    "id": 1760032123842,
-    "name": "Silk Sharee",
+    "id": 1759738578875,
+    "name": "Cotton Sharee",
     "attributes": {
-      "mainImage": "/uploads/1760234434650-7863dfd0-4fe7-4e29-8658-01728e8060a4.jpeg",
+      "mainImage": "/uploads/1759738532116-cotton.webp",
       "category": "1",
       "subcategory": "",
-      "Description": "Hello"
-    },
-    "variations": [
-      {
-        "id": "var-1760032083055-0.5034516485558468",
-        "attributes": {
-          "Color": "Blue",
-          "Size": "23",
-          "Image": [
-            "/uploads/1760234621076-Fashion.jpeg",
-            "/uploads/1760234627222-Electronic Device.jpeg"
-          ]
-        }
-      },
-      {
-        "id": "var-1760231588893-0.29537182022820363",
-        "attributes": {
-          "Color": "Red",
-          "Size": "40"
-        }
-      }
-    ]
-  },
-  {
-    "id": 1760080628858,
-    "name": "Jama",
-    "attributes": {
-      "mainImage": "/uploads/1760232104933-Saree.webp",
-      "category": "8",
-      "subcategory": ""
-    },
-    "variations": []
+      "Fabric-type": "Cotton",
+      "origin": "Tangail, Bangladesh",
+      "care-instructions": "Better to dry wash",
+      "Price": "1000",
+      "Image": "/uploads/1759738721718-Shadam jamdani2.jpg"
+    }
   }
 ]

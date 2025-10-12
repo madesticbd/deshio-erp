@@ -19,6 +19,7 @@ interface Field {
 
 export default function FieldPage() {
   const [darkMode, setDarkMode] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [fields, setFields] = useState<Field[]>([]);
   const [showForm, setShowForm] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
@@ -171,9 +172,9 @@ export default function FieldPage() {
 
   return (
     <div className={`${darkMode ? 'dark' : ''} flex h-screen`}>
-      <Sidebar />
+      <Sidebar isOpen={sidebarOpen} setIsOpen={setSidebarOpen} />
       <div className="flex-1 flex flex-col">
-        <Header darkMode={darkMode} setDarkMode={setDarkMode} />
+        <Header darkMode={darkMode} setDarkMode={setDarkMode} toggleSidebar={() => setSidebarOpen(!sidebarOpen)} />
 
         <main className="flex-1 bg-gray-50 dark:bg-gray-900 p-6">
           <div className="flex justify-between items-center mb-6">
