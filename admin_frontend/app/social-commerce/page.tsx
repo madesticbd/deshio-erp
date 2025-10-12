@@ -1,9 +1,11 @@
-
 'use client';
 
 import { useState, useEffect } from 'react';
+import { Search, X } from 'lucide-react';
 import Header from '@/components/Header';
 import Sidebar from '@/components/Sidebar';
+import { useRouter } from 'next/navigation';
+
 
 interface Product {
   id: number;
@@ -16,44 +18,149 @@ interface Product {
 }
 
 export default function SocialCommercePage() {
+  const router = useRouter();
   const [darkMode, setDarkMode] = useState(false);
-  const [date, setDate] = useState('06-Oct-2025');
-  const [cart, setCart] = useState<Product[]>([]);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [allProducts, setAllProducts] = useState<any[]>([]);
   
   // Form fields
+  const [date, setDate] = useState('06-Oct-2025');
   const [salesBy, setSalesBy] = useState('Admin User');
   const [userName, setUserName] = useState('');
   const [userEmail, setUserEmail] = useState('');
   const [userPhone, setUserPhone] = useState('');
+  const [socialId, setSocialId] = useState('');
   const [division, setDivision] = useState('');
   const [district, setDistrict] = useState('');
   const [city, setCity] = useState('');
+ 
   const [zone, setZone] = useState('');
   const [area, setArea] = useState('');
   const [deliveryAddress, setDeliveryAddress] = useState('');
   const [postalCode, setPostalCode] = useState('');
+
+  const [divisions, setDivisions] = useState<any[]>([]);
+  const [districts, setDistricts] = useState<any[]>([]);
+  const [upazillas, setUpazillas] = useState<any[]>([]);
+
   
-  const [product, setProduct] = useState('');
-  const [sellingPrice, setSellingPrice] = useState('');
+  
+  // Product search and selection
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState<any[]>([]);
+  const [selectedProduct, setSelectedProduct] = useState<any>(null);
+  const [cart, setCart] = useState<Product[]>([]);
+  
   const [quantity, setQuantity] = useState('');
   const [discountPercent, setDiscountPercent] = useState('');
   const [discountTk, setDiscountTk] = useState('');
   const [amount, setAmount] = useState('0.00');
+
+  // Fetch products on component mount
+  useEffect(() => {
+    const fetchProducts = async () => {
+      try {
+        const response = await fetch('/api/products');
+        if (response.ok) {
+          const data = await response.json();
+          setAllProducts(data);
+        }
+      } catch (error) {
+        console.error('Error fetching products:', error);
+
+      }
+    };
+    fetchProducts();
+  }, []);
   
-  // Amount details
-  const [vatRate, setVatRate] = useState('5');
-  const [transportCost, setTransportCost] = useState('0');
-  const [cashPaid, setCashPaid] = useState('0');
-  const [cardPaid, setCardPaid] = useState('0');
+  useEffect(() => {
+    const fetchDivisions = async () => {
+      try {
+        const res = await fetch('https://bdapi.vercel.app/api/v.1/division');
+        const data = await res.json();
+        setDivisions(data.data);
+      } catch (err) {
+        console.error('Error fetching divisions:', err);
+      }
+    };
+    fetchDivisions();
+  }, []);
+  
+  useEffect(() => {
+    if (!division) return;
+
+    const selectedDivision = divisions.find((d) => d.name === division);
+    if (!selectedDivision) return;
+
+    const fetchDistricts = async () => {
+      try {
+        const res = await fetch(`https://bdapi.vercel.app/api/v.1/district/${selectedDivision.id}`);
+        const data = await res.json();
+        setDistricts(data.data);
+        setUpazillas([]); // reset
+      } catch (err) {
+        console.error('Error fetching districts:', err);
+      }
+    };
+
+    fetchDistricts();
+  }, [division, divisions]);
+  
+  useEffect(() => {
+    if (!district) return;
+
+    const selectedDistrict = districts.find((d) => d.name === district);
+    if (!selectedDistrict) return;
+
+    const fetchUpazillas = async () => {
+      try {
+        const res = await fetch(`https://bdapi.vercel.app/api/v.1/upazilla/${selectedDistrict.id}`);
+        const data = await res.json();
+        setUpazillas(data.data);
+      } catch (err) {
+        console.error('Error fetching upazillas:', err);
+      }
+    };
+
+    fetchUpazillas();
+  }, [district, districts]);
+
+
+  // Live search with debounce
+  useEffect(() => {
+    if (!searchQuery.trim()) {
+      setSearchResults([]);
+      return;
+    }
+
+    const delayDebounce = setTimeout(() => {
+      const results = allProducts.filter((product: any) =>
+        product.name.toLowerCase().includes(searchQuery.toLowerCase())
+      );
+      setSearchResults(results);
+    }, 300);
+
+    return () => clearTimeout(delayDebounce);
+  }, [searchQuery, allProducts]);
+
+  // Select product from search results
+  const handleProductSelect = (product: any) => {
+    setSelectedProduct(product);
+    setSearchQuery('');
+    setSearchResults([]);
+    setQuantity('1'); // Auto-set quantity to 1
+    setDiscountPercent(''); // Reset discount
+    setDiscountTk(''); // Reset discount
+  };
 
   // Calculate amount
   useEffect(() => {
-    const price = parseFloat(sellingPrice) || 0;
-    const qty = parseFloat(quantity) || 0;
-    const discPer = parseFloat(discountPercent) || 0;
-    const discTk = parseFloat(discountTk) || 0;
-    
-    if (price > 0 && qty > 0) {
+    if (selectedProduct && quantity) {
+      const price = parseFloat(selectedProduct.attributes.Price);
+      const qty = parseFloat(quantity) || 0;
+      const discPer = parseFloat(discountPercent) || 0;
+      const discTk = parseFloat(discountTk) || 0;
+      
       const baseAmount = price * qty;
       const percentDiscount = (baseAmount * discPer) / 100;
       const totalDiscount = percentDiscount + discTk;
@@ -61,15 +168,15 @@ export default function SocialCommercePage() {
     } else {
       setAmount('0.00');
     }
-  }, [sellingPrice, quantity, discountPercent, discountTk]);
+  }, [selectedProduct, quantity, discountPercent, discountTk]);
 
   const addToCart = () => {
-    if (!product || !sellingPrice || !quantity) {
-      alert('Please fill product details');
+    if (!selectedProduct || !quantity || parseInt(quantity) <= 0) {
+      alert('Please select a product and enter a valid quantity');
       return;
     }
 
-    const price = parseFloat(sellingPrice);
+    const price = parseFloat(selectedProduct.attributes.Price);
     const qty = parseFloat(quantity);
     const discPer = parseFloat(discountPercent) || 0;
     const discTk = parseFloat(discountTk) || 0;
@@ -78,21 +185,47 @@ export default function SocialCommercePage() {
     const percentDiscount = (baseAmount * discPer) / 100;
     const totalDiscountValue = percentDiscount + discTk;
     
-    const newItem: Product = {
-      id: Date.now(),
-      productName: product,
-      size: '',
-      qty: qty,
-      price: price,
-      discount: totalDiscountValue,
-      amount: baseAmount - totalDiscountValue
-    };
+    // Check if product already exists in cart
+    const existingItemIndex = cart.findIndex(
+      item => item.productName === selectedProduct.name && item.price === price
+    );
     
-    setCart([...cart, newItem]);
+    if (existingItemIndex !== -1) {
+      // Update existing item
+      const updatedCart = [...cart];
+      const existingItem = updatedCart[existingItemIndex];
+      
+      // Add quantities and recalculate
+      const newQty = existingItem.qty + qty;
+      const newBaseAmount = price * newQty;
+      const newPercentDiscount = (newBaseAmount * discPer) / 100;
+      const newTotalDiscount = existingItem.discount + totalDiscountValue;
+      
+      updatedCart[existingItemIndex] = {
+        ...existingItem,
+        qty: newQty,
+        discount: newTotalDiscount,
+        amount: newBaseAmount - newTotalDiscount
+      };
+      
+      setCart(updatedCart);
+    } else {
+      // Add new item
+      const newItem: Product = {
+        id: Date.now(),
+        productName: selectedProduct.name,
+        size: '1', // Set size as 1
+        qty: qty,
+        price: price,
+        discount: totalDiscountValue,
+        amount: baseAmount - totalDiscountValue
+      };
+      
+      setCart([...cart, newItem]);
+    }
     
     // Reset
-    setProduct('');
-    setSellingPrice('');
+    setSelectedProduct(null);
     setQuantity('');
     setDiscountPercent('');
     setDiscountTk('');
@@ -104,22 +237,18 @@ export default function SocialCommercePage() {
   };
 
   const subtotal = cart.reduce((sum, item) => sum + item.amount, 0);
-  const totalDiscount = cart.reduce((sum, item) => sum + item.discount, 0);
-  const vat = (subtotal * parseFloat(vatRate)) / 100;
-  const transport = parseFloat(transportCost) || 0;
-  const total = subtotal + vat + transport;
-  
-  const paidCash = parseFloat(cashPaid) || 0;
-  const paidCard = parseFloat(cardPaid) || 0;
-  const totalPaid = paidCash + paidCard;
-  const dueAmount = total - totalPaid;
 
-  const handlePlaceOrder = async () => {
+  const handleConfirmOrder = () => {
+    if (!userName || !userEmail || !userPhone) {
+      alert('Please fill in customer information');
+      return;
+    }
     if (cart.length === 0) {
       alert('Please add products to cart');
       return;
     }
-
+    
+    // Store order data in session storage for the next page
     const orderData = {
       salesBy,
       date,
@@ -127,6 +256,7 @@ export default function SocialCommercePage() {
         name: userName,
         email: userEmail,
         phone: userPhone,
+        socialId: socialId
       },
       deliveryAddress: {
         division,
@@ -138,453 +268,423 @@ export default function SocialCommercePage() {
         postalCode
       },
       products: cart,
-      amounts: {
-        subtotal,
-        totalDiscount,
-        vat,
-        vatRate: parseFloat(vatRate),
-        transportCost: transport,
-        total
-      },
-      payments: {
-        cash: paidCash,
-        card: paidCard,
-        totalPaid,
-        due: dueAmount
-      }
+      subtotal
     };
-
-    try {
-      const response = await fetch('/api/social-orders', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(orderData),
-      });
-
-      if (response.ok) {
-        alert('Order placed successfully!');
-        // Reset all fields
-        setCart([]);
-        setUserName('');
-        setUserEmail('');
-        setUserPhone('');
-        setDivision('');
-        setDistrict('');
-        setCity('');
-        setZone('');
-        setArea('');
-        setDeliveryAddress('');
-        setPostalCode('');
-        setProduct('');
-        setSellingPrice('');
-        setQuantity('');
-        setCashPaid('0');
-        setCardPaid('0');
-        setTransportCost('0');
-      } else {
-        alert('Failed to place order');
-      }
-    } catch (error) {
-      console.error('Error:', error);
-      alert('Error placing order');
-    }
+    
+    sessionStorage.setItem('pendingOrder', JSON.stringify(orderData));
+    router.push('/social-commerce/amount-details');
   };
 
   return (
     <div className={darkMode ? 'dark' : ''}>
       <div className="flex h-screen bg-gray-50 dark:bg-gray-900">
-        <Sidebar />
+        <Sidebar isOpen={sidebarOpen} setIsOpen={setSidebarOpen} />
+        
         <div className="flex-1 flex flex-col overflow-hidden">
-          <Header darkMode={darkMode} setDarkMode={setDarkMode} />
-
-          <main className="flex-1 overflow-auto p-6">
-            {/* Top Bar */}
-            <div className="mb-6 flex items-center gap-4">
-              <div>
-                <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">Sales By</label>
-                <input
-                  type="text"
-                  value={salesBy}
-                  readOnly
-                  className="px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-white"
-                />
+          <Header darkMode={darkMode} setDarkMode={setDarkMode} toggleSidebar={() => setSidebarOpen(!sidebarOpen)} />
+          
+          <main className="flex-1 overflow-auto p-4 md:p-6">
+            <div className="max-w-7xl mx-auto">
+              <h1 className="text-xl md:text-2xl font-semibold text-gray-900 dark:text-white mb-4 md:mb-6">Social Commerce</h1>
+              
+              {/* Top Bar */}
+              <div className="mb-4 md:mb-6 flex flex-col sm:flex-row items-start sm:items-center gap-3">
+                <div className="w-full sm:w-auto">
+                  <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">Sales By</label>
+                  <input
+                    type="text"
+                    value={salesBy}
+                    readOnly
+                    className="w-full px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-white"
+                  />
+                </div>
+                <div className="w-full sm:w-auto">
+                  <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">Date <span className="text-red-500">*</span></label>
+                  <input
+                    type="text"
+                    value={date}
+                    onChange={(e) => setDate(e.target.value)}
+                    className="w-full px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                  />
+                </div>
               </div>
-              <div>
-                <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">Date <span className="text-red-500">*</span></label>
-                <input
-                  type="text"
-                  value={date}
-                  onChange={(e) => setDate(e.target.value)}
-                  className="px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                />
-              </div>
-            </div>
 
-            <div className="grid grid-cols-3 gap-6">
-              {/* Left Section - 2 columns */}
-              <div className="col-span-2 space-y-6">
-                {/* Sales Information */}
-                <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-5">
-                  <h3 className="text-sm font-medium text-gray-900 dark:text-white mb-4">Sales Information</h3>
-                  
-                  <div className="grid grid-cols-2 gap-x-4 gap-y-3">
-                    {/* Row 1 */}
-                    <div>
-                      <label className="block text-xs text-gray-700 dark:text-gray-300 mb-1">User Name*</label>
-                      <input
-                        type="text"
-                        placeholder="Full Name"
-                        value={userName}
-                        onChange={(e) => setUserName(e.target.value)}
-                        className="w-full px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-xs text-gray-700 dark:text-gray-300 mb-1">Product</label>
-                      <input
-                        type="text"
-                        placeholder="Select Product Name"
-                        value={product}
-                        onChange={(e) => setProduct(e.target.value)}
-                        className="w-full px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400"
-                      />
-                    </div>
-
-                    {/* Row 2 */}
-                    <div>
-                      <label className="block text-xs text-gray-700 dark:text-gray-300 mb-1">User Email*</label>
-                      <input
-                        type="email"
-                        placeholder="sample@email.com"
-                        value={userEmail}
-                        onChange={(e) => setUserEmail(e.target.value)}
-                        className="w-full px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-xs text-gray-700 dark:text-gray-300 mb-1">Selling Price</label>
-                      <input
-                        type="number"
-                        placeholder="0"
-                        value={sellingPrice}
-                        onChange={(e) => setSellingPrice(e.target.value)}
-                        className="w-full px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                      />
-                    </div>
-
-                    {/* Row 3 */}
-                    <div>
-                      <label className="block text-xs text-gray-700 dark:text-gray-300 mb-1">User Phone Number*</label>
-                      <input
-                        type="text"
-                        placeholder="Phone Number"
-                        value={userPhone}
-                        onChange={(e) => setUserPhone(e.target.value)}
-                        className="w-full px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-xs text-gray-700 dark:text-gray-300 mb-1">Quantity</label>
-                      <input
-                        type="number"
-                        placeholder="0"
-                        value={quantity}
-                        onChange={(e) => setQuantity(e.target.value)}
-                        className="w-full px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                      />
-                    </div>
-
-                    {/* Row 4 */}
-                    <div>
-                      <label className="block text-xs text-gray-700 dark:text-gray-300 mb-1">Division*</label>
-                      <input
-                        type="text"
-                        placeholder="Search Division..."
-                        value={division}
-                        onChange={(e) => setDivision(e.target.value)}
-                        className="w-full px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400"
-                      />
-                    </div>
-                    <div className="grid grid-cols-3 gap-2">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6">
+                {/* Left Column - Customer Info & Address */}
+                <div className="space-y-4 md:space-y-6">
+                  {/* Customer Information */}
+                  <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4 md:p-5">
+                    <h3 className="text-sm font-medium text-gray-900 dark:text-white mb-4">Customer Information</h3>
+                    
+                    <div className="space-y-3">
                       <div>
-                        <label className="block text-xs text-gray-700 dark:text-gray-300 mb-1">Discount %</label>
-                        <input
-                          type="number"
-                          placeholder="0"
-                          value={discountPercent}
-                          onChange={(e) => setDiscountPercent(e.target.value)}
-                          className="w-full px-2 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-xs text-gray-700 dark:text-gray-300 mb-1">Tk.</label>
-                        <input
-                          type="number"
-                          placeholder="0"
-                          value={discountTk}
-                          onChange={(e) => setDiscountTk(e.target.value)}
-                          className="w-full px-2 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-xs text-gray-700 dark:text-gray-300 mb-1">Amount</label>
+                        <label className="block text-xs text-gray-700 dark:text-gray-300 mb-1">User Name*</label>
                         <input
                           type="text"
-                          value={amount}
-                          readOnly
-                          className="w-full px-2 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded bg-gray-50 dark:bg-gray-600 text-gray-900 dark:text-white"
+                          placeholder="Full Name"
+                          value={userName}
+                          onChange={(e) => setUserName(e.target.value)}
+                          className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-xs text-gray-700 dark:text-gray-300 mb-1">User Email*</label>
+                        <input
+                          type="email"
+                          placeholder="sample@email.com"
+                          value={userEmail}
+                          onChange={(e) => setUserEmail(e.target.value)}
+                          className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-xs text-gray-700 dark:text-gray-300 mb-1">User Phone Number*</label>
+                        <input
+                          type="text"
+                          placeholder="Phone Number"
+                          value={userPhone}
+                          onChange={(e) => setUserPhone(e.target.value)}
+                          className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs text-gray-700 dark:text-gray-300 mb-1">Social ID</label>
+                        <input
+                          type="text"
+                          placeholder="Enter Social ID"
+                          value={socialId}
+                          onChange={(e) => setSocialId(e.target.value)}
+                          className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400"
                         />
                       </div>
                     </div>
+                  </div>
 
-                    {/* Row 5 */}
-                    <div>
-                      <label className="block text-xs text-gray-700 dark:text-gray-300 mb-1">District*</label>
-                      <input
-                        type="text"
-                        placeholder="Search District..."
-                        value={district}
-                        onChange={(e) => setDistrict(e.target.value)}
-                        className="w-full px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400"
-                      />
-                    </div>
-                    <div></div>
+                  {/* Delivery Address */}
+                  <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4 md:p-5">
+                    <h3 className="text-sm font-medium text-gray-900 dark:text-white mb-4">Delivery Address</h3>
+                    
+                    <div className="space-y-3">
+                      {/* Division and District in one line */}
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div>
+                          <label className="block text-xs text-gray-700 dark:text-gray-300 mb-1">Division*</label>
+                          <select
+                            value={division}
+                            onChange={(e) => setDivision(e.target.value)}
+                            className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                          >
+                            <option value="">Select Division</option>
+                            {divisions.map((d) => (
+                              <option key={d.id} value={d.name}>
+                                {d.name}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
 
-                    {/* Row 6 */}
-                    <div>
-                      <label className="block text-xs text-gray-700 dark:text-gray-300 mb-1">City*</label>
-                      <input
-                        type="text"
-                        placeholder="Search City..."
-                        value={city}
-                        onChange={(e) => setCity(e.target.value)}
-                        className="w-full px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400"
-                      />
-                    </div>
-                    <div></div>
+                        <div>
+                          <label className="block text-xs text-gray-700 dark:text-gray-300 mb-1">District*</label>
+                          <select
+                            value={district}
+                            onChange={(e) => setDistrict(e.target.value)}
+                            disabled={!division}
+                            className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                          >
+                            <option value="">Select District</option>
+                            {districts.map((d) => (
+                              <option key={d.id} value={d.name}>
+                                {d.name}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                      </div>
 
-                    {/* Row 7 */}
-                    <div>
-                      <label className="block text-xs text-gray-700 dark:text-gray-300 mb-1">Zone*</label>
-                      <input
-                        type="text"
-                        placeholder="Search Zone..."
-                        value={zone}
-                        onChange={(e) => setZone(e.target.value)}
-                        className="w-full px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400"
-                      />
-                    </div>
-                    <div></div>
+                      {/* Upazilla and Zone in one line */}
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div>
+                          <label className="block text-xs text-gray-700 dark:text-gray-300 mb-1">Upazilla*</label>
+                          <select
+                            value={city}
+                            onChange={(e) => setCity(e.target.value)}
+                            disabled={!district}
+                            className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                          >
+                            <option value="">Select Upazilla</option>
+                            {upazillas.map((u) => (
+                              <option key={u.id} value={u.name}>
+                                {u.name}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
 
-                    {/* Row 8 */}
-                    <div>
-                      <label className="block text-xs text-gray-700 dark:text-gray-300 mb-1">Area (Optional)</label>
-                      <input
-                        type="text"
-                        placeholder="Search Area..."
-                        value={area}
-                        onChange={(e) => setArea(e.target.value)}
-                        className="w-full px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400"
-                      />
-                    </div>
-                    <div></div>
+                        <div>
+                          <label className="block text-xs text-gray-700 dark:text-gray-300 mb-1">Zone*</label>
+                          <input
+                            type="text"
+                            placeholder="Search Zone..."
+                            value={zone}
+                            onChange={(e) => setZone(e.target.value)}
+                            className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400"
+                          />
+                        </div>
+                      </div>
 
-                    {/* Row 9 */}
-                    <div className="col-span-2">
-                      <label className="block text-xs text-gray-700 dark:text-gray-300 mb-1">Delivery Address (Street, House No., etc.)</label>
-                      <input
-                        type="text"
-                        placeholder="Delivery Address"
-                        value={deliveryAddress}
-                        onChange={(e) => setDeliveryAddress(e.target.value)}
-                        className="w-full px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400"
-                      />
-                    </div>
+                      <div>
+                        <label className="block text-xs text-gray-700 dark:text-gray-300 mb-1">Area (Optional)</label>
+                        <input
+                          type="text"
+                          placeholder="Search Area..."
+                          value={area}
+                          onChange={(e) => setArea(e.target.value)}
+                          className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400"
+                        />
+                      </div>
 
-                    {/* Row 10 */}
-                    <div>
-                      <label className="block text-xs text-gray-700 dark:text-gray-300 mb-1">Postal Code</label>
-                      <input
-                        type="text"
-                        placeholder="e.g., 1212"
-                        value={postalCode}
-                        onChange={(e) => setPostalCode(e.target.value)}
-                        className="w-full px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400"
-                      />
-                    </div>
-                    <div className="flex items-end">
-                    <button
-  onClick={addToCart}
-  className="w-full px-4 py-1.5 bg-black hover:bg-gray-800 text-white text-sm font-medium rounded transition-colors"
->
-                    Add to Cart
-                </button>
+                      <div>
+                        <label className="block text-xs text-gray-700 dark:text-gray-300 mb-1">Delivery Address</label>
+                        <textarea
+                          placeholder="Delivery Address"
+                          value={deliveryAddress}
+                          onChange={(e) => setDeliveryAddress(e.target.value)}
+                          rows={2}
+                          className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400"
+                        />
+                      </div>
 
+                      <div>
+                        <label className="block text-xs text-gray-700 dark:text-gray-300 mb-1">Postal Code</label>
+                        <input
+                          type="text"
+                          placeholder="e.g., 1212"
+                          value={postalCode}
+                          onChange={(e) => setPostalCode(e.target.value)}
+                          className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400"
+                        />
+                      </div>
                     </div>
                   </div>
                 </div>
 
-                {/* Product Table */}
-                <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
-                  <table className="w-full text-sm">
-                    <thead className="bg-gray-50 dark:bg-gray-700 border-b border-gray-200 dark:border-gray-600">
-                      <tr>
-                        <th className="px-4 py-2 text-left text-xs font-medium text-gray-700 dark:text-gray-300">Product Name</th>
-                        <th className="px-4 py-2 text-left text-xs font-medium text-gray-700 dark:text-gray-300">Size</th>
-                        <th className="px-4 py-2 text-left text-xs font-medium text-gray-700 dark:text-gray-300">Qty</th>
-                        <th className="px-4 py-2 text-left text-xs font-medium text-gray-700 dark:text-gray-300">Price</th>
-                        <th className="px-4 py-2 text-left text-xs font-medium text-gray-700 dark:text-gray-300">Discount</th>
-                        <th className="px-4 py-2 text-left text-xs font-medium text-gray-700 dark:text-gray-300">Amount</th>
-                        <th className="px-4 py-2 text-left text-xs font-medium text-gray-700 dark:text-gray-300">Action</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {cart.length === 0 ? (
-                        <tr>
-                          <td colSpan={7} className="px-4 py-8 text-center text-sm text-gray-500 dark:text-gray-400">
-                            No products added to cart
-                          </td>
-                        </tr>
-                      ) : (
-                        cart.map((item) => (
-                          <tr key={item.id} className="border-b border-gray-200 dark:border-gray-700">
-                            <td className="px-4 py-2 text-gray-900 dark:text-white">{item.productName}</td>
-                            <td className="px-4 py-2 text-gray-900 dark:text-white">-</td>
-                            <td className="px-4 py-2 text-gray-900 dark:text-white">{item.qty}</td>
-                            <td className="px-4 py-2 text-gray-900 dark:text-white">{item.price.toFixed(2)}</td>
-                            <td className="px-4 py-2 text-gray-900 dark:text-white">{item.discount.toFixed(2)}</td>
-                            <td className="px-4 py-2 text-gray-900 dark:text-white">{item.amount.toFixed(2)}</td>
-                            <td className="px-4 py-2">
-                              <button
-                                onClick={() => removeFromCart(item.id)}
-                                className="text-red-600 hover:text-red-700 text-xs font-medium"
-                              >
-                                Remove
-                              </button>
-                            </td>
-                          </tr>
-                        ))
-                      )}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-
-              {/* Right Section - Amount Details */}
-              <div>
-                <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4">
-                  <h3 className="text-sm font-medium text-gray-900 dark:text-white mb-4">Amount Details</h3>
-                  
-                  <div className="space-y-3">
-                    <div className="flex justify-between text-sm">
-                      <span className="text-gray-600 dark:text-gray-400">Sub Total</span>
-                      <span className="text-gray-900 dark:text-white">{subtotal.toFixed(2)}</span>
-                    </div>
-
-                    <div className="flex justify-between text-sm">
-                      <span className="text-gray-600 dark:text-gray-400">Total Discount (Without VAT)</span>
-                      <span className="text-gray-900 dark:text-white">{totalDiscount.toFixed(2)}</span>
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-2">
-                      <div>
-                        <label className="block text-xs text-gray-600 dark:text-gray-400 mb-1">Vat</label>
-                        <input
-                          type="text"
-                          value={vat.toFixed(2)}
-                          readOnly
-                          className="w-full px-2 py-1 text-xs border border-gray-300 dark:border-gray-600 rounded bg-gray-50 dark:bg-gray-600 text-gray-900 dark:text-white"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-xs text-gray-600 dark:text-gray-400 mb-1">Vat Rate %</label>
-                        <input
-                          type="number"
-                          value={vatRate}
-                          onChange={(e) => setVatRate(e.target.value)}
-                          className="w-full px-2 py-1 text-xs border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                        />
-                      </div>
-                    </div>
-
-                    <div>
-                      <label className="block text-xs text-gray-600 dark:text-gray-400 mb-1">Transport Cost</label>
-                      <input
-                        type="number"
-                        value={transportCost}
-                        onChange={(e) => setTransportCost(e.target.value)}
-                        className="w-full px-2 py-1 text-xs border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                      />
-                    </div>
-
-                    <div className="pt-2 border-t border-gray-200 dark:border-gray-700">
-                      <div className="flex justify-between text-sm font-medium mb-1">
-                        <span className="text-gray-900 dark:text-white">Total</span>
-                        <span className="text-gray-900 dark:text-white">{total.toFixed(2)}</span>
-                      </div>
-                      <div className="flex justify-between text-sm">
-                        <span className="text-gray-600 dark:text-gray-400">Return</span>
-                        <span className="text-green-600 dark:text-green-400">{(totalPaid - total).toFixed(2)}</span>
-                      </div>
-                    </div>
-
-                    <div>
-                      <label className="block text-xs text-gray-600 dark:text-gray-400 mb-1">Enter Field Amount</label>
+                {/* Right Column - Product Search & Cart */}
+                <div className="space-y-4 md:space-y-6">
+                  {/* Product Search */}
+                  <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4 md:p-5">
+                    <h3 className="text-sm font-medium text-gray-900 dark:text-white mb-4">Search Product</h3>
+                    
+                    <div className="flex gap-2 mb-4">
                       <input
                         type="text"
-                        value="0.00"
-                        readOnly
-                        className="w-full px-2 py-1 text-xs border border-gray-300 dark:border-gray-600 rounded bg-gray-50 dark:bg-gray-600 text-gray-900 dark:text-white"
+                        placeholder="Search product name..."
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        className="flex-1 px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400"
                       />
+                      <button className="px-4 py-2 bg-black hover:bg-gray-800 text-white rounded transition-colors flex-shrink-0">
+                        <Search size={18} />
+                      </button>
                     </div>
 
-                    <div>
-                      <label className="block text-xs text-gray-600 dark:text-gray-400 mb-1">Paid Amount</label>
-                      <div className="grid grid-cols-2 gap-2 mb-2">
-                        <div>
-                          <label className="block text-xs text-gray-500 dark:text-gray-500 mb-1">Cash Paid</label>
+                    {/* Search Results */}
+                    {searchResults.length > 0 && (
+                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 max-h-60 md:max-h-80 overflow-y-auto mb-4 p-1">
+                        {searchResults.map((product) => (
+                          <div
+                            key={product.id}
+                            onClick={() => handleProductSelect(product)}
+                            className="border border-gray-200 dark:border-gray-600 rounded p-2 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                          >
+                            <img 
+                              src={product.attributes.mainImage} 
+                              alt={product.name} 
+                              className="w-full h-24 sm:h-32 object-cover rounded mb-2" 
+                            />
+                            <p className="text-xs text-gray-900 dark:text-white font-medium truncate">{product.name}</p>
+                            <p className="text-xs text-gray-600 dark:text-gray-400">{product.attributes.Price} Tk</p>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* Selected Product */}
+                    {selectedProduct && (
+                      <div className="mt-4 p-3 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded mb-4">
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="text-sm font-medium text-gray-900 dark:text-white">Selected Product</span>
+                          <button onClick={() => {
+                            setSelectedProduct(null);
+                            setQuantity('');
+                            setDiscountPercent('');
+                            setDiscountTk('');
+                          }} className="text-red-600 hover:text-red-700">
+                            <X size={16} />
+                          </button>
+                        </div>
+                        <div className="flex gap-3">
+                          <img 
+                            src={selectedProduct.attributes.mainImage} 
+                            alt={selectedProduct.name} 
+                            className="w-16 h-16 object-cover rounded flex-shrink-0" 
+                          />
+                          <div className="min-w-0">
+                            <p className="text-sm text-gray-900 dark:text-white font-medium truncate">{selectedProduct.name}</p>
+                            <p className="text-sm text-gray-600 dark:text-gray-400">Price: {selectedProduct.attributes.Price} Tk</p>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Product Details */}
+                    <div className="space-y-3">
+                      <div>
+                        <label className="block text-xs text-gray-700 dark:text-gray-300 mb-1">Quantity</label>
+                        <div className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const currentQty = parseInt(quantity) || 0;
+                              if (currentQty > 1) {
+                                setQuantity(String(currentQty - 1));
+                              }
+                            }}
+                            disabled={!selectedProduct || !quantity || parseInt(quantity) <= 1}
+                            className="w-8 h-8 flex items-center justify-center border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors disabled:opacity-40 disabled:cursor-not-allowed text-lg"
+                            title="Decrease quantity"
+                          >
+                            −
+                          </button>
                           <input
                             type="number"
-                            value={cashPaid}
-                            onChange={(e) => setCashPaid(e.target.value)}
-                            className="w-full px-2 py-1 text-xs border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                            placeholder="0"
+                            value={quantity}
+                            onChange={(e) => setQuantity(e.target.value)}
+                            disabled={!selectedProduct}
+                            min="1"
+                            className="flex-1 px-3 py-2 text-sm text-center border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white disabled:opacity-50 disabled:cursor-not-allowed [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const currentQty = parseInt(quantity) || 0;
+                              setQuantity(String(currentQty + 1));
+                            }}
+                            disabled={!selectedProduct}
+                            className="w-8 h-8 flex items-center justify-center border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors disabled:opacity-40 disabled:cursor-not-allowed text-lg"
+                            title="Increase quantity"
+                          >
+                            +
+                          </button>
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-3 gap-2">
+                        <div>
+                          <label className="block text-xs text-gray-700 dark:text-gray-300 mb-1">Discount %</label>
+                          <input
+                            type="number"
+                            placeholder="0"
+                            value={discountPercent}
+                            onChange={(e) => setDiscountPercent(e.target.value)}
+                            disabled={!selectedProduct}
+                            className="w-full px-2 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white disabled:opacity-50 disabled:cursor-not-allowed [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                           />
                         </div>
                         <div>
-                          <label className="block text-xs text-gray-500 dark:text-gray-500 mb-1">Card Paid</label>
+                          <label className="block text-xs text-gray-700 dark:text-gray-300 mb-1">Tk.</label>
                           <input
                             type="number"
-                            value={cardPaid}
-                            onChange={(e) => setCardPaid(e.target.value)}
-                            className="w-full px-2 py-1 text-xs border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                            placeholder="0"
+                            value={discountTk}
+                            onChange={(e) => setDiscountTk(e.target.value)}
+                            disabled={!selectedProduct}
+                            className="w-full px-2 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white disabled:opacity-50 disabled:cursor-not-allowed [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs text-gray-700 dark:text-gray-300 mb-1">Amount</label>
+                          <input
+                            type="text"
+                            value={amount}
+                            readOnly
+                            className="w-full px-2 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded bg-gray-50 dark:bg-gray-600 text-gray-900 dark:text-white"
                           />
                         </div>
                       </div>
-                    </div>
 
-                    <div className="flex items-center mb-2">
-                      <input type="checkbox" id="socialCommerce" className="mr-2" />
-                      <label htmlFor="socialCommerce" className="text-xs text-gray-700 dark:text-gray-300">
-                        Enable (Per Social Commerce Orders)
-                      </label>
-                    </div>
-
-                    <div className="pt-2 border-t border-gray-200 dark:border-gray-700 flex justify-between items-center">
-                      <span className="text-sm text-gray-600 dark:text-gray-400">Due Amount</span>
-                      <span className="text-sm font-medium text-gray-900 dark:text-white">{dueAmount.toFixed(2)}</span>
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-2 pt-2">
-                      <button className="px-3 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 text-sm rounded hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
-                        Back
-                      </button>
                       <button
-                        onClick={handlePlaceOrder}
-                        className="px-3 py-2 bg-teal-600 hover:bg-teal-700 text-white text-sm rounded transition-colors"
+                        onClick={addToCart}
+                        className="w-full px-4 py-2.5 bg-black hover:bg-gray-800 text-white text-sm font-medium rounded transition-colors"
                       >
-                        Place Order
+                        Add to Cart
                       </button>
                     </div>
+                  </div>
+
+                  {/* Cart */}
+                  <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
+                    <div className="p-4 border-b border-gray-200 dark:border-gray-700">
+                      <h3 className="text-sm font-medium text-gray-900 dark:text-white">Cart ({cart.length} items)</h3>
+                    </div>
+                    <div className="max-h-60 md:max-h-96 overflow-y-auto overflow-x-auto">
+                      <table className="w-full text-sm">
+                        <thead className="bg-gray-50 dark:bg-gray-700 border-b border-gray-200 dark:border-gray-600 sticky top-0">
+                          <tr>
+                            <th className="px-3 py-2 text-left text-xs font-medium text-gray-700 dark:text-gray-300 whitespace-nowrap">Product</th>
+                            <th className="px-3 py-2 text-left text-xs font-medium text-gray-700 dark:text-gray-300 whitespace-nowrap">Qty</th>
+                            <th className="px-3 py-2 text-left text-xs font-medium text-gray-700 dark:text-gray-300 whitespace-nowrap">Price</th>
+                            <th className="px-3 py-2 text-left text-xs font-medium text-gray-700 dark:text-gray-300 whitespace-nowrap">Amount</th>
+                            <th className="px-3 py-2 text-left text-xs font-medium text-gray-700 dark:text-gray-300 whitespace-nowrap">Action</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {cart.length === 0 ? (
+                            <tr>
+                              <td colSpan={5} className="px-4 py-8 text-center text-sm text-gray-500 dark:text-gray-400">
+                                No products in cart
+                              </td>
+                            </tr>
+                          ) : (
+                            cart.map((item) => (
+                              <tr key={item.id} className="border-b border-gray-200 dark:border-gray-700">
+                                <td className="px-3 py-2 text-gray-900 dark:text-white">
+                                  <div className="max-w-[120px] truncate">{item.productName}</div>
+                                </td>
+                                <td className="px-3 py-2 text-gray-900 dark:text-white whitespace-nowrap">{item.qty}</td>
+                                <td className="px-3 py-2 text-gray-900 dark:text-white whitespace-nowrap">{item.price.toFixed(2)}</td>
+                                <td className="px-3 py-2 text-gray-900 dark:text-white whitespace-nowrap">{item.amount.toFixed(2)}</td>
+                                <td className="px-3 py-2">
+                                  <button
+                                    onClick={() => removeFromCart(item.id)}
+                                    className="text-red-600 hover:text-red-700 text-xs font-medium whitespace-nowrap"
+                                  >
+                                    Remove
+                                  </button>
+                                </td>
+                              </tr>
+                            ))
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                    
+                    {cart.length > 0 && (
+                      <div className="p-4 bg-gray-50 dark:bg-gray-700 border-t border-gray-200 dark:border-gray-600">
+                        <div className="flex justify-between text-sm mb-3">
+                          <span className="text-gray-600 dark:text-gray-400">Subtotal:</span>
+                          <span className="text-gray-900 dark:text-white font-medium">{subtotal.toFixed(2)} Tk</span>
+                        </div>
+                        <button
+                          onClick={handleConfirmOrder}
+                          className="w-full px-4 py-2.5 bg-teal-600 hover:bg-teal-700 text-white text-sm font-medium rounded transition-colors"
+                        >
+                          Confirm Order
+                        </button>
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>

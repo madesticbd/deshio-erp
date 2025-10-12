@@ -1,47 +1,47 @@
 [
   {
-    "id": "order-1759734022710",
+    "id": "order-1759739311146",
     "salesBy": "Admin User",
     "date": "06-Oct-2025",
     "customer": {
-      "name": "Nishat Tasneem Oishee",
-      "email": "tasneem.nishat.4953@gmail.com",
-      "phone": "01818316964"
+      "name": "NIshat Tasneem",
+      "email": "nishat@gmail.com",
+      "phone": "01924129777"
     },
     "deliveryAddress": {
       "division": "Dhaka",
       "district": "Dhaka",
-      "city": "Agargaon",
-      "zone": "Zone1",
+      "city": "Dhaka",
+      "zone": "Uttara",
       "area": "",
-      "address": "International Affairs Division ,Paramanu Bhaban ,Bangladesh Atomic Energy Commission,",
+      "address": "sector 13, road -01,house 20",
       "postalCode": "1212"
     },
     "products": [
       {
-        "id": 1759733969911,
-        "productName": "Bags",
+        "id": 1759739260408,
+        "productName": "Cotton Sharee",
         "size": "",
         "qty": 2,
-        "price": 1200,
-        "discount": 340,
-        "amount": 2060
+        "price": 1000,
+        "discount": 0,
+        "amount": 2000
       }
     ],
     "amounts": {
-      "subtotal": 2060,
-      "totalDiscount": 340,
-      "vat": 103,
+      "subtotal": 2000,
+      "totalDiscount": 0,
+      "vat": 100,
       "vatRate": 5,
-      "transportCost": 99,
-      "total": 2262
+      "transportCost": 100,
+      "total": 2200
     },
     "payments": {
       "cash": 2000,
-      "card": 262,
-      "totalPaid": 2262,
+      "card": 200,
+      "totalPaid": 2200,
       "due": 0
     },
-    "createdAt": "2025-10-06T07:00:22.710Z"
+    "createdAt": "2025-10-06T08:28:31.146Z"
   }
 ]
