@@ -29,5 +29,28 @@
       "Price": "1000",
       "Image": "/uploads/1759738721718-Shadam jamdani2.jpg"
     }
+  },
+  {
+    "id": 1760331323533,
+    "name": "Silk Sharee",
+    "attributes": {
+      "mainImage": "/uploads/1760331300494-Saree.webp",
+      "category": "1",
+      "subcategory": ""
+    },
+    "variations": [
+      {
+        "id": "var-1760331309470-0.8982553750265224",
+        "attributes": {
+          "Colour": "Blue"
+        }
+      },
+      {
+        "id": "var-1760331317619-0.24980637119233984",
+        "attributes": {
+          "Colour": "Green"
+        }
+      }
+    ]
   }
 ]

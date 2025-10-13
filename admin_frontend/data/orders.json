@@ -153,5 +153,198 @@
     },
     "createdAt": "2025-10-12T04:41:55.557Z",
     "updatedAt": "2025-10-12T04:43:12.105Z"
+  },
+  {
+    "id": 1760329033253,
+    "salesBy": "Admin User",
+    "date": "06-Oct-2025",
+    "customer": {
+      "name": "Adrita Ahsan",
+      "email": "adrita@gmail.com",
+      "phone": "01745191964",
+      "socialId": "Adrita"
+    },
+    "deliveryAddress": {
+      "division": "Chattagram",
+      "district": "Feni",
+      "city": "Chhagalnaiya",
+      "zone": "feni",
+      "area": "",
+      "address": "",
+      "postalCode": ""
+    },
+    "products": [
+      {
+        "id": 1760328952548,
+        "productName": "Jamdani",
+        "size": "1",
+        "qty": 1,
+        "price": 1500,
+        "discount": 0,
+        "amount": 1500
+      }
+    ],
+    "subtotal": 1500,
+    "amounts": {
+      "subtotal": 1500,
+      "totalDiscount": 0,
+      "vat": 75,
+      "vatRate": 5,
+      "transportCost": 0,
+      "total": 1575
+    },
+    "payments": {
+      "sslCommerz": 0,
+      "advance": 0,
+      "transactionId": "",
+      "totalPaid": 0,
+      "due": 1575
+    },
+    "createdAt": "2025-10-13T04:17:13.253Z"
+  },
+  {
+    "id": 1760329243405,
+    "salesBy": "Admin User",
+    "date": "06-Oct-2025",
+    "customer": {
+      "name": "Nishat",
+      "email": "n@gmail.com",
+      "phone": "12345",
+      "socialId": ""
+    },
+    "deliveryAddress": {
+      "division": "Khulna",
+      "district": "Jashore",
+      "city": "Manirampur",
+      "zone": "manirampur",
+      "area": "",
+      "address": "",
+      "postalCode": ""
+    },
+    "products": [
+      {
+        "id": 1760329205540,
+        "productName": "Cotton Sharee",
+        "size": "1",
+        "qty": 1,
+        "price": 1000,
+        "discount": 0,
+        "amount": 1000
+      }
+    ],
+    "subtotal": 1000,
+    "amounts": {
+      "subtotal": 1000,
+      "totalDiscount": 0,
+      "vat": 50,
+      "vatRate": 5,
+      "transportCost": 0,
+      "total": 1050
+    },
+    "payments": {
+      "sslCommerz": 0,
+      "advance": 0,
+      "transactionId": "",
+      "totalPaid": 0,
+      "due": 1050
+    },
+    "createdAt": "2025-10-13T04:20:43.405Z"
+  },
+  {
+    "id": 1760329943452,
+    "salesBy": "Admin User",
+    "date": "06-Oct-2025",
+    "customer": {
+      "name": "Adrita ",
+      "email": "a@gmail.com",
+      "phone": "123",
+      "socialId": ""
+    },
+    "deliveryAddress": {
+      "division": "Sylhet",
+      "district": "Sylhet",
+      "city": "Dakshinsurma",
+      "zone": "dakshinsurma",
+      "area": "",
+      "address": "",
+      "postalCode": ""
+    },
+    "products": [
+      {
+        "id": 1760329895878,
+        "productName": "Cotton Sharee",
+        "size": "1",
+        "qty": 1,
+        "price": 1000,
+        "discount": 0,
+        "amount": 1000
+      }
+    ],
+    "subtotal": 1000,
+    "amounts": {
+      "subtotal": 1000,
+      "totalDiscount": 0,
+      "vat": 50,
+      "vatRate": 5,
+      "transportCost": 0,
+      "total": 1050
+    },
+    "payments": {
+      "sslCommerz": 0,
+      "advance": 0,
+      "transactionId": "",
+      "totalPaid": 0,
+      "due": 1050
+    },
+    "createdAt": "2025-10-13T04:32:23.452Z"
+  },
+  {
+    "id": 1760330900470,
+    "salesBy": "Admin User",
+    "date": "06-Oct-2025",
+    "customer": {
+      "name": "Nishat Tasneem",
+      "email": "nishat@gmail.com",
+      "phone": "01745191964",
+      "socialId": ""
+    },
+    "deliveryAddress": {
+      "division": "Khulna",
+      "district": "Kushtia",
+      "city": "Kushtia Sadar",
+      "zone": "Sadar",
+      "area": "",
+      "address": "",
+      "postalCode": ""
+    },
+    "products": [
+      {
+        "id": 1760330847995,
+        "productId": 1759737987171,
+        "productName": "Jamdani",
+        "size": "1",
+        "qty": 4,
+        "price": 1500,
+        "discount": 0,
+        "amount": 6000
+      }
+    ],
+    "subtotal": 6000,
+    "amounts": {
+      "subtotal": 6000,
+      "totalDiscount": 0,
+      "vat": 300,
+      "vatRate": 5,
+      "transportCost": 0,
+      "total": 6300
+    },
+    "payments": {
+      "sslCommerz": 0,
+      "advance": 0,
+      "transactionId": "",
+      "totalPaid": 0,
+      "due": 6300
+    },
+    "createdAt": "2025-10-13T04:48:20.470Z"
   }
 ]

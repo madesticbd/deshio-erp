@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Scan, CheckCircle } from 'lucide-react';
+import { Scan, CheckCircle, X, AlertCircle, CheckCircle2 } from 'lucide-react';
 import Sidebar from '@/components/Sidebar';
 import Header from '@/components/Header';
 import { useRouter, useSearchParams } from 'next/navigation';
@@ -13,6 +13,12 @@ interface Batch {
   costPrice: number;
   sellingPrice: number;
   quantity: number;
+}
+
+interface Toast {
+  id: number;
+  message: string;
+  type: 'success' | 'error';
 }
 
 export default function AdmitBatchPage() {
@@ -27,6 +33,19 @@ export default function AdmitBatchPage() {
   const [currentCount, setCurrentCount] = useState(1);
   const [admittedCount, setAdmittedCount] = useState(0);
   const [productCode, setProductCode] = useState('');
+  const [toasts, setToasts] = useState<Toast[]>([]);
+
+  const showToast = (message: string, type: 'success' | 'error') => {
+    const id = Date.now();
+    setToasts(prev => [...prev, { id, message, type }]);
+    setTimeout(() => {
+      setToasts(prev => prev.filter(toast => toast.id !== id));
+    }, 5000);
+  };
+
+  const removeToast = (id: number) => {
+    setToasts(prev => prev.filter(toast => toast.id !== id));
+  };
 
   useEffect(() => {
     // Fetch batch details
@@ -49,7 +68,7 @@ export default function AdmitBatchPage() {
     if (batchId) {
       fetchBatch();
     }
-  }, [batchId]);
+  }, [batchId, currentCount]);
 
   useEffect(() => {
     if (batch) {
@@ -63,31 +82,45 @@ export default function AdmitBatchPage() {
       if (response.ok) {
         const stores = await response.json();
         const warehouse = stores.find((store: any) => store.type === 'warehouse');
-        return warehouse ? warehouse.name : 'Mohammadpur'; // Fallback to 'Mohammadpur'
+        return warehouse ? warehouse.name : 'Mohammadpur';
       }
     } catch (error) {
       console.error('Error fetching warehouse:', error);
     }
-      return 'Mohammadpur'; // Fallback
-    }
-
+    return 'Mohammadpur';
+  }
 
   const handleAdmitProduct = async () => {
-    if (!batch) return;
+    if (!batch) {
+      showToast('Batch information is missing', 'error');
+      return;
+    }
+
+    if (!productCode) {
+      showToast('Product code is required', 'error');
+      return;
+    }
 
     try {
       const location = await getWarehouseLocation();
+
       // Create inventory item
       const inventoryItem = {
         productId: batch.productId,
         batchId: batch.id,
         barcode: productCode,
-        costPrice: batch.costPrice,
-        sellingPrice: batch.sellingPrice,
+        costPrice: Number(batch.costPrice),
+        sellingPrice: Number(batch.sellingPrice),
         location,
         status: 'available',
         admittedAt: new Date().toISOString()
       };
+
+      // Validate required fields before sending
+      if (!inventoryItem.productId || !inventoryItem.barcode || 
+          !inventoryItem.costPrice || !inventoryItem.sellingPrice) {
+        throw new Error('Missing required fields. Please check batch data.');
+      }
 
       // Save to inventory
       const response = await fetch('/api/inventory', {
@@ -99,25 +132,27 @@ export default function AdmitBatchPage() {
       });
 
       if (!response.ok) {
-        throw new Error('Failed to admit product');
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(`Failed to admit product: ${response.status} - ${errorData.error || 'Unknown error'}`);
       }
+
+      const result = await response.json();
 
       // Update local state
       if (admittedCount + 1 < batch.quantity) {
         setAdmittedCount(admittedCount + 1);
         setCurrentCount(currentCount + 1);
-        alert('Product admitted successfully!');
+        showToast('Product admitted successfully!', 'success');
       } else {
         // Last product admitted
         setAdmittedCount(admittedCount + 1);
-        alert('All products from this batch have been admitted!');
+        showToast('All products from this batch have been admitted!', 'success');
         try {
           await fetch(`/api/batch/${batch.id}`, {
             method: 'PATCH',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ admitted: 'yes' }),
           });
-          console.log('Batch status updated to admitted.');
         } catch (error) {
           console.error('Failed to update batch status:', error);
         }
@@ -126,16 +161,11 @@ export default function AdmitBatchPage() {
         setTimeout(() => {
           window.location.href = '/inventory/manage_stock';
         }, 1500);
-                // Redirect back to manage stock page after a short delay
-                setTimeout(() => {
-                  window.location.href = '/inventory/manage_stock';
-                }, 1500);
-              }
-            } catch (error) {
-              console.error('Error admitting product:', error);
-              alert('Failed to admit product. Please try again.');
-            }
-          };
+      }
+    } catch (error) {
+      showToast(`Failed to admit product: ${error instanceof Error ? error.message : 'Unknown error'}`, 'error');
+    }
+  };
 
   const handleProductCodeChange = (value: string) => {
     setProductCode(value);
@@ -185,6 +215,43 @@ export default function AdmitBatchPage() {
           />
 
           <main className="flex-1 overflow-auto p-6">
+            {/* Toast Notifications */}
+            <div className="fixed top-4 right-4 z-50 space-y-2">
+              {toasts.map((toast) => (
+                <div
+                  key={toast.id}
+                  className={`flex items-center gap-3 px-4 py-3 rounded-lg shadow-lg border ${
+                    toast.type === 'success'
+                      ? 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800'
+                      : 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800'
+                  } animate-slideIn`}
+                >
+                  {toast.type === 'success' ? (
+                    <CheckCircle2 className="w-5 h-5 text-green-600 dark:text-green-400 flex-shrink-0" />
+                  ) : (
+                    <AlertCircle className="w-5 h-5 text-red-600 dark:text-red-400 flex-shrink-0" />
+                  )}
+                  <p className={`text-sm font-medium ${
+                    toast.type === 'success'
+                      ? 'text-green-900 dark:text-green-300'
+                      : 'text-red-900 dark:text-red-300'
+                  }`}>
+                    {toast.message}
+                  </p>
+                  <button
+                    onClick={() => removeToast(toast.id)}
+                    className={`ml-2 ${
+                      toast.type === 'success'
+                        ? 'text-green-600 dark:text-green-400 hover:text-green-800 dark:hover:text-green-300'
+                        : 'text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300'
+                    }`}
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+              ))}
+            </div>
+
             {/* Page Header with Scanner Status */}
             <div className="flex items-start justify-between mb-6">
               <div>
@@ -319,6 +386,22 @@ export default function AdmitBatchPage() {
           </main>
         </div>
       </div>
+
+      <style jsx>{`
+        @keyframes slideIn {
+          from {
+            transform: translateX(100%);
+            opacity: 0;
+          }
+          to {
+            transform: translateX(0);
+            opacity: 1;
+          }
+        }
+        .animate-slideIn {
+          animation: slideIn 0.3s ease-out;
+        }
+      `}</style>
     </div>
   );
 }

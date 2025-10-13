@@ -1,24 +1,7 @@
 [
   {
-<<<<<<< HEAD
-    "id": 1759562326602,
-    "name": "Color",
-    "type": "Text",
-    "mode": "Multiple"
-  },
-  {
-    "id": 1759562348849,
-    "name": "Image",
-    "type": "Image",
-    "mode": "Multiple"
-  },
-  {
-    "id": 1759661894685,
-    "name": "Size",
-=======
     "id": 1759737538347,
     "name": "Fabric-type",
->>>>>>> 4bc6fea3d17cdcc2a0e3cadc7b81d8230827ad76
     "type": "Text",
     "mode": "Single"
   },
@@ -47,15 +30,15 @@
     "mode": "Multiple"
   },
   {
-<<<<<<< HEAD
-    "id": 1760231363008,
-    "name": "Description",
-    "type": "Text",
-=======
     "id": 1759904094208,
     "name": "price",
     "type": "Number",
->>>>>>> 4bc6fea3d17cdcc2a0e3cadc7b81d8230827ad76
     "mode": "Single"
+  },
+  {
+    "id": 1760331263205,
+    "name": "Colour",
+    "type": "Text",
+    "mode": "Multiple"
   }
 ]
