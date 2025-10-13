@@ -1,5 +1,4 @@
 // components/orders/ExchangeProductModal.tsx
-
 import { useState, useEffect } from 'react';
 import { X, Search, ArrowRightLeft } from 'lucide-react';
 import { Order, Product } from '@/types/order';
@@ -94,45 +93,95 @@ export default function ExchangeProductModal({ order, onClose, onExchange }: Exc
     }
 
     const price = parseFloat(selectedReplacement.attributes.Price);
-    const existingIndex = replacementProducts.findIndex(p => p.id === selectedReplacement.id);
+    
+    // Check if this product already exists in the replacement list
+    const existingIndex = replacementProducts.findIndex(
+      p => p.name.toLowerCase() === selectedReplacement.name.toLowerCase()
+    );
     
     if (existingIndex !== -1) {
+      // Product exists - increment quantity
       const updated = [...replacementProducts];
       updated[existingIndex].quantity += qty;
       updated[existingIndex].amount = price * updated[existingIndex].quantity;
       setReplacementProducts(updated);
     } else {
+      // New product - add to list
       setReplacementProducts(prev => [...prev, {
         id: selectedReplacement.id,
         name: selectedReplacement.name,
         image: selectedReplacement.attributes.mainImage,
         price: price,
         quantity: qty,
-        amount: price * qty
+        amount: price * qty,
+        size: selectedReplacement.attributes.Size || '1'
       }]);
     }
     
     setSelectedReplacement(null);
     setReplacementQuantity('1');
+    setSearchQuery('');
+    setSearchResults([]);
   };
 
-  const handleRemoveReplacement = (productId: number) => {
-    setReplacementProducts(prev => prev.filter(p => p.id !== productId));
+  const handleRemoveReplacement = (productName: string) => {
+    setReplacementProducts(prev => prev.filter(p => p.name !== productName));
   };
 
-  // Calculate totals
-  const originalAmount = selectedProducts.reduce((sum, productId) => {
-    const product = order.products.find(p => p.id === productId);
-    if (!product) return sum;
-    const qty = removedQuantities[productId] || 0;
-    return sum + (product.price * qty);
-  }, 0);
+  const handleUpdateReplacementQty = (productName: string, newQty: number) => {
+    if (newQty <= 0) {
+      handleRemoveReplacement(productName);
+      return;
+    }
+    
+    setReplacementProducts(prev => 
+      prev.map(p => {
+        if (p.name === productName) {
+          return {
+            ...p,
+            quantity: newQty,
+            amount: p.price * newQty
+          };
+        }
+        return p;
+      })
+    );
+  };
 
-  const newAmount = replacementProducts.reduce((sum, p) => sum + p.amount, 0);
-  const vatRate = order.amounts.vatRate;
-  const vatAmount = Math.round(newAmount * (vatRate / 100));
-  const totalNewAmount = newAmount + vatAmount;
-  const difference = totalNewAmount - originalAmount;
+  // Calculate totals with proper logic
+  const calculateTotals = () => {
+    // Original amount (what's being removed)
+    const originalAmount = selectedProducts.reduce((sum, productId) => {
+      const product = order.products.find(p => p.id === productId);
+      if (!product) return sum;
+      const qty = removedQuantities[productId] || 0;
+      return sum + (product.price * qty);
+    }, 0);
+
+    // New products subtotal
+    const newSubtotal = replacementProducts.reduce((sum, p) => sum + p.amount, 0);
+
+    // VAT calculation
+    const vatRate = order.amounts.vatRate || 0;
+    const vatAmount = Math.round(newSubtotal * (vatRate / 100));
+    
+    // Total new amount with VAT
+    const totalNewAmount = newSubtotal + vatAmount;
+
+    // Difference calculation (new total - original amount removed)
+    const difference = totalNewAmount - originalAmount;
+
+    return {
+      originalAmount,
+      newSubtotal,
+      vatRate,
+      vatAmount,
+      totalNewAmount,
+      difference
+    };
+  };
+
+  const totals = calculateTotals();
 
   const handleProcessExchange = async () => {
     if (selectedProducts.length === 0) {
@@ -157,90 +206,49 @@ export default function ExchangeProductModal({ order, onClose, onExchange }: Exc
 
     setIsProcessing(true);
     try {
-      // Prepare updated order
-      const updatedProducts = [...order.products];
-      
-      // Remove or update quantities for exchanged products
-      selectedProducts.forEach(productId => {
-        const index = updatedProducts.findIndex(p => p.id === productId);
-        if (index !== -1) {
-          const removedQty = removedQuantities[productId];
-          if (removedQty >= updatedProducts[index].qty) {
-            // Remove completely
-            updatedProducts.splice(index, 1);
-          } else {
-            // Reduce quantity
-            updatedProducts[index].qty -= removedQty;
-            updatedProducts[index].amount = updatedProducts[index].price * updatedProducts[index].qty - updatedProducts[index].discount;
-          }
-        }
-      });
-
-      // Add replacement products
-      replacementProducts.forEach(replacement => {
-        updatedProducts.push({
-          id: Date.now() + Math.random(),
-          productName: replacement.name,
-          size: '1',
-          qty: replacement.quantity,
-          price: replacement.price,
-          discount: 0,
-          amount: replacement.amount
-        });
-      });
-
-      // Recalculate order totals
-      const newSubtotal = updatedProducts.reduce((sum, p) => sum + p.amount, 0);
-      const newVat = Math.round(newSubtotal * (order.amounts.vatRate / 100));
-      const newTotal = newSubtotal + newVat + order.amounts.transportCost;
-      const newDue = newTotal - order.payments.totalPaid;
-
-      const updatedOrder = {
-        ...order,
-        products: updatedProducts,
-        subtotal: newSubtotal,
-        amounts: {
-          ...order.amounts,
-          subtotal: newSubtotal,
-          vat: newVat,
-          total: newTotal
-        },
-        payments: {
-          ...order.payments,
-          due: newDue
-        }
-      };
-
-      // Save to JSON via API
-      const response = await fetch(`/api/social-orders?id=${order.id}`, {
-        method: 'PUT',
+      // Call the exchange API endpoint
+      const response = await fetch('/api/social-orders/exchange', {
+        method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(updatedOrder),
+        body: JSON.stringify({
+          orderId: order.id,
+          removedProducts: selectedProducts.map(id => ({
+            productId: id,
+            quantity: removedQuantities[id]
+          })),
+          replacementProducts: replacementProducts.map(p => ({
+            name: p.name,
+            price: p.price,
+            quantity: p.quantity,
+            amount: p.amount,
+            size: p.size
+          }))
+        }),
       });
 
       if (!response.ok) {
-        throw new Error('Failed to save exchange');
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to process exchange');
       }
 
-      await onExchange({
-        orderId: order.id,
-        removedProducts: selectedProducts.map(id => ({
-          productId: id,
-          quantity: removedQuantities[id]
-        })),
-        replacementProducts: replacementProducts,
-        originalAmount,
-        newAmount: totalNewAmount,
-        difference
-      });
+      const result = await response.json();
 
-      alert(`Exchange successful! ${difference > 0 ? 'Customer owes ৳' + difference : difference < 0 ? 'Refund ৳' + Math.abs(difference) : 'No payment difference'}`);
+      // Call parent's onExchange to refresh the order list
+      await onExchange(result);
+
+      const diffText = result.difference > 0 
+        ? `Customer owes ৳${result.difference.toLocaleString()}` 
+        : result.difference < 0 
+        ? `Refund ৳${Math.abs(result.difference).toLocaleString()} to customer` 
+        : 'No payment difference';
+
+      alert(`Exchange successful! ${diffText}`);
       onClose();
-    } catch (error) {
+    } catch (error: any) {
       console.error('Exchange failed:', error);
-      alert('Failed to process exchange');
+      alert(error.message || 'Failed to process exchange');
     } finally {
       setIsProcessing(false);
     }
@@ -449,23 +457,40 @@ export default function ExchangeProductModal({ order, onClose, onExchange }: Exc
                 <div className="space-y-2">
                   <h4 className="text-sm font-semibold text-gray-900 dark:text-white mb-2">Selected Replacements</h4>
                   {replacementProducts.map((product) => (
-                    <div key={product.id} className="bg-white dark:bg-gray-900 rounded-lg p-3 border border-gray-200 dark:border-gray-700 flex items-center justify-between">
+                    <div key={product.name} className="bg-white dark:bg-gray-900 rounded-lg p-3 border border-gray-200 dark:border-gray-700">
                       <div className="flex items-center gap-3">
                         <img src={product.image} alt={product.name} className="w-12 h-12 object-cover rounded" />
-                        <div>
+                        <div className="flex-1">
                           <p className="text-sm font-medium text-gray-900 dark:text-white">{product.name}</p>
-                          <p className="text-xs text-gray-600 dark:text-gray-400">৳{product.price} × {product.quantity}</p>
+                          <p className="text-xs text-gray-600 dark:text-gray-400">৳{product.price.toLocaleString()} × {product.quantity}</p>
                         </div>
-                      </div>
-                      <div className="flex items-center gap-3">
-                        <p className="font-bold text-gray-900 dark:text-white">৳{product.amount.toLocaleString()}</p>
-                        <button
-                          type="button"
-                          onClick={() => handleRemoveReplacement(product.id)}
-                          className="text-red-600 hover:text-red-700"
-                        >
-                          <X size={18} />
-                        </button>
+                        <div className="flex items-center gap-2">
+                          <div className="flex items-center gap-1">
+                            <button
+                              type="button"
+                              onClick={() => handleUpdateReplacementQty(product.name, product.quantity - 1)}
+                              className="w-7 h-7 flex items-center justify-center border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
+                            >
+                              −
+                            </button>
+                            <span className="w-8 text-center text-sm font-semibold text-gray-900 dark:text-white">{product.quantity}</span>
+                            <button
+                              type="button"
+                              onClick={() => handleUpdateReplacementQty(product.name, product.quantity + 1)}
+                              className="w-7 h-7 flex items-center justify-center border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
+                            >
+                              +
+                            </button>
+                          </div>
+                          <p className="font-bold text-gray-900 dark:text-white min-w-[80px] text-right">৳{product.amount.toLocaleString()}</p>
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveReplacement(product.name)}
+                            className="text-red-600 hover:text-red-700"
+                          >
+                            <X size={18} />
+                          </button>
+                        </div>
                       </div>
                     </div>
                   ))}
@@ -485,40 +510,43 @@ export default function ExchangeProductModal({ order, onClose, onExchange }: Exc
               </div>
               
               <div className="flex justify-between items-center">
-                <span className="text-sm text-gray-600 dark:text-gray-400">Initial Amount:</span>
+                <span className="text-sm text-gray-600 dark:text-gray-400">Original Amount (Removed):</span>
                 <div className="flex items-center gap-2">
-                  {originalAmount === 0 && <span className="text-xs px-2 py-1 bg-red-100 dark:bg-red-900/20 text-red-600 dark:text-red-400 rounded font-semibold">UNPAID</span>}
-                  <span className="font-semibold text-gray-900 dark:text-white">৳{originalAmount.toLocaleString()}</span>
+                  {totals.originalAmount === 0 && <span className="text-xs px-2 py-1 bg-red-100 dark:bg-red-900/20 text-red-600 dark:text-red-400 rounded font-semibold">NO ITEMS</span>}
+                  <span className="font-semibold text-gray-900 dark:text-white">৳{totals.originalAmount.toLocaleString()}</span>
                 </div>
               </div>
               
               <div className="flex justify-between text-sm">
-                <span className="text-gray-600 dark:text-gray-400">New Price:</span>
-                <span className="font-semibold text-gray-900 dark:text-white">৳{newAmount.toLocaleString()}</span>
+                <span className="text-gray-600 dark:text-gray-400">New Products Subtotal:</span>
+                <span className="font-semibold text-gray-900 dark:text-white">৳{totals.newSubtotal.toLocaleString()}</span>
               </div>
               
               <div className="flex justify-between items-center text-sm">
-                <span className="text-gray-600 dark:text-gray-400">VAT ({vatRate}%):</span>
-                <span className="font-semibold text-gray-900 dark:text-white">৳{vatAmount.toLocaleString()}</span>
+                <span className="text-gray-600 dark:text-gray-400">VAT ({totals.vatRate}%):</span>
+                <span className="font-semibold text-gray-900 dark:text-white">৳{totals.vatAmount.toLocaleString()}</span>
               </div>
               
               <div className="flex justify-between text-sm">
                 <span className="text-gray-600 dark:text-gray-400">Total New Amount:</span>
-                <span className="font-semibold text-gray-900 dark:text-white">৳{totalNewAmount.toLocaleString()}</span>
+                <span className="font-semibold text-gray-900 dark:text-white">৳{totals.totalNewAmount.toLocaleString()}</span>
               </div>
               
               <div className="pt-3 border-t border-gray-300 dark:border-gray-700">
                 <div className="flex justify-between items-center">
                   <span className="font-semibold text-gray-900 dark:text-white">Difference:</span>
-                  <span className={`font-bold text-lg ${difference > 0 ? 'text-orange-600 dark:text-orange-400' : difference < 0 ? 'text-green-600 dark:text-green-400' : 'text-gray-900 dark:text-white'}`}>
-                    {difference > 0 ? '+' : ''}৳{difference.toLocaleString()}
+                  <span className={`font-bold text-lg ${totals.difference > 0 ? 'text-orange-600 dark:text-orange-400' : totals.difference < 0 ? 'text-green-600 dark:text-green-400' : 'text-gray-900 dark:text-white'}`}>
+                    {totals.difference > 0 ? '+' : ''}৳{totals.difference.toLocaleString()}
                   </span>
                 </div>
-                {difference > 0 && (
+                {totals.difference > 0 && (
                   <p className="text-xs text-orange-600 dark:text-orange-400 mt-1">Customer needs to pay additional amount</p>
                 )}
-                {difference < 0 && (
+                {totals.difference < 0 && (
                   <p className="text-xs text-green-600 dark:text-green-400 mt-1">Refund amount to customer</p>
+                )}
+                {totals.difference === 0 && (
+                  <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">No payment difference</p>
                 )}
               </div>
             </div>
