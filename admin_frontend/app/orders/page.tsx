@@ -9,6 +9,7 @@ import OrderFilters from '@/components/orders/OrderFilters';
 import OrdersTable from '@/components/orders/OrdersTable';
 import OrderDetailsModal from '@/components/orders/OrderDetailsModal';
 import EditOrderModal from '@/components/orders/EditOrderModal';
+import ExchangeProductModal from '@/components/orders/ExchangeProductModal'; // ADD THIS LINE
 import { Order } from '@/types/order';
 
 export default function OrdersDashboard() {
@@ -21,6 +22,8 @@ export default function OrdersDashboard() {
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [showDetailsModal, setShowDetailsModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
+  const [showExchangeModal, setShowExchangeModal] = useState(false); // ADD THIS LINE
+  const [showReturnModal, setShowReturnModal] = useState(false); // ADD THIS LINE
   const [activeMenu, setActiveMenu] = useState<number | null>(null);
 
   useEffect(() => {
@@ -29,7 +32,7 @@ export default function OrdersDashboard() {
 
   const loadOrders = async () => {
     try {
-      const response = await fetch('/api/orders');
+      const response = await fetch('/api/social-orders');
       if (response.ok) {
         const data = await response.json();
         setOrders(data);
@@ -85,36 +88,65 @@ export default function OrdersDashboard() {
   };
 
   const handleSaveOrder = async (updatedOrder: Order) => {
-  try {
-    console.log('Saving order:', updatedOrder); 
-    
-  const response = await fetch(`/api/social-orders?id=${updatedOrder.id}`, {
-      method: 'PUT',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(updatedOrder),
-    });
+    try {
+      const response = await fetch(`/api/social-orders?id=${updatedOrder.id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(updatedOrder),
+      });
 
-    console.log('Response status:', response.status); 
-
-    if (response.ok) {
-      const result = await response.json();
-      console.log('Save result:', result); 
-      await loadOrders();
-      setShowEditModal(false);
-      alert('Order updated successfully!');
-    } else {
-      const errorData = await response.json();
-      console.error('Error response:', errorData); 
-      alert(`Failed to update order: ${errorData.error || 'Unknown error'}`);
+      if (response.ok) {
+        await loadOrders();
+        alert('Order updated successfully!');
+      } else {
+        const errorData = await response.json();
+        alert(`Failed to update order: ${errorData.error || 'Unknown error'}`);
+      }
+    } catch (error) {
+      console.error('Error updating order:', error);
+      throw error;
     }
-  } catch (error) {
-    console.error('Error updating order:', error);
-    alert('Network error. Please check console for details.');
-    throw error;
-  }
-};
+  };
+
+  // ADD THESE FUNCTIONS
+  const handleExchangeOrder = (order: Order) => {
+    setSelectedOrder(order);
+    setShowExchangeModal(true);
+    setActiveMenu(null);
+  };
+
+  const handleReturnOrder = (order: Order) => {
+    setSelectedOrder(order);
+    setShowReturnModal(true);
+    setActiveMenu(null);
+  };
+
+  const handleProcessExchange = async (exchangeData: any) => {
+    try {
+      console.log('Processing exchange:', exchangeData);
+      // Here you would call your exchange API endpoint
+      await loadOrders();
+      alert('Exchange processed successfully!');
+    } catch (error) {
+      console.error('Error processing exchange:', error);
+      throw error;
+    }
+  };
+
+  const handleProcessReturn = async (returnData: any) => {
+    try {
+      console.log('Processing return:', returnData);
+      // Here you would call your return API endpoint
+      await loadOrders();
+      alert('Return processed successfully!');
+    } catch (error) {
+      console.error('Error processing return:', error);
+      throw error;
+    }
+  };
+  // END OF NEW FUNCTIONS
 
   const handleCancelOrder = async (orderId: number) => {
     if (!confirm('Are you sure you want to cancel this order?')) return;
@@ -192,6 +224,8 @@ export default function OrdersDashboard() {
                 setActiveMenu={setActiveMenu}
                 onViewDetails={handleViewDetails}
                 onEditOrder={handleEditOrder}
+                onExchangeOrder={handleExchangeOrder}
+                onReturnOrder={handleReturnOrder}
                 onCancelOrder={handleCancelOrder}
               />
             </div>
@@ -214,6 +248,24 @@ export default function OrdersDashboard() {
           onSave={handleSaveOrder}
         />
       )}
+
+      {/* ADD THESE MODALS */}
+      {showExchangeModal && selectedOrder && (
+        <ExchangeProductModal
+          order={selectedOrder}
+          onClose={() => setShowExchangeModal(false)}
+          onExchange={handleProcessExchange}
+        />
+      )}
+
+      {showReturnModal && selectedOrder && (
+        <ExchangeProductModal
+          order={selectedOrder}
+          onClose={() => setShowReturnModal(false)}
+          onExchange={handleProcessReturn}
+        />
+      )}
+      {/* END OF NEW MODALS */}
 
       {activeMenu !== null && (
         <div

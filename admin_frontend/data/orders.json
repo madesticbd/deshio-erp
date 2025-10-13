@@ -23,30 +23,48 @@
         "id": 1760078705766,
         "productName": "Jamdani",
         "size": "1",
-        "qty": 3,
+        "qty": 1,
         "price": 1500,
         "discount": 0,
-        "amount": 4500
+        "amount": 1500
+      },
+      {
+        "id": 1760326828604.7476,
+        "productName": "Cotton Sharee",
+        "size": "1",
+        "qty": 1,
+        "price": 1000,
+        "discount": 0,
+        "amount": 1000
+      },
+      {
+        "id": 1760327116043.8225,
+        "productName": "Cotton Sharee",
+        "size": "1",
+        "qty": 1,
+        "price": 1000,
+        "discount": 0,
+        "amount": 1000
       }
     ],
-    "subtotal": 4500,
+    "subtotal": 3500,
     "amounts": {
-      "subtotal": 4500,
+      "subtotal": 3500,
       "totalDiscount": 0,
-      "vat": 225,
+      "vat": 175,
       "vatRate": 5,
       "transportCost": 0,
-      "total": 4725
+      "total": 3675
     },
     "payments": {
       "sslCommerz": 1200,
       "advance": 1000,
       "transactionId": "",
       "totalPaid": 2200,
-      "due": 2525
+      "due": 1475
     },
     "createdAt": "2025-10-10T06:55:39.824Z",
-    "updatedAt": "2025-10-11T10:12:42.297Z"
+    "updatedAt": "2025-10-13T03:45:16.505Z"
   },
   {
     "id": 1760243510571,
@@ -76,25 +94,35 @@
         "price": 1500,
         "discount": 150,
         "amount": 1350
+      },
+      {
+        "id": 1760330466040.6528,
+        "productName": "Jamdani",
+        "size": "1",
+        "qty": 1,
+        "price": 1500,
+        "discount": 0,
+        "amount": 1500
       }
     ],
-    "subtotal": 1350,
+    "subtotal": 2850,
     "amounts": {
-      "subtotal": 1350,
+      "subtotal": 2850,
       "totalDiscount": 150,
-      "vat": 67.5,
+      "vat": 143,
       "vatRate": 5,
       "transportCost": 0,
-      "total": 1417.5
+      "total": 2993
     },
     "payments": {
       "sslCommerz": 0,
       "advance": 0,
       "transactionId": "",
       "totalPaid": 0,
-      "due": 1417.5
+      "due": 2993
     },
-    "createdAt": "2025-10-12T04:31:50.571Z"
+    "createdAt": "2025-10-12T04:31:50.571Z",
+    "updatedAt": "2025-10-13T04:41:06.506Z"
   },
   {
     "id": 1760244115557,
