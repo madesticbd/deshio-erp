@@ -2,10 +2,11 @@ import { NextResponse } from 'next/server';
 import fs from 'fs';
 import path from 'path';
 
-// ✅ Path to the JSON file
+// ✅ Path to the JSON files
 const ordersFilePath = path.resolve('data', 'orders.json');
+const inventoryFilePath = path.resolve('data', 'inventory.json');
 
-//  Helper: Read all orders
+// Helper: Read all orders
 const readOrdersFromFile = () => {
   try {
     if (fs.existsSync(ordersFilePath)) {
@@ -20,10 +21,24 @@ const readOrdersFromFile = () => {
   }
 };
 
+// Helper: Read inventory
+const readInventoryFromFile = () => {
+  try {
+    if (fs.existsSync(inventoryFilePath)) {
+      const fileData = fs.readFileSync(inventoryFilePath, 'utf8');
+      return JSON.parse(fileData);
+    } else {
+      return [];
+    }
+  } catch (error) {
+    console.error('❌ Error reading inventory file:', error);
+    return [];
+  }
+};
+
 // Helper: Write updated orders list
 const writeOrdersToFile = (orders: any[]) => {
   try {
-    // Ensure the data directory exists
     fs.mkdirSync(path.dirname(ordersFilePath), { recursive: true });
     fs.writeFileSync(ordersFilePath, JSON.stringify(orders, null, 2), 'utf8');
   } catch (error) {
@@ -32,7 +47,59 @@ const writeOrdersToFile = (orders: any[]) => {
   }
 };
 
-//  GET — Fetch all orders
+// Helper: Write updated inventory
+const writeInventoryToFile = (inventory: any[]) => {
+  try {
+    fs.mkdirSync(path.dirname(inventoryFilePath), { recursive: true });
+    fs.writeFileSync(inventoryFilePath, JSON.stringify(inventory, null, 2), 'utf8');
+  } catch (error) {
+    console.error('❌ Error writing inventory file:', error);
+    throw error;
+  }
+};
+
+// Helper: Allocate inventory items and return barcodes
+const allocateInventoryToOrder = (productId: string | number, quantity: number, orderId: number) => {
+  const inventory = readInventoryFromFile();
+  
+  // Find available inventory items for this product
+  const availableItems = inventory.filter((item: any) => {
+    const itemProductId = String(item.productId);
+    const searchProductId = String(productId);
+    return itemProductId === searchProductId && item.status === 'available';
+  });
+
+  if (availableItems.length < quantity) {
+    throw new Error(
+      `Not enough inventory for product ${productId}. Required: ${quantity}, Available: ${availableItems.length}`
+    );
+  }
+
+  // Take required quantity and update their status
+  const allocatedItems = availableItems.slice(0, quantity);
+  const barcodes: string[] = [];
+
+  allocatedItems.forEach((item: any) => {
+    const itemIndex = inventory.findIndex((i: any) => i.id === item.id);
+    if (itemIndex !== -1) {
+      inventory[itemIndex] = {
+        ...inventory[itemIndex],
+        status: 'sold',
+        orderId: orderId,
+        soldAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      };
+      barcodes.push(inventory[itemIndex].barcode);
+    }
+  });
+
+  // Write updated inventory
+  writeInventoryToFile(inventory);
+
+  return barcodes;
+};
+
+// GET — Fetch all orders
 export async function GET() {
   try {
     const orders = readOrdersFromFile();
@@ -43,23 +110,52 @@ export async function GET() {
   }
 }
 
-//  POST — Save a new order
+// POST — Save a new order with barcode allocation
 export async function POST(request: Request) {
   try {
     const newOrder = await request.json();
-
     const existingOrders = readOrdersFromFile();
 
-    // Add metadata (ID + timestamp)
+    // Generate order ID
+    const orderId = Date.now();
+
+    // Process each product and allocate barcodes
+    const productsWithBarcodes = [];
+    
+    for (const product of newOrder.products) {
+      try {
+        const productId = product.productId || product.id;
+        
+        // Allocate inventory and get barcodes
+        const barcodes = allocateInventoryToOrder(productId, product.qty, orderId);
+        
+        productsWithBarcodes.push({
+          ...product,
+          productId: productId,
+          barcodes: barcodes
+        });
+        
+        console.log(`✅ Allocated ${barcodes.length} items for ${product.productName}`);
+      } catch (error: any) {
+        console.error(`❌ Error allocating products for ${product.productName}:`, error.message);
+        return NextResponse.json({ 
+          error: `Failed to allocate inventory: ${error.message}` 
+        }, { status: 400 });
+      }
+    }
+
+    // Create order with metadata and barcodes
     const orderWithMeta = {
-      id: Date.now(),
+      id: orderId,
       ...newOrder,
+      products: productsWithBarcodes,
       createdAt: new Date().toISOString(),
     };
 
     existingOrders.push(orderWithMeta);
-
     writeOrdersToFile(existingOrders);
+
+    console.log(`✅ Order ${orderId} created with ${productsWithBarcodes.length} products`);
 
     return NextResponse.json({
       success: true,
@@ -72,7 +168,7 @@ export async function POST(request: Request) {
   }
 }
 
-//  DELETE — Remove an order by ID
+// DELETE — Remove an order by ID
 export async function DELETE(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
@@ -83,60 +179,112 @@ export async function DELETE(request: Request) {
     }
 
     const orders = readOrdersFromFile();
-    const updatedOrders = orders.filter((order: any) => String(order.id) !== String(id));
-
-    if (orders.length === updatedOrders.length) {
+    const orderToDelete = orders.find((order: any) => String(order.id) === String(id));
+    
+    if (!orderToDelete) {
       return NextResponse.json({ error: 'Order not found' }, { status: 404 });
     }
 
+    // Return inventory items to available status
+    const inventory = readInventoryFromFile();
+    let updatedInventory = false;
+
+    inventory.forEach((item: any, index: number) => {
+      if (item.orderId && String(item.orderId) === String(id)) {
+        inventory[index] = {
+          ...item,
+          status: 'available',
+          orderId: undefined,
+          soldAt: undefined,
+          updatedAt: new Date().toISOString()
+        };
+        updatedInventory = true;
+      }
+    });
+
+    if (updatedInventory) {
+      writeInventoryToFile(inventory);
+    }
+
+    // Remove order
+    const updatedOrders = orders.filter((order: any) => String(order.id) !== String(id));
     writeOrdersToFile(updatedOrders);
 
-    return NextResponse.json({ success: true, message: 'Order cancelled successfully!' });
+    return NextResponse.json({ 
+      success: true, 
+      message: 'Order cancelled successfully and inventory restored!' 
+    });
   } catch (error) {
     console.error('❌ Failed to delete order:', error);
     return NextResponse.json({ error: 'Failed to delete order' }, { status: 500 });
   }
 }
 
-
-//  PUT — Update an existing order
+// PUT — Update an existing order
 export async function PUT(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
     const id = searchParams.get('id');
 
-    console.log('PUT request received for order ID:', id); // Debug log
+    console.log('PUT request received for order ID:', id);
 
     if (!id) {
       return NextResponse.json({ error: 'Missing order ID' }, { status: 400 });
     }
 
     const updatedOrderData = await request.json();
-    console.log('Updated order data:', updatedOrderData); // Debug log
+    console.log('Updated order data:', updatedOrderData);
     
     const orders = readOrdersFromFile();
-    console.log('Current orders count:', orders.length); // Debug log
+    console.log('Current orders count:', orders.length);
     
     const orderIndex = orders.findIndex((order: any) => String(order.id) === String(id));
     
     if (orderIndex === -1) {
-      console.log('Order not found with ID:', id); // Debug log
+      console.log('Order not found with ID:', id);
       return NextResponse.json({ error: 'Order not found' }, { status: 404 });
     }
 
-    // Update the order
+    const existingOrder = orders[orderIndex];
+
+    // Merge products while preserving barcodes
+    let mergedProducts = updatedOrderData.products;
+    
+    if (existingOrder.products && updatedOrderData.products) {
+      mergedProducts = updatedOrderData.products.map((newProduct: any) => {
+        // Find the corresponding existing product by id or productId
+        const existingProduct = existingOrder.products.find(
+          (p: any) => 
+            String(p.id) === String(newProduct.id) || 
+            String(p.productId) === String(newProduct.productId)
+        );
+        
+        // If barcodes exist in the existing product but not in the new one, preserve them
+        if (existingProduct?.barcodes && !newProduct.barcodes) {
+          return {
+            ...newProduct,
+            barcodes: existingProduct.barcodes
+          };
+        }
+        
+        return newProduct;
+      });
+    }
+
+    // Update the order with preserved barcodes
     orders[orderIndex] = {
-      ...orders[orderIndex],
+      ...existingOrder,
       ...updatedOrderData,
-      id: orders[orderIndex].id, // Keep original ID
-      createdAt: orders[orderIndex].createdAt, // Keep original creation time
+      products: mergedProducts,
+      id: existingOrder.id,
+      createdAt: existingOrder.createdAt,
       updatedAt: new Date().toISOString(),
     };
 
-    console.log('Updated order:', orders[orderIndex]); // Debug log
+    console.log('Updated order with preserved barcodes:', orders[orderIndex]);
 
     writeOrdersToFile(orders);
-    console.log('Order saved to file'); // Debug log
+    console.log('Order saved to file');
 
     return NextResponse.json({
       success: true,

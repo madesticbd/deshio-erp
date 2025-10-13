@@ -8,8 +8,8 @@ import { useRouter } from 'next/navigation';
 
 
 interface Product {
-  id: number;
-  productId?: number; // Add this for tracking actual product ID
+  id: number | string; // Support both numeric IDs and variation string IDs
+  productId?: number | string; // For tracking in cart
   productName: string;
   size: string;
   qty: number;
@@ -57,6 +57,39 @@ export default function SocialCommercePage() {
   const [discountPercent, setDiscountPercent] = useState('');
   const [discountTk, setDiscountTk] = useState('');
   const [amount, setAmount] = useState('0.00');
+
+  // Flatten products with variations into searchable items
+  const getFlattenedProducts = () => {
+    const flattened: any[] = [];
+    
+    allProducts.forEach(product => {
+      if (product.variations && product.variations.length > 0) {
+        // Product has variations - create separate entries for each
+        product.variations.forEach((variation: any, index: number) => {
+          const colorAttr = variation.attributes?.Colour || `Variation ${index + 1}`;
+          flattened.push({
+            id: variation.id, // Use variation ID
+            name: `${product.name} - ${colorAttr}`,
+            originalProductId: product.id,
+            isVariation: true,
+            variationIndex: index,
+            attributes: {
+              ...product.attributes,
+              ...variation.attributes
+            }
+          });
+        });
+      } else {
+        // Regular product without variations
+        flattened.push({
+          ...product,
+          isVariation: false
+        });
+      }
+    });
+    
+    return flattened;
+  };
 
   // Fetch products and inventory on component mount
   useEffect(() => {
@@ -143,11 +176,14 @@ export default function SocialCommercePage() {
     fetchUpazillas();
   }, [district, districts]);
 
-  // Helper function to get available inventory count for a product
-  const getAvailableInventory = (productId: number) => {
-    const available = inventory.filter(item => 
-      Number(item.productId) === Number(productId) && item.status === 'available'
-    );
+  // Helper function to get available inventory count for a product/variation
+  const getAvailableInventory = (productId: number | string) => {
+    const available = inventory.filter(item => {
+      // Handle both numeric IDs and variation string IDs
+      const itemProductId = typeof item.productId === 'string' ? item.productId : String(item.productId);
+      const searchProductId = typeof productId === 'string' ? productId : String(productId);
+      return itemProductId === searchProductId && item.status === 'available';
+    });
     return available.length;
   };
 
@@ -159,12 +195,14 @@ export default function SocialCommercePage() {
     }
 
     const delayDebounce = setTimeout(() => {
+      const flattenedProducts = getFlattenedProducts();
+      
       console.log('Search query:', searchQuery);
-      console.log('All products count:', allProducts.length);
+      console.log('All flattened products count:', flattenedProducts.length);
       console.log('Inventory count:', inventory.length);
       
       // First filter by name match
-      const nameMatches = allProducts.filter((product: any) =>
+      const nameMatches = flattenedProducts.filter((product: any) =>
         product.name.toLowerCase().includes(searchQuery.toLowerCase())
       );
       
@@ -172,14 +210,7 @@ export default function SocialCommercePage() {
       
       // Then filter by available inventory
       const results = nameMatches.filter((product: any) => {
-        const availableCount = inventory.filter(item => {
-          const matches = Number(item.productId) === Number(product.id) && item.status === 'available';
-          if (matches) {
-            console.log(`Match found: product ${product.id}, inventory item:`, item);
-          }
-          return matches;
-        }).length;
-        
+        const availableCount = getAvailableInventory(product.id);
         console.log(`Product "${product.name}" (ID: ${product.id}) has ${availableCount} available items`);
         return availableCount > 0;
       });
@@ -224,13 +255,13 @@ export default function SocialCommercePage() {
       return;
     }
 
-    // Check available inventory
+    // Check available inventory - handle both numeric and string IDs
     const availableQty = getAvailableInventory(selectedProduct.id);
     const requestedQty = parseInt(quantity);
     
     // Check existing quantity in cart
     const existingItem = cart.find(
-      item => item.productName === selectedProduct.name
+      item => String(item.productId) === String(selectedProduct.id)
     );
     const cartQty = existingItem ? existingItem.qty : 0;
     
@@ -250,7 +281,7 @@ export default function SocialCommercePage() {
     
     // Check if product already exists in cart
     const existingItemIndex = cart.findIndex(
-      item => item.productName === selectedProduct.name && item.price === price
+      item => String(item.productId) === String(selectedProduct.id) && item.price === price
     );
     
     if (existingItemIndex !== -1) {
@@ -276,7 +307,7 @@ export default function SocialCommercePage() {
       // Add new item
       const newItem: Product = {
         id: Date.now(),
-        productId: selectedProduct.id, // Store the actual product ID
+        productId: selectedProduct.id, // Store the actual product/variation ID
         productName: selectedProduct.name,
         size: '1', // Set size as 1
         qty: qty,
@@ -315,9 +346,11 @@ export default function SocialCommercePage() {
     try {
       // Update inventory status for each product in cart
       for (const item of cart) {
-        const availableItems = inventory.filter(
-          inv => inv.productId === item.productId && inv.status === 'available'
-        ).slice(0, item.qty);
+        const availableItems = inventory.filter(inv => {
+          const invProductId = typeof inv.productId === 'string' ? inv.productId : String(inv.productId);
+          const itemProductId = typeof item.productId === 'string' ? item.productId : String(item.productId);
+          return invProductId === itemProductId && inv.status === 'available';
+        }).slice(0, item.qty);
         
         // Update each inventory item to sold
         for (const invItem of availableItems) {

@@ -1,4 +1,3 @@
-// components/orders/ExchangeProductModal.tsx
 import { useState, useEffect } from 'react';
 import { X, Search, ArrowRightLeft } from 'lucide-react';
 import { Order, Product } from '@/types/order';
@@ -219,6 +218,7 @@ export default function ExchangeProductModal({ order, onClose, onExchange }: Exc
             quantity: removedQuantities[id]
           })),
           replacementProducts: replacementProducts.map(p => ({
+            id: p.id,  // Added product ID for inventory lookup
             name: p.name,
             price: p.price,
             quantity: p.quantity,

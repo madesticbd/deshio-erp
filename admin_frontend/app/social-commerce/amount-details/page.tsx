@@ -73,12 +73,14 @@ export default function AmountDetailsPage() {
         body: JSON.stringify(completeOrderData),
       });
 
+      const result = await response.json();
+
       if (response.ok) {
-        alert('Order placed successfully!');
+        alert('Order placed successfully! Barcodes have been allocated.');
         sessionStorage.removeItem('pendingOrder');
         router.push('/social-commerce');
       } else {
-        alert('Failed to place order');
+        alert(result.error || 'Failed to place order');
       }
     } catch (error) {
       console.error('Error:', error);

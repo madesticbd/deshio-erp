@@ -19,12 +19,14 @@ export interface DeliveryAddress {
 
 export interface Product {
   id: number;
+  productId?: number;
   productName: string;
   size: string;
   qty: number;
   price: number;
   discount: number;
   amount: number;
+  barcodes?: string[]; // Added barcodes field
 }
 
 export interface Amounts {
@@ -55,4 +57,5 @@ export interface Order {
   amounts: Amounts;
   payments: Payments;
   createdAt: string;
+  updatedAt?: string;
 }
