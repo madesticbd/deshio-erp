@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { LayoutDashboard, Store, FolderTree, Package, ClipboardList, CreditCard, ShoppingCart, Image, X } from 'lucide-react';
+import { LayoutDashboard, Store, FolderTree, Package, ClipboardList, CreditCard, ShoppingCart, Image, X, AlertTriangle } from 'lucide-react';
 import { useState } from 'react';
 
 interface SidebarProps {
@@ -47,6 +47,7 @@ export default function Sidebar({ isOpen, setIsOpen }: SidebarProps) {
     { icon: Package, label: 'Orders', href: '/orders' },
     { icon: ClipboardList, label: 'Purchase History', href: '/purchase-history' },
     { icon: CreditCard, label: 'Transaction', href: '/transaction' },
+    { icon: AlertTriangle, label: 'Defect Panel', href: '/defects' },
   ];
 
   return (
@@ -146,4 +147,3 @@ export default function Sidebar({ isOpen, setIsOpen }: SidebarProps) {
     </>
   );
 }
-

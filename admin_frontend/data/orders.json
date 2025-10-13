@@ -15,8 +15,8 @@
       "city": "Chandina",
       "zone": "chandina",
       "area": "",
-      "address": "",
-      "postalCode": ""
+      "address": "International Affairs Division ,Paramanu Bhaban ,Bangladesh Atomic Energy Commission,",
+      "postalCode": "1212"
     },
     "products": [
       {
@@ -31,23 +31,32 @@
         "barcodes": [
           "BATCH1760326827365-10"
         ]
+      },
+      {
+        "id": 1760361749578,
+        "productName": "Cotton Sharee",
+        "size": "1",
+        "qty": 1,
+        "price": 1000,
+        "discount": 0,
+        "amount": 1000
       }
     ],
-    "subtotal": 1500,
+    "subtotal": 2500,
     "amounts": {
-      "subtotal": 1500,
+      "subtotal": 2500,
       "totalDiscount": 0,
-      "vat": 75,
+      "vat": 125,
       "vatRate": 5,
       "transportCost": 0,
-      "total": 1575
+      "total": 2625
     },
     "payments": {
       "sslCommerz": 0,
       "advance": 0,
       "transactionId": "",
       "totalPaid": 0,
-      "due": 1575
+      "due": 2625
     },
     "createdAt": "2025-10-13T08:23:27.227Z",
     "exchangeHistory": [
@@ -121,7 +130,7 @@
         "note": "Refund to customer"
       }
     ],
-    "updatedAt": "2025-10-13T09:49:23.533Z"
+    "updatedAt": "2025-10-13T13:22:46.406Z"
   },
   {
     "id": 1760343807225,
@@ -302,5 +311,79 @@
       }
     ],
     "updatedAt": "2025-10-13T10:05:26.903Z"
+  },
+  {
+    "id": 1760368314661,
+    "salesBy": "Admin User",
+    "date": "06-Oct-2025",
+    "customer": {
+      "name": "Sanjana Afreen",
+      "email": "tasneem.nishat.4953@gmail.com",
+      "phone": "01818316964",
+      "socialId": "Sanjana"
+    },
+    "deliveryAddress": {
+      "division": "Rajshahi",
+      "district": "Rajshahi",
+      "city": "Mohonpur",
+      "zone": "ddgfd",
+      "area": "",
+      "address": "International Affairs Division ,Paramanu Bhaban ,Bangladesh Atomic Energy Commission,",
+      "postalCode": "1212"
+    },
+    "products": [
+      {
+        "id": 1760368270694,
+        "productId": 1759738578875,
+        "productName": "Cotton Sharee",
+        "size": "1",
+        "qty": 1,
+        "price": 1000,
+        "discount": 0,
+        "amount": 1000,
+        "barcodes": [
+          "BATCH1760349329531-05"
+        ]
+      }
+    ],
+    "subtotal": 1000,
+    "amounts": {
+      "subtotal": 1000,
+      "totalDiscount": 0,
+      "vat": 50,
+      "vatRate": 5,
+      "transportCost": 0,
+      "total": 1050
+    },
+    "payments": {
+      "sslCommerz": 0,
+      "advance": 0,
+      "transactionId": "",
+      "totalPaid": 0,
+      "due": 1050
+    },
+    "createdAt": "2025-10-13T15:11:54.665Z",
+    "returnHistory": [
+      {
+        "date": "2025-10-13",
+        "time": "22:08",
+        "timestamp": "2025-10-13T16:08:21.955Z",
+        "returnedProducts": [
+          {
+            "productId": 1760368266030,
+            "quantity": 1,
+            "productName": "Jamdani",
+            "price": 1500,
+            "amount": 1500
+          }
+        ],
+        "originalTotal": 2625,
+        "newTotal": 1050,
+        "refundAmount": 1575,
+        "refundToCustomer": 0,
+        "note": "Order total reduced by ৳1575"
+      }
+    ],
+    "updatedAt": "2025-10-13T16:08:21.955Z"
   }
 ]

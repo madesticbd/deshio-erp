@@ -1,0 +1,24 @@
+[
+  {
+    "id": "defect-1760371702301",
+    "barcode": "BATCH1760326827365-14",
+    "productId": 1760368266030,
+    "productName": "Jamdani",
+    "reason": "customer_return",
+    "status": "pending",
+    "addedBy": "Admin",
+    "addedAt": "2025-10-13T16:08:22.301Z",
+    "originalOrderId": 1760368314661,
+    "customerPhone": "01818316964",
+    "returnReason": "defective"
+  },
+  {
+    "id": "defect-1760376844211",
+    "barcode": "BATCH1759738770680-20",
+    "productId": 1759737987171,
+    "reason": "manufacturing",
+    "status": "pending",
+    "addedBy": "Admin",
+    "addedAt": "2025-10-13T17:34:04.211Z"
+  }
+]
