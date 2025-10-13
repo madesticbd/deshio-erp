@@ -1,54 +1,5 @@
 [
   {
-    "id": 1760079339824,
-    "salesBy": "Admin User",
-    "date": "06-Oct-2025",
-    "customer": {
-      "name": "Nishat Tasneem",
-      "email": "tasneem.nishat.4953@gmail.com",
-      "phone": "01818316964",
-      "socialId": ""
-    },
-    "deliveryAddress": {
-      "division": "Dhaka",
-      "district": "Dhaka",
-      "city": "Savar",
-      "zone": "Agargaon",
-      "area": "",
-      "address": "International Affairs Division ,Paramanu Bhaban ,Bangladesh Atomic Energy Commission",
-      "postalCode": "1212"
-    },
-    "products": [
-      {
-        "id": 1760078705766,
-        "productName": "Jamdani",
-        "size": "1",
-        "qty": 3,
-        "price": 1500,
-        "discount": 0,
-        "amount": 4500
-      }
-    ],
-    "subtotal": 4500,
-    "amounts": {
-      "subtotal": 4500,
-      "totalDiscount": 0,
-      "vat": 225,
-      "vatRate": 5,
-      "transportCost": 0,
-      "total": 4725
-    },
-    "payments": {
-      "sslCommerz": 1200,
-      "advance": 1000,
-      "transactionId": "",
-      "totalPaid": 2200,
-      "due": 2525
-    },
-    "createdAt": "2025-10-10T06:55:39.824Z",
-    "updatedAt": "2025-10-11T10:12:42.297Z"
-  },
-  {
     "id": 1760243510571,
     "salesBy": "Admin User",
     "date": "06-Oct-2025",
@@ -67,34 +18,111 @@
       "address": "International Affairs Division ,Paramanu Bhaban ,Bangladesh Atomic Energy Commission,",
       "postalCode": "1212"
     },
-    "products": [
-      {
-        "id": 1760243503339,
-        "productName": "Jamdani",
-        "size": "1",
-        "qty": 1,
-        "price": 1500,
-        "discount": 150,
-        "amount": 1350
-      }
-    ],
-    "subtotal": 1350,
+    "products": [],
+    "subtotal": 0,
     "amounts": {
-      "subtotal": 1350,
-      "totalDiscount": 150,
-      "vat": 67.5,
+      "subtotal": 0,
+      "totalDiscount": 0,
+      "vat": 0,
       "vatRate": 5,
       "transportCost": 0,
-      "total": 1417.5
+      "total": 0
     },
     "payments": {
       "sslCommerz": 0,
       "advance": 0,
       "transactionId": "",
       "totalPaid": 0,
-      "due": 1417.5
+      "due": 0
     },
-    "createdAt": "2025-10-12T04:31:50.571Z"
+    "createdAt": "2025-10-12T04:31:50.571Z",
+    "updatedAt": "2025-10-13T06:10:26.142Z",
+    "exchangeHistory": [
+      {
+        "date": "2025-10-13T05:06:07.077Z",
+        "removedProducts": [
+          {
+            "productId": 1760243503339,
+            "quantity": 1
+          }
+        ],
+        "replacementProducts": [
+          {
+            "name": "Cotton Sharee",
+            "price": 1000,
+            "quantity": 1,
+            "amount": 1000,
+            "size": "1"
+          }
+        ],
+        "originalTotal": 2993,
+        "newTotal": 2625,
+        "difference": -368,
+        "note": "Refund to customer"
+      },
+      {
+        "date": "2025-10-13T05:08:17.970Z",
+        "removedProducts": [
+          {
+            "productId": 1760331967077.817,
+            "quantity": 1
+          }
+        ],
+        "replacementProducts": [
+          {
+            "name": "Jamdani",
+            "price": 1500,
+            "quantity": 1,
+            "amount": 1500,
+            "size": "1"
+          }
+        ],
+        "originalTotal": 2625,
+        "newTotal": 3150,
+        "difference": 525,
+        "note": "Customer owes additional payment"
+      }
+    ],
+    "returnHistory": [
+      {
+        "date": "2025-10-13",
+        "time": "12:05",
+        "timestamp": "2025-10-13T06:05:20.684Z",
+        "returnedProducts": [
+          {
+            "productId": 1760330466040.6528,
+            "productName": "Jamdani",
+            "quantity": 1,
+            "price": 1500,
+            "amount": 1500
+          }
+        ],
+        "originalTotal": 3150,
+        "newTotal": 1575,
+        "refundAmount": 1575,
+        "refundToCustomer": 0,
+        "note": "Order total reduced by ৳1575"
+      },
+      {
+        "date": "2025-10-13",
+        "time": "12:10",
+        "timestamp": "2025-10-13T06:10:26.142Z",
+        "returnedProducts": [
+          {
+            "productId": 1760330466040.6528,
+            "productName": "Jamdani",
+            "quantity": 1,
+            "price": 1500,
+            "amount": 1500
+          }
+        ],
+        "originalTotal": 1575,
+        "newTotal": 0,
+        "refundAmount": 1575,
+        "refundToCustomer": 0,
+        "note": "Order total reduced by ৳1575"
+      }
+    ]
   },
   {
     "id": 1760244115557,
@@ -126,225 +154,196 @@
         "amount": 3000
       },
       {
-        "id": 1760244107455,
+        "id": 1760332575489.1924,
         "productName": "Cotton Sharee",
         "size": "1",
-        "qty": 1,
+        "qty": 2,
         "price": 1000,
         "discount": 0,
-        "amount": 1000
+        "amount": 2000
       }
     ],
-    "subtotal": 4000,
+    "subtotal": 5000,
     "amounts": {
-      "subtotal": 4000,
+      "subtotal": 5000,
       "totalDiscount": 0,
-      "vat": 200,
+      "vat": 250,
       "vatRate": 5,
       "transportCost": 0,
-      "total": 4200
+      "total": 5250
     },
     "payments": {
       "sslCommerz": 0,
       "advance": 0,
       "transactionId": "",
       "totalPaid": 0,
-      "due": 4200
+      "due": 5250
     },
     "createdAt": "2025-10-12T04:41:55.557Z",
-    "updatedAt": "2025-10-12T04:43:12.105Z"
-  },
-  {
-    "id": 1760329033253,
-    "salesBy": "Admin User",
-    "date": "06-Oct-2025",
-    "customer": {
-      "name": "Adrita Ahsan",
-      "email": "adrita@gmail.com",
-      "phone": "01745191964",
-      "socialId": "Adrita"
-    },
-    "deliveryAddress": {
-      "division": "Chattagram",
-      "district": "Feni",
-      "city": "Chhagalnaiya",
-      "zone": "feni",
-      "area": "",
-      "address": "",
-      "postalCode": ""
-    },
-    "products": [
+    "updatedAt": "2025-10-13T06:09:58.174Z",
+    "exchangeHistory": [
       {
-        "id": 1760328952548,
-        "productName": "Jamdani",
-        "size": "1",
-        "qty": 1,
-        "price": 1500,
-        "discount": 0,
-        "amount": 1500
-      }
-    ],
-    "subtotal": 1500,
-    "amounts": {
-      "subtotal": 1500,
-      "totalDiscount": 0,
-      "vat": 75,
-      "vatRate": 5,
-      "transportCost": 0,
-      "total": 1575
-    },
-    "payments": {
-      "sslCommerz": 0,
-      "advance": 0,
-      "transactionId": "",
-      "totalPaid": 0,
-      "due": 1575
-    },
-    "createdAt": "2025-10-13T04:17:13.253Z"
-  },
-  {
-    "id": 1760329243405,
-    "salesBy": "Admin User",
-    "date": "06-Oct-2025",
-    "customer": {
-      "name": "Nishat",
-      "email": "n@gmail.com",
-      "phone": "12345",
-      "socialId": ""
-    },
-    "deliveryAddress": {
-      "division": "Khulna",
-      "district": "Jashore",
-      "city": "Manirampur",
-      "zone": "manirampur",
-      "area": "",
-      "address": "",
-      "postalCode": ""
-    },
-    "products": [
+        "date": "2025-10-13T04:49:33.696Z",
+        "removedProducts": [
+          {
+            "productId": 1760244107455,
+            "quantity": 1
+          }
+        ],
+        "replacementProducts": [
+          {
+            "id": 1759737987171,
+            "name": "Jamdani",
+            "image": "/uploads/1759737875133-jamdani product.webp",
+            "price": 1500,
+            "quantity": 1,
+            "amount": 1500
+          }
+        ],
+        "originalAmount": 1000,
+        "newAmount": 1575,
+        "difference": 575
+      },
       {
-        "id": 1760329205540,
-        "productName": "Cotton Sharee",
-        "size": "1",
-        "qty": 1,
-        "price": 1000,
-        "discount": 0,
-        "amount": 1000
-      }
-    ],
-    "subtotal": 1000,
-    "amounts": {
-      "subtotal": 1000,
-      "totalDiscount": 0,
-      "vat": 50,
-      "vatRate": 5,
-      "transportCost": 0,
-      "total": 1050
-    },
-    "payments": {
-      "sslCommerz": 0,
-      "advance": 0,
-      "transactionId": "",
-      "totalPaid": 0,
-      "due": 1050
-    },
-    "createdAt": "2025-10-13T04:20:43.405Z"
-  },
-  {
-    "id": 1760329943452,
-    "salesBy": "Admin User",
-    "date": "06-Oct-2025",
-    "customer": {
-      "name": "Adrita ",
-      "email": "a@gmail.com",
-      "phone": "123",
-      "socialId": ""
-    },
-    "deliveryAddress": {
-      "division": "Sylhet",
-      "district": "Sylhet",
-      "city": "Dakshinsurma",
-      "zone": "dakshinsurma",
-      "area": "",
-      "address": "",
-      "postalCode": ""
-    },
-    "products": [
+        "date": "2025-10-13T04:53:34.105Z",
+        "removedProducts": [
+          {
+            "productId": 1760330973696.2495,
+            "quantity": 1
+          }
+        ],
+        "replacementProducts": [
+          {
+            "id": 1759738578875,
+            "name": "Cotton Sharee",
+            "image": "/uploads/1759738532116-cotton.webp",
+            "price": 1000,
+            "quantity": 1,
+            "amount": 1000
+          }
+        ],
+        "originalAmount": 1500,
+        "newAmount": 1050,
+        "difference": -450
+      },
       {
-        "id": 1760329895878,
-        "productName": "Cotton Sharee",
-        "size": "1",
-        "qty": 1,
-        "price": 1000,
-        "discount": 0,
-        "amount": 1000
+        "date": "2025-10-13T05:13:56.875Z",
+        "removedProducts": [
+          {
+            "productId": 1760331213147.0962,
+            "quantity": 1
+          },
+          {
+            "productId": 1760331214105.1855,
+            "quantity": 1
+          }
+        ],
+        "replacementProducts": [
+          {
+            "name": "Jamdani",
+            "price": 1500,
+            "quantity": 1,
+            "amount": 1500,
+            "size": "1"
+          }
+        ],
+        "originalTotal": 6825,
+        "newTotal": 6300,
+        "difference": -525,
+        "note": "Refund to customer"
+      },
+      {
+        "date": "2025-10-13T05:16:15.489Z",
+        "removedProducts": [
+          {
+            "productId": 1760330972411.2534,
+            "quantity": 1
+          }
+        ],
+        "replacementProducts": [
+          {
+            "name": "Cotton Sharee",
+            "price": 1000,
+            "quantity": 1,
+            "amount": 1000,
+            "size": "1"
+          }
+        ],
+        "originalTotal": 6300,
+        "newTotal": 5775,
+        "difference": -525,
+        "note": "Refund to customer"
+      },
+      {
+        "date": "2025-10-13T06:09:58.174Z",
+        "removedProducts": [
+          {
+            "productId": 1760243986614,
+            "quantity": 1
+          }
+        ],
+        "replacementProducts": [
+          {
+            "name": "Cotton Sharee",
+            "price": 1000,
+            "quantity": 1,
+            "amount": 1000,
+            "size": "1"
+          }
+        ],
+        "originalTotal": 5775,
+        "newTotal": 5250,
+        "difference": -525,
+        "note": "Refund to customer"
       }
-    ],
-    "subtotal": 1000,
-    "amounts": {
-      "subtotal": 1000,
-      "totalDiscount": 0,
-      "vat": 50,
-      "vatRate": 5,
-      "transportCost": 0,
-      "total": 1050
-    },
-    "payments": {
-      "sslCommerz": 0,
-      "advance": 0,
-      "transactionId": "",
-      "totalPaid": 0,
-      "due": 1050
-    },
-    "createdAt": "2025-10-13T04:32:23.452Z"
+    ]
   },
   {
-    "id": 1760330900470,
+    "id": 1760333860628,
     "salesBy": "Admin User",
     "date": "06-Oct-2025",
     "customer": {
-      "name": "Nishat Tasneem",
+      "name": "Sanjana",
       "email": "nishat@gmail.com",
-      "phone": "01745191964",
-      "socialId": ""
+      "phone": "01924129777",
+      "socialId": "sanjana"
     },
     "deliveryAddress": {
-      "division": "Khulna",
-      "district": "Kushtia",
-      "city": "Kushtia Sadar",
-      "zone": "Sadar",
+      "division": "Dhaka",
+      "district": "Munshiganj",
+      "city": "Sreenagar",
+      "zone": "hjgj",
       "area": "",
-      "address": "",
-      "postalCode": ""
+      "address": "sector 13, road -01,house 20",
+      "postalCode": "1212"
     },
     "products": [
       {
-        "id": 1760330847995,
-        "productId": 1759737987171,
-        "productName": "Jamdani",
+        "id": 1760333854764,
+        "productName": "Cotton Sharee",
         "size": "1",
-        "qty": 4,
-        "price": 1500,
-        "discount": 0,
-        "amount": 6000
+        "qty": 2,
+        "price": 1000,
+        "discount": 200,
+        "amount": 1800
       }
     ],
-    "subtotal": 6000,
+    "subtotal": 1800,
     "amounts": {
-      "subtotal": 6000,
-      "totalDiscount": 0,
-      "vat": 300,
+      "subtotal": 1800,
+      "totalDiscount": 200,
+      "vat": 90,
       "vatRate": 5,
       "transportCost": 0,
-      "total": 6300
+      "total": 1890
     },
     "payments": {
       "sslCommerz": 0,
       "advance": 0,
       "transactionId": "",
       "totalPaid": 0,
-      "due": 6300
+      "due": 1890
     },
-    "createdAt": "2025-10-13T04:48:20.470Z"
+    "createdAt": "2025-10-13T05:37:40.628Z"
   }
 ]

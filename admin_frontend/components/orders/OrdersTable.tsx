@@ -10,6 +10,8 @@ interface OrdersTableProps {
   setActiveMenu: (id: number | null) => void;
   onViewDetails: (order: Order) => void;
   onEditOrder: (order: Order) => void;
+  onExchangeOrder: (order: Order) => void;
+  onReturnOrder: (order: Order) => void;
   onCancelOrder: (orderId: number) => void;
 }
 
@@ -20,6 +22,8 @@ export default function OrdersTable({
   setActiveMenu,
   onViewDetails,
   onEditOrder,
+  onExchangeOrder,
+  onReturnOrder,
   onCancelOrder
 }: OrdersTableProps) {
   return (
@@ -80,32 +84,59 @@ export default function OrdersTable({
                     </td>
                     <td className="px-6 py-4 text-sm font-bold text-gray-900 dark:text-white">৳{(order.amounts?.total || order.subtotal).toLocaleString()}</td>
                     <td className="px-6 py-4 text-right">
-                      <div className="relative inline-block">
+                      <div className="flex items-center justify-end gap-2">
                         <button
-                          onClick={() => setActiveMenu(activeMenu === order.id ? null : order.id)}
-                          className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
+                          onClick={() => onEditOrder(order)}
+                          className="p-2 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors group"
+                          title="Edit Order"
                         >
-                          <MoreVertical className="w-5 h-5 text-gray-600 dark:text-gray-400" />
+                          <Edit2 className="w-5 h-5 text-blue-600 dark:text-blue-400" />
                         </button>
-                        
-                        {activeMenu === order.id && (
-                          <div className={`absolute right-0 ${
-                            index >= filteredOrders.length - 2 ? 'bottom-full mb-1' : 'top-full mt-1'
-                          } bg-white dark:bg-gray-800 shadow-xl rounded-lg border border-gray-200 dark:border-gray-700 py-1 w-48 z-50`}>
-                            <button
-                              onClick={() => onViewDetails(order)}
-                              className="w-full px-4 py-2 text-left text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
-                            >
-                              View Details
-                            </button>
-                            <button
-                              onClick={() => onCancelOrder(order.id)}
-                              className="w-full px-4 py-2 text-left text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
-                            >
-                              Cancel Order
-                            </button>
-                          </div>
-                        )}
+                        <div className="relative inline-block">
+                          <button
+                            onClick={() => setActiveMenu(activeMenu === order.id ? null : order.id)}
+                            className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
+                          >
+                            <MoreVertical className="w-5 h-5 text-gray-600 dark:text-gray-400" />
+                          </button>
+                          
+                          {activeMenu === order.id && (
+                            <div className={`absolute right-0 ${
+                              index >= filteredOrders.length - 2 ? 'bottom-full mb-1' : 'top-full mt-1'
+                            } bg-white dark:bg-gray-800 shadow-xl rounded-lg border border-gray-200 dark:border-gray-700 py-1 w-48 z-50`}>
+                              <button
+                                onClick={() => onViewDetails(order)}
+                                className="w-full px-4 py-2 text-left text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                              >
+                                View Details
+                              </button>
+                              <button
+                                onClick={() => onEditOrder(order)}
+                                className="w-full px-4 py-2 text-left text-sm text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors"
+                              >
+                                Edit Order
+                              </button>
+                              <button
+                                onClick={() => onExchangeOrder(order)}
+                                className="w-full px-4 py-2 text-left text-sm text-purple-600 dark:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-900/20 transition-colors"
+                              >
+                                Exchange Product
+                              </button>
+                              <button
+                                onClick={() => onReturnOrder(order)}
+                                className="w-full px-4 py-2 text-left text-sm text-orange-600 dark:text-orange-400 hover:bg-orange-50 dark:hover:bg-orange-900/20 transition-colors"
+                              >
+                                Return Product
+                              </button>
+                              <button
+                                onClick={() => onCancelOrder(order.id)}
+                                className="w-full px-4 py-2 text-left text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+                              >
+                                Cancel Order
+                              </button>
+                            </div>
+                          )}
+                        </div>
                       </div>
                     </td>
                   </tr>
@@ -129,12 +160,21 @@ export default function OrdersTable({
                       <p className="text-xs text-gray-500 dark:text-gray-500 mt-0.5">{order.date}</p>
                     </div>
                   </div>
-                  <button
-                    onClick={() => setActiveMenu(activeMenu === order.id ? null : order.id)}
-                    className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
-                  >
-                    <MoreVertical className="w-5 h-5 text-gray-600 dark:text-gray-400" />
-                  </button>
+                  <div className="flex items-center gap-1">
+                    <button
+                      onClick={() => onEditOrder(order)}
+                      className="p-2 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors"
+                      title="Edit Order"
+                    >
+                      <Edit2 className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+                    </button>
+                    <button
+                      onClick={() => setActiveMenu(activeMenu === order.id ? null : order.id)}
+                      className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
+                    >
+                      <MoreVertical className="w-5 h-5 text-gray-600 dark:text-gray-400" />
+                    </button>
+                  </div>
                 </div>
                 
                 <div className="flex items-center justify-between pt-3 border-t border-gray-100 dark:border-gray-800">
@@ -165,6 +205,18 @@ export default function OrdersTable({
                       className="w-full px-4 py-2.5 text-left text-sm text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors border-b border-gray-200 dark:border-gray-700"
                     >
                       Edit Order
+                    </button>
+                    <button
+                      onClick={() => onExchangeOrder(order)}
+                      className="w-full px-4 py-2.5 text-left text-sm text-purple-600 dark:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-900/20 transition-colors border-b border-gray-200 dark:border-gray-700"
+                    >
+                      Exchange Product
+                    </button>
+                    <button
+                      onClick={() => onReturnOrder(order)}
+                      className="w-full px-4 py-2.5 text-left text-sm text-orange-600 dark:text-orange-400 hover:bg-orange-50 dark:hover:bg-orange-900/20 transition-colors border-b border-gray-200 dark:border-gray-700"
+                    >
+                      Return Product
                     </button>
                     <button
                       onClick={() => onCancelOrder(order.id)}
