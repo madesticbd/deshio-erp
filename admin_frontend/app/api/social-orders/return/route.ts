@@ -1,9 +1,9 @@
-// app/api/social-orders/return/route.ts
 import { NextResponse } from 'next/server';
 import fs from 'fs';
 import path from 'path';
 
 const ordersFilePath = path.resolve('data', 'orders.json');
+const inventoryFilePath = path.resolve('data', 'inventory.json');
 
 const readOrdersFromFile = () => {
   try {
@@ -28,6 +28,29 @@ const writeOrdersToFile = (orders: any[]) => {
   }
 };
 
+const readInventoryFromFile = () => {
+  try {
+    if (fs.existsSync(inventoryFilePath)) {
+      const fileData = fs.readFileSync(inventoryFilePath, 'utf8');
+      return JSON.parse(fileData);
+    }
+    return [];
+  } catch (error) {
+    console.error('❌ Error reading inventory file:', error);
+    return [];
+  }
+};
+
+const writeInventoryToFile = (inventory: any[]) => {
+  try {
+    fs.mkdirSync(path.dirname(inventoryFilePath), { recursive: true });
+    fs.writeFileSync(inventoryFilePath, JSON.stringify(inventory, null, 2), 'utf8');
+  } catch (error) {
+    console.error('❌ Error writing inventory file:', error);
+    throw error;
+  }
+};
+
 export async function POST(request: Request) {
   try {
     const returnData = await request.json();
@@ -38,6 +61,7 @@ export async function POST(request: Request) {
     }
 
     const orders = readOrdersFromFile();
+    const inventory = readInventoryFromFile();
     const orderIndex = orders.findIndex((order: any) => String(order.id) === String(orderId));
     
     if (orderIndex === -1) {
@@ -47,7 +71,29 @@ export async function POST(request: Request) {
     const order = orders[orderIndex];
     let updatedProducts = [...order.products];
 
-    // Step 1: Remove or reduce quantities for returned products
+    // Step 1: Update inventory for returned products
+    returnedProducts.forEach((returned: any) => {
+      const product = order.products.find((p: any) => p.id === returned.productId);
+      if (product && product.barcodes && product.barcodes.length > 0) {
+        const quantityToReturn = returned.quantity;
+        let barcodesToUpdate = product.barcodes.slice(0, quantityToReturn); // Select barcodes based on quantity
+
+        barcodesToUpdate.forEach((barcode: string) => {
+          const inventoryItemIndex = inventory.findIndex((item: any) => item.barcode === barcode);
+          if (inventoryItemIndex !== -1) {
+            inventory[inventoryItemIndex] = {
+              ...inventory[inventoryItemIndex],
+              status: 'available',
+              updatedAt: new Date().toISOString(),
+              soldAt: undefined, // Remove soldAt
+              orderId: undefined // Remove orderId
+            };
+          }
+        });
+      }
+    });
+
+    // Step 2: Remove or reduce quantities for returned products in the order
     returnedProducts.forEach((returned: any) => {
       const index = updatedProducts.findIndex((p: any) => p.id === returned.productId);
       if (index !== -1) {
@@ -62,7 +108,7 @@ export async function POST(request: Request) {
       }
     });
 
-    // Step 2: Recalculate ALL order totals
+    // Step 3: Recalculate ALL order totals
     const newSubtotal = updatedProducts.reduce((sum: number, p: any) => sum + p.amount, 0);
     const totalDiscount = updatedProducts.reduce((sum: number, p: any) => sum + (p.discount || 0), 0);
     
@@ -93,7 +139,7 @@ export async function POST(request: Request) {
       refundToCustomer = 0;
     }
 
-    // Step 3: Update order with new values
+    // Step 4: Update order with new values
     orders[orderIndex] = {
       ...order,
       products: updatedProducts,
@@ -127,7 +173,9 @@ export async function POST(request: Request) {
       updatedAt: new Date().toISOString()
     };
 
+    // Step 5: Write updates to both orders and inventory files
     writeOrdersToFile(orders);
+    writeInventoryToFile(inventory);
 
     return NextResponse.json({
       success: true,

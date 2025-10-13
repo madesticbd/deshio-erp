@@ -8,6 +8,7 @@ interface OrderDetailsModalProps {
   onClose: () => void;
   onEdit?: (order: Order) => void;
 }
+
 export default function OrderDetailsModal({ order, onClose, onEdit }: OrderDetailsModalProps) {
   return (
     <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
@@ -20,16 +21,16 @@ export default function OrderDetailsModal({ order, onClose, onEdit }: OrderDetai
           </div>
           <div className="flex items-center gap-2">
             {onEdit && (
-                <button
+              <button
                 onClick={() => {
                   onClose();
                   onEdit(order);
                 }}
                 className="flex items-center gap-2 px-4 py-2 bg-black hover:bg-gray-900 text-white rounded-lg transition-colors"
-                >
+              >
                 <Edit2 className="w-4 h-4" />
                 Edit Order
-                </button>
+              </button>
             )}
             <button
               onClick={onClose}
@@ -95,26 +96,47 @@ export default function OrderDetailsModal({ order, onClose, onEdit }: OrderDetai
               <h3 className="font-semibold text-gray-900 dark:text-white text-lg">Products</h3>
             </div>
             <div className="space-y-3">
-              {order.products.map((product) => (
-                <div key={product.id} className="bg-white dark:bg-gray-900 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
-                  <div className="flex justify-between items-start">
-                    <div>
-                      <p className="font-medium text-gray-900 dark:text-white mb-2">{product.productName}</p>
-                      <div className="flex gap-3 text-xs">
-                        <span className="text-gray-600 dark:text-gray-400">Size: {product.size}</span>
-                        <span className="text-gray-600 dark:text-gray-400">Qty: {product.qty}</span>
-                        <span className="text-gray-600 dark:text-gray-400">৳{product.price} each</span>
+              {order.products.map((product, idx) => {
+                // Cast to any to access barcodes property
+                const productWithBarcodes = product as any;
+                const barcodes = productWithBarcodes.barcodes || [];
+                
+                return (
+                  <div key={product.id || idx} className="bg-white dark:bg-gray-900 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
+                    <div className="flex justify-between items-start">
+                      <div className="flex-1">
+                        <p className="font-medium text-gray-900 dark:text-white mb-2">{product.productName}</p>
+                        <div className="flex gap-3 text-xs mb-2">
+                          <span className="text-gray-600 dark:text-gray-400">Size: {product.size}</span>
+                          <span className="text-gray-600 dark:text-gray-400">Qty: {product.qty}</span>
+                          <span className="text-gray-600 dark:text-gray-400">৳{product.price} each</span>
+                        </div>
+                        {barcodes.length > 0 && (
+                          <div className="mt-3 pt-3 border-t border-gray-200 dark:border-gray-700">
+                            <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase mb-2">Barcodes:</p>
+                            <div className="flex flex-wrap gap-2">
+                              {barcodes.map((barcode: string, barcodeIdx: number) => (
+                                <span
+                                  key={barcodeIdx}
+                                  className="inline-flex items-center px-3 py-1.5 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 rounded-md text-xs font-mono border border-blue-200 dark:border-blue-800"
+                                >
+                                  {barcode}
+                                </span>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                      <div className="text-right ml-4">
+                        <p className="font-bold text-gray-900 dark:text-white">৳{product.amount.toLocaleString()}</p>
+                        {product.discount > 0 && (
+                          <p className="text-xs font-medium text-green-600 dark:text-green-400 mt-1">-৳{product.discount} off</p>
+                        )}
                       </div>
                     </div>
-                    <div className="text-right">
-                      <p className="font-bold text-gray-900 dark:text-white">৳{product.amount.toLocaleString()}</p>
-                      {product.discount > 0 && (
-                        <p className="text-xs font-medium text-green-600 dark:text-green-400 mt-1">-৳{product.discount} off</p>
-                      )}
-                    </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
 

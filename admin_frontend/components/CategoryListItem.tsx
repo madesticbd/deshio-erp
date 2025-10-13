@@ -135,6 +135,6 @@ export default function CategoryListItem({
           ))}
         </div>
       )}
-    </div>
-  );
+    </div>
+  );
 }

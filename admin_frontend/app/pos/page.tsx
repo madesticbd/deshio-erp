@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { ChevronDown, X } from 'lucide-react';
+import { ChevronDown, X, CheckCircle2, AlertCircle } from 'lucide-react';
 import Header from '@/components/Header';
 import Sidebar from '@/components/Sidebar';
 
@@ -19,12 +19,39 @@ interface Store {
 
 interface CartItem {
   id: number;
+  productId: number;
   productName: string;
   size: string;
   qty: number;
   price: number;
   discount: number;
   amount: number;
+}
+
+interface Product {
+  id: number;
+  name: string;
+  attributes: {
+    mainImage?: string;
+    Price?: string;
+    [key: string]: any;
+  };
+}
+
+interface InventoryItem {
+  id: number;
+  productId: number;
+  barcode: string;
+  status: string;
+  location: string;
+  sellingPrice: number;
+  [key: string]: any;
+}
+
+interface Toast {
+  id: number;
+  message: string;
+  type: 'success' | 'error';
 }
 
 export default function POSPage() {
@@ -34,12 +61,16 @@ export default function POSPage() {
   const [selectedOutlet, setSelectedOutlet] = useState('');
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
   const [cart, setCart] = useState<CartItem[]>([]);
+  const [products, setProducts] = useState<Product[]>([]);
+  const [inventory, setInventory] = useState<InventoryItem[]>([]);
+  const [toasts, setToasts] = useState<Toast[]>([]);
   
   // Form states
   const [customerName, setCustomerName] = useState('');
   const [mobileNo, setMobileNo] = useState('');
   const [address, setAddress] = useState('');
   const [product, setProduct] = useState('');
+  const [selectedProductId, setSelectedProductId] = useState<number | null>(null);
   const [sellingPrice, setSellingPrice] = useState(0);
   const [quantity, setQuantity] = useState(0);
   const [discountPercent, setDiscountPercent] = useState(0);
@@ -55,9 +86,23 @@ export default function POSPage() {
   const [nagadPaid, setNagadPaid] = useState(0);
   const [transactionFee, setTransactionFee] = useState(0);
 
-  // Load outlets from API
+  const showToast = (message: string, type: 'success' | 'error') => {
+    const id = Date.now();
+    setToasts(prev => [...prev, { id, message, type }]);
+    setTimeout(() => {
+      setToasts(prev => prev.filter(toast => toast.id !== id));
+    }, 5000);
+  };
+
+  const removeToast = (id: number) => {
+    setToasts(prev => prev.filter(toast => toast.id !== id));
+  };
+
+  // Load outlets, products, and inventory from API
   useEffect(() => {
     fetchOutlets();
+    fetchProducts();
+    fetchInventory();
   }, []);
 
   const fetchOutlets = async () => {
@@ -68,6 +113,59 @@ export default function POSPage() {
     } catch (error) {
       console.error('Error fetching outlets:', error);
     }
+  };
+
+  const fetchProducts = async () => {
+    try {
+      const response = await fetch('/api/products');
+      const data = await response.json();
+      setProducts(data);
+    } catch (error) {
+      console.error('Error fetching products:', error);
+    }
+  };
+
+  const fetchInventory = async () => {
+    try {
+      const response = await fetch('/api/inventory');
+      const data = await response.json();
+      setInventory(data);
+    } catch (error) {
+      console.error('Error fetching inventory:', error);
+    }
+  };
+
+  // Get available products for selected outlet
+  const getAvailableProducts = () => {
+    if (!selectedOutlet) return [];
+    
+    const selectedOutletData = outlets.find(o => o.id.toString() === selectedOutlet);
+    if (!selectedOutletData) return [];
+
+    // Get inventory items available at this outlet
+    const outletInventory = inventory.filter(
+      inv => inv.location === selectedOutletData.name && inv.status === 'available'
+    );
+
+    // Get unique product IDs from inventory
+    const availableProductIds = [...new Set(outletInventory.map(inv => inv.productId))];
+
+    // Return products that have inventory at this outlet
+    return products.filter(prod => availableProductIds.includes(prod.id));
+  };
+
+  // Get available quantity for a product at selected outlet
+  const getAvailableQuantity = (productId: number) => {
+    if (!selectedOutlet) return 0;
+    
+    const selectedOutletData = outlets.find(o => o.id.toString() === selectedOutlet);
+    if (!selectedOutletData) return 0;
+
+    return inventory.filter(
+      inv => inv.productId === productId && 
+             inv.location === selectedOutletData.name && 
+             inv.status === 'available'
+    ).length;
   };
 
   // Calculate amount when price, quantity or discount changes
@@ -88,32 +186,79 @@ export default function POSPage() {
     }
   }, [sellingPrice, quantity, discountPercent, discountAmount]);
 
-  const addToCart = () => {
-    if (product && sellingPrice > 0 && quantity > 0) {
-      const baseAmount = sellingPrice * quantity;
-      const discountValue = discountPercent > 0 
-        ? (baseAmount * discountPercent) / 100 
-        : discountAmount;
+  const handleProductSelect = (productName: string) => {
+    setProduct(productName);
+    const selectedProd = products.find(p => p.name === productName);
+    if (selectedProd) {
+      setSelectedProductId(selectedProd.id);
       
-      const newItem: CartItem = {
-        id: Date.now(),
-        productName: product,
-        size: '',
-        qty: quantity,
-        price: sellingPrice,
-        discount: discountValue, // Store actual discount amount in Tk
-        amount: baseAmount - discountValue
-      };
-      setCart([...cart, newItem]);
-      
-      // Reset form
-      setProduct('');
-      setSellingPrice(0);
-      setQuantity(0);
-      setDiscountPercent(0);
-      setDiscountAmount(0);
-      setAmount(0);
+      // Get outlet location
+      const selectedOutletData = outlets.find(o => o.id.toString() === selectedOutlet);
+      if (!selectedOutletData) return;
+
+      // Set selling price from inventory at this outlet
+      const inventoryItem = inventory.find(
+        inv => inv.productId === selectedProd.id && 
+               inv.location === selectedOutletData.name && 
+               inv.status === 'available'
+      );
+      if (inventoryItem) {
+        setSellingPrice(inventoryItem.sellingPrice);
+      } else if (selectedProd.attributes.Price) {
+        setSellingPrice(Number(selectedProd.attributes.Price));
+      }
     }
+  };
+
+  const addToCart = () => {
+    if (!product || !selectedProductId) {
+      showToast('Please select a product', 'error');
+      return;
+    }
+    
+    if (sellingPrice <= 0 || quantity <= 0) {
+      showToast('Please enter valid price and quantity', 'error');
+      return;
+    }
+
+    if (!selectedOutlet) {
+      showToast('Please select an outlet', 'error');
+      return;
+    }
+
+    // Check available inventory for this product at selected outlet
+    const availableQty = getAvailableQuantity(selectedProductId);
+
+    if (availableQty < quantity) {
+      showToast(`Only ${availableQty} items available at this outlet`, 'error');
+      return;
+    }
+    
+    const baseAmount = sellingPrice * quantity;
+    const discountValue = discountPercent > 0 
+      ? (baseAmount * discountPercent) / 100 
+      : discountAmount;
+    
+    const newItem: CartItem = {
+      id: Date.now(),
+      productId: selectedProductId,
+      productName: product,
+      size: '',
+      qty: quantity,
+      price: sellingPrice,
+      discount: discountValue,
+      amount: baseAmount - discountValue
+    };
+    setCart([...cart, newItem]);
+    
+    // Reset form
+    setProduct('');
+    setSelectedProductId(null);
+    setSellingPrice(0);
+    setQuantity(0);
+    setDiscountPercent(0);
+    setDiscountAmount(0);
+    setAmount(0);
   };
 
   const removeFromCart = (id: number) => {
@@ -127,13 +272,47 @@ export default function POSPage() {
   const totalPaid = cashPaid + cardPaid + bkashPaid + nagadPaid;
   const due = total - totalPaid - transactionFee;
 
+  const updateInventoryStatus = async (productId: number, quantity: number) => {
+    try {
+      if (!selectedOutlet) return;
+      
+      const selectedOutletData = outlets.find(o => o.id.toString() === selectedOutlet);
+      if (!selectedOutletData) return;
+
+      // Get available inventory items for this product at this outlet
+      const availableItems = inventory.filter(
+        inv => inv.productId === productId && 
+               inv.location === selectedOutletData.name && 
+               inv.status === 'available'
+      );
+
+      // Update the first 'quantity' items to 'sold'
+      for (let i = 0; i < Math.min(quantity, availableItems.length); i++) {
+        await fetch('/api/inventory', {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            id: availableItems[i].id,
+            status: 'sold',
+            soldAt: new Date().toISOString()
+          }),
+        });
+      }
+    } catch (error) {
+      console.error('Error updating inventory:', error);
+      throw error;
+    }
+  };
+
   const handleSell = async () => {
     if (!selectedOutlet) {
-      alert('Please select an outlet');
+      showToast('Please select an outlet', 'error');
       return;
     }
     if (cart.length === 0) {
-      alert('Please add products to cart');
+      showToast('Please add products to cart', 'error');
       return;
     }
 
@@ -167,6 +346,7 @@ export default function POSPage() {
     };
 
     try {
+      // Save the sale
       const response = await fetch('/api/sales', {
         method: 'POST',
         headers: {
@@ -176,7 +356,13 @@ export default function POSPage() {
       });
 
       if (response.ok) {
-        alert('Sale completed successfully!');
+        // Update inventory status for each product in cart
+        for (const item of cart) {
+          await updateInventoryStatus(item.productId, item.qty);
+        }
+
+        showToast('Sale completed successfully!', 'success');
+        
         // Reset form
         setCart([]);
         setCustomerName('');
@@ -188,12 +374,15 @@ export default function POSPage() {
         setNagadPaid(0);
         setTransactionFee(0);
         setTransportCost(0);
+
+        // Refresh inventory
+        await fetchInventory();
       } else {
-        alert('Failed to complete sale');
+        showToast('Failed to complete sale', 'error');
       }
     } catch (error) {
       console.error('Error saving sale:', error);
-      alert('Error saving sale');
+      showToast('Error saving sale', 'error');
     }
   };
 
@@ -205,6 +394,43 @@ export default function POSPage() {
           <Header darkMode={darkMode} setDarkMode={setDarkMode} toggleSidebar={() => setSidebarOpen(!sidebarOpen)} />
 
           <main className="flex-1 overflow-auto p-6">
+            {/* Toast Notifications */}
+            <div className="fixed top-4 right-4 z-50 space-y-2">
+              {toasts.map((toast) => (
+                <div
+                  key={toast.id}
+                  className={`flex items-center gap-3 px-4 py-3 rounded-lg shadow-lg border ${
+                    toast.type === 'success'
+                      ? 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800'
+                      : 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800'
+                  } animate-slideIn`}
+                >
+                  {toast.type === 'success' ? (
+                    <CheckCircle2 className="w-5 h-5 text-green-600 dark:text-green-400 flex-shrink-0" />
+                  ) : (
+                    <AlertCircle className="w-5 h-5 text-red-600 dark:text-red-400 flex-shrink-0" />
+                  )}
+                  <p className={`text-sm font-medium ${
+                    toast.type === 'success'
+                      ? 'text-green-900 dark:text-green-300'
+                      : 'text-red-900 dark:text-red-300'
+                  }`}>
+                    {toast.message}
+                  </p>
+                  <button
+                    onClick={() => removeToast(toast.id)}
+                    className={`ml-2 ${
+                      toast.type === 'success'
+                        ? 'text-green-600 dark:text-green-400 hover:text-green-800 dark:hover:text-green-300'
+                        : 'text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300'
+                    }`}
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+              ))}
+            </div>
+
             <div className="max-w-7xl mx-auto">
               <h1 className="text-2xl font-semibold text-gray-900 dark:text-white mb-6">Point of Sale</h1>
               
@@ -282,14 +508,22 @@ export default function POSPage() {
                         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                           Product
                         </label>
-                        <input
-                          type="text"
-                          placeholder="Select an Outlet First"
+                        <select
                           value={product}
-                          onChange={(e) => setProduct(e.target.value)}
+                          onChange={(e) => handleProductSelect(e.target.value)}
                           disabled={!selectedOutlet}
                           className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm disabled:bg-gray-100 disabled:dark:bg-gray-600"
-                        />
+                        >
+                          <option value="">Select Product</option>
+                          {getAvailableProducts().map((prod) => {
+                            const availableQty = getAvailableQuantity(prod.id);
+                            return (
+                              <option key={prod.id} value={prod.name}>
+                                {prod.name} ({availableQty} available)
+                              </option>
+                            );
+                          })}
+                        </select>
                       </div>
                       
                       <div>
@@ -576,7 +810,7 @@ export default function POSPage() {
                     
                     <button
                       onClick={handleSell}
-                      className="w-full py-2 bg-gray-400 hover:bg-gray-500 text-white rounded-md text-sm font-medium transition-colors"
+                      className="w-full py-2 bg-gray-900 hover:bg-gray-800 dark:bg-white dark:hover:bg-gray-100 text-white dark:text-gray-900 rounded-md text-sm font-medium transition-colors"
                     >
                       Sell
                     </button>
@@ -587,6 +821,22 @@ export default function POSPage() {
           </main>
         </div>
       </div>
+
+      <style jsx>{`
+        @keyframes slideIn {
+          from {
+            transform: translateX(100%);
+            opacity: 0;
+          }
+          to {
+            transform: translateX(0);
+            opacity: 1;
+          }
+        }
+        .animate-slideIn {
+          animation: slideIn 0.3s ease-out;
+        }
+      `}</style>
     </div>
   );
 }

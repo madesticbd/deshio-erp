@@ -78,5 +78,46 @@
       "due": 0
     },
     "createdAt": "2025-10-08T05:54:39.012Z"
+  },
+  {
+    "id": "sale-1760328436090",
+    "salesBy": "Admin",
+    "outletId": "1759737165411",
+    "date": "2025-10-13",
+    "customer": {
+      "name": "Adrita Ahsan",
+      "mobile": "01745191964",
+      "address": "Dhaka"
+    },
+    "items": [
+      {
+        "id": 1760328403452,
+        "productId": 1759737987171,
+        "productName": "Jamdani",
+        "size": "",
+        "qty": 1,
+        "price": 1300,
+        "discount": 0,
+        "amount": 1300
+      }
+    ],
+    "amounts": {
+      "subtotal": 1300,
+      "totalDiscount": 0,
+      "vat": 65,
+      "vatRate": 5,
+      "transportCost": 0,
+      "total": 1365
+    },
+    "payments": {
+      "cash": 1300,
+      "card": 0,
+      "bkash": 0,
+      "nagad": 0,
+      "transactionFee": 0,
+      "totalPaid": 1300,
+      "due": 65
+    },
+    "createdAt": "2025-10-13T04:07:16.090Z"
   }
 ]

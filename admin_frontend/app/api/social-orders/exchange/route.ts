@@ -1,9 +1,9 @@
-// app/api/social-orders/exchange/route.ts
 import { NextResponse } from 'next/server';
 import fs from 'fs';
 import path from 'path';
 
 const ordersFilePath = path.resolve('data', 'orders.json');
+const inventoryFilePath = path.resolve('data', 'inventory.json');
 
 const readOrdersFromFile = () => {
   try {
@@ -28,6 +28,29 @@ const writeOrdersToFile = (orders: any[]) => {
   }
 };
 
+const readInventoryFromFile = () => {
+  try {
+    if (fs.existsSync(inventoryFilePath)) {
+      const fileData = fs.readFileSync(inventoryFilePath, 'utf8');
+      return JSON.parse(fileData);
+    }
+    return [];
+  } catch (error) {
+    console.error('❌ Error reading inventory file:', error);
+    return [];
+  }
+};
+
+const writeInventoryToFile = (inventory: any[]) => {
+  try {
+    fs.mkdirSync(path.dirname(inventoryFilePath), { recursive: true });
+    fs.writeFileSync(inventoryFilePath, JSON.stringify(inventory, null, 2), 'utf8');
+  } catch (error) {
+    console.error('❌ Error writing inventory file:', error);
+    throw error;
+  }
+};
+
 export async function POST(request: Request) {
   try {
     const exchangeData = await request.json();
@@ -38,6 +61,8 @@ export async function POST(request: Request) {
     }
 
     const orders = readOrdersFromFile();
+    const inventory = readInventoryFromFile();
+
     const orderIndex = orders.findIndex((order: any) => String(order.id) === String(orderId));
     
     if (orderIndex === -1) {
@@ -47,47 +72,73 @@ export async function POST(request: Request) {
     const order = orders[orderIndex];
     let updatedProducts = [...order.products];
 
-    // Step 1: Remove or update quantities for exchanged products
+    // Step 1: Handle removed products and free up barcodes in inventory
     removedProducts.forEach((removed: any) => {
-      const index = updatedProducts.findIndex((p: any) => p.id === removed.productId);
-      if (index !== -1) {
-        if (removed.quantity >= updatedProducts[index].qty) {
-          // Remove product completely
-          updatedProducts.splice(index, 1);
-        } else {
-          // Reduce quantity
-          updatedProducts[index].qty -= removed.quantity;
-          updatedProducts[index].amount = (updatedProducts[index].price * updatedProducts[index].qty) - (updatedProducts[index].discount || 0);
+      const prodIndex = updatedProducts.findIndex((p: any) => p.id === removed.productId);
+      if (prodIndex !== -1) {
+        const prod = updatedProducts[prodIndex];
+        const removedBarcodes = prod.barcodes.splice(0, removed.quantity); // Take first N barcodes
+
+        prod.qty -= removed.quantity;
+        prod.amount = prod.price * prod.qty - (prod.discount || 0);
+
+        if (prod.qty <= 0) {
+          updatedProducts.splice(prodIndex, 1);
         }
-      }
-    });
 
-    // Step 2: Add or merge replacement products
-    replacementProducts.forEach((replacement: any) => {
-      // Check if this product already exists in the order by product name
-      const existingIndex = updatedProducts.findIndex(
-        (p: any) => p.productName.toLowerCase() === replacement.name.toLowerCase()
-      );
-
-      if (existingIndex !== -1) {
-        // Product exists - increment quantity
-        updatedProducts[existingIndex].qty += replacement.quantity;
-        updatedProducts[existingIndex].amount = 
-          (updatedProducts[existingIndex].price * updatedProducts[existingIndex].qty) - 
-          (updatedProducts[existingIndex].discount || 0);
-      } else {
-        // New product - add to order
-        updatedProducts.push({
-          id: Date.now() + Math.random(),
-          productName: replacement.name,
-          size: replacement.size || '1',
-          qty: replacement.quantity,
-          price: replacement.price,
-          discount: 0,
-          amount: replacement.price * replacement.quantity
+        // Update inventory for removed barcodes
+        removedBarcodes.forEach((bc: string) => {
+          const invItem = inventory.find((i: any) => i.barcode === bc);
+          if (invItem) {
+            invItem.status = 'available';
+            delete invItem.orderId;
+            delete invItem.soldAt;
+            invItem.updatedAt = new Date().toISOString();
+          }
         });
       }
     });
+
+    // Step 2: Handle replacement products and assign barcodes from inventory
+    for (const rep of replacementProducts) {
+      let prod = updatedProducts.find((p: any) => p.productId === rep.id);
+
+      if (!prod) {
+        prod = {
+          id: Date.now() + Math.random(),
+          productId: rep.id,
+          productName: rep.name,
+          size: rep.size,
+          qty: 0,
+          price: rep.price,
+          discount: 0,
+          amount: 0,
+          barcodes: []
+        };
+        updatedProducts.push(prod);
+      }
+
+      // Find available inventory items
+      const availableItems = inventory.filter((i: any) => i.productId === rep.id && i.status === 'available');
+      if (availableItems.length < rep.quantity) {
+        throw new Error(`Not enough stock for product ${rep.name} (ID: ${rep.id}). Available: ${availableItems.length}, Requested: ${rep.quantity}`);
+      }
+
+      const selectedItems = availableItems.slice(0, rep.quantity);
+      const newBarcodes = selectedItems.map((i: any) => i.barcode);
+
+      prod.barcodes.push(...newBarcodes);
+      prod.qty += rep.quantity;
+      prod.amount = prod.price * prod.qty - (prod.discount || 0);
+
+      // Update inventory for new barcodes
+      selectedItems.forEach((item: any) => {
+        item.status = 'sold';
+        item.orderId = order.id;
+        item.soldAt = new Date().toISOString();
+        item.updatedAt = new Date().toISOString();
+      });
+    }
 
     // Step 3: Recalculate ALL order totals from scratch
     const newSubtotal = updatedProducts.reduce((sum: number, p: any) => sum + p.amount, 0);
@@ -141,7 +192,9 @@ export async function POST(request: Request) {
       updatedAt: new Date().toISOString()
     };
 
+    // Write updates to files
     writeOrdersToFile(orders);
+    writeInventoryToFile(inventory);
 
     return NextResponse.json({
       success: true,
@@ -150,8 +203,8 @@ export async function POST(request: Request) {
       difference: difference,
       totalDue: newDue
     });
-  } catch (error) {
+  } catch (error: any) {
     console.error('❌ Failed to process exchange:', error);
-    return NextResponse.json({ error: 'Failed to process exchange' }, { status: 500 });
+    return NextResponse.json({ error: error.message || 'Failed to process exchange' }, { status: 500 });
   }
 }

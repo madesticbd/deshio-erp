@@ -8,7 +8,8 @@ import { useRouter } from 'next/navigation';
 
 
 interface Product {
-  id: number;
+  id: number | string; // Support both numeric IDs and variation string IDs
+  productId?: number | string; // For tracking in cart
   productName: string;
   size: string;
   qty: number;
@@ -22,6 +23,7 @@ export default function SocialCommercePage() {
   const [darkMode, setDarkMode] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [allProducts, setAllProducts] = useState<any[]>([]);
+  const [inventory, setInventory] = useState<any[]>([]);
   
   // Form fields
   const [date, setDate] = useState('06-Oct-2025');
@@ -56,21 +58,70 @@ export default function SocialCommercePage() {
   const [discountTk, setDiscountTk] = useState('');
   const [amount, setAmount] = useState('0.00');
 
-  // Fetch products on component mount
+  // Flatten products with variations into searchable items
+  const getFlattenedProducts = () => {
+    const flattened: any[] = [];
+    
+    allProducts.forEach(product => {
+      if (product.variations && product.variations.length > 0) {
+        // Product has variations - create separate entries for each
+        product.variations.forEach((variation: any, index: number) => {
+          const colorAttr = variation.attributes?.Colour || `Variation ${index + 1}`;
+          flattened.push({
+            id: variation.id, // Use variation ID
+            name: `${product.name} - ${colorAttr}`,
+            originalProductId: product.id,
+            isVariation: true,
+            variationIndex: index,
+            attributes: {
+              ...product.attributes,
+              ...variation.attributes
+            }
+          });
+        });
+      } else {
+        // Regular product without variations
+        flattened.push({
+          ...product,
+          isVariation: false
+        });
+      }
+    });
+    
+    return flattened;
+  };
+
+  // Fetch products and inventory on component mount
   useEffect(() => {
     const fetchProducts = async () => {
       try {
         const response = await fetch('/api/products');
         if (response.ok) {
           const data = await response.json();
+          console.log('Products loaded:', data.length);
           setAllProducts(data);
         }
       } catch (error) {
         console.error('Error fetching products:', error);
-
       }
     };
+    
+    const fetchInventory = async () => {
+      try {
+        const response = await fetch('/api/inventory');
+        if (response.ok) {
+          const data = await response.json();
+          console.log('Inventory loaded:', data.length);
+          console.log('Sample inventory item:', data[0]);
+          setInventory(data);
+        }
+      } catch (error) {
+        console.error('Error fetching inventory:', error);
+      }
+    };
+    
     fetchProducts();
+    fetchInventory();
   }, []);
   
   useEffect(() => {
@@ -125,8 +176,18 @@ export default function SocialCommercePage() {
     fetchUpazillas();
   }, [district, districts]);
 
+  // Helper function to get available inventory count for a product/variation
+  const getAvailableInventory = (productId: number | string) => {
+    const available = inventory.filter(item => {
+      // Handle both numeric IDs and variation string IDs
+      const itemProductId = typeof item.productId === 'string' ? item.productId : String(item.productId);
+      const searchProductId = typeof productId === 'string' ? productId : String(productId);
+      return itemProductId === searchProductId && item.status === 'available';
+    });
+    return available.length;
+  };
 
-  // Live search with debounce
+  // Live search with debounce - only show products with available inventory
   useEffect(() => {
     if (!searchQuery.trim()) {
       setSearchResults([]);
@@ -134,14 +195,32 @@ export default function SocialCommercePage() {
     }
 
     const delayDebounce = setTimeout(() => {
-      const results = allProducts.filter((product: any) =>
+      const flattenedProducts = getFlattenedProducts();
+      
+      console.log('Search query:', searchQuery);
+      console.log('All flattened products count:', flattenedProducts.length);
+      console.log('Inventory count:', inventory.length);
+      
+      // First filter by name match
+      const nameMatches = flattenedProducts.filter((product: any) =>
         product.name.toLowerCase().includes(searchQuery.toLowerCase())
       );
+      
+      console.log('Name matches:', nameMatches.length);
+      
+      // Then filter by available inventory
+      const results = nameMatches.filter((product: any) => {
+        const availableCount = getAvailableInventory(product.id);
+        console.log(`Product "${product.name}" (ID: ${product.id}) has ${availableCount} available items`);
+        return availableCount > 0;
+      });
+      
+      console.log('Final results with inventory:', results.length);
       setSearchResults(results);
     }, 300);
 
     return () => clearTimeout(delayDebounce);
-  }, [searchQuery, allProducts]);
+  }, [searchQuery, allProducts, inventory]);
 
   // Select product from search results
   const handleProductSelect = (product: any) => {
@@ -176,6 +255,21 @@ export default function SocialCommercePage() {
       return;
     }
 
+    // Check available inventory - handle both numeric and string IDs
+    const availableQty = getAvailableInventory(selectedProduct.id);
+    const requestedQty = parseInt(quantity);
+    
+    // Check existing quantity in cart
+    const existingItem = cart.find(
+      item => String(item.productId) === String(selectedProduct.id)
+    );
+    const cartQty = existingItem ? existingItem.qty : 0;
+    
+    if (cartQty + requestedQty > availableQty) {
+      alert(`Only ${availableQty} units available. You already have ${cartQty} in cart.`);
+      return;
+    }
+
     const price = parseFloat(selectedProduct.attributes.Price);
     const qty = parseFloat(quantity);
     const discPer = parseFloat(discountPercent) || 0;
@@ -187,7 +281,7 @@ export default function SocialCommercePage() {
     
     // Check if product already exists in cart
     const existingItemIndex = cart.findIndex(
-      item => item.productName === selectedProduct.name && item.price === price
+      item => String(item.productId) === String(selectedProduct.id) && item.price === price
     );
     
     if (existingItemIndex !== -1) {
@@ -213,6 +307,7 @@ export default function SocialCommercePage() {
       // Add new item
       const newItem: Product = {
         id: Date.now(),
+        productId: selectedProduct.id, // Store the actual product/variation ID
         productName: selectedProduct.name,
         size: '1', // Set size as 1
         qty: qty,
@@ -238,7 +333,7 @@ export default function SocialCommercePage() {
 
   const subtotal = cart.reduce((sum, item) => sum + item.amount, 0);
 
-  const handleConfirmOrder = () => {
+  const handleConfirmOrder = async () => {
     if (!userName || !userEmail || !userPhone) {
       alert('Please fill in customer information');
       return;
@@ -248,31 +343,57 @@ export default function SocialCommercePage() {
       return;
     }
     
-    // Store order data in session storage for the next page
-    const orderData = {
-      salesBy,
-      date,
-      customer: {
-        name: userName,
-        email: userEmail,
-        phone: userPhone,
-        socialId: socialId
-      },
-      deliveryAddress: {
-        division,
-        district,
-        city,
-        zone,
-        area,
-        address: deliveryAddress,
-        postalCode
-      },
-      products: cart,
-      subtotal
-    };
-    
-    sessionStorage.setItem('pendingOrder', JSON.stringify(orderData));
-    router.push('/social-commerce/amount-details');
+    try {
+      // Update inventory status for each product in cart
+      for (const item of cart) {
+        const availableItems = inventory.filter(inv => {
+          const invProductId = typeof inv.productId === 'string' ? inv.productId : String(inv.productId);
+          const itemProductId = typeof item.productId === 'string' ? item.productId : String(item.productId);
+          return invProductId === itemProductId && inv.status === 'available';
+        }).slice(0, item.qty);
+        
+        // Update each inventory item to sold
+        for (const invItem of availableItems) {
+          await fetch(`/api/inventory/${invItem.id}`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              status: 'sold',
+              soldAt: new Date().toISOString()
+            })
+          });
+        }
+      }
+      
+      // Store order data in session storage for the next page
+      const orderData = {
+        salesBy,
+        date,
+        customer: {
+          name: userName,
+          email: userEmail,
+          phone: userPhone,
+          socialId: socialId
+        },
+        deliveryAddress: {
+          division,
+          district,
+          city,
+          zone,
+          area,
+          address: deliveryAddress,
+          postalCode
+        },
+        products: cart,
+        subtotal
+      };
+      
+      sessionStorage.setItem('pendingOrder', JSON.stringify(orderData));
+      router.push('/social-commerce/amount-details');
+    } catch (error) {
+      console.error('Error updating inventory:', error);
+      alert('Failed to process order. Please try again.');
+    }
   };
 
   return (
@@ -492,21 +613,25 @@ export default function SocialCommercePage() {
                     {/* Search Results */}
                     {searchResults.length > 0 && (
                       <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 max-h-60 md:max-h-80 overflow-y-auto mb-4 p-1">
-                        {searchResults.map((product) => (
-                          <div
-                            key={product.id}
-                            onClick={() => handleProductSelect(product)}
-                            className="border border-gray-200 dark:border-gray-600 rounded p-2 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
-                          >
-                            <img 
-                              src={product.attributes.mainImage} 
-                              alt={product.name} 
-                              className="w-full h-24 sm:h-32 object-cover rounded mb-2" 
-                            />
-                            <p className="text-xs text-gray-900 dark:text-white font-medium truncate">{product.name}</p>
-                            <p className="text-xs text-gray-600 dark:text-gray-400">{product.attributes.Price} Tk</p>
-                          </div>
-                        ))}
+                        {searchResults.map((product) => {
+                          const availableQty = getAvailableInventory(product.id);
+                          return (
+                            <div
+                              key={product.id}
+                              onClick={() => handleProductSelect(product)}
+                              className="border border-gray-200 dark:border-gray-600 rounded p-2 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                            >
+                              <img 
+                                src={product.attributes.mainImage} 
+                                alt={product.name} 
+                                className="w-full h-24 sm:h-32 object-cover rounded mb-2" 
+                              />
+                              <p className="text-xs text-gray-900 dark:text-white font-medium truncate">{product.name}</p>
+                              <p className="text-xs text-gray-600 dark:text-gray-400">{product.attributes.Price} Tk</p>
+                              <p className="text-xs text-green-600 dark:text-green-400 mt-1">Available: {availableQty}</p>
+                            </div>
+                          );
+                        })}
                       </div>
                     )}
 
@@ -533,6 +658,7 @@ export default function SocialCommercePage() {
                           <div className="min-w-0">
                             <p className="text-sm text-gray-900 dark:text-white font-medium truncate">{selectedProduct.name}</p>
                             <p className="text-sm text-gray-600 dark:text-gray-400">Price: {selectedProduct.attributes.Price} Tk</p>
+                            <p className="text-sm text-green-600 dark:text-green-400">Available: {getAvailableInventory(selectedProduct.id)} units</p>
                           </div>
                         </div>
                       </div>

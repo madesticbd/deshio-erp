@@ -5,15 +5,12 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import {
   Plus,
   Search,
-  Grid3x3,
-  List,
   ChevronLeft,
   ChevronRight,
 } from 'lucide-react';
 import Header from '@/components/Header';
 import Sidebar from '@/components/Sidebar';
 import ProductTable from '@/components/ProductTable';
-import ProductGrid from '@/components/ProductGrid';
 
 interface Field {
   id: number;
@@ -26,6 +23,10 @@ interface Product {
   name: string;
   image?: string;
   attributes: Record<string, any>;
+  variations?: Array<{
+    id: string | number;
+    attributes: Record<string, any>;
+  }>;
 }
 
 interface Category {
@@ -47,25 +48,9 @@ export default function ProductPage() {
   const [fields, setFields] = useState<Field[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
-  
-  // ✅ hydration-safe: always start with 'grid'
-  const [viewMode, setViewMode] = useState<'grid' | 'table'>('grid');
-  
   const [currentPage, setCurrentPage] = useState(1);
   const [isLoading, setIsLoading] = useState(true);
   const itemsPerPage = 6;
-
-  // ✅ Load view mode from localStorage only after mount
-  useEffect(() => {
-    try {
-      const stored = localStorage.getItem('products_view_mode');
-      if (stored === 'table' || stored === 'grid') {
-        setViewMode(stored);
-      }
-    } catch (e) {
-      // ignore
-    }
-  }, []);
 
   // Fetch products, fields, categories
   useEffect(() => {
@@ -122,20 +107,29 @@ export default function ProductPage() {
 
   const handleSelect = (product: Product) => {
     if (selectMode && redirectPath) {
-      // Pass back product id and name via URL
+      // Pass back product id and name via URL (without variationId)
       const url = `${redirectPath}?productId=${product.id}&productName=${encodeURIComponent(product.name)}`;
       router.push(url);
     }
   };
 
-  // ✅ Persist view mode so it survives reloads
-  useEffect(() => {
-    try {
-      localStorage.setItem('products_view_mode', viewMode);
-    } catch (e) {
-      // ignore
+  const handleSelectVariation = (
+    product: Product,
+    variation: { id: string | number; attributes: Record<string, any> }
+  ) => {
+    if (selectMode && redirectPath) {
+      // Find the variation index
+      const variationIndex = product.variations?.findIndex(v => v.id === variation.id) ?? -1;
+      const variationNumber = variationIndex !== -1 ? variationIndex + 1 : 1;
+      
+      // Create variation name like "Silk Sharee - Variation 1"
+      const variationName = `${product.name} - Variation ${variationNumber}`;
+      
+      // Pass back variation id as productId, variation name, and original product id as parentProductId
+      const url = `${redirectPath}?productId=${variation.id}&productName=${encodeURIComponent(variationName)}&parentProductId=${product.id}`;
+      router.push(url);
     }
-  }, [viewMode]);
+  };
 
   return (
     <div className={darkMode ? 'dark' : ''}>
@@ -169,44 +163,19 @@ export default function ProductPage() {
                 )}
               </div>
 
-              {/* Search & View Toggle */}
-              <div className="flex items-center gap-3">
-                <div className="relative flex-1 max-w-md">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                  <input
-                    type="text"
-                    placeholder="Search products..."
-                    value={searchQuery}
-                    onChange={(e) => {
-                      setSearchQuery(e.target.value);
-                      setCurrentPage(1);
-                    }}
-                    className="w-full pl-9 pr-3 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-900 dark:focus:ring-gray-500"
-                  />
-                </div>
-
-                <div className="flex gap-1 bg-gray-100 dark:bg-gray-800 p-1 rounded-lg">
-                  <button
-                    onClick={() => setViewMode('grid')}
-                    className={`h-8 w-8 flex items-center justify-center rounded transition-colors ${
-                      viewMode === 'grid'
-                        ? 'bg-white dark:bg-gray-700 shadow text-gray-900 dark:text-white'
-                        : 'text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700'
-                    }`}
-                  >
-                    <Grid3x3 className="w-4 h-4" />
-                  </button>
-                  <button
-                    onClick={() => setViewMode('table')}
-                    className={`h-8 w-8 flex items-center justify-center rounded transition-colors ${
-                      viewMode === 'table'
-                        ? 'bg-white dark:bg-gray-700 shadow text-gray-900 dark:text-white'
-                        : 'text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700'
-                    }`}
-                  >
-                    <List className="w-4 h-4" />
-                  </button>
-                </div>
+              {/* Search Bar */}
+              <div className="relative flex-1 max-w-md">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                <input
+                  type="text"
+                  placeholder="Search products..."
+                  value={searchQuery}
+                  onChange={(e) => {
+                    setSearchQuery(e.target.value);
+                    setCurrentPage(1);
+                  }}
+                  className="w-full pl-9 pr-3 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-900 dark:focus:ring-gray-500"
+                />
               </div>
             </div>
 
@@ -219,22 +188,17 @@ export default function ProductPage() {
               <div className="text-center py-12 text-gray-500 dark:text-gray-400">
                 No products found.
               </div>
-            ) : viewMode === 'grid' ? (
-              <ProductGrid
-                products={paginated}
-                fields={fields}
-                categories={categories}
-                onEdit={handleEdit}
-                onDelete={handleDelete}
-                onView={(id) => router.push(`/product/view?id=${id}`)}
-              />
             ) : (
               <ProductTable
                 products={paginated}
                 fields={fields}
+                categories={categories}
                 onDelete={handleDelete}
                 onEdit={handleEdit}
-                {...(selectMode && { onSelect: handleSelect })}
+                {...(selectMode && { 
+                  onSelect: handleSelect,
+                  onSelectVariation: handleSelectVariation 
+                })}
               />
             )}
 

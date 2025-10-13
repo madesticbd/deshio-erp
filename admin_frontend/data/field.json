@@ -34,5 +34,11 @@
     "name": "price",
     "type": "Number",
     "mode": "Single"
+  },
+  {
+    "id": 1760331263205,
+    "name": "Colour",
+    "type": "Text",
+    "mode": "Multiple"
   }
 ]
