@@ -9,6 +9,8 @@ import OrderFilters from '@/components/orders/OrderFilters';
 import OrdersTable from '@/components/orders/OrdersTable';
 import OrderDetailsModal from '@/components/orders/OrderDetailsModal';
 import EditOrderModal from '@/components/orders/EditOrderModal';
+import ExchangeProductModal from '@/components/orders/ExchangeProductModal';
+import ReturnProductModal from '@/components/orders/ReturnProductModal';
 import { Order } from '@/types/order';
 
 export default function OrdersDashboard() {
@@ -21,7 +23,18 @@ export default function OrdersDashboard() {
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [showDetailsModal, setShowDetailsModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
+  const [showExchangeModal, setShowExchangeModal] = useState(false);
+  const [showReturnModal, setShowReturnModal] = useState(false);
   const [activeMenu, setActiveMenu] = useState<number | null>(null);
+
+  // Get today's date in DD-MM-YYYY format
+  const getTodayDate = () => {
+    const today = new Date();
+    const day = String(today.getDate()).padStart(2, '0');
+    const month = String(today.getMonth() + 1).padStart(2, '0');
+    const year = today.getFullYear();
+    return `${day}-${month}-${year}`;
+  };
 
   useEffect(() => {
     loadOrders();
@@ -29,11 +42,16 @@ export default function OrdersDashboard() {
 
   const loadOrders = async () => {
     try {
-      const response = await fetch('/api/orders');
+      const response = await fetch('/api/social-orders');
       if (response.ok) {
         const data = await response.json();
-        setOrders(data);
-        setFilteredOrders(data);
+        // Ensure all orders have proper dates
+        const ordersWithDates = data.map((order: Order) => ({
+          ...order,
+          date: order.date || getTodayDate()
+        }));
+        setOrders(ordersWithDates);
+        setFilteredOrders(ordersWithDates);
         return;
       }
     } catch (error) {
@@ -42,8 +60,12 @@ export default function OrdersDashboard() {
     
     try {
       const data = (await import('@/data/orders.json')).default;
-      setOrders(data);
-      setFilteredOrders(data);
+      const ordersWithDates = data.map((order: Order) => ({
+        ...order,
+        date: order.date || getTodayDate()
+      }));
+      setOrders(ordersWithDates);
+      setFilteredOrders(ordersWithDates);
     } catch (error) {
       console.error('Failed to load orders:', error);
     }
@@ -52,17 +74,32 @@ export default function OrdersDashboard() {
   useEffect(() => {
     let filtered = orders;
 
+    // Search filter
     if (search.trim()) {
       filtered = filtered.filter((o) =>
         o.id.toString().includes(search.trim()) ||
-        o.customer.name.toLowerCase().includes(search.toLowerCase())
+        o.customer.name.toLowerCase().includes(search.toLowerCase()) ||
+        o.customer.phone.includes(search.trim())
       );
     }
 
+    // Date filter - handle both DD-MM-YYYY and YYYY-MM-DD formats
     if (dateFilter.trim()) {
-      filtered = filtered.filter((o) => o.date === dateFilter);
+      filtered = filtered.filter((o) => {
+        const orderDate = o.date;
+        
+        // If dateFilter is in YYYY-MM-DD format (from input), convert to DD-MM-YYYY
+        let filterDateFormatted = dateFilter;
+        if (dateFilter.includes('-') && dateFilter.split('-')[0].length === 4) {
+          const [year, month, day] = dateFilter.split('-');
+          filterDateFormatted = `${day}-${month}-${year}`;
+        }
+        
+        return orderDate === filterDateFormatted;
+      });
     }
 
+    // Status filter
     if (statusFilter !== 'All Status') {
       filtered = filtered.filter((o) =>
         statusFilter === 'Paid' ? o.payments.due === 0 : o.payments.due > 0
@@ -85,36 +122,61 @@ export default function OrdersDashboard() {
   };
 
   const handleSaveOrder = async (updatedOrder: Order) => {
-  try {
-    console.log('Saving order:', updatedOrder); 
-    
-  const response = await fetch(`/api/social-orders?id=${updatedOrder.id}`, {
-      method: 'PUT',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(updatedOrder),
-    });
+    try {
+      const response = await fetch(`/api/social-orders?id=${updatedOrder.id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(updatedOrder),
+      });
 
-    console.log('Response status:', response.status); 
-
-    if (response.ok) {
-      const result = await response.json();
-      console.log('Save result:', result); 
-      await loadOrders();
-      setShowEditModal(false);
-      alert('Order updated successfully!');
-    } else {
-      const errorData = await response.json();
-      console.error('Error response:', errorData); 
-      alert(`Failed to update order: ${errorData.error || 'Unknown error'}`);
+      if (response.ok) {
+        await loadOrders();
+        alert('Order updated successfully!');
+      } else {
+        const errorData = await response.json();
+        alert(`Failed to update order: ${errorData.error || 'Unknown error'}`);
+      }
+    } catch (error) {
+      console.error('Error updating order:', error);
+      throw error;
     }
-  } catch (error) {
-    console.error('Error updating order:', error);
-    alert('Network error. Please check console for details.');
-    throw error;
-  }
-};
+  };
+
+  const handleExchangeOrder = (order: Order) => {
+    setSelectedOrder(order);
+    setShowExchangeModal(true);
+    setActiveMenu(null);
+  };
+
+  const handleReturnOrder = (order: Order) => {
+    setSelectedOrder(order);
+    setShowReturnModal(true);
+    setActiveMenu(null);
+  };
+
+  const handleProcessExchange = async (exchangeData: any) => {
+    try {
+      console.log('Processing exchange:', exchangeData);
+      await loadOrders();
+      // Success message already shown in the modal
+    } catch (error) {
+      console.error('Error processing exchange:', error);
+      throw error;
+    }
+  };
+
+  const handleProcessReturn = async (returnData: any) => {
+    try {
+      console.log('Processing return:', returnData);
+      await loadOrders();
+      alert('Return processed successfully!');
+    } catch (error) {
+      console.error('Error processing return:', error);
+      throw error;
+    }
+  };
 
   const handleCancelOrder = async (orderId: number) => {
     if (!confirm('Are you sure you want to cancel this order?')) return;
@@ -192,6 +254,8 @@ export default function OrdersDashboard() {
                 setActiveMenu={setActiveMenu}
                 onViewDetails={handleViewDetails}
                 onEditOrder={handleEditOrder}
+                onExchangeOrder={handleExchangeOrder}
+                onReturnOrder={handleReturnOrder}
                 onCancelOrder={handleCancelOrder}
               />
             </div>
@@ -214,6 +278,23 @@ export default function OrdersDashboard() {
           onSave={handleSaveOrder}
         />
       )}
+
+      {showExchangeModal && selectedOrder && (
+        <ExchangeProductModal
+          order={selectedOrder}
+          onClose={() => setShowExchangeModal(false)}
+          onExchange={handleProcessExchange}
+        />
+      )}
+
+    {showReturnModal && selectedOrder && (
+  <ReturnProductModal
+    order={selectedOrder}
+    onClose={() => setShowReturnModal(false)}
+    onReturn={handleProcessReturn}
+  />
+)}
+
 
       {activeMenu !== null && (
         <div
