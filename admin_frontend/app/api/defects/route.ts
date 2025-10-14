@@ -126,11 +126,12 @@ export async function POST(request: Request) {
 // PATCH: Update defect (e.g., mark as sold)
 export async function PATCH(request: Request) {
   try {
-    // Extract ID from URL instead of query params
-    const url = new URL(request.url);
-    const id = url.pathname.split('/').pop(); // Get last part of URL
-    
+    const { searchParams } = new URL(request.url);
+    const id = searchParams.get('id'); // This gets the ID from ?id=...
     const updates = await request.json();
+
+    console.log('PATCH ID:', id);
+    console.log('PATCH updates:', updates);
 
     if (!id) {
       return NextResponse.json({ error: 'Defect ID is required' }, { status: 400 });
@@ -158,7 +159,6 @@ export async function PATCH(request: Request) {
     return NextResponse.json({ error: 'Failed to update defect' }, { status: 500 });
   }
 }
-
 // DELETE: Remove defect
 export async function DELETE(request: Request) {
   try {

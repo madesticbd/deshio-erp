@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { Search, Barcode, User, Package, Trash2, ShoppingCart, AlertCircle } from 'lucide-react';
 import Header from '@/components/Header';
 import Sidebar from '@/components/Sidebar';
+import SellDefectModal from '@/components/SellDefectModal';
 
 interface DefectItem {
   id: string;
@@ -98,6 +99,12 @@ export default function DefectsPage() {
   const [refundInfo, setRefundInfo] = useState<{amount: number; message: string} | null>(null);
   const [scannedProduct, setScannedProduct] = useState<InventoryItem | null>(null);
   const [manualScannedProduct, setManualScannedProduct] = useState<InventoryItem | null>(null);
+  
+  // Sell modal state
+  const [sellModalOpen, setSellModalOpen] = useState(false);
+  const [selectedDefect, setSelectedDefect] = useState<DefectItem | null>(null);
+  const [sellPrice, setSellPrice] = useState('');
+  const [sellType, setSellType] = useState<'pos' | 'social'>('pos');
 
   // Load defects on component mount
   useEffect(() => {
@@ -432,34 +439,73 @@ export default function DefectsPage() {
     }
   };
 
-  // Sell defective item
-  const sellDefectiveItem = async (defect: DefectItem) => {
-    const sellingPrice = prompt('Enter selling price:', defect.sellingPrice?.toString() || '0');
-    if (!sellingPrice) return;
+  // Open sell modal
+  const openSellModal = (defect: DefectItem) => {
+    setSelectedDefect(defect);
+    setSellPrice(defect.sellingPrice?.toString() || '');
+    setSellType('pos');
+    setSellModalOpen(true);
+  };
 
+  // Close sell modal
+  const closeSellModal = () => {
+    setSellModalOpen(false);
+    setSelectedDefect(null);
+    setSellPrice('');
+    setSellType('pos');
+  };
+
+  // Process sell with modal data
+  const processSell = async () => {
+    if (!selectedDefect || !sellPrice) return;
+
+    setLoading(true);
     try {
-      const response = await fetch(`/api/defects/${defect.id}`, {
+      console.log('🔄 Starting sell process for defect:', selectedDefect.id);
+      console.log('💰 Selling price:', sellPrice);
+      
+      const response = await fetch(`/api/defects?id=${selectedDefect.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
           status: 'sold',
-          sellingPrice: parseFloat(sellingPrice)
+          sellingPrice: parseFloat(sellPrice)
         }),
       });
 
+      console.log('📡 PATCH response status:', response.status);
+
       if (response.ok) {
+        const updatedDefect = await response.json();
+        console.log('✅ Defect updated successfully:', updatedDefect);
         await fetchDefects();
-        const saleType = confirm('Sell via POS? Click OK for POS, Cancel for Social Commerce') ? 'pos' : 'social';
         
-        if (saleType === 'pos') {
-          window.open(`/pos?defect=${defect.id}&price=${sellingPrice}`, '_blank');
-        } else {
-          window.open(`/social-commerce?defect=${defect.id}&price=${sellingPrice}`, '_blank');
-        }
+        // Close modal
+        closeSellModal();
+        
+        // Navigate to selected platform
+        const saleUrl = sellType === 'pos' 
+          ? `/pos?defect=${selectedDefect.id}&price=${sellPrice}`
+          : `/social-commerce?defect=${selectedDefect.id}&price=${sellPrice}`;
+        
+        const link = document.createElement('a');
+        link.href = saleUrl;
+        link.target = '_blank';
+        link.rel = 'noopener noreferrer';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        
+      } else {
+        const errorText = await response.text();
+        console.error('❌ PATCH failed:', errorText);
+        alert(`Failed to update defect status: ${errorText}`);
       }
     } catch (error) {
-      console.error('Error selling defective item:', error);
-      alert('Error selling item');
+      console.error('💥 Error selling defective item:', error);
+      alert('Error selling item - check console for details');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -468,13 +514,16 @@ export default function DefectsPage() {
     if (!confirm('Are you sure you want to remove this defect?')) return;
 
     try {
-      const response = await fetch(`/api/defects/${defectId}`, {
+      const response = await fetch(`/api/defects?id=${defectId}`, {
         method: 'DELETE',
       });
 
       if (response.ok) {
         await fetchDefects();
         alert('Defect removed successfully');
+      } else {
+        const errorData = await response.json();
+        alert(`Failed to remove defect: ${errorData.error}`);
       }
     } catch (error) {
       console.error('Error removing defect:', error);
@@ -630,14 +679,12 @@ export default function DefectsPage() {
                             </select>
                           </div>
                           
-                          {/* FIXED BUTTON - Handles both input methods */}
                           <button
                             onClick={() => {
                               console.log('🎯 Mark as Defective clicked');
                               console.log('Barcode Input:', barcodeInput);
                               console.log('Manual Barcode:', manualBarcode);
                               
-                              // Use manual barcode if provided, otherwise use scanned barcode
                               if (manualBarcode.trim()) {
                                 console.log('📝 Using manual barcode');
                                 handleManualBarcode();
@@ -949,7 +996,7 @@ export default function DefectsPage() {
                                   </td>
                                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2">
                                     <button
-                                      onClick={() => sellDefectiveItem(defect)}
+                                      onClick={() => openSellModal(defect)}
                                       className="text-green-600 hover:text-green-900 dark:hover:text-green-400 flex items-center gap-1"
                                     >
                                       <ShoppingCart className="w-4 h-4" />
@@ -1022,6 +1069,19 @@ export default function DefectsPage() {
           </main>
         </div>
       </div>
+
+      {/* Sell Modal using the component */}
+      <SellDefectModal
+        isOpen={sellModalOpen}
+        onClose={closeSellModal}
+        defect={selectedDefect!}
+        sellPrice={sellPrice}
+        setSellPrice={setSellPrice}
+        sellType={sellType}
+        setSellType={setSellType}
+        onSell={processSell}
+        loading={loading}
+      />
     </div>
   );
 }
