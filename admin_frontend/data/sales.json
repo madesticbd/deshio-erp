@@ -130,28 +130,14 @@
       "mobile": "01818316964",
       "address": "International Affairs Division ,Paramanu Bhaban ,Bangladesh Atomic Energy Commission,"
     },
-    "items": [
-      {
-        "id": 1760523112257.3713,
-        "productId": 1759738578875,
-        "productName": "Cotton Sharee",
-        "size": "1",
-        "qty": 1,
-        "price": 1000,
-        "discount": 0,
-        "amount": 1000,
-        "barcodes": [
-          "BATCH1760349329531-09"
-        ]
-      }
-    ],
+    "items": [],
     "amounts": {
-      "subtotal": 1000,
+      "subtotal": 0,
       "totalDiscount": 0,
-      "vat": 50,
+      "vat": 0,
       "vatRate": 5,
       "transportCost": 0,
-      "total": 1050
+      "total": 0
     },
     "payments": {
       "cash": 2000,
@@ -160,7 +146,7 @@
       "nagad": 0,
       "transactionFee": 0,
       "totalPaid": 2000,
-      "due": -950
+      "due": 0
     },
     "createdAt": "2025-10-15T08:31:18.686Z",
     "exchangeHistory": [
@@ -211,6 +197,27 @@
         "note": "Refund to customer"
       }
     ],
-    "updatedAt": "2025-10-15T10:11:52.257Z"
+    "updatedAt": "2025-10-15T15:26:12.298Z",
+    "returnHistory": [
+      {
+        "date": "2025-10-15",
+        "time": "21:26",
+        "timestamp": "2025-10-15T15:26:12.298Z",
+        "returnedProducts": [
+          {
+            "productId": 1760523112257.3713,
+            "productName": "Cotton Sharee",
+            "quantity": 1,
+            "price": 1000,
+            "amount": 1000
+          }
+        ],
+        "originalTotal": 1050,
+        "newTotal": 0,
+        "refundAmount": 1050,
+        "refundToCustomer": 2000,
+        "note": "Refund ৳2000 to customer"
+      }
+    ]
   }
 ]

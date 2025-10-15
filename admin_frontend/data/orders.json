@@ -748,5 +748,57 @@
       "due": 1575
     },
     "createdAt": "2025-10-15T10:27:30.105Z"
+  },
+  {
+    "id": 1760547518484,
+    "salesBy": "Admin User",
+    "date": "06-Oct-2025",
+    "customer": {
+      "name": "Ariyaan",
+      "email": "tasneem.nishat.4953@gmail.com",
+      "phone": "01818316964",
+      "socialId": ""
+    },
+    "deliveryAddress": {
+      "division": "Rajshahi",
+      "district": "Sirajganj",
+      "city": "Sirajganj Sadar",
+      "zone": "asd",
+      "area": "da",
+      "address": "International Affairs Division ,Paramanu Bhaban ,Bangladesh Atomic Energy Commission,",
+      "postalCode": "1243"
+    },
+    "products": [
+      {
+        "id": 1760547495792,
+        "productId": 1759737987171,
+        "productName": "Jamdani",
+        "size": "1",
+        "qty": 1,
+        "price": 1500,
+        "discount": 0,
+        "amount": 1500,
+        "barcodes": [
+          "BATCH1759738770680-16"
+        ]
+      }
+    ],
+    "subtotal": 1500,
+    "amounts": {
+      "subtotal": 1500,
+      "totalDiscount": 0,
+      "vat": 75,
+      "vatRate": 5,
+      "transportCost": 0,
+      "total": 1575
+    },
+    "payments": {
+      "sslCommerz": 0,
+      "advance": 0,
+      "transactionId": "",
+      "totalPaid": 0,
+      "due": 1575
+    },
+    "createdAt": "2025-10-15T16:58:38.487Z"
   }
 ]

@@ -17,7 +17,6 @@ interface DefectItem {
   barcode: string;
   productId: number;
   productName: string;
-  reason: 'manufacturing' | 'shipping' | 'customer_return' | 'other';
   status: 'pending' | 'approved' | 'sold';
   addedBy: string;
   addedAt: string;
@@ -70,9 +69,10 @@ export default function DefectsPage() {
   
   // Defect Identification
   const [barcodeInput, setBarcodeInput] = useState('');
-  const [reason, setReason] = useState<DefectItem['reason']>('manufacturing');
+  const [returnReason, setReturnReason] = useState('');
   const [storeForDefect, setStoreForDefect] = useState('');
   const [scannedProduct, setScannedProduct] = useState<InventoryItem | null>(null);
+  const [defectImage, setDefectImage] = useState<File | null>(null);
   
   // Customer Returns
   const [searchType, setSearchType] = useState<'phone' | 'orderId'>('phone');
@@ -81,6 +81,8 @@ export default function DefectsPage() {
   const [selectedOrder, setSelectedOrder] = useState('');
   const [selectedBarcodes, setSelectedBarcodes] = useState<string[]>([]);
   const [storeForReturn, setStoreForReturn] = useState('');
+  const [customerReturnReason, setCustomerReturnReason] = useState('');
+  const [returnImage, setReturnImage] = useState<File | null>(null);
   
   const [loading, setLoading] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
@@ -148,9 +150,21 @@ export default function DefectsPage() {
     }
   };
 
-  const handleMarkAsDefective = async () => {
-    if (!barcodeInput.trim() || !reason) {
-      alert('Please enter barcode and select reason');
+  const handleDefectImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      setDefectImage(e.target.files[0]);
+    }
+  };
+
+  const handleReturnImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      setReturnImage(e.target.files[0]);
+    }
+  };
+
+const handleMarkAsDefective = async () => {
+    if (!barcodeInput.trim() || !returnReason) {
+      alert('Please enter barcode and return reason');
       return;
     }
 
@@ -160,41 +174,35 @@ export default function DefectsPage() {
       return;
     }
 
-    // Check if store selection is needed
-    if (product.status === 'available' && !storeForDefect) {
-      alert('This item is available in stock. Please select the store location.');
-      return;
-    }
-
-    if (product.status === 'sold' && !storeForDefect) {
-      alert('This item was sold. Please select the store where you are receiving the return.');
+    // Store selection is always required for defect identification
+    if (!storeForDefect) {
+      alert('Please select the store location where this defect is being recorded.');
       return;
     }
 
     setLoading(true);
     try {
+      const formData = new FormData();
+      formData.append('barcode', barcodeInput);
+      formData.append('returnReason', returnReason);
+      formData.append('store', storeForDefect);
+      formData.append('isDefectIdentification', 'true'); // Flag for defect identification tab
+      if (defectImage) formData.append('image', defectImage);
+
       const response = await fetch('/api/defects', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          barcode: barcodeInput,
-          reason,
-          store: storeForDefect || null
-        })
+        body: formData
       });
 
       const data = await response.json();
 
-      if (data.needsStore) {
-        alert(data.error);
-        return;
-      }
-
       if (response.ok) {
         setSuccessMessage('Item marked as defective successfully!');
         setBarcodeInput('');
+        setReturnReason('');
         setStoreForDefect('');
         setScannedProduct(null);
+        setDefectImage(null);
         fetchDefects();
         setTimeout(() => setSuccessMessage(''), 3000);
       } else {
@@ -207,7 +215,6 @@ export default function DefectsPage() {
       setLoading(false);
     }
   };
-
   const handleSearchCustomer = async () => {
     if (!searchValue.trim()) {
       alert('Please enter search value');
@@ -310,8 +317,8 @@ export default function DefectsPage() {
   };
 
   const handleProcessReturn = async () => {
-    if (!selectedOrder || selectedBarcodes.length === 0 || !storeForReturn) {
-      alert('Please select order, barcodes, and store');
+    if (!selectedOrder || selectedBarcodes.length === 0 || !storeForReturn || !customerReturnReason) {
+      alert('Please select order, barcodes, store, and provide return reason');
       return;
     }
 
@@ -322,16 +329,17 @@ export default function DefectsPage() {
 
       // Create defect entry for each barcode
       for (const barcode of selectedBarcodes) {
+        const formData = new FormData();
+        formData.append('barcode', barcode);
+        formData.append('returnReason', customerReturnReason);
+        formData.append('store', storeForReturn);
+        formData.append('orderId', selectedOrder);
+        formData.append('customerPhone', order.customerPhone || order.customer?.phone || '');
+        if (returnImage) formData.append('image', returnImage);
+
         await fetch('/api/defects', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            barcode,
-            reason: 'customer_return',
-            store: storeForReturn,
-            orderId: selectedOrder,
-            customerPhone: order.customerPhone || order.customer?.phone
-          })
+          body: formData
         });
       }
 
@@ -340,6 +348,8 @@ export default function DefectsPage() {
       setSelectedOrder('');
       setCustomerOrders([]);
       setSelectedBarcodes([]);
+      setCustomerReturnReason('');
+      setReturnImage(null);
       fetchDefects();
       setTimeout(() => setSuccessMessage(''), 5000);
     } catch (error) {
@@ -528,7 +538,7 @@ export default function DefectsPage() {
                                 {scannedProduct.productName}
                               </p>
                               <p className="text-xs text-green-700 dark:text-green-400">
-                                Status: {scannedProduct.status} • ID: {scannedProduct.productId}
+                                Status: {scannedProduct.status} • Location: {scannedProduct.location}
                               </p>
                             </div>
                           )}
@@ -536,18 +546,27 @@ export default function DefectsPage() {
 
                         <div>
                           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                            Reason
+                            Return Reason
                           </label>
-                          <select
-                            value={reason}
-                            onChange={(e) => setReason(e.target.value as DefectItem['reason'])}
+                          <textarea
+                            value={returnReason}
+                            onChange={(e) => setReturnReason(e.target.value)}
+                            placeholder="Enter return reason..."
+                            rows={3}
                             className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                          >
-                            <option value="manufacturing">Manufacturing Defect</option>
-                            <option value="shipping">Shipping Damage</option>
-                            <option value="customer_return">Customer Return</option>
-                            <option value="other">Other</option>
-                          </select>
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                            Defect Image
+                          </label>
+                          <input
+                            type="file"
+                            accept="image/*"
+                            onChange={handleDefectImageChange}
+                            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:font-medium file:bg-gray-50 file:text-gray-700 hover:file:bg-gray-100"
+                          />
                         </div>
 
                         <div>
@@ -606,6 +625,31 @@ export default function DefectsPage() {
                               Please select a store before searching
                             </p>
                           )}
+                        </div>
+
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                            Return Reason (Required)
+                          </label>
+                          <textarea
+                            value={customerReturnReason}
+                            onChange={(e) => setCustomerReturnReason(e.target.value)}
+                            placeholder="Enter customer return reason..."
+                            rows={3}
+                            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                            Return Image
+                          </label>
+                          <input
+                            type="file"
+                            accept="image/*"
+                            onChange={handleReturnImageChange}
+                            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:font-medium file:bg-gray-50 file:text-gray-700 hover:file:bg-gray-100"
+                          />
                         </div>
 
                         <div>
@@ -800,7 +844,7 @@ export default function DefectsPage() {
                             <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Product</th>
                             <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Barcode</th>
                             <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Store</th>
-                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Reason</th>
+                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Return Reason</th>
                             <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Added</th>
                             <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Actions</th>
                           </tr>
@@ -839,13 +883,8 @@ export default function DefectsPage() {
                                 </span>
                               </td>
                               <td className="px-4 py-3">
-                                <span className={`px-2 py-1 rounded text-xs font-medium ${
-                                  defect.reason === 'manufacturing' ? 'bg-red-100 text-red-700' :
-                                  defect.reason === 'shipping' ? 'bg-orange-100 text-orange-700' :
-                                  defect.reason === 'customer_return' ? 'bg-purple-100 text-purple-700' :
-                                  'bg-gray-100 text-gray-700'
-                                }`}>
-                                  {defect.reason.replace('_', ' ')}
+                                <span className="text-sm text-gray-700 dark:text-gray-300">
+                                  {defect.returnReason || 'N/A'}
                                 </span>
                               </td>
                               <td className="px-4 py-3">

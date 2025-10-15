@@ -6,7 +6,6 @@ interface DefectItem {
   barcode: string;
   productId: number;
   productName: string;
-  reason: 'manufacturing' | 'shipping' | 'customer_return' | 'other';
   status: 'pending' | 'approved' | 'sold';
   addedBy: string;
   addedAt: string;
@@ -14,6 +13,7 @@ interface DefectItem {
   customerPhone?: string;
   sellingPrice?: number;
   returnReason?: string;
+  store?: string;
 }
 
 interface SellDefectModalProps {
@@ -40,19 +40,6 @@ export default function SellDefectModal({
   loading
 }: SellDefectModalProps) {
   if (!isOpen) return null;
-
-  const getReasonColor = (reason: string) => {
-    switch (reason) {
-      case 'customer_return':
-        return 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300 border border-gray-300 dark:border-gray-600';
-      case 'manufacturing':
-        return 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300 border border-gray-300 dark:border-gray-600';
-      case 'shipping':
-        return 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300 border border-gray-300 dark:border-gray-600';
-      default:
-        return 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300 border border-gray-300 dark:border-gray-600';
-    }
-  };
 
   return (
     <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-in fade-in duration-200">
@@ -93,9 +80,11 @@ export default function SellDefectModal({
                     <p className="text-base font-semibold text-gray-900 dark:text-white">{defect.productName}</p>
                   </div>
                 </div>
-                <span className={`px-2 py-1 rounded text-xs font-medium ${getReasonColor(defect.reason)}`}>
-                  {defect.reason.replace('_', ' ')}
-                </span>
+                {defect.returnReason && (
+                  <span className="px-2 py-1 rounded text-xs font-medium bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300 border border-gray-300 dark:border-gray-600">
+                    Return
+                  </span>
+                )}
               </div>
 
               <div className="grid grid-cols-2 gap-3 pt-2">
@@ -115,10 +104,24 @@ export default function SellDefectModal({
                 </div>
               </div>
 
+              {defect.returnReason && (
+                <div className="pt-2 border-t border-gray-300 dark:border-gray-600">
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Return Reason</p>
+                  <p className="text-sm text-gray-700 dark:text-gray-300">{defect.returnReason}</p>
+                </div>
+              )}
+
               {defect.customerPhone && (
                 <div className="pt-2 border-t border-gray-300 dark:border-gray-600">
-                  <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Customer Return</p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Customer Phone</p>
                   <p className="text-sm text-gray-700 dark:text-gray-300 font-medium">{defect.customerPhone}</p>
+                </div>
+              )}
+
+              {defect.store && (
+                <div className="pt-2 border-t border-gray-300 dark:border-gray-600">
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Store</p>
+                  <p className="text-sm text-gray-700 dark:text-gray-300">{defect.store}</p>
                 </div>
               )}
             </div>

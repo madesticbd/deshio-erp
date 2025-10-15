@@ -5,6 +5,14 @@ import path from 'path';
 const defectsFilePath = path.join(process.cwd(), 'data', 'defects.json');
 const inventoryFilePath = path.join(process.cwd(), 'data', 'inventory.json');
 const ordersFilePath = path.join(process.cwd(), 'data', 'orders.json');
+const uploadsDir = path.join(process.cwd(), 'public', 'uploads');
+
+// Ensure uploads directory exists
+function ensureUploadsDir() {
+  if (!fs.existsSync(uploadsDir)) {
+    fs.mkdirSync(uploadsDir, { recursive: true });
+  }
+}
 
 function ensureDataFile(filePath: string, defaultData: any = []) {
   const dataDir = path.dirname(filePath);
@@ -20,6 +28,25 @@ function readFromFile(filePath: string) {
 
 function writeToFile(filePath: string, data: any) {
   fs.writeFileSync(filePath, JSON.stringify(data, null, 2), 'utf-8');
+}
+
+// Save uploaded file and return the file path
+// Save uploaded file and return the file path
+async function saveUploadedFile(file: File): Promise<string> {
+  ensureUploadsDir();
+  
+  const timestamp = Date.now();
+  const originalName = file.name;
+  const extension = path.extname(originalName);
+  const fileName = `defect-${timestamp}${extension}`;
+  const filePath = path.join(uploadsDir, fileName);
+  
+  // Convert file to buffer and save
+  const arrayBuffer = await file.arrayBuffer();
+  const buffer = Buffer.from(arrayBuffer);
+  fs.writeFileSync(filePath, buffer);
+  
+  return `/uploads/${fileName}`;
 }
 
 // GET - Fetch all defects or single defect by ID
@@ -53,14 +80,27 @@ export async function GET(req: NextRequest) {
   }
 }
 
+
+
 // POST - Add new defect (from barcode scan or customer return)
 export async function POST(req: NextRequest) {
   try {
-    const body = await req.json();
-    const { barcode, reason, store, orderId, customerPhone } = body;
+    const formData = await req.formData();
     
-    if (!barcode || !reason) {
-      return NextResponse.json({ error: 'Barcode and reason are required' }, { status: 400 });
+    const barcode = formData.get('barcode') as string;
+    const returnReason = formData.get('returnReason') as string;
+    const store = formData.get('store') as string;
+    const orderId = formData.get('orderId') as string;
+    const customerPhone = formData.get('customerPhone') as string;
+    const image = formData.get('image') as File | null;
+    const isDefectIdentification = formData.get('isDefectIdentification') === 'true';
+    
+    if (!barcode || !returnReason) {
+      return NextResponse.json({ error: 'Barcode and return reason are required' }, { status: 400 });
+    }
+    
+    if (!store) {
+      return NextResponse.json({ error: 'Store location is required' }, { status: 400 });
     }
     
     // Find the inventory item by barcode
@@ -71,27 +111,23 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Item not found in inventory' }, { status: 404 });
     }
     
-    // Check inventory status
-    if (inventoryItem.status === 'available' && !store) {
-      return NextResponse.json({ 
-        error: 'This item is in stock. Please select the store location where you are returning it.',
-        needsStore: true 
-      }, { status: 400 });
-    }
-    
-    if (inventoryItem.status === 'sold' && !store) {
-      return NextResponse.json({ 
-        error: 'This item was sold. Please select the store where you are receiving the return.',
-        needsStore: true 
-      }, { status: 400 });
-    }
-    
-    // For customer returns, we need order and customer info
-    if (reason === 'customer_return' && inventoryItem.status === 'sold') {
+    // For customer returns (not defect identification), we need order and customer info if the item was sold
+    if (!isDefectIdentification && inventoryItem.status === 'sold') {
       if (!orderId || !customerPhone) {
         return NextResponse.json({ 
           error: 'Order ID and customer phone are required for customer returns' 
         }, { status: 400 });
+      }
+    }
+    
+    // Handle image upload
+    let imagePath = null;
+    if (image && image.size > 0) {
+      try {
+        imagePath = await saveUploadedFile(image);
+      } catch (error) {
+        console.error('Error saving image:', error);
+        // Don't fail the entire request if image upload fails
       }
     }
     
@@ -111,9 +147,8 @@ export async function POST(req: NextRequest) {
       barcode: inventoryItem.barcode,
       productId: inventoryItem.productId,
       productName: inventoryItem.productName || `Product ${inventoryItem.productId}`,
-      reason,
       status: 'pending',
-      store: store || null,
+      store: store,
       addedBy: 'Admin',
       addedAt: new Date().toISOString(),
       originalOrderId: orderId || inventoryItem.orderId || null,
@@ -121,7 +156,8 @@ export async function POST(req: NextRequest) {
       costPrice: inventoryItem.costPrice,
       originalSellingPrice: inventoryItem.sellingPrice,
       sellingPrice: null,
-      returnReason: body.returnReason || null
+      returnReason: returnReason,
+      image: imagePath
     };
     
     defects.push(newDefect);
@@ -138,7 +174,6 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Failed to add defect' }, { status: 500 });
   }
 }
-
 // PATCH - Update defect (approve, sell, etc.)
 export async function PATCH(req: NextRequest) {
   try {
@@ -193,6 +228,18 @@ export async function DELETE(req: NextRequest) {
     
     if (!defect) {
       return NextResponse.json({ error: 'Defect not found' }, { status: 404 });
+    }
+    
+    // Delete associated image file if exists
+    if (defect.image) {
+      try {
+        const imagePath = path.join(process.cwd(), 'public', defect.image);
+        if (fs.existsSync(imagePath)) {
+          fs.unlinkSync(imagePath);
+        }
+      } catch (error) {
+        console.error('Error deleting image file:', error);
+      }
     }
     
     // Return inventory status to available

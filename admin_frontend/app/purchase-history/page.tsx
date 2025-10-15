@@ -260,8 +260,8 @@ export default function PurchaseHistoryPage() {
                   <div className="text-gray-500 dark:text-gray-400">No sales found</div>
                 </div>
               ) : (
-                <div className="space-y-4">
-                  {filteredSales.map((sale) => (
+                <div className="space-y-4 relative">
+                  {filteredSales.map((sale, index) => (
                     <div
                       key={sale.id}
                       className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden transition-all hover:shadow-md"
@@ -321,6 +321,7 @@ export default function PurchaseHistoryPage() {
                             {/* Three Dots Menu */}
                             <div className="relative">
                               <button
+                                type="button"
                                 onClick={() => setActiveMenu(activeMenu === sale.id ? null : sale.id)}
                                 className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md transition-colors"
                               >
@@ -328,20 +329,26 @@ export default function PurchaseHistoryPage() {
                               </button>
                               
                               {activeMenu === sale.id && (
-                                <div className="absolute right-0 mt-2 w-48 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 z-20">
+                                <div 
+                                  className="absolute right-0 bottom-full mb-2 w-48 bg-white dark:bg-gray-800 rounded-lg shadow-2xl border-2 border-gray-300 dark:border-gray-600"
+                                  style={{ zIndex: 9999 }}
+                                >
                                   <button
+                                    type="button"
                                     onClick={() => handleExchange(sale)}
-                                    className="w-full px-4 py-2 text-left text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-2 rounded-t-lg"
+                                    className="w-full px-4 py-3 text-left text-sm font-medium text-gray-900 dark:text-white hover:bg-blue-50 dark:hover:bg-blue-900/20 flex items-center gap-3 rounded-t-lg transition-colors"
                                   >
-                                    <ArrowRightLeft className="w-4 h-4" />
-                                    Exchange Products
+                                    <ArrowRightLeft className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                                    <span>Exchange Products</span>
                                   </button>
+                                  <div className="h-px bg-gray-200 dark:bg-gray-700"></div>
                                   <button
+                                    type="button"
                                     onClick={() => handleReturn(sale)}
-                                    className="w-full px-4 py-2 text-left text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-2 rounded-b-lg"
+                                    className="w-full px-4 py-3 text-left text-sm font-medium text-gray-900 dark:text-white hover:bg-red-50 dark:hover:bg-red-900/20 flex items-center gap-3 rounded-b-lg transition-colors"
                                   >
-                                    <RotateCcw className="w-4 h-4" />
-                                    Return Products
+                                    <RotateCcw className="w-4 h-4 text-red-600 dark:text-red-400" />
+                                    <span>Return Products</span>
                                   </button>
                                 </div>
                               )}
@@ -514,7 +521,7 @@ export default function PurchaseHistoryPage() {
       {/* Click outside to close menu */}
       {activeMenu !== null && (
         <div
-          className="fixed inset-0 z-10"
+          className="fixed inset-0 z-40"
           onClick={() => setActiveMenu(null)}
         />
       )}
