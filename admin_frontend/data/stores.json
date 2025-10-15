@@ -31,5 +31,16 @@
     "revenueChange": 1500,
     "products": 70,
     "orders": 20
+  },
+  {
+    "id": "1760509838159",
+    "name": "Banasree",
+    "location": "Dhaka",
+    "type": "store",
+    "pathao_key": "BAN123",
+    "revenue": 60000,
+    "revenueChange": 1500,
+    "products": 70,
+    "orders": 20
   }
 ]

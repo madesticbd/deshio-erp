@@ -1,185 +1,222 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import fs from 'fs';
 import path from 'path';
 
-const defectsFilePath = path.resolve('data', 'defects.json');
-const inventoryFilePath = path.resolve('data', 'inventory.json');
+const defectsFilePath = path.join(process.cwd(), 'data', 'defects.json');
+const inventoryFilePath = path.join(process.cwd(), 'data', 'inventory.json');
+const ordersFilePath = path.join(process.cwd(), 'data', 'orders.json');
 
-// Helper functions for file operations
-const readDefectsFromFile = () => {
+function ensureDataFile(filePath: string, defaultData: any = []) {
+  const dataDir = path.dirname(filePath);
+  if (!fs.existsSync(dataDir)) fs.mkdirSync(dataDir, { recursive: true });
+  if (!fs.existsSync(filePath)) fs.writeFileSync(filePath, JSON.stringify(defaultData, null, 2), 'utf-8');
+}
+
+function readFromFile(filePath: string) {
+  ensureDataFile(filePath);
+  const data = fs.readFileSync(filePath, 'utf-8');
+  return JSON.parse(data);
+}
+
+function writeToFile(filePath: string, data: any) {
+  fs.writeFileSync(filePath, JSON.stringify(data, null, 2), 'utf-8');
+}
+
+// GET - Fetch all defects or single defect by ID
+export async function GET(req: NextRequest) {
   try {
-    if (fs.existsSync(defectsFilePath)) {
-      const fileData = fs.readFileSync(defectsFilePath, 'utf8');
-      return JSON.parse(fileData);
+    const { searchParams } = new URL(req.url);
+    const id = searchParams.get('id');
+    const store = searchParams.get('store');
+    
+    const defects = readFromFile(defectsFilePath);
+    
+    // Filter by single ID
+    if (id) {
+      const defect = defects.find((d: any) => d.id === id);
+      if (!defect) {
+        return NextResponse.json({ error: 'Defect not found' }, { status: 404 });
+      }
+      return NextResponse.json(defect);
     }
-    return [];
-  } catch (error) {
-    console.error('Error reading defects file:', error);
-    return [];
-  }
-};
-
-const writeDefectsToFile = (defects: any[]) => {
-  try {
-    const dataDir = path.dirname(defectsFilePath);
-    if (!fs.existsSync(dataDir)) {
-      fs.mkdirSync(dataDir, { recursive: true });
+    
+    // Filter by store
+    if (store && store !== 'all') {
+      const filteredDefects = defects.filter((d: any) => d.store === store);
+      return NextResponse.json(filteredDefects);
     }
-    fs.writeFileSync(defectsFilePath, JSON.stringify(defects, null, 2), 'utf8');
-  } catch (error) {
-    console.error('Error writing defects file:', error);
-    throw error;
-  }
-};
-
-const readInventoryFromFile = () => {
-  try {
-    if (fs.existsSync(inventoryFilePath)) {
-      const fileData = fs.readFileSync(inventoryFilePath, 'utf8');
-      return JSON.parse(fileData);
-    }
-    return [];
-  } catch (error) {
-    console.error('Error reading inventory file:', error);
-    return [];
-  }
-};
-
-const writeInventoryToFile = (inventory: any[]) => {
-  try {
-    const dataDir = path.dirname(inventoryFilePath);
-    if (!fs.existsSync(dataDir)) {
-      fs.mkdirSync(dataDir, { recursive: true });
-    }
-    fs.writeFileSync(inventoryFilePath, JSON.stringify(inventory, null, 2), 'utf8');
-  } catch (error) {
-    console.error('Error writing inventory file:', error);
-    throw error;
-  }
-};
-
-// GET: Fetch all defects
-export async function GET() {
-  try {
-    const defects = readDefectsFromFile();
+    
     return NextResponse.json(defects);
   } catch (error) {
-    console.error('Error fetching defects:', error);
+    console.error('Error reading defects:', error);
     return NextResponse.json({ error: 'Failed to load defects' }, { status: 500 });
   }
 }
 
-
-// POST: Add new defect and update inventory status
-
-export async function POST(request: Request) {
+// POST - Add new defect (from barcode scan or customer return)
+export async function POST(req: NextRequest) {
   try {
-    const newDefect = await request.json();
+    const body = await req.json();
+    const { barcode, reason, store, orderId, customerPhone } = body;
     
-    // Read current data
-    const defects = readDefectsFromFile();
-    const inventory = readInventoryFromFile();
-
-    console.log('Adding defect for barcode:', newDefect.barcode);
-    console.log('Defect data received:', newDefect);
-
-    // Find and update inventory item
-    const inventoryIndex = inventory.findIndex((item: any) => item.barcode === newDefect.barcode);
-    
-    if (inventoryIndex === -1) {
-      console.error('Barcode not found in inventory:', newDefect.barcode);
-      return NextResponse.json({ error: 'Barcode not found in inventory' }, { status: 404 });
+    if (!barcode || !reason) {
+      return NextResponse.json({ error: 'Barcode and reason are required' }, { status: 400 });
     }
-
-    console.log('Found inventory item at index:', inventoryIndex);
-
-    // Mark inventory as defective
-    inventory[inventoryIndex] = {
-      ...inventory[inventoryIndex],
+    
+    // Find the inventory item by barcode
+    const inventory = readFromFile(inventoryFilePath);
+    const inventoryItem = inventory.find((item: any) => item.barcode === barcode);
+    
+    if (!inventoryItem) {
+      return NextResponse.json({ error: 'Item not found in inventory' }, { status: 404 });
+    }
+    
+    // Check inventory status
+    if (inventoryItem.status === 'available' && !store) {
+      return NextResponse.json({ 
+        error: 'This item is in stock. Please select the store location where you are returning it.',
+        needsStore: true 
+      }, { status: 400 });
+    }
+    
+    if (inventoryItem.status === 'sold' && !store) {
+      return NextResponse.json({ 
+        error: 'This item was sold. Please select the store where you are receiving the return.',
+        needsStore: true 
+      }, { status: 400 });
+    }
+    
+    // For customer returns, we need order and customer info
+    if (reason === 'customer_return' && inventoryItem.status === 'sold') {
+      if (!orderId || !customerPhone) {
+        return NextResponse.json({ 
+          error: 'Order ID and customer phone are required for customer returns' 
+        }, { status: 400 });
+      }
+    }
+    
+    // Update inventory status to defective
+    const invIndex = inventory.findIndex((item: any) => item.barcode === barcode);
+    inventory[invIndex] = {
+      ...inventory[invIndex],
       status: 'defective',
       updatedAt: new Date().toISOString()
     };
-
-    // Add to defects - PRESERVE ALL FIELDS from frontend
-    const defectWithMeta = {
-      ...newDefect, // Keep all fields from frontend
-      // Only add these if they're not already provided
-      id: newDefect.id || `defect-${Date.now()}`,
-      addedAt: newDefect.addedAt || new Date().toISOString(),
+    writeToFile(inventoryFilePath, inventory);
+    
+    // Create defect entry
+    const defects = readFromFile(defectsFilePath);
+    const newDefect = {
+      id: `defect-${Date.now()}`,
+      barcode: inventoryItem.barcode,
+      productId: inventoryItem.productId,
+      productName: inventoryItem.productName || `Product ${inventoryItem.productId}`,
+      reason,
+      status: 'pending',
+      store: store || null,
+      addedBy: 'Admin',
+      addedAt: new Date().toISOString(),
+      originalOrderId: orderId || inventoryItem.orderId || null,
+      customerPhone: customerPhone || null,
+      costPrice: inventoryItem.costPrice,
+      originalSellingPrice: inventoryItem.sellingPrice,
+      sellingPrice: null,
+      returnReason: body.returnReason || null
     };
     
-    defects.push(defectWithMeta);
-
-    // Write updated data
-    writeDefectsToFile(defects);
-    writeInventoryToFile(inventory);
-
-    console.log('Defect added successfully with all fields:', defectWithMeta);
-
-    return NextResponse.json(defectWithMeta, { status: 201 });
+    defects.push(newDefect);
+    writeToFile(defectsFilePath, defects);
+    
+    return NextResponse.json({
+      success: true,
+      message: 'Item marked as defective successfully',
+      defect: newDefect
+    }, { status: 201 });
+    
   } catch (error) {
     console.error('Error adding defect:', error);
     return NextResponse.json({ error: 'Failed to add defect' }, { status: 500 });
   }
 }
 
-// PATCH: Update defect (e.g., mark as sold)
-export async function PATCH(request: Request) {
+// PATCH - Update defect (approve, sell, etc.)
+export async function PATCH(req: NextRequest) {
   try {
-    const { searchParams } = new URL(request.url);
-    const id = searchParams.get('id'); // This gets the ID from ?id=...
-    const updates = await request.json();
-
-    console.log('PATCH ID:', id);
-    console.log('PATCH updates:', updates);
-
+    const { searchParams } = new URL(req.url);
+    const id = searchParams.get('id');
+    const body = await req.json();
+    
     if (!id) {
       return NextResponse.json({ error: 'Defect ID is required' }, { status: 400 });
     }
-
-    const defects = readDefectsFromFile();
+    
+    const defects = readFromFile(defectsFilePath);
     const defectIndex = defects.findIndex((d: any) => d.id === id);
-
+    
     if (defectIndex === -1) {
       return NextResponse.json({ error: 'Defect not found' }, { status: 404 });
     }
-
+    
     // Update defect
     defects[defectIndex] = {
       ...defects[defectIndex],
-      ...updates,
+      ...body,
       updatedAt: new Date().toISOString()
     };
-
-    writeDefectsToFile(defects);
-
-    return NextResponse.json(defects[defectIndex]);
+    
+    writeToFile(defectsFilePath, defects);
+    
+    return NextResponse.json({
+      success: true,
+      message: 'Defect updated successfully',
+      defect: defects[defectIndex]
+    });
+    
   } catch (error) {
     console.error('Error updating defect:', error);
     return NextResponse.json({ error: 'Failed to update defect' }, { status: 500 });
   }
 }
-// DELETE: Remove defect
-export async function DELETE(request: Request) {
-  try {
-    // Extract ID from URL instead of query params
-    const url = new URL(request.url);
-    const id = url.pathname.split('/').pop(); // Get last part of URL
 
+// DELETE - Remove defect
+export async function DELETE(req: NextRequest) {
+  try {
+    const { searchParams } = new URL(req.url);
+    const id = searchParams.get('id');
+    
     if (!id) {
       return NextResponse.json({ error: 'Defect ID is required' }, { status: 400 });
     }
-
-    const defects = readDefectsFromFile();
-    const updatedDefects = defects.filter((d: any) => d.id !== id);
-
-    if (defects.length === updatedDefects.length) {
+    
+    const defects = readFromFile(defectsFilePath);
+    const defect = defects.find((d: any) => d.id === id);
+    
+    if (!defect) {
       return NextResponse.json({ error: 'Defect not found' }, { status: 404 });
     }
-
-    writeDefectsToFile(updatedDefects);
-
-    return NextResponse.json({ success: true, message: 'Defect removed successfully' });
+    
+    // Return inventory status to available
+    const inventory = readFromFile(inventoryFilePath);
+    const invIndex = inventory.findIndex((item: any) => item.barcode === defect.barcode);
+    
+    if (invIndex !== -1) {
+      inventory[invIndex] = {
+        ...inventory[invIndex],
+        status: 'available',
+        updatedAt: new Date().toISOString()
+      };
+      writeToFile(inventoryFilePath, inventory);
+    }
+    
+    // Remove defect
+    const updatedDefects = defects.filter((d: any) => d.id !== id);
+    writeToFile(defectsFilePath, updatedDefects);
+    
+    return NextResponse.json({
+      success: true,
+      message: 'Defect removed and inventory restored'
+    });
+    
   } catch (error) {
     console.error('Error deleting defect:', error);
     return NextResponse.json({ error: 'Failed to delete defect' }, { status: 500 });

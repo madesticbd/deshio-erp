@@ -257,36 +257,22 @@
       "address": "",
       "postalCode": ""
     },
-    "products": [
-      {
-        "id": 1760349584054,
-        "productId": 1759737987171,
-        "productName": "Jamdani",
-        "size": "1",
-        "qty": 1,
-        "price": 1500,
-        "discount": 0,
-        "amount": 1500,
-        "barcodes": [
-          "BATCH1760326827365-12"
-        ]
-      }
-    ],
-    "subtotal": 1500,
+    "products": [],
+    "subtotal": 0,
     "amounts": {
-      "subtotal": 1500,
+      "subtotal": 0,
       "totalDiscount": 0,
-      "vat": 75,
+      "vat": 0,
       "vatRate": 5,
       "transportCost": 0,
-      "total": 1575
+      "total": 0
     },
     "payments": {
       "sslCommerz": 0,
       "advance": 0,
       "transactionId": "",
       "totalPaid": 0,
-      "due": 1575
+      "due": 0
     },
     "createdAt": "2025-10-13T10:00:29.489Z",
     "returnHistory": [
@@ -308,9 +294,28 @@
         "refundAmount": 1050,
         "refundToCustomer": 0,
         "note": "Order total reduced by ৳1050"
+      },
+      {
+        "date": "2025-10-14",
+        "time": "22:39",
+        "timestamp": "2025-10-14T16:39:47.171Z",
+        "returnedProducts": [
+          {
+            "productId": 1760349584054,
+            "quantity": 1,
+            "productName": "Jamdani",
+            "price": 1500,
+            "amount": 1500
+          }
+        ],
+        "originalTotal": 1575,
+        "newTotal": 0,
+        "refundAmount": 1575,
+        "refundToCustomer": 0,
+        "note": "Order total reduced by ৳1575"
       }
     ],
-    "updatedAt": "2025-10-13T10:05:26.903Z"
+    "updatedAt": "2025-10-14T16:39:47.171Z"
   },
   {
     "id": 1760368314661,
@@ -331,59 +336,417 @@
       "address": "International Affairs Division ,Paramanu Bhaban ,Bangladesh Atomic Energy Commission,",
       "postalCode": "1212"
     },
-    "products": [
-      {
-        "id": 1760368270694,
-        "productId": 1759738578875,
-        "productName": "Cotton Sharee",
-        "size": "1",
-        "qty": 1,
-        "price": 1000,
-        "discount": 0,
-        "amount": 1000,
-        "barcodes": [
-          "BATCH1760349329531-05"
-        ]
-      }
-    ],
-    "subtotal": 1000,
+    "products": [],
+    "subtotal": 0,
     "amounts": {
-      "subtotal": 1000,
+      "subtotal": 0,
       "totalDiscount": 0,
-      "vat": 50,
+      "vat": 0,
       "vatRate": 5,
       "transportCost": 0,
-      "total": 1050
+      "total": 0
     },
     "payments": {
       "sslCommerz": 0,
       "advance": 0,
       "transactionId": "",
       "totalPaid": 0,
-      "due": 1050
+      "due": 0
     },
     "createdAt": "2025-10-13T15:11:54.665Z",
     "returnHistory": [
       {
-        "date": "2025-10-13",
-        "time": "22:08",
-        "timestamp": "2025-10-13T16:08:21.955Z",
+        "date": "2025-10-14",
+        "time": "21:42",
+        "timestamp": "2025-10-14T15:42:23.780Z",
         "returnedProducts": [
           {
-            "productId": 1760368266030,
+            "productId": 1760368270694,
+            "quantity": 1,
+            "productName": "Cotton Sharee",
+            "price": 1000,
+            "amount": 1000
+          }
+        ],
+        "originalTotal": 1050,
+        "newTotal": 0,
+        "refundAmount": 1050,
+        "refundToCustomer": 0,
+        "note": "Order total reduced by ৳1050"
+      }
+    ],
+    "updatedAt": "2025-10-14T15:42:23.780Z"
+  },
+  {
+    "id": 1760457269465,
+    "salesBy": "Admin User",
+    "date": "06-Oct-2025",
+    "customer": {
+      "name": "Nilufar yesmin",
+      "email": "tasneem.nishat.4953@gmail.com",
+      "phone": "01818316964",
+      "socialId": "nilu"
+    },
+    "deliveryAddress": {
+      "division": "Rajshahi",
+      "district": "Pabna",
+      "city": "Bera",
+      "zone": "afdsg",
+      "area": "",
+      "address": "International Affairs Division ,Paramanu Bhaban ,Bangladesh Atomic Energy Commission,",
+      "postalCode": "1212"
+    },
+    "products": [],
+    "subtotal": 0,
+    "amounts": {
+      "subtotal": 0,
+      "totalDiscount": 0,
+      "vat": 0,
+      "vatRate": 5,
+      "transportCost": 0,
+      "total": 0
+    },
+    "payments": {
+      "sslCommerz": 0,
+      "advance": 0,
+      "transactionId": "",
+      "totalPaid": 0,
+      "due": 0
+    },
+    "createdAt": "2025-10-14T15:54:29.467Z",
+    "returnHistory": [
+      {
+        "date": "2025-10-14",
+        "time": "22:13",
+        "timestamp": "2025-10-14T16:13:53.828Z",
+        "returnedProducts": [
+          {
+            "productId": 1760457230022,
             "quantity": 1,
             "productName": "Jamdani",
             "price": 1500,
             "amount": 1500
           }
         ],
-        "originalTotal": 2625,
-        "newTotal": 1050,
+        "originalTotal": 3150,
+        "newTotal": 1575,
+        "refundAmount": 1575,
+        "refundToCustomer": 0,
+        "note": "Order total reduced by ৳1575"
+      },
+      {
+        "date": "2025-10-14",
+        "time": "22:35",
+        "timestamp": "2025-10-14T16:35:22.203Z",
+        "returnedProducts": [
+          {
+            "productId": 1760457230022,
+            "quantity": 1,
+            "productName": "Jamdani",
+            "price": 1500,
+            "amount": 1500
+          }
+        ],
+        "originalTotal": 1575,
+        "newTotal": 0,
         "refundAmount": 1575,
         "refundToCustomer": 0,
         "note": "Order total reduced by ৳1575"
       }
     ],
-    "updatedAt": "2025-10-13T16:08:21.955Z"
+    "updatedAt": "2025-10-14T16:35:22.203Z"
+  },
+  {
+    "id": 1760461501181,
+    "salesBy": "Admin User",
+    "date": "06-Oct-2025",
+    "customer": {
+      "name": "Samin Tahmid",
+      "email": "tasneem.nishat.4953@gmail.com",
+      "phone": "01818316964",
+      "socialId": ""
+    },
+    "deliveryAddress": {
+      "division": "Rajshahi",
+      "district": "Pabna",
+      "city": "Bera",
+      "zone": "",
+      "area": "",
+      "address": "International Affairs Division ,Paramanu Bhaban ,Bangladesh Atomic Energy Commission,",
+      "postalCode": "1212"
+    },
+    "products": [],
+    "subtotal": 0,
+    "amounts": {
+      "subtotal": 0,
+      "totalDiscount": 0,
+      "vat": 0,
+      "vatRate": 5,
+      "transportCost": 0,
+      "total": 0
+    },
+    "payments": {
+      "sslCommerz": 0,
+      "advance": 0,
+      "transactionId": "",
+      "totalPaid": 0,
+      "due": 0
+    },
+    "createdAt": "2025-10-14T17:05:01.187Z",
+    "returnHistory": [
+      {
+        "date": "2025-10-14",
+        "time": "23:11",
+        "timestamp": "2025-10-14T17:11:57.550Z",
+        "returnedProducts": [
+          {
+            "productId": 1760461493123,
+            "quantity": 4,
+            "productName": "Jamdani",
+            "price": 1500,
+            "amount": 6000
+          }
+        ],
+        "originalTotal": 6300,
+        "newTotal": 0,
+        "refundAmount": 6300,
+        "refundToCustomer": 0,
+        "note": "Order total reduced by ৳6300"
+      }
+    ],
+    "updatedAt": "2025-10-14T17:11:57.550Z"
+  },
+  {
+    "id": 1760462713327,
+    "salesBy": "Admin User",
+    "date": "06-Oct-2025",
+    "customer": {
+      "name": "Oishee",
+      "email": "tasneem.nishat.4953@gmail.com",
+      "phone": "01818316964",
+      "socialId": "afd"
+    },
+    "deliveryAddress": {
+      "division": "Rajshahi",
+      "district": "Natore",
+      "city": "Bagatipara",
+      "zone": "adfs",
+      "area": "",
+      "address": "International Affairs Division ,Paramanu Bhaban ,Bangladesh Atomic Energy Commission,",
+      "postalCode": "1212"
+    },
+    "products": [
+      {
+        "id": 1760462706815,
+        "productId": 1759737987171,
+        "productName": "Jamdani",
+        "size": "1",
+        "qty": 2,
+        "price": 1500,
+        "discount": 0,
+        "amount": 3000,
+        "barcodes": [
+          "BATCH1759738770680-11",
+          "BATCH1759738770680-11",
+          "BATCH1759738770680-12"
+        ]
+      }
+    ],
+    "subtotal": 3000,
+    "amounts": {
+      "subtotal": 3000,
+      "totalDiscount": 0,
+      "vat": 150,
+      "vatRate": 5,
+      "transportCost": 0,
+      "total": 3150
+    },
+    "payments": {
+      "sslCommerz": 0,
+      "advance": 0,
+      "transactionId": "",
+      "totalPaid": 0,
+      "due": 3150
+    },
+    "createdAt": "2025-10-14T17:25:13.330Z",
+    "returnHistory": [
+      {
+        "date": "2025-10-14",
+        "time": "23:49",
+        "timestamp": "2025-10-14T17:49:01.494Z",
+        "returnedProducts": [
+          {
+            "productId": 1760462706815,
+            "quantity": 1,
+            "productName": "Jamdani",
+            "price": 1500,
+            "amount": 1500
+          }
+        ],
+        "originalTotal": 4725,
+        "newTotal": 3150,
+        "refundAmount": 1575,
+        "refundToCustomer": 0,
+        "note": "Order total reduced by ৳1575"
+      }
+    ],
+    "updatedAt": "2025-10-14T17:49:01.495Z"
+  },
+  {
+    "id": 1760507789548,
+    "salesBy": "Admin User",
+    "date": "06-Oct-2025",
+    "customer": {
+      "name": "Preownti",
+      "email": "nishat@gmail.com",
+      "phone": "01924129777",
+      "socialId": "fsd"
+    },
+    "deliveryAddress": {
+      "division": "Dhaka",
+      "district": "Madaripur",
+      "city": "Kalkini",
+      "zone": "daff",
+      "area": "",
+      "address": "sector 13, road -01,house 20",
+      "postalCode": "1212"
+    },
+    "products": [
+      {
+        "id": 1760507759428,
+        "productId": 1759737987171,
+        "productName": "Jamdani",
+        "size": "1",
+        "qty": 1,
+        "price": 1500,
+        "discount": 0,
+        "amount": 1500,
+        "barcodes": [
+          "BATCH1759738770680-13"
+        ]
+      }
+    ],
+    "subtotal": 1500,
+    "amounts": {
+      "subtotal": 1500,
+      "totalDiscount": 0,
+      "vat": 75,
+      "vatRate": 5,
+      "transportCost": 0,
+      "total": 1575
+    },
+    "payments": {
+      "sslCommerz": 0,
+      "advance": 0,
+      "transactionId": "",
+      "totalPaid": 0,
+      "due": 1575
+    },
+    "createdAt": "2025-10-15T05:56:29.549Z"
+  },
+  {
+    "id": 1760510005555,
+    "salesBy": "Admin User",
+    "date": "06-Oct-2025",
+    "customer": {
+      "name": "Rumy Parvez",
+      "email": "nishat@gmail.com",
+      "phone": "01924129777",
+      "socialId": "csdv"
+    },
+    "deliveryAddress": {
+      "division": "Chattagram",
+      "district": "Feni",
+      "city": "Chhagalnaiya",
+      "zone": "cdv",
+      "area": "",
+      "address": "sector 13, road -01,house 20",
+      "postalCode": "1212"
+    },
+    "products": [
+      {
+        "id": 1760509970356,
+        "productId": 1759737987171,
+        "productName": "Jamdani",
+        "size": "1",
+        "qty": 2,
+        "price": 1500,
+        "discount": 0,
+        "amount": 3000,
+        "barcodes": [
+          "BATCH1759738770680-14",
+          "BATCH1759738770680-15"
+        ]
+      }
+    ],
+    "subtotal": 3000,
+    "amounts": {
+      "subtotal": 3000,
+      "totalDiscount": 0,
+      "vat": 150,
+      "vatRate": 5,
+      "transportCost": 0,
+      "total": 3150
+    },
+    "payments": {
+      "sslCommerz": 0,
+      "advance": 0,
+      "transactionId": "",
+      "totalPaid": 0,
+      "due": 3150
+    },
+    "createdAt": "2025-10-15T06:33:25.558Z"
+  },
+  {
+    "id": 1760524050103,
+    "salesBy": "Admin User",
+    "date": "06-Oct-2025",
+    "customer": {
+      "name": "nafisa tasnim",
+      "email": "tasneem.nishat.4953@gmail.com",
+      "phone": "01818316964",
+      "socialId": ""
+    },
+    "deliveryAddress": {
+      "division": "Rajshahi",
+      "district": "Pabna",
+      "city": "Atghoria",
+      "zone": "asfd",
+      "area": "dfds",
+      "address": "International Affairs Division ,Paramanu Bhaban ,Bangladesh Atomic Energy Commission,",
+      "postalCode": "1212"
+    },
+    "products": [
+      {
+        "id": 1760524045043,
+        "productId": 1759737987171,
+        "productName": "Jamdani",
+        "size": "1",
+        "qty": 1,
+        "price": 1500,
+        "discount": 0,
+        "amount": 1500,
+        "barcodes": [
+          "BATCH1759738770680-16"
+        ]
+      }
+    ],
+    "subtotal": 1500,
+    "amounts": {
+      "subtotal": 1500,
+      "totalDiscount": 0,
+      "vat": 75,
+      "vatRate": 5,
+      "transportCost": 0,
+      "total": 1575
+    },
+    "payments": {
+      "sslCommerz": 0,
+      "advance": 0,
+      "transactionId": "",
+      "totalPaid": 0,
+      "due": 1575
+    },
+    "createdAt": "2025-10-15T10:27:30.105Z"
   }
 ]

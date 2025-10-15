@@ -1,9 +1,11 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Search, Filter, ChevronDown, ChevronUp, Download, Trash2, Eye } from 'lucide-react';
+import { Search, Filter, ChevronDown, ChevronUp, Download, Trash2, Eye, MoreVertical, Edit, ArrowRightLeft, RotateCcw } from 'lucide-react';
 import Header from '@/components/Header';
 import Sidebar from '@/components/Sidebar';
+import ExchangeProductModal from '@/components/sales/ExchangeProductModal';
+import ReturnProductModal from '@/components/sales/ReturnProductModal';
 
 interface Sale {
   id: string;
@@ -61,6 +63,10 @@ export default function PurchaseHistoryPage() {
   const [endDate, setEndDate] = useState('');
   const [expandedSale, setExpandedSale] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [activeMenu, setActiveMenu] = useState<string | null>(null);
+  const [selectedSale, setSelectedSale] = useState<Sale | null>(null);
+  const [showExchangeModal, setShowExchangeModal] = useState(false);
+  const [showReturnModal, setShowReturnModal] = useState(false);
 
   useEffect(() => {
     fetchSales();
@@ -103,6 +109,36 @@ export default function PurchaseHistoryPage() {
       } catch (error) {
         console.error('Error deleting sale:', error);
       }
+    }
+  };
+
+  const handleExchange = (sale: Sale) => {
+    setSelectedSale(sale);
+    setShowExchangeModal(true);
+    setActiveMenu(null);
+  };
+
+  const handleReturn = (sale: Sale) => {
+    setSelectedSale(sale);
+    setShowReturnModal(true);
+    setActiveMenu(null);
+  };
+
+  const handleProcessExchange = async (exchangeData: any) => {
+    try {
+      await fetchSales();
+    } catch (error) {
+      console.error('Error processing exchange:', error);
+      throw error;
+    }
+  };
+
+  const handleProcessReturn = async (returnData: any) => {
+    try {
+      await fetchSales();
+    } catch (error) {
+      console.error('Error processing return:', error);
+      throw error;
     }
   };
 
@@ -281,6 +317,36 @@ export default function PurchaseHistoryPage() {
                                 ৳{sale.amounts.total.toFixed(2)}
                               </div>
                             </div>
+                            
+                            {/* Three Dots Menu */}
+                            <div className="relative">
+                              <button
+                                onClick={() => setActiveMenu(activeMenu === sale.id ? null : sale.id)}
+                                className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md transition-colors"
+                              >
+                                <MoreVertical className="w-5 h-5 text-gray-600 dark:text-gray-400" />
+                              </button>
+                              
+                              {activeMenu === sale.id && (
+                                <div className="absolute right-0 mt-2 w-48 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 z-20">
+                                  <button
+                                    onClick={() => handleExchange(sale)}
+                                    className="w-full px-4 py-2 text-left text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-2 rounded-t-lg"
+                                  >
+                                    <ArrowRightLeft className="w-4 h-4" />
+                                    Exchange Products
+                                  </button>
+                                  <button
+                                    onClick={() => handleReturn(sale)}
+                                    className="w-full px-4 py-2 text-left text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-2 rounded-b-lg"
+                                  >
+                                    <RotateCcw className="w-4 h-4" />
+                                    Return Products
+                                  </button>
+                                </div>
+                              )}
+                            </div>
+                            
                             <button
                               onClick={() => setExpandedSale(expandedSale === sale.id ? null : sale.id)}
                               className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md transition-colors"
@@ -427,6 +493,31 @@ export default function PurchaseHistoryPage() {
           </main>
         </div>
       </div>
+
+      {/* Modals */}
+      {showExchangeModal && selectedSale && (
+        <ExchangeProductModal
+          sale={selectedSale}
+          onClose={() => setShowExchangeModal(false)}
+          onExchange={handleProcessExchange}
+        />
+      )}
+
+      {showReturnModal && selectedSale && (
+        <ReturnProductModal
+          sale={selectedSale}
+          onClose={() => setShowReturnModal(false)}
+          onReturn={handleProcessReturn}
+        />
+      )}
+
+      {/* Click outside to close menu */}
+      {activeMenu !== null && (
+        <div
+          className="fixed inset-0 z-10"
+          onClick={() => setActiveMenu(null)}
+        />
+      )}
     </div>
   );
 }
