@@ -4,6 +4,7 @@ import path from 'path';
 
 const defectsFilePath = path.join(process.cwd(), 'data', 'defects.json');
 const inventoryFilePath = path.join(process.cwd(), 'data', 'inventory.json');
+const productsFilePath = path.join(process.cwd(), 'data', 'product.json');
 const ordersFilePath = path.join(process.cwd(), 'data', 'orders.json');
 const uploadsDir = path.join(process.cwd(), 'public', 'uploads');
 
@@ -30,7 +31,25 @@ function writeToFile(filePath: string, data: any) {
   fs.writeFileSync(filePath, JSON.stringify(data, null, 2), 'utf-8');
 }
 
-// Save uploaded file and return the file path
+// Get product name from product.json by productId
+function getProductName(productId: number): string {
+  try {
+    const products = readFromFile(productsFilePath);
+    const product = products.find((p: any) => p.id === productId);
+    
+    if (product && product.name) {
+      console.log('✅ Found product name:', product.name, 'for productId:', productId);
+      return product.name;
+    } else {
+      console.log('❌ Product not found for ID:', productId);
+      return `Product ${productId}`;
+    }
+  } catch (error) {
+    console.error('Error reading product.json:', error);
+    return `Product ${productId}`;
+  }
+}
+
 // Save uploaded file and return the file path
 async function saveUploadedFile(file: File): Promise<string> {
   ensureUploadsDir();
@@ -56,7 +75,23 @@ export async function GET(req: NextRequest) {
     const id = searchParams.get('id');
     const store = searchParams.get('store');
     
-    const defects = readFromFile(defectsFilePath);
+    let defects = readFromFile(defectsFilePath);
+    
+    // ✅ FIX: Update product names for all defects from product.json
+    defects = defects.map((defect: any) => {
+      // If productName is the default fallback or missing, fetch from product.json
+      if (!defect.productName || defect.productName.startsWith('Product ')) {
+        const productName = getProductName(defect.productId);
+        return {
+          ...defect,
+          productName: productName
+        };
+      }
+      return defect;
+    });
+    
+    // Write back the updated defects with proper product names
+    writeToFile(defectsFilePath, defects);
     
     // Filter by single ID
     if (id) {
@@ -79,8 +114,6 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: 'Failed to load defects' }, { status: 500 });
   }
 }
-
-
 
 // POST - Add new defect (from barcode scan or customer return)
 export async function POST(req: NextRequest) {
@@ -120,6 +153,10 @@ export async function POST(req: NextRequest) {
       }
     }
     
+    // ✅ FIX: Get product name from product.json using productId
+    const productName = getProductName(inventoryItem.productId);
+    console.log('🎯 Using product name:', productName, 'for defect creation');
+    
     // Handle image upload
     let imagePath = null;
     if (image && image.size > 0) {
@@ -140,13 +177,13 @@ export async function POST(req: NextRequest) {
     };
     writeToFile(inventoryFilePath, inventory);
     
-    // Create defect entry
+    // Create defect entry with proper product name
     const defects = readFromFile(defectsFilePath);
     const newDefect = {
       id: `defect-${Date.now()}`,
       barcode: inventoryItem.barcode,
       productId: inventoryItem.productId,
-      productName: inventoryItem.productName || `Product ${inventoryItem.productId}`,
+      productName: productName, // ✅ Now using the actual product name from product.json
       status: 'pending',
       store: store,
       addedBy: 'Admin',
@@ -163,6 +200,8 @@ export async function POST(req: NextRequest) {
     defects.push(newDefect);
     writeToFile(defectsFilePath, defects);
     
+    console.log('✅ Defect created successfully with product name:', productName);
+    
     return NextResponse.json({
       success: true,
       message: 'Item marked as defective successfully',
@@ -174,6 +213,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Failed to add defect' }, { status: 500 });
   }
 }
+
 // PATCH - Update defect (approve, sell, etc.)
 export async function PATCH(req: NextRequest) {
   try {
@@ -192,10 +232,16 @@ export async function PATCH(req: NextRequest) {
       return NextResponse.json({ error: 'Defect not found' }, { status: 404 });
     }
     
-    // Update defect
+    // ✅ FIX: Ensure product name is updated if productId changes
+    let updatedDefect = { ...defects[defectIndex], ...body };
+    
+    // If productId is being updated, also update productName
+    if (body.productId && body.productId !== defects[defectIndex].productId) {
+      updatedDefect.productName = getProductName(body.productId);
+    }
+    
     defects[defectIndex] = {
-      ...defects[defectIndex],
-      ...body,
+      ...updatedDefect,
       updatedAt: new Date().toISOString()
     };
     

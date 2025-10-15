@@ -25,7 +25,8 @@
     "addedBy": "Admin",
     "addedAt": "2025-10-14T16:10:21.208Z",
     "storeId": 1759737165411,
-    "storeName": "Uttara"
+    "storeName": "Uttara",
+    "productName": "Jamdani"
   },
   {
     "id": "return-1760458433837-BATCH1760326827365-17",
@@ -100,13 +101,14 @@
     "addedBy": "Admin",
     "addedAt": "2025-10-14T18:14:05.107Z",
     "storeId": 1759737165411,
-    "storeName": "Uttara"
+    "storeName": "Uttara",
+    "productName": "Jamdani"
   },
   {
     "id": "defect-1760507594266",
     "barcode": "BATCH1759738770680-20",
     "productId": 1759737987171,
-    "productName": "Product 1759737987171",
+    "productName": "Jamdani",
     "reason": "shipping",
     "status": "sold",
     "store": "1759737165411",
@@ -120,13 +122,14 @@
     "returnReason": null,
     "soldVia": "social",
     "soldAt": "2025-10-15T06:20:06.168Z",
-    "updatedAt": "2025-10-15T06:20:06.526Z"
+    "updatedAt": "2025-10-15T06:20:06.526Z",
+    "storeName": "Uttara"
   },
   {
     "id": "defect-1760508072974",
     "barcode": "BATCH1759738770680-13",
     "productId": 1759737987171,
-    "productName": "Product 1759737987171",
+    "productName": "Jamdani",
     "reason": "other",
     "status": "pending",
     "store": "1759737104297",
@@ -137,13 +140,14 @@
     "costPrice": 1000,
     "originalSellingPrice": 1500,
     "sellingPrice": null,
-    "returnReason": null
+    "returnReason": null,
+    "storeName": "Mirpur"
   },
   {
     "id": "defect-1760510076881",
     "barcode": "BATCH1759738770680-14",
     "productId": 1759737987171,
-    "productName": "Product 1759737987171",
+    "productName": "Jamdani",
     "reason": "other",
     "status": "pending",
     "store": "1760509838159",
@@ -154,13 +158,14 @@
     "costPrice": 1000,
     "originalSellingPrice": 1500,
     "sellingPrice": null,
-    "returnReason": null
+    "returnReason": null,
+    "storeName": "Banasree"
   },
   {
     "id": "defect-1760524735761",
     "barcode": "BATCH1760349329531-09",
     "productId": 1759738578875,
-    "productName": "Product 1759738578875",
+    "productName": "Cotton Sharee",
     "reason": "customer_return",
     "status": "pending",
     "store": "1760509838159",
@@ -171,13 +176,14 @@
     "costPrice": 2000,
     "originalSellingPrice": 5000,
     "sellingPrice": null,
-    "returnReason": null
+    "returnReason": null,
+    "storeName": "Banasree"
   },
   {
     "id": "defect-1760546613914",
     "barcode": "BATCH1759738770680-16",
     "productId": 1759737987171,
-    "productName": "Product 1759737987171",
+    "productName": "Jamdani",
     "status": "pending",
     "store": "1760509838159",
     "addedBy": "Admin",
@@ -188,13 +194,14 @@
     "originalSellingPrice": 1500,
     "sellingPrice": null,
     "returnReason": "test reason",
-    "image": null
+    "image": null,
+    "storeName": "Banasree"
   },
   {
     "id": "defect-1760547583303",
     "barcode": "BATCH1759738770680-16",
     "productId": 1759737987171,
-    "productName": "Product 1759737987171",
+    "productName": "Jamdani",
     "status": "pending",
     "store": "1759737165411",
     "addedBy": "Admin",
@@ -208,13 +215,14 @@
     "image": "/uploads/defect-1760547583294.png",
     "soldVia": "pos",
     "soldAt": "2025-10-15T17:19:50.673Z",
-    "updatedAt": "2025-10-15T17:19:51.156Z"
+    "updatedAt": "2025-10-15T17:19:51.156Z",
+    "storeName": "Uttara"
   },
   {
     "id": "defect-1760548013090",
     "barcode": "BATCH1759738770680-19",
     "productId": 1759737987171,
-    "productName": "Product 1759737987171",
+    "productName": "Jamdani",
     "status": "pending",
     "store": "1759737165411",
     "addedBy": "Admin",
@@ -225,6 +233,7 @@
     "originalSellingPrice": 1500,
     "sellingPrice": null,
     "returnReason": "location test",
-    "image": null
+    "image": null,
+    "storeName": "Uttara"
   }
 ]
