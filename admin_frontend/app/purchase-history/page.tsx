@@ -318,41 +318,49 @@ export default function PurchaseHistoryPage() {
                               </div>
                             </div>
                             
-                            {/* Three Dots Menu */}
-                            <div className="relative">
-                              <button
-                                type="button"
-                                onClick={() => setActiveMenu(activeMenu === sale.id ? null : sale.id)}
-                                className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md transition-colors"
-                              >
-                                <MoreVertical className="w-5 h-5 text-gray-600 dark:text-gray-400" />
-                              </button>
-                              
-                              {activeMenu === sale.id && (
-                                <div 
-                                  className="absolute right-0 bottom-full mb-2 w-48 bg-white dark:bg-gray-800 rounded-lg shadow-2xl border-2 border-gray-300 dark:border-gray-600"
-                                  style={{ zIndex: 9999 }}
-                                >
-                                  <button
-                                    type="button"
-                                    onClick={() => handleExchange(sale)}
-                                    className="w-full px-4 py-3 text-left text-sm font-medium text-gray-900 dark:text-white hover:bg-blue-50 dark:hover:bg-blue-900/20 flex items-center gap-3 rounded-t-lg transition-colors"
-                                  >
-                                    <ArrowRightLeft className="w-4 h-4 text-blue-600 dark:text-blue-400" />
-                                    <span>Exchange Products</span>
-                                  </button>
-                                  <div className="h-px bg-gray-200 dark:bg-gray-700"></div>
-                                  <button
-                                    type="button"
-                                    onClick={() => handleReturn(sale)}
-                                    className="w-full px-4 py-3 text-left text-sm font-medium text-gray-900 dark:text-white hover:bg-red-50 dark:hover:bg-red-900/20 flex items-center gap-3 rounded-b-lg transition-colors"
-                                  >
-                                    <RotateCcw className="w-4 h-4 text-red-600 dark:text-red-400" />
-                                    <span>Return Products</span>
-                                  </button>
-                                </div>
-                              )}
-                            </div>
+{/* Three Dots Menu */}
+<div className="relative">
+  <button
+    type="button"
+    onClick={(e) => {
+      e.stopPropagation();
+      setActiveMenu(activeMenu === sale.id ? null : sale.id);
+    }}
+    className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md transition-colors relative z-10"
+  >
+    <MoreVertical className="w-5 h-5 text-gray-600 dark:text-gray-400" />
+  </button>
+  
+  {activeMenu === sale.id && (
+    <div 
+      className="absolute right-0 top-full mt-2 w-48 bg-white dark:bg-gray-800 rounded-lg shadow-2xl border-2 border-gray-300 dark:border-gray-600 z-50"
+    >
+      <button
+        type="button"
+        onClick={(e) => {
+          e.stopPropagation();
+          handleExchange(sale);
+        }}
+        className="w-full px-4 py-3 text-left text-sm font-medium text-gray-900 dark:text-white hover:bg-blue-50 dark:hover:bg-blue-900/20 flex items-center gap-3 rounded-t-lg transition-colors"
+      >
+        <ArrowRightLeft className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+        <span>Exchange Products</span>
+      </button>
+      <div className="h-px bg-gray-200 dark:bg-gray-700"></div>
+      <button
+        type="button"
+        onClick={(e) => {
+          e.stopPropagation();
+          handleReturn(sale);
+        }}
+        className="w-full px-4 py-3 text-left text-sm font-medium text-gray-900 dark:text-white hover:bg-red-50 dark:hover:bg-red-900/20 flex items-center gap-3 rounded-b-lg transition-colors"
+      >
+        <RotateCcw className="w-4 h-4 text-red-600 dark:text-red-400" />
+        <span>Return Products</span>
+      </button>
+    </div>
+  )}
+</div>
                             
                             <button
                               onClick={() => setExpandedSale(expandedSale === sale.id ? null : sale.id)}
@@ -518,13 +526,13 @@ export default function PurchaseHistoryPage() {
         />
       )}
 
-      {/* Click outside to close menu */}
-      {activeMenu !== null && (
-        <div
-          className="fixed inset-0 z-40"
-          onClick={() => setActiveMenu(null)}
-        />
-      )}
+     {/* Click outside to close menu */}
+{activeMenu !== null && (
+  <div
+    className="fixed inset-0 z-40"
+    onClick={() => setActiveMenu(null)}
+  />
+)}
     </div>
   );
 }

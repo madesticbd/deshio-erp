@@ -74,9 +74,8 @@
     },
     "products": [
       {
-        "id": 1760600713235,
+        "id": 1760610068663.438,
         "productId": 1760593716940,
-        "batchId": 1760595237962,
         "productName": "Shotoronji",
         "size": "1",
         "qty": 1,
@@ -84,7 +83,8 @@
         "discount": 0,
         "amount": 900,
         "barcodes": [
-          "BATCH1760595237962-01"
+          "BATCH1760595237962-01",
+          "BATCH1760595237962-02"
         ]
       }
     ],
@@ -104,7 +104,79 @@
       "totalPaid": 0,
       "due": 995
     },
-    "createdAt": "2025-10-16T07:45:27.034Z"
+    "createdAt": "2025-10-16T07:45:27.034Z",
+    "exchangeHistory": [
+      {
+        "date": "2025-10-16T10:20:14.573Z",
+        "removedProducts": [
+          {
+            "productId": 1760600713235,
+            "quantity": 1
+          }
+        ],
+        "replacementProducts": [
+          {
+            "id": 1760593716940,
+            "batchId": 1760595237962,
+            "name": "Shotoronji",
+            "price": 900,
+            "quantity": 1,
+            "amount": 900,
+            "size": "1"
+          }
+        ],
+        "originalTotal": 995,
+        "newTotal": 995,
+        "difference": 0,
+        "note": "No payment difference"
+      },
+      {
+        "date": "2025-10-16T10:21:08.663Z",
+        "removedProducts": [
+          {
+            "productId": 1760610014573.2793,
+            "quantity": 1
+          }
+        ],
+        "replacementProducts": [
+          {
+            "id": 1760593716940,
+            "batchId": 1760595237962,
+            "name": "Shotoronji",
+            "price": 900,
+            "quantity": 2,
+            "amount": 1800,
+            "size": "1"
+          }
+        ],
+        "originalTotal": 995,
+        "newTotal": 1940,
+        "difference": 945,
+        "note": "Customer owes additional payment"
+      }
+    ],
+    "updatedAt": "2025-10-16T10:21:49.966Z",
+    "returnHistory": [
+      {
+        "date": "2025-10-16",
+        "time": "16:21",
+        "timestamp": "2025-10-16T10:21:49.966Z",
+        "returnedProducts": [
+          {
+            "productId": 1760610068663.438,
+            "productName": "Shotoronji",
+            "quantity": 1,
+            "price": 900,
+            "amount": 900
+          }
+        ],
+        "originalTotal": 1940,
+        "newTotal": 995,
+        "refundAmount": 945,
+        "refundToCustomer": 0,
+        "note": "Order total reduced by ৳945"
+      }
+    ]
   },
   {
     "id": 1760608187823,
@@ -127,9 +199,8 @@
     },
     "products": [
       {
-        "id": 1760608167765,
+        "id": 1760615038844.6948,
         "productId": 1760593481284,
-        "batchId": 1760594714624,
         "productName": "Ear rings",
         "size": "1",
         "qty": 1,
@@ -137,7 +208,7 @@
         "discount": 0,
         "amount": 700,
         "barcodes": [
-          "BATCH1760594714624-04"
+          "BATCH1760594714624-03"
         ]
       }
     ],
@@ -157,6 +228,33 @@
       "totalPaid": 0,
       "due": 735
     },
-    "createdAt": "2025-10-16T09:49:47.825Z"
+    "createdAt": "2025-10-16T09:49:47.825Z",
+    "exchangeHistory": [
+      {
+        "date": "2025-10-16T11:43:58.845Z",
+        "removedProducts": [
+          {
+            "productId": 1760608167765,
+            "quantity": 1
+          }
+        ],
+        "replacementProducts": [
+          {
+            "id": 1760593481284,
+            "batchId": 1760594714624,
+            "name": "Ear rings",
+            "price": 700,
+            "quantity": 1,
+            "amount": 700,
+            "size": "1"
+          }
+        ],
+        "originalTotal": 735,
+        "newTotal": 735,
+        "difference": 0,
+        "note": "No payment difference"
+      }
+    ],
+    "updatedAt": "2025-10-16T11:43:58.845Z"
   }
 ]
