@@ -1,223 +1,65 @@
 [
   {
-    "id": "sale-1759739135018",
+    "id": "sale-1760595750616",
     "salesBy": "Admin",
-    "outletId": "1759737165411",
-    "date": "2025-10-06",
+    "outletId": "1760592803601",
+    "date": "2025-10-16",
     "customer": {
-      "name": "Rumy Parvez",
-      "mobile": "01924129777",
-      "address": "International Affairs division,Paramanu Bhaban,Agargaon,Dhaka"
-    },
-    "items": [
-      {
-        "id": 1759739092159,
-        "productName": "Jamdani",
-        "size": "",
-        "qty": 2,
-        "price": 1500,
-        "discount": 200,
-        "amount": 2800
-      }
-    ],
-    "amounts": {
-      "subtotal": 2800,
-      "totalDiscount": 200,
-      "vat": 140,
-      "vatRate": 5,
-      "transportCost": 0,
-      "total": 2940
-    },
-    "payments": {
-      "cash": 2000,
-      "card": 0,
-      "bkash": 940,
-      "nagad": 0,
-      "transactionFee": 0,
-      "totalPaid": 2940,
-      "due": 0
-    },
-    "createdAt": "2025-10-06T08:25:35.018Z"
-  },
-  {
-    "id": "sale-1759902879012",
-    "salesBy": "Admin",
-    "outletId": "1759737104297",
-    "date": "2025-10-08",
-    "customer": {
-      "name": "Rumy Parvez",
+      "name": "Nishat Tasneem",
       "mobile": "01818316964",
       "address": "International Affairs Division ,Paramanu Bhaban ,Bangladesh Atomic Energy Commission,"
     },
     "items": [
       {
-        "id": 1759902854648,
-        "productName": "Cotton Sharee",
+        "id": 1760595722288,
+        "productId": 1760593481284,
+        "productName": "Ear rings",
         "size": "",
         "qty": 1,
-        "price": 1500,
-        "discount": 150,
-        "amount": 1350
-      }
-    ],
-    "amounts": {
-      "subtotal": 1350,
-      "totalDiscount": 150,
-      "vat": 67.5,
-      "vatRate": 5,
-      "transportCost": 100,
-      "total": 1517.5
-    },
-    "payments": {
-      "cash": 1500,
-      "card": 17.5,
-      "bkash": 0,
-      "nagad": 0,
-      "transactionFee": 0,
-      "totalPaid": 1517.5,
-      "due": 0
-    },
-    "createdAt": "2025-10-08T05:54:39.012Z"
-  },
-  {
-    "id": "sale-1760328436090",
-    "salesBy": "Admin",
-    "outletId": "1759737165411",
-    "date": "2025-10-13",
-    "customer": {
-      "name": "Adrita Ahsan",
-      "mobile": "01745191964",
-      "address": "Dhaka"
-    },
-    "items": [
-      {
-        "id": 1760328403452,
-        "productId": 1759737987171,
-        "productName": "Jamdani",
-        "size": "",
-        "qty": 1,
-        "price": 1300,
+        "price": 700,
         "discount": 0,
-        "amount": 1300
+        "amount": 700
       }
     ],
     "amounts": {
-      "subtotal": 1300,
+      "subtotal": 700,
       "totalDiscount": 0,
-      "vat": 65,
+      "vat": 35,
       "vatRate": 5,
-      "transportCost": 0,
-      "total": 1365
+      "transportCost": 50,
+      "total": 785
     },
     "payments": {
-      "cash": 1300,
+      "cash": 1000,
       "card": 0,
       "bkash": 0,
       "nagad": 0,
       "transactionFee": 0,
-      "totalPaid": 1300,
-      "due": 65
-    },
-    "createdAt": "2025-10-13T04:07:16.090Z"
-  },
-  {
-    "id": "sale-1760517078686",
-    "salesBy": "Admin",
-    "outletId": "1759737104297",
-    "date": "2025-10-15",
-    "customer": {
-      "name": "Sanjana Ahsan",
-      "mobile": "01818316964",
-      "address": "International Affairs Division ,Paramanu Bhaban ,Bangladesh Atomic Energy Commission,"
-    },
-    "items": [],
-    "amounts": {
-      "subtotal": 0,
-      "totalDiscount": 0,
-      "vat": 0,
-      "vatRate": 5,
-      "transportCost": 0,
-      "total": 0
-    },
-    "payments": {
-      "cash": 2000,
-      "card": 0,
-      "bkash": 0,
-      "nagad": 0,
-      "transactionFee": 0,
-      "totalPaid": 2000,
+      "totalPaid": 1000,
       "due": 0
     },
-    "createdAt": "2025-10-15T08:31:18.686Z",
-    "exchangeHistory": [
-      {
-        "date": "2025-10-15T10:10:43.573Z",
-        "removedProducts": [
-          {
-            "productId": 1760517045205,
-            "quantity": 1
-          }
-        ],
-        "replacementProducts": [
-          {
-            "id": 1759737987171,
-            "name": "Jamdani",
-            "price": 1500,
-            "quantity": 1,
-            "amount": 1500,
-            "size": "1"
-          }
-        ],
-        "originalTotal": 5250,
-        "newTotal": 1575,
-        "difference": -3675,
-        "note": "Refund to customer"
-      },
-      {
-        "date": "2025-10-15T10:11:52.257Z",
-        "removedProducts": [
-          {
-            "productId": 1760523043573.8691,
-            "quantity": 1
-          }
-        ],
-        "replacementProducts": [
-          {
-            "id": 1759738578875,
-            "name": "Cotton Sharee",
-            "price": 1000,
-            "quantity": 1,
-            "amount": 1000,
-            "size": "1"
-          }
-        ],
-        "originalTotal": 1575,
-        "newTotal": 1050,
-        "difference": -525,
-        "note": "Refund to customer"
-      }
-    ],
-    "updatedAt": "2025-10-15T15:26:12.298Z",
+    "createdAt": "2025-10-16T06:22:30.616Z",
     "returnHistory": [
       {
-        "date": "2025-10-15",
-        "time": "21:26",
-        "timestamp": "2025-10-15T15:26:12.298Z",
+        "date": "2025-10-16",
+        "time": "15:58",
+        "timestamp": "2025-10-16T09:58:59.052Z",
         "returnedProducts": [
           {
-            "productId": 1760523112257.3713,
-            "productName": "Cotton Sharee",
+            "productId": 1760595722288,
+            "productName": "Ear rings",
             "quantity": 1,
-            "price": 1000,
-            "amount": 1000
+            "price": 700,
+            "amount": 700
           }
         ],
-        "originalTotal": 1050,
-        "newTotal": 0,
-        "refundAmount": 1050,
-        "refundToCustomer": 2000,
-        "note": "Refund ৳2000 to customer"
+        "originalTotal": 1520,
+        "newTotal": 785,
+        "refundAmount": 735,
+        "refundToCustomer": 215,
+        "note": "Refund ৳215 to customer"
       }
-    ]
+    ],
+    "updatedAt": "2025-10-16T09:58:59.052Z"
   }
 ]

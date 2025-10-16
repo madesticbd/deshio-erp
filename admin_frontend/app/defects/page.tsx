@@ -366,45 +366,42 @@ const handleMarkAsDefective = async () => {
     setSellType('pos');
     setSellModalOpen(true);
   };
+const handleSell = async () => {
+  if (!selectedDefect || !sellPrice) {
+    alert('Please enter selling price');
+    return;
+  }
 
-  const handleSell = async () => {
-    if (!selectedDefect || !sellPrice) {
-      alert('Please enter selling price');
-      return;
-    }
+  setLoading(true);
+  try {
+    // Don't update status yet - just navigate with defect data
+    setSellModalOpen(false);
 
-    setLoading(true);
-    try {
-      const response = await fetch(`/api/defects?id=${selectedDefect.id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          status: 'sold',
-          sellingPrice: parseFloat(sellPrice),
-          soldVia: sellType,
-          soldAt: new Date().toISOString()
-        })
-      });
+    // Create defect data object to pass to POS/Social
+    const defectData = {
+      id: selectedDefect.id,
+      barcode: selectedDefect.barcode,
+      productId: selectedDefect.productId,
+      productName: selectedDefect.productName,
+      sellingPrice: parseFloat(sellPrice),
+      store: selectedDefect.store
+    };
 
-      if (response.ok) {
-        setSellModalOpen(false);
-        fetchDefects();
+    // Store in sessionStorage for the target page to read
+    sessionStorage.setItem('defectItem', JSON.stringify(defectData));
 
-        // Navigate to POS or Social
-        const url = sellType === 'pos'
-          ? `/pos?defect=${selectedDefect.id}&price=${sellPrice}`
-          : `/social-commerce?defect=${selectedDefect.id}&price=${sellPrice}`;
-        window.open(url, '_blank');
-      } else {
-        alert('Failed to process sale');
-      }
-    } catch (error) {
-      console.error('Error:', error);
-      alert('Error processing sale');
-    } finally {
-      setLoading(false);
-    }
-  };
+    // Navigate to POS or Social
+    const url = sellType === 'pos'
+      ? `/pos?defect=${selectedDefect.id}`
+      : `/social-commerce?defect=${selectedDefect.id}`;
+    window.location.href = url; // Use location.href instead of window.open for same tab
+  } catch (error) {
+    console.error('Error:', error);
+    alert('Error processing sale');
+  } finally {
+    setLoading(false);
+  }
+};
 
   const handleRemove = async (defectId: string) => {
     if (!confirm('Are you sure you want to remove this defect?')) return;
