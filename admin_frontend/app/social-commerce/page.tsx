@@ -1,12 +1,41 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Search, X } from 'lucide-react';
+import { Search, X, Package } from 'lucide-react';
 import Header from '@/components/Header';
 import Sidebar from '@/components/Sidebar';
 import { useRouter } from 'next/navigation';
 
 interface Product {
+  id: number;
+  name: string;
+  attributes: {
+    mainImage?: string;
+    Price?: string;
+    [key: string]: any;
+  };
+}
+
+interface InventoryItem {
+  id: number;
+  productId: number;
+  barcode: string;
+  status: string;
+  location: string;
+  sellingPrice: number;
+  [key: string]: any;
+}
+
+interface DefectItem {
+  id: string;
+  barcode: string;
+  productId: number;
+  productName: string;
+  sellingPrice?: number;
+  store?: string;
+}
+
+interface CartProduct {
   id: number | string;
   productId?: number | string;
   batchId?: number | string;
@@ -16,6 +45,9 @@ interface Product {
   price: number;
   discount: number;
   amount: number;
+  isDefective?: boolean;
+  defectId?: string;
+  barcode?: string;
 }
 
 export default function SocialCommercePage() {
@@ -48,14 +80,34 @@ export default function SocialCommercePage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<any[]>([]);
   const [selectedProduct, setSelectedProduct] = useState<any>(null);
-  const [cart, setCart] = useState<Product[]>([]);
+  const [cart, setCart] = useState<CartProduct[]>([]);
   
   const [quantity, setQuantity] = useState('');
   const [discountPercent, setDiscountPercent] = useState('');
   const [discountTk, setDiscountTk] = useState('');
   const [amount, setAmount] = useState('0.00');
 
-  // Flatten products with variations into searchable items
+  // Defective product states
+  const [defectiveProduct, setDefectiveProduct] = useState<DefectItem | null>(null);
+  const [defectivePrice, setDefectivePrice] = useState('');
+  const [defectiveStore, setDefectiveStore] = useState('');
+
+  // Load defective product from sessionStorage
+  useEffect(() => {
+    const defectData = sessionStorage.getItem('defectItem');
+    if (defectData) {
+      try {
+        const defect = JSON.parse(defectData);
+        setDefectiveProduct(defect);
+        setDefectivePrice(defect.sellingPrice?.toString() || '');
+        setDefectiveStore(defect.store || '');
+        alert('Defective product loaded. Please complete the order.');
+      } catch (error) {
+        console.error('Error parsing defect data:', error);
+      }
+    }
+  }, []);
+
   const getFlattenedProducts = () => {
     const flattened: any[] = [];
     
@@ -86,7 +138,6 @@ export default function SocialCommercePage() {
     return flattened;
   };
 
-  // Calculate discount and amount
   const calculateAmount = (
     basePrice: number,
     qty: number,
@@ -106,14 +157,12 @@ export default function SocialCommercePage() {
     };
   };
 
-  // Fetch products and inventory on component mount
   useEffect(() => {
     const fetchProducts = async () => {
       try {
         const response = await fetch('/api/products');
         if (response.ok) {
           const data = await response.json();
-          console.log('Products loaded:', data.length);
           setAllProducts(data);
         }
       } catch (error) {
@@ -126,8 +175,6 @@ export default function SocialCommercePage() {
         const response = await fetch('/api/inventory');
         if (response.ok) {
           const data = await response.json();
-          console.log('Inventory loaded:', data.length);
-          console.log('Sample inventory item:', data[0]);
           setInventory(data);
         }
       } catch (error) {
@@ -191,7 +238,6 @@ export default function SocialCommercePage() {
     fetchUpazillas();
   }, [district, districts]);
 
-  // Helper function to get available inventory count for a product/variation and optional batch
   const getAvailableInventory = (productId: number | string, batchId?: number | string) => {
     return inventory.filter(item => {
       const itemProductId = typeof item.productId === 'string' ? item.productId : String(item.productId);
@@ -204,7 +250,6 @@ export default function SocialCommercePage() {
     }).length;
   };
 
-  // Live search with debounce
   useEffect(() => {
     if (!searchQuery.trim()) {
       setSearchResults([]);
@@ -213,11 +258,6 @@ export default function SocialCommercePage() {
 
     const delayDebounce = setTimeout(() => {
       const flattenedProducts = getFlattenedProducts();
-      
-      console.log('Search query:', searchQuery);
-      console.log('All flattened products count:', flattenedProducts.length);
-      console.log('Inventory count:', inventory.length);
-      
       const results: any[] = [];
 
       flattenedProducts.forEach((prod: any) => {
@@ -253,14 +293,12 @@ export default function SocialCommercePage() {
         }
       });
       
-      console.log('Final results with inventory:', results.length);
       setSearchResults(results);
     }, 300);
 
     return () => clearTimeout(delayDebounce);
   }, [searchQuery, allProducts, inventory]);
 
-  // Select product from search results
   const handleProductSelect = (product: any) => {
     setSelectedProduct(product);
     setSearchQuery('');
@@ -271,7 +309,6 @@ export default function SocialCommercePage() {
     setAmount('0.00');
   };
 
-  // Calculate amount when dependencies change
   useEffect(() => {
     if (selectedProduct && quantity) {
       const price = parseFloat(selectedProduct.attributes.Price);
@@ -285,6 +322,36 @@ export default function SocialCommercePage() {
       setAmount('0.00');
     }
   }, [selectedProduct, quantity, discountPercent, discountTk]);
+
+  const addDefectiveToCart = () => {
+    if (!defectiveProduct || !defectivePrice) {
+      alert('Defective product price is required');
+      return;
+    }
+
+    const price = parseFloat(defectivePrice);
+    
+    const newItem: CartProduct = {
+      id: Date.now(),
+      productId: defectiveProduct.productId,
+      productName: defectiveProduct.productName,
+      size: '1',
+      qty: 1,
+      price: price,
+      discount: 0,
+      amount: price,
+      isDefective: true,
+      defectId: defectiveProduct.id,
+      barcode: defectiveProduct.barcode
+    };
+    
+    setCart([...cart, newItem]);
+    alert('Defective product added to cart');
+    
+    setDefectiveProduct(null);
+    setDefectivePrice('');
+    sessionStorage.removeItem('defectItem');
+  };
 
   const addToCart = () => {
     if (!selectedProduct || !quantity || parseInt(quantity) <= 0) {
@@ -331,7 +398,7 @@ export default function SocialCommercePage() {
       
       setCart(updatedCart);
     } else {
-      const newItem: Product = {
+      const newItem: CartProduct = {
         id: Date.now(),
         productId: selectedProduct.id,
         batchId: selectedProduct.batchId,
@@ -433,6 +500,78 @@ export default function SocialCommercePage() {
                   />
                 </div>
               </div>
+
+              {/* Defective Product Section */}
+              {defectiveProduct && (
+                <div className="mb-6 bg-orange-50 dark:bg-orange-900/20 border-2 border-orange-300 dark:border-orange-700 rounded-lg p-4">
+                  <div className="flex items-start justify-between mb-4">
+                    <div className="flex items-center gap-3">
+                      <Package className="w-6 h-6 text-orange-600 dark:text-orange-400" />
+                      <div>
+                        <h3 className="text-lg font-semibold text-orange-900 dark:text-orange-300">
+                          Defective Product Order
+                        </h3>
+                        <p className="text-sm text-orange-700 dark:text-orange-400">
+                          Complete the order for this defective item
+                        </p>
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => {
+                        setDefectiveProduct(null);
+                        setDefectivePrice('');
+                        sessionStorage.removeItem('defectItem');
+                      }}
+                      className="text-orange-600 dark:text-orange-400 hover:text-orange-700"
+                    >
+                      <X className="w-5 h-5" />
+                    </button>
+                  </div>
+                  
+                  <div className="grid grid-cols-2 gap-4 mb-4">
+                    <div>
+                      <p className="text-sm text-orange-700 dark:text-orange-400 mb-1">Product Name</p>
+                      <p className="font-medium text-orange-900 dark:text-orange-200">{defectiveProduct.productName}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-orange-700 dark:text-orange-400 mb-1">Barcode</p>
+                      <p className="font-mono text-orange-900 dark:text-orange-200">{defectiveProduct.barcode}</p>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-orange-700 dark:text-orange-400 mb-1">
+                        Selling Price (৳)
+                      </label>
+                      <input
+                        type="text"
+                        value={defectivePrice}
+                        readOnly
+                        className="w-full px-3 py-2 border border-orange-300 dark:border-orange-600 rounded-md bg-orange-100 dark:bg-orange-900/30 text-orange-900 dark:text-orange-200"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-orange-700 dark:text-orange-400 mb-1">
+                        Store Location
+                      </label>
+                      <input
+                        type="text"
+                        value={defectiveStore}
+                        readOnly
+                        className="w-full px-3 py-2 border border-orange-300 dark:border-orange-600 rounded-md bg-orange-100 dark:bg-orange-900/30 text-orange-900 dark:text-orange-200"
+                      />
+                    </div>
+                  </div>
+
+                  <button
+                    onClick={addDefectiveToCart}
+                    className="mt-4 w-full px-4 py-2 bg-orange-600 hover:bg-orange-700 text-white rounded-md font-medium"
+                  >
+                    Add Defective Product to Cart
+                  </button>
+                </div>
+              )}
 
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6">
                 {/* Left Column - Customer Info & Address */}
@@ -779,9 +918,17 @@ export default function SocialCommercePage() {
                             </tr>
                           ) : (
                             cart.map((item) => (
-                              <tr key={item.id} className="border-b border-gray-200 dark:border-gray-700">
+                              <tr key={item.id} className={`border-b border-gray-200 dark:border-gray-700 ${item.isDefective ? 'bg-orange-50 dark:bg-orange-900/10' : ''}`}>
                                 <td className="px-3 py-2 text-gray-900 dark:text-white">
-                                  <div className="max-w-[120px] truncate">{item.productName} (Batch {item.batchId})</div>
+                                  <div className="max-w-[120px]">
+                                    <p className="truncate">{item.productName}</p>
+                                    {item.batchId && <p className="text-xs text-gray-500">(Batch {item.batchId})</p>}
+                                    {item.isDefective && (
+                                      <span className="inline-block mt-1 px-2 py-0.5 bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400 text-xs rounded">
+                                        Defective
+                                      </span>
+                                    )}
+                                  </div>
                                 </td>
                                 <td className="px-3 py-2 text-gray-900 dark:text-white whitespace-nowrap">{item.qty}</td>
                                 <td className="px-3 py-2 text-gray-900 dark:text-white whitespace-nowrap">{item.price.toFixed(2)}</td>

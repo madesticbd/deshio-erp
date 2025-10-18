@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { ChevronDown, X, CheckCircle2, AlertCircle } from 'lucide-react';
+import { ChevronDown, X, CheckCircle2, AlertCircle, Package } from 'lucide-react';
 import Header from '@/components/Header';
 import Sidebar from '@/components/Sidebar';
 
@@ -26,6 +26,9 @@ interface CartItem {
   price: number;
   discount: number;
   amount: number;
+  isDefective?: boolean;
+  defectId?: string;
+  barcode?: string;
 }
 
 interface Product {
@@ -54,6 +57,15 @@ interface Toast {
   type: 'success' | 'error';
 }
 
+interface DefectItem {
+  id: string;
+  barcode: string;
+  productId: number;
+  productName: string;
+  sellingPrice?: number;
+  store?: string;
+}
+
 export default function POSPage() {
   const [darkMode, setDarkMode] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -77,6 +89,11 @@ export default function POSPage() {
   const [discountAmount, setDiscountAmount] = useState(0);
   const [amount, setAmount] = useState(0);
   
+  // Defective product states
+  const [defectiveProduct, setDefectiveProduct] = useState<DefectItem | null>(null);
+  const [defectivePrice, setDefectivePrice] = useState('');
+  const [defectiveStore, setDefectiveStore] = useState('');
+  
   // Amount details
   const [vatRate, setVatRate] = useState(5);
   const [transportCost, setTransportCost] = useState(0);
@@ -98,7 +115,31 @@ export default function POSPage() {
     setToasts(prev => prev.filter(toast => toast.id !== id));
   };
 
-  // Load outlets, products, and inventory from API
+  // Load defective product from sessionStorage
+  useEffect(() => {
+    const defectData = sessionStorage.getItem('defectItem');
+    if (defectData) {
+      try {
+        const defect = JSON.parse(defectData);
+        setDefectiveProduct(defect);
+        setDefectivePrice(defect.sellingPrice?.toString() || '');
+        setDefectiveStore(defect.store || '');
+        
+        // Auto-select the store if available
+        if (defect.store) {
+          const outlet = outlets.find(o => o.name === defect.store || o.id.toString() === defect.store);
+          if (outlet) {
+            setSelectedOutlet(outlet.id.toString());
+          }
+        }
+        
+        showToast('Defective product loaded. Please complete the sale.', 'success');
+      } catch (error) {
+        console.error('Error parsing defect data:', error);
+      }
+    }
+  }, [outlets]);
+
   useEffect(() => {
     fetchOutlets();
     fetchProducts();
@@ -135,26 +176,21 @@ export default function POSPage() {
     }
   };
 
-  // Get available products for selected outlet
   const getAvailableProducts = () => {
     if (!selectedOutlet) return [];
     
     const selectedOutletData = outlets.find(o => o.id.toString() === selectedOutlet);
     if (!selectedOutletData) return [];
 
-    // Get inventory items available at this outlet
     const outletInventory = inventory.filter(
       inv => inv.location === selectedOutletData.name && inv.status === 'available'
     );
 
-    // Get unique product IDs from inventory
     const availableProductIds = [...new Set(outletInventory.map(inv => inv.productId))];
 
-    // Return products that have inventory at this outlet
     return products.filter(prod => availableProductIds.includes(prod.id));
   };
 
-  // Get available quantity for a product at selected outlet
   const getAvailableQuantity = (productId: number) => {
     if (!selectedOutlet) return 0;
     
@@ -168,7 +204,6 @@ export default function POSPage() {
     ).length;
   };
 
-  // Calculate amount when price, quantity or discount changes
   useEffect(() => {
     if (sellingPrice > 0 && quantity > 0) {
       const baseAmount = sellingPrice * quantity;
@@ -192,11 +227,9 @@ export default function POSPage() {
     if (selectedProd) {
       setSelectedProductId(selectedProd.id);
       
-      // Get outlet location
       const selectedOutletData = outlets.find(o => o.id.toString() === selectedOutlet);
       if (!selectedOutletData) return;
 
-      // Set selling price from inventory at this outlet
       const inventoryItem = inventory.find(
         inv => inv.productId === selectedProd.id && 
                inv.location === selectedOutletData.name && 
@@ -208,6 +241,42 @@ export default function POSPage() {
         setSellingPrice(Number(selectedProd.attributes.Price));
       }
     }
+  };
+
+  const addDefectiveToCart = () => {
+    if (!defectiveProduct || !defectivePrice) {
+      showToast('Defective product price is required', 'error');
+      return;
+    }
+
+    if (!selectedOutlet) {
+      showToast('Please select an outlet', 'error');
+      return;
+    }
+
+    const price = parseFloat(defectivePrice);
+    
+    const newItem: CartItem = {
+      id: Date.now(),
+      productId: defectiveProduct.productId,
+      productName: defectiveProduct.productName,
+      size: '',
+      qty: 1,
+      price: price,
+      discount: 0,
+      amount: price,
+      isDefective: true,
+      defectId: defectiveProduct.id,
+      barcode: defectiveProduct.barcode
+    };
+    
+    setCart([...cart, newItem]);
+    showToast('Defective product added to cart', 'success');
+    
+    // Clear defective product data
+    setDefectiveProduct(null);
+    setDefectivePrice('');
+    sessionStorage.removeItem('defectItem');
   };
 
   const addToCart = () => {
@@ -226,7 +295,6 @@ export default function POSPage() {
       return;
     }
 
-    // Check available inventory for this product at selected outlet
     const availableQty = getAvailableQuantity(selectedProductId);
 
     if (availableQty < quantity) {
@@ -251,7 +319,6 @@ export default function POSPage() {
     };
     setCart([...cart, newItem]);
     
-    // Reset form
     setProduct('');
     setSelectedProductId(null);
     setSellingPrice(0);
@@ -279,14 +346,12 @@ export default function POSPage() {
       const selectedOutletData = outlets.find(o => o.id.toString() === selectedOutlet);
       if (!selectedOutletData) return;
 
-      // Get available inventory items for this product at this outlet
       const availableItems = inventory.filter(
         inv => inv.productId === productId && 
                inv.location === selectedOutletData.name && 
                inv.status === 'available'
       );
 
-      // Update the first 'quantity' items to 'sold'
       for (let i = 0; i < Math.min(quantity, availableItems.length); i++) {
         await fetch('/api/inventory', {
           method: 'PUT',
@@ -325,7 +390,19 @@ export default function POSPage() {
         mobile: mobileNo,
         address: address
       },
-      items: cart,
+      items: cart.map(item => ({
+        id: item.id,
+        productId: item.productId,
+        productName: item.productName,
+        size: item.size,
+        qty: item.qty,
+        price: item.price,
+        discount: item.discount,
+        amount: item.amount,
+        isDefective: item.isDefective || false,
+        defectId: item.defectId || null,
+        barcode: item.barcode || null
+      })),
       amounts: {
         subtotal: subtotal,
         totalDiscount: totalDiscount,
@@ -346,7 +423,8 @@ export default function POSPage() {
     };
 
     try {
-      // Save the sale
+      console.log('💾 Saving sale with data:', saleData);
+      
       const response = await fetch('/api/sales', {
         method: 'POST',
         headers: {
@@ -356,14 +434,18 @@ export default function POSPage() {
       });
 
       if (response.ok) {
-        // Update inventory status for each product in cart
+        const result = await response.json();
+        console.log('✅ Sale saved successfully:', result);
+        
+        // Update inventory status for regular products only
         for (const item of cart) {
-          await updateInventoryStatus(item.productId, item.qty);
+          if (!item.isDefective) {
+            await updateInventoryStatus(item.productId, item.qty);
+          }
         }
 
         showToast('Sale completed successfully!', 'success');
         
-        // Reset form
         setCart([]);
         setCustomerName('');
         setMobileNo('');
@@ -375,9 +457,10 @@ export default function POSPage() {
         setTransactionFee(0);
         setTransportCost(0);
 
-        // Refresh inventory
         await fetchInventory();
       } else {
+        const errorData = await response.json();
+        console.error('❌ Sale failed:', errorData);
         showToast('Failed to complete sale', 'error');
       }
     } catch (error) {
@@ -434,7 +517,7 @@ export default function POSPage() {
             <div className="max-w-7xl mx-auto">
               <h1 className="text-2xl font-semibold text-gray-900 dark:text-white mb-6">Point of Sale</h1>
               
-              {/* Top Section: Sales By, Outlet, Date */}
+              {/* Top Section */}
               <div className="grid grid-cols-3 gap-4 mb-6">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
@@ -479,9 +562,81 @@ export default function POSPage() {
                 </div>
               </div>
 
+              {/* Defective Product Section */}
+              {defectiveProduct && (
+                <div className="mb-6 bg-orange-50 dark:bg-orange-900/20 border-2 border-orange-300 dark:border-orange-700 rounded-lg p-4">
+                  <div className="flex items-start justify-between mb-4">
+                    <div className="flex items-center gap-3">
+                      <Package className="w-6 h-6 text-orange-600 dark:text-orange-400" />
+                      <div>
+                        <h3 className="text-lg font-semibold text-orange-900 dark:text-orange-300">
+                          Defective Product Sale
+                        </h3>
+                        <p className="text-sm text-orange-700 dark:text-orange-400">
+                          Complete the sale for this defective item
+                        </p>
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => {
+                        setDefectiveProduct(null);
+                        setDefectivePrice('');
+                        sessionStorage.removeItem('defectItem');
+                      }}
+                      className="text-orange-600 dark:text-orange-400 hover:text-orange-700"
+                    >
+                      <X className="w-5 h-5" />
+                    </button>
+                  </div>
+                  
+                  <div className="grid grid-cols-2 gap-4 mb-4">
+                    <div>
+                      <p className="text-sm text-orange-700 dark:text-orange-400 mb-1">Product Name</p>
+                      <p className="font-medium text-orange-900 dark:text-orange-200">{defectiveProduct.productName}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-orange-700 dark:text-orange-400 mb-1">Barcode</p>
+                      <p className="font-mono text-orange-900 dark:text-orange-200">{defectiveProduct.barcode}</p>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-orange-700 dark:text-orange-400 mb-1">
+                        Selling Price (৳)
+                      </label>
+                      <input
+                        type="text"
+                        value={defectivePrice}
+                        readOnly
+                        className="w-full px-3 py-2 border border-orange-300 dark:border-orange-600 rounded-md bg-orange-100 dark:bg-orange-900/30 text-orange-900 dark:text-orange-200"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-orange-700 dark:text-orange-400 mb-1">
+                        Store Location
+                      </label>
+                      <input
+                        type="text"
+                        value={defectiveStore}
+                        readOnly
+                        className="w-full px-3 py-2 border border-orange-300 dark:border-orange-600 rounded-md bg-orange-100 dark:bg-orange-900/30 text-orange-900 dark:text-orange-200"
+                      />
+                    </div>
+                  </div>
+
+                  <button
+                    onClick={addDefectiveToCart}
+                    className="mt-4 w-full px-4 py-2 bg-orange-600 hover:bg-orange-700 text-white rounded-md font-medium"
+                  >
+                    Add Defective Product to Cart
+                  </button>
+                </div>
+              )}
+
               {/* Main Content Grid */}
               <div className="grid grid-cols-3 gap-6">
-                {/* Left Section: Sales Information */}
+                {/* Left Section */}
                 <div className="col-span-2 space-y-6">
                   {/* Sales Information */}
                   <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
@@ -666,8 +821,17 @@ export default function POSPage() {
                           </tr>
                         ) : (
                           cart.map((item) => (
-                            <tr key={item.id} className="border-t border-gray-200 dark:border-gray-700">
-                              <td className="px-4 py-3 text-sm text-gray-900 dark:text-white">{item.productName}</td>
+                            <tr key={item.id} className={`border-t border-gray-200 dark:border-gray-700 ${item.isDefective ? 'bg-orange-50 dark:bg-orange-900/10' : ''}`}>
+                              <td className="px-4 py-3 text-sm text-gray-900 dark:text-white">
+                                <div className="flex items-center gap-2">
+                                  {item.productName}
+                                  {item.isDefective && (
+                                    <span className="px-2 py-0.5 bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400 text-xs rounded">
+                                      Defective
+                                    </span>
+                                  )}
+                                </div>
+                              </td>
                               <td className="px-4 py-3 text-sm text-gray-900 dark:text-white">{item.size || '-'}</td>
                               <td className="px-4 py-3 text-sm text-gray-900 dark:text-white">{item.qty}</td>
                               <td className="px-4 py-3 text-sm text-gray-900 dark:text-white">{item.price}</td>
@@ -689,7 +853,7 @@ export default function POSPage() {
                   </div>
                 </div>
 
-                {/* Right Section: Amount Details */}
+                {/* Right Section - Amount Details */}
                 <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 h-fit">
                   <div className="px-4 py-3 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
                     <h2 className="text-sm font-medium text-gray-900 dark:text-white">Amount Details</h2>

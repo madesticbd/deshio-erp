@@ -5,6 +5,7 @@ import path from 'path';
 // ✅ Path to the JSON files
 const ordersFilePath = path.resolve('data', 'orders.json');
 const inventoryFilePath = path.resolve('data', 'inventory.json');
+const defectsFilePath = path.resolve('data', 'defects.json');
 
 // Helper: Read all orders
 const readOrdersFromFile = () => {
@@ -36,6 +37,21 @@ const readInventoryFromFile = () => {
   }
 };
 
+// Helper: Read defects
+const readDefectsFromFile = () => {
+  try {
+    if (fs.existsSync(defectsFilePath)) {
+      const fileData = fs.readFileSync(defectsFilePath, 'utf8');
+      return JSON.parse(fileData);
+    } else {
+      return [];
+    }
+  } catch (error) {
+    console.error('❌ Error reading defects file:', error);
+    return [];
+  }
+};
+
 // Helper: Write updated orders list
 const writeOrdersToFile = (orders: any[]) => {
   try {
@@ -55,6 +71,40 @@ const writeInventoryToFile = (inventory: any[]) => {
   } catch (error) {
     console.error('❌ Error writing inventory file:', error);
     throw error;
+  }
+};
+
+// Helper: Write updated defects
+const writeDefectsToFile = (defects: any[]) => {
+  try {
+    fs.mkdirSync(path.dirname(defectsFilePath), { recursive: true });
+    fs.writeFileSync(defectsFilePath, JSON.stringify(defects, null, 2), 'utf8');
+  } catch (error) {
+    console.error('❌ Error writing defects file:', error);
+    throw error;
+  }
+};
+
+// Helper: Update defect status
+const updateDefectStatus = (defectId: string, sellingPrice: number) => {
+  try {
+    const defects = readDefectsFromFile();
+    const defectIndex = defects.findIndex((d: any) => d.id === defectId);
+    
+    if (defectIndex !== -1) {
+      defects[defectIndex] = {
+        ...defects[defectIndex],
+        status: 'sold',
+        sellingPrice: sellingPrice,
+        soldAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      };
+      
+      writeDefectsToFile(defects);
+      console.log(`✅ Updated defect ${defectId} to sold with price ${sellingPrice}`);
+    }
+  } catch (error) {
+    console.error('❌ Error updating defect status:', error);
   }
 };
 
@@ -126,7 +176,27 @@ export async function POST(request: Request) {
       try {
         const productId = product.productId || product.id;
         
-        // Allocate inventory and get barcodes
+        // Skip inventory allocation for defective products
+        if (product.isDefective) {
+          console.log(`🟧 Processing defective product: ${product.defectId}`);
+          
+          // Update defect status with selling price
+          if (product.defectId) {
+            updateDefectStatus(product.defectId, product.price);
+          }
+          
+          // Add to products list without barcode allocation
+          productsWithBarcodes.push({
+            ...product,
+            productId: productId,
+            barcodes: product.barcode ? [product.barcode] : []
+          });
+          
+          console.log(`✅ Defective product ${product.defectId} processed`);
+          continue;
+        }
+        
+        // Allocate inventory and get barcodes for regular products
         const barcodes = allocateInventoryToOrder(productId, product.qty, orderId);
         
         productsWithBarcodes.push({
@@ -185,10 +255,33 @@ export async function DELETE(request: Request) {
       return NextResponse.json({ error: 'Order not found' }, { status: 404 });
     }
 
-    // Return inventory items to available status
+    // Return inventory items to available status and revert defect status
     const inventory = readInventoryFromFile();
+    const defects = readDefectsFromFile();
     let updatedInventory = false;
+    let updatedDefects = false;
 
+    if (orderToDelete.products) {
+      orderToDelete.products.forEach((product: any) => {
+        // Handle defective products
+        if (product.isDefective && product.defectId) {
+          const defectIndex = defects.findIndex((d: any) => d.id === product.defectId);
+          if (defectIndex !== -1) {
+            defects[defectIndex] = {
+              ...defects[defectIndex],
+              status: 'pending',
+              sellingPrice: null,
+              soldAt: null,
+              updatedAt: new Date().toISOString()
+            };
+            updatedDefects = true;
+            console.log(`✅ Reverted defect ${product.defectId} to pending`);
+          }
+        }
+      });
+    }
+
+    // Handle regular inventory items
     inventory.forEach((item: any, index: number) => {
       if (item.orderId && String(item.orderId) === String(id)) {
         inventory[index] = {
@@ -204,6 +297,10 @@ export async function DELETE(request: Request) {
 
     if (updatedInventory) {
       writeInventoryToFile(inventory);
+    }
+
+    if (updatedDefects) {
+      writeDefectsToFile(defects);
     }
 
     // Remove order

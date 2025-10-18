@@ -239,5 +239,137 @@
       }
     ],
     "updatedAt": "2025-10-16T11:15:27.914Z"
+  },
+  {
+    "id": "sale-1760616926025",
+    "salesBy": "Admin",
+    "outletId": "1760592803601",
+    "date": "2025-10-16",
+    "customer": {
+      "name": "Rumy Parvez",
+      "mobile": "01818316964",
+      "address": "International Affairs Division ,Paramanu Bhaban ,Bangladesh Atomic Energy Commission,"
+    },
+    "items": [
+      {
+        "id": 1760616883188,
+        "productId": 1760593716940,
+        "productName": "Shotoronji",
+        "size": "",
+        "qty": 1,
+        "price": 400,
+        "discount": 0,
+        "amount": 400,
+        "isDefective": true,
+        "defectId": "defect-1760613804837",
+        "barcode": "BATCH1760595237962-10"
+      }
+    ],
+    "amounts": {
+      "subtotal": 400,
+      "totalDiscount": 0,
+      "vat": 20,
+      "vatRate": 5,
+      "transportCost": 0,
+      "total": 420
+    },
+    "payments": {
+      "cash": 0,
+      "card": 0,
+      "bkash": 0,
+      "nagad": 0,
+      "transactionFee": 0,
+      "totalPaid": 0,
+      "due": 420
+    },
+    "createdAt": "2025-10-16T12:15:26.026Z"
+  },
+  {
+    "id": "sale-1760772332818",
+    "salesBy": "Admin",
+    "outletId": "1760592803601",
+    "date": "2025-10-18",
+    "customer": {
+      "name": "Nishat Tasneem",
+      "mobile": "01818316964",
+      "address": "International Affairs Division ,Paramanu Bhaban ,Bangladesh Atomic Energy Commission,"
+    },
+    "items": [
+      {
+        "id": 1760772286218,
+        "productId": 1760593716940,
+        "productName": "Shotoronji",
+        "size": "",
+        "qty": 1,
+        "price": 400,
+        "discount": 0,
+        "amount": 400,
+        "isDefective": true,
+        "defectId": "defect-1760614109327",
+        "barcode": "BATCH1760595237962-02"
+      }
+    ],
+    "amounts": {
+      "subtotal": 400,
+      "totalDiscount": 0,
+      "vat": 20,
+      "vatRate": 5,
+      "transportCost": 0,
+      "total": 420
+    },
+    "payments": {
+      "cash": 0,
+      "card": 0,
+      "bkash": 0,
+      "nagad": 0,
+      "transactionFee": 0,
+      "totalPaid": 0,
+      "due": 420
+    },
+    "createdAt": "2025-10-18T07:25:32.818Z"
+  },
+  {
+    "id": "sale-1760772872245",
+    "salesBy": "Admin",
+    "outletId": "1760592830554",
+    "date": "2025-10-18",
+    "customer": {
+      "name": "Sanjana Afreen2",
+      "mobile": "01818316964",
+      "address": "International Affairs Division ,Paramanu Bhaban ,Bangladesh Atomic Energy Commission,"
+    },
+    "items": [
+      {
+        "id": 1760772868803,
+        "productId": 1760593404487,
+        "productName": "Jamdani",
+        "size": "",
+        "qty": 1,
+        "price": 2000,
+        "discount": 200,
+        "amount": 1800,
+        "isDefective": false,
+        "defectId": null,
+        "barcode": null
+      }
+    ],
+    "amounts": {
+      "subtotal": 1800,
+      "totalDiscount": 200,
+      "vat": 90,
+      "vatRate": 5,
+      "transportCost": 0,
+      "total": 1890
+    },
+    "payments": {
+      "cash": 0,
+      "card": 0,
+      "bkash": 0,
+      "nagad": 0,
+      "transactionFee": 0,
+      "totalPaid": 0,
+      "due": 1890
+    },
+    "createdAt": "2025-10-18T07:34:32.245Z"
   }
 ]
