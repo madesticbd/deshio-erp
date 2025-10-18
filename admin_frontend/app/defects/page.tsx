@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Search, Barcode, User, Package, Trash2, ShoppingCart, AlertCircle, Store } from 'lucide-react';
+import { Search, Barcode, User, Package, Trash2, ShoppingCart, AlertCircle, Store, ChevronDown, ChevronUp, Calendar, DollarSign, MapPin, Phone, FileText, Image as ImageIcon } from 'lucide-react';
 import Header from '@/components/Header';
 import Sidebar from '@/components/Sidebar';
 import SellDefectModal from '@/components/SellDefectModal';
@@ -23,8 +23,11 @@ interface DefectItem {
   originalOrderId?: number;
   customerPhone?: string;
   sellingPrice?: number;
+  originalSellingPrice?: number;
+  costPrice?: number;
   returnReason?: string;
   store?: string;
+  image?: string;
 }
 
 interface InventoryItem {
@@ -66,6 +69,7 @@ export default function DefectsPage() {
   const [stores, setStores] = useState<StoreItem[]>([]);
   const [selectedStore, setSelectedStore] = useState<string>('all');
   const [activeTab, setActiveTab] = useState<'identification' | 'returns'>('identification');
+  const [expandedDefect, setExpandedDefect] = useState<string | null>(null);
   
   // Defect Identification
   const [barcodeInput, setBarcodeInput] = useState('');
@@ -162,7 +166,7 @@ export default function DefectsPage() {
     }
   };
 
-const handleMarkAsDefective = async () => {
+  const handleMarkAsDefective = async () => {
     if (!barcodeInput.trim() || !returnReason) {
       alert('Please enter barcode and return reason');
       return;
@@ -174,7 +178,6 @@ const handleMarkAsDefective = async () => {
       return;
     }
 
-    // Store selection is always required for defect identification
     if (!storeForDefect) {
       alert('Please select the store location where this defect is being recorded.');
       return;
@@ -186,7 +189,7 @@ const handleMarkAsDefective = async () => {
       formData.append('barcode', barcodeInput);
       formData.append('returnReason', returnReason);
       formData.append('store', storeForDefect);
-      formData.append('isDefectIdentification', 'true'); // Flag for defect identification tab
+      formData.append('isDefectIdentification', 'true');
       if (defectImage) formData.append('image', defectImage);
 
       const response = await fetch('/api/defects', {
@@ -215,6 +218,7 @@ const handleMarkAsDefective = async () => {
       setLoading(false);
     }
   };
+
   const handleSearchCustomer = async () => {
     if (!searchValue.trim()) {
       alert('Please enter search value');
@@ -227,7 +231,6 @@ const handleMarkAsDefective = async () => {
     }
 
     try {
-      // Search in both orders and sales
       const [ordersResponse, salesResponse] = await Promise.all([
         fetch('/api/social-orders'),
         fetch('/api/sales')
@@ -254,7 +257,6 @@ const handleMarkAsDefective = async () => {
           const phoneSales = sales.filter((sale: any) => 
             sale.customer?.mobile?.includes(searchValue)
           );
-          // Convert sales to order format
           foundOrders = [...foundOrders, ...phoneSales.map((sale: any) => ({
             id: sale.id,
             customerName: sale.customer?.name,
@@ -327,7 +329,6 @@ const handleMarkAsDefective = async () => {
       const order = customerOrders.find(o => o.id.toString() === selectedOrder);
       if (!order) return;
 
-      // Create defect entry for each barcode
       for (const barcode of selectedBarcodes) {
         const formData = new FormData();
         formData.append('barcode', barcode);
@@ -366,42 +367,39 @@ const handleMarkAsDefective = async () => {
     setSellType('pos');
     setSellModalOpen(true);
   };
-const handleSell = async () => {
-  if (!selectedDefect || !sellPrice) {
-    alert('Please enter selling price');
-    return;
-  }
 
-  setLoading(true);
-  try {
-    // Don't update status yet - just navigate with defect data
-    setSellModalOpen(false);
+  const handleSell = async () => {
+    if (!selectedDefect || !sellPrice) {
+      alert('Please enter selling price');
+      return;
+    }
 
-    // Create defect data object to pass to POS/Social
-    const defectData = {
-      id: selectedDefect.id,
-      barcode: selectedDefect.barcode,
-      productId: selectedDefect.productId,
-      productName: selectedDefect.productName,
-      sellingPrice: parseFloat(sellPrice),
-      store: selectedDefect.store
-    };
+    setLoading(true);
+    try {
+      setSellModalOpen(false);
 
-    // Store in sessionStorage for the target page to read
-    sessionStorage.setItem('defectItem', JSON.stringify(defectData));
+      const defectData = {
+        id: selectedDefect.id,
+        barcode: selectedDefect.barcode,
+        productId: selectedDefect.productId,
+        productName: selectedDefect.productName,
+        sellingPrice: parseFloat(sellPrice),
+        store: selectedDefect.store
+      };
 
-    // Navigate to POS or Social
-    const url = sellType === 'pos'
-      ? `/pos?defect=${selectedDefect.id}`
-      : `/social-commerce?defect=${selectedDefect.id}`;
-    window.location.href = url; // Use location.href instead of window.open for same tab
-  } catch (error) {
-    console.error('Error:', error);
-    alert('Error processing sale');
-  } finally {
-    setLoading(false);
-  }
-};
+      sessionStorage.setItem('defectItem', JSON.stringify(defectData));
+
+      const url = sellType === 'pos'
+        ? `/pos?defect=${selectedDefect.id}`
+        : `/social-commerce?defect=${selectedDefect.id}`;
+      window.location.href = url;
+    } catch (error) {
+      console.error('Error:', error);
+      alert('Error processing sale');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleRemove = async (defectId: string) => {
     if (!confirm('Are you sure you want to remove this defect?')) return;
@@ -419,6 +417,10 @@ const handleSell = async () => {
       console.error('Error removing defect:', error);
       alert('Error removing defect');
     }
+  };
+
+  const toggleDefectDetails = (defectId: string) => {
+    setExpandedDefect(expandedDefect === defectId ? null : defectId);
   };
 
   const pendingDefects = defects.filter(d => d.status === 'pending' || d.status === 'approved');
@@ -508,7 +510,7 @@ const handleSell = async () => {
               </div>
 
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                {/* Left Panel */}
+                {/* Left Panel - Form (keeping the existing form code) */}
                 <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
                   {activeTab === 'identification' ? (
                     <>
@@ -600,6 +602,7 @@ const handleSell = async () => {
                         Customer Return
                       </h3>
                       
+                      {/* Customer Returns Form - keeping existing code */}
                       <div className="space-y-4">
                         <div>
                           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
@@ -819,7 +822,7 @@ const handleSell = async () => {
                   )}
                 </div>
 
-                {/* Right Panel - Defects List */}
+                {/* Right Panel - Defects List with Expandable Details */}
                 <div className="lg:col-span-2 space-y-6">
                   {/* Pending Defects */}
                   <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
@@ -834,91 +837,175 @@ const handleSell = async () => {
                       </div>
                     </div>
 
-                    <div className="overflow-x-auto">
-                      <table className="w-full">
-                        <thead className="bg-gray-50 dark:bg-gray-700/50">
-                          <tr>
-                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Product</th>
-                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Barcode</th>
-                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Store</th>
-                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Return Reason</th>
-                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Added</th>
-                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Actions</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
-                          {pendingDefects.map((defect) => (
-                            <tr key={defect.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50">
-                              <td className="px-4 py-3">
-                                <div>
-                                  <p className="font-medium text-gray-900 dark:text-white text-sm">
-                                    {defect.productName}
-                                  </p>
-                                  <p className="text-xs text-gray-500 dark:text-gray-400">
-                                    ID: {defect.productId}
-                                  </p>
-                                  {defect.customerPhone && (
-                                    <p className="text-xs text-blue-600 dark:text-blue-400">
-                                      Customer: {defect.customerPhone}
-                                    </p>
-                                  )}
-                                  {defect.originalOrderId && (
-                                    <p className="text-xs text-green-600 dark:text-green-400">
-                                      Order: #{defect.originalOrderId}
-                                    </p>
-                                  )}
+                    <div className="divide-y divide-gray-200 dark:divide-gray-700">
+                      {pendingDefects.length === 0 ? (
+                        <div className="p-8 text-center">
+                          <Package className="w-12 h-12 mx-auto mb-2 text-gray-400" />
+                          <p className="text-gray-500 dark:text-gray-400">No defective items found</p>
+                        </div>
+                      ) : (
+                        pendingDefects.map((defect) => (
+                          <div key={defect.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
+                            {/* Main Row */}
+                            <div className="px-4 py-3">
+                              <div className="flex items-start justify-between gap-4">
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex items-center gap-2 mb-1">
+                                    <h4 className="font-medium text-gray-900 dark:text-white text-sm truncate">
+                                      {defect.productName}
+                                    </h4>
+                                    {defect.returnReason && (
+                                      <span className="px-2 py-0.5 bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400 text-xs rounded">
+                                        Return
+                                      </span>
+                                    )}
+                                  </div>
+                                  
+                                  <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-gray-600 dark:text-gray-400">
+                                    <span className="flex items-center gap-1">
+                                      <Barcode className="w-3 h-3" />
+                                      {defect.barcode}
+                                    </span>
+                                    <span className="flex items-center gap-1">
+                                      <MapPin className="w-3 h-3" />
+                                      {defect.store || 'N/A'}
+                                    </span>
+                                    <span className="flex items-center gap-1">
+                                      <Calendar className="w-3 h-3" />
+                                      {new Date(defect.addedAt).toLocaleDateString()}
+                                    </span>
+                                  </div>
                                 </div>
-                              </td>
-                              <td className="px-4 py-3">
-                                <span className="font-mono text-sm text-gray-900 dark:text-white">
-                                  {defect.barcode}
-                                </span>
-                              </td>
-                              <td className="px-4 py-3">
-                                <span className="text-sm text-gray-700 dark:text-gray-300">
-                                  {defect.store || 'N/A'}
-                                </span>
-                              </td>
-                              <td className="px-4 py-3">
-                                <span className="text-sm text-gray-700 dark:text-gray-300">
-                                  {defect.returnReason || 'N/A'}
-                                </span>
-                              </td>
-                              <td className="px-4 py-3">
-                                <span className="text-sm text-gray-600 dark:text-gray-400">
-                                  {new Date(defect.addedAt).toLocaleDateString()}
-                                </span>
-                              </td>
-                              <td className="px-4 py-3">
-                                <div className="flex gap-2">
+
+                                <div className="flex items-center gap-2">
+                                  <button
+                                    onClick={() => toggleDefectDetails(defect.id)}
+                                    className="p-1.5 hover:bg-gray-100 dark:hover:bg-gray-600 rounded transition-colors"
+                                    title="Toggle details"
+                                  >
+                                    {expandedDefect === defect.id ? (
+                                      <ChevronUp className="w-4 h-4 text-gray-600 dark:text-gray-400" />
+                                    ) : (
+                                      <ChevronDown className="w-4 h-4 text-gray-600 dark:text-gray-400" />
+                                    )}
+                                  </button>
                                   <button
                                     onClick={() => handleSellClick(defect)}
-                                    className="text-green-600 hover:text-green-700"
+                                    className="p-1.5 text-green-600 hover:bg-green-50 dark:hover:bg-green-900/20 rounded transition-colors"
                                     title="Sell"
                                   >
                                     <ShoppingCart className="w-4 h-4" />
                                   </button>
                                   <button
                                     onClick={() => handleRemove(defect.id)}
-                                    className="text-red-600 hover:text-red-700"
+                                    className="p-1.5 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-colors"
                                     title="Remove"
                                   >
                                     <Trash2 className="w-4 h-4" />
                                   </button>
                                 </div>
-                              </td>
-                            </tr>
-                          ))}
-                          {pendingDefects.length === 0 && (
-                            <tr>
-                              <td colSpan={6} className="px-4 py-8 text-center text-gray-500 dark:text-gray-400">
-                                <Package className="w-12 h-12 mx-auto mb-2 opacity-50" />
-                                <p>No defective items found</p>
-                              </td>
-                            </tr>
-                          )}
-                        </tbody>
-                      </table>
+                              </div>
+                            </div>
+
+                            {/* Expanded Details */}
+                            {expandedDefect === defect.id && (
+                              <div className="px-4 pb-4 pt-2 bg-gray-50 dark:bg-gray-900/50">
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                  {/* Left: Image */}
+                                  {defect.image ? (
+                                    <div className="space-y-2">
+                                      <h5 className="text-xs font-medium text-gray-700 dark:text-gray-300 flex items-center gap-1">
+                                        <ImageIcon className="w-3 h-3" />
+                                        Defect Image
+                                      </h5>
+                                      <div className="relative aspect-video bg-gray-200 dark:bg-gray-700 rounded-lg overflow-hidden">
+                                        <img
+                                          src={defect.image}
+                                          alt="Defect"
+                                          className="w-full h-full object-cover"
+                                        />
+                                      </div>
+                                    </div>
+                                  ) : (
+                                    <div className="flex items-center justify-center aspect-video bg-gray-200 dark:bg-gray-700 rounded-lg">
+                                      <div className="text-center">
+                                        <ImageIcon className="w-8 h-8 mx-auto mb-1 text-gray-400" />
+                                        <p className="text-xs text-gray-500">No image available</p>
+                                      </div>
+                                    </div>
+                                  )}
+
+                                  {/* Right: Details */}
+                                  <div className="space-y-3">
+                                    <div className="grid grid-cols-2 gap-2 text-xs">
+                                      <div>
+                                        <p className="text-gray-500 dark:text-gray-400 mb-0.5">Product ID</p>
+                                        <p className="text-gray-900 dark:text-white font-medium">#{defect.productId}</p>
+                                      </div>
+                                      <div>
+                                        <p className="text-gray-500 dark:text-gray-400 mb-0.5">Added By</p>
+                                        <p className="text-gray-900 dark:text-white font-medium">{defect.addedBy}</p>
+                                      </div>
+                                    </div>
+
+                                    {defect.returnReason && (
+                                      <div>
+                                        <p className="text-xs text-gray-500 dark:text-gray-400 mb-1 flex items-center gap-1">
+                                          <FileText className="w-3 h-3" />
+                                          Return Reason
+                                        </p>
+                                        <p className="text-sm text-gray-900 dark:text-white bg-white dark:bg-gray-800 p-2 rounded border border-gray-200 dark:border-gray-600">
+                                          {defect.returnReason}
+                                        </p>
+                                      </div>
+                                    )}
+
+                                    {defect.customerPhone && (
+                                      <div>
+                                        <p className="text-xs text-gray-500 dark:text-gray-400 mb-1 flex items-center gap-1">
+                                          <Phone className="w-3 h-3" />
+                                          Customer Phone
+                                        </p>
+                                        <p className="text-sm text-gray-900 dark:text-white font-medium">
+                                          {defect.customerPhone}
+                                        </p>
+                                      </div>
+                                    )}
+
+                                    {defect.originalOrderId && (
+                                      <div>
+                                        <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Original Order ID</p>
+                                        <p className="text-sm text-blue-600 dark:text-blue-400 font-medium">
+                                          #{defect.originalOrderId}
+                                        </p>
+                                      </div>
+                                    )}
+
+                                    <div className="grid grid-cols-2 gap-2 pt-2 border-t border-gray-200 dark:border-gray-700">
+                                      {defect.costPrice && (
+                                        <div>
+                                          <p className="text-xs text-gray-500 dark:text-gray-400 mb-0.5">Cost Price</p>
+                                          <p className="text-sm text-gray-900 dark:text-white font-medium">
+                                            ৳{defect.costPrice.toFixed(2)}
+                                          </p>
+                                        </div>
+                                      )}
+                                      {defect.originalSellingPrice && (
+                                        <div>
+                                          <p className="text-xs text-gray-500 dark:text-gray-400 mb-0.5">Original Price</p>
+                                          <p className="text-sm text-gray-900 dark:text-white font-medium">
+                                            ৳{defect.originalSellingPrice.toFixed(2)}
+                                          </p>
+                                        </div>
+                                      )}
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        ))
+                      )}
                     </div>
                   </div>
 
@@ -931,43 +1018,129 @@ const handleSell = async () => {
                         </h3>
                       </div>
 
-                      <div className="overflow-x-auto">
-                        <table className="w-full">
-                          <thead className="bg-gray-50 dark:bg-gray-700/50">
-                            <tr>
-                              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Product</th>
-                              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Store</th>
-                              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Sold Price</th>
-                              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Status</th>
-                            </tr>
-                          </thead>
-                          <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
-                            {soldDefects.map((defect) => (
-                              <tr key={defect.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50">
-                                <td className="px-4 py-3">
-                                  <p className="font-medium text-gray-900 dark:text-white text-sm">
-                                    {defect.productName}
-                                  </p>
-                                </td>
-                                <td className="px-4 py-3">
-                                  <span className="text-sm text-gray-700 dark:text-gray-300">
-                                    {defect.store || 'N/A'}
-                                  </span>
-                                </td>
-                                <td className="px-4 py-3">
-                                  <span className="text-sm font-medium text-gray-900 dark:text-white">
-                                    ৳{defect.sellingPrice?.toFixed(2) || '0.00'}
-                                  </span>
-                                </td>
-                                <td className="px-4 py-3">
-                                  <span className="px-2 py-1 rounded text-xs font-medium bg-green-100 text-green-700 dark:bg-green-900/20 dark:text-green-400">
-                                    Sold
-                                  </span>
-                                </td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
+                      <div className="divide-y divide-gray-200 dark:divide-gray-700">
+                        {soldDefects.map((defect) => (
+                          <div key={defect.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
+                            {/* Main Row */}
+                            <div className="px-4 py-3">
+                              <div className="flex items-start justify-between gap-4">
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex items-center gap-2 mb-1">
+                                    <h4 className="font-medium text-gray-900 dark:text-white text-sm truncate">
+                                      {defect.productName}
+                                    </h4>
+                                    <span className="px-2 py-0.5 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 text-xs rounded">
+                                      Sold
+                                    </span>
+                                  </div>
+                                  
+                                  <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-gray-600 dark:text-gray-400">
+                                    <span className="flex items-center gap-1">
+                                      <Barcode className="w-3 h-3" />
+                                      {defect.barcode}
+                                    </span>
+                                    <span className="flex items-center gap-1">
+                                      <MapPin className="w-3 h-3" />
+                                      {defect.store || 'N/A'}
+                                    </span>
+                                    <span className="flex items-center gap-1">
+                                      <DollarSign className="w-3 h-3" />
+                                      ৳{defect.sellingPrice?.toFixed(2) || '0.00'}
+                                    </span>
+                                  </div>
+                                </div>
+
+                                <button
+                                  onClick={() => toggleDefectDetails(defect.id)}
+                                  className="p-1.5 hover:bg-gray-100 dark:hover:bg-gray-600 rounded transition-colors"
+                                  title="Toggle details"
+                                >
+                                  {expandedDefect === defect.id ? (
+                                    <ChevronUp className="w-4 h-4 text-gray-600 dark:text-gray-400" />
+                                  ) : (
+                                    <ChevronDown className="w-4 h-4 text-gray-600 dark:text-gray-400" />
+                                  )}
+                                </button>
+                              </div>
+                            </div>
+
+                            {/* Expanded Details for Sold Items */}
+                            {expandedDefect === defect.id && (
+                              <div className="px-4 pb-4 pt-2 bg-gray-50 dark:bg-gray-900/50">
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                  {/* Image */}
+                                  {defect.image ? (
+                                    <div className="space-y-2">
+                                      <h5 className="text-xs font-medium text-gray-700 dark:text-gray-300 flex items-center gap-1">
+                                        <ImageIcon className="w-3 h-3" />
+                                        Defect Image
+                                      </h5>
+                                      <div className="relative aspect-video bg-gray-200 dark:bg-gray-700 rounded-lg overflow-hidden">
+                                        <img
+                                          src={defect.image}
+                                          alt="Defect"
+                                          className="w-full h-full object-cover"
+                                        />
+                                      </div>
+                                    </div>
+                                  ) : (
+                                    <div className="flex items-center justify-center aspect-video bg-gray-200 dark:bg-gray-700 rounded-lg">
+                                      <div className="text-center">
+                                        <ImageIcon className="w-8 h-8 mx-auto mb-1 text-gray-400" />
+                                        <p className="text-xs text-gray-500">No image available</p>
+                                      </div>
+                                    </div>
+                                  )}
+
+                                  {/* Details */}
+                                  <div className="space-y-3">
+                                    <div className="grid grid-cols-2 gap-2 text-xs">
+                                      <div>
+                                        <p className="text-gray-500 dark:text-gray-400 mb-0.5">Product ID</p>
+                                        <p className="text-gray-900 dark:text-white font-medium">#{defect.productId}</p>
+                                      </div>
+                                      <div>
+                                        <p className="text-gray-500 dark:text-gray-400 mb-0.5">Sold Price</p>
+                                        <p className="text-green-600 dark:text-green-400 font-bold">
+                                          ৳{defect.sellingPrice?.toFixed(2) || '0.00'}
+                                        </p>
+                                      </div>
+                                    </div>
+
+                                    {defect.returnReason && (
+                                      <div>
+                                        <p className="text-xs text-gray-500 dark:text-gray-400 mb-1 flex items-center gap-1">
+                                          <FileText className="w-3 h-3" />
+                                          Return Reason
+                                        </p>
+                                        <p className="text-sm text-gray-900 dark:text-white bg-white dark:bg-gray-800 p-2 rounded border border-gray-200 dark:border-gray-600">
+                                          {defect.returnReason}
+                                        </p>
+                                      </div>
+                                    )}
+
+                                    <div className="grid grid-cols-2 gap-2 pt-2 border-t border-gray-200 dark:border-gray-700">
+                                      <div>
+                                        <p className="text-xs text-gray-500 dark:text-gray-400 mb-0.5">Added</p>
+                                        <p className="text-xs text-gray-900 dark:text-white">
+                                          {new Date(defect.addedAt).toLocaleDateString()}
+                                        </p>
+                                      </div>
+                                      {defect.originalSellingPrice && (
+                                        <div>
+                                          <p className="text-xs text-gray-500 dark:text-gray-400 mb-0.5">Original Price</p>
+                                          <p className="text-xs text-gray-900 dark:text-white">
+                                            ৳{defect.originalSellingPrice.toFixed(2)}
+                                          </p>
+                                        </div>
+                                      )}
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        ))}
                       </div>
                     </div>
                   )}
