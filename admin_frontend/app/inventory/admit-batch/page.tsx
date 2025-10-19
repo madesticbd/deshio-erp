@@ -34,6 +34,7 @@ export default function AdmitBatchPage() {
   const [admittedCount, setAdmittedCount] = useState(0);
   const [productCode, setProductCode] = useState('');
   const [toasts, setToasts] = useState<Toast[]>([]);
+  const [lastScannedCode, setLastScannedCode] = useState('');
 
   const showToast = (message: string, type: 'success' | 'error') => {
     const id = Date.now();
@@ -48,7 +49,7 @@ export default function AdmitBatchPage() {
   };
 
   useEffect(() => {
-    // Fetch batch details
+    // Fetch batch details and admitted count
     const fetchBatch = async () => {
       try {
         const response = await fetch('/api/batch');
@@ -57,7 +58,21 @@ export default function AdmitBatchPage() {
           const foundBatch = data.find((b: Batch) => b.id === Number(batchId));
           if (foundBatch) {
             setBatch(foundBatch);
-            setProductCode(`${foundBatch.baseCode}-${String(currentCount).padStart(2, '0')}`);
+            
+            // Fetch admitted count from inventory
+            const inventoryResponse = await fetch('/api/inventory');
+            if (inventoryResponse.ok) {
+              const inventory = await inventoryResponse.json();
+              const admittedItems = inventory.filter(
+                (item: any) => item.batchId === foundBatch.id
+              );
+              const count = admittedItems.length;
+              setAdmittedCount(count);
+              setCurrentCount(count + 1);
+              setProductCode(`${foundBatch.baseCode}-${String(count + 1).padStart(2, '0')}`);
+            } else {
+              setProductCode(`${foundBatch.baseCode}-${String(currentCount).padStart(2, '0')}`);
+            }
           }
         }
       } catch (error) {
@@ -68,13 +83,74 @@ export default function AdmitBatchPage() {
     if (batchId) {
       fetchBatch();
     }
-  }, [batchId, currentCount]);
+  }, [batchId]);
 
   useEffect(() => {
     if (batch) {
       setProductCode(`${batch.baseCode}-${String(currentCount).padStart(2, '0')}`);
     }
   }, [currentCount, batch]);
+
+  // Barcode Scanner Logic
+  useEffect(() => {
+    if (!scannerActive || !batch) return;
+
+    let barcode = '';
+    let barcodeTimeout: NodeJS.Timeout;
+
+    const handleKeyPress = (e: KeyboardEvent) => {
+      // Ignore if user is typing in an input field
+      const target = e.target as HTMLElement;
+      if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') {
+        return;
+      }
+
+      // Process on Enter key
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        
+        if (barcode.trim()) {
+          const scannedCode = barcode.trim();
+          setLastScannedCode(scannedCode);
+          barcode = '';
+          
+          // Validate scanned code
+          if (scannedCode === productCode || scannedCode.startsWith(batch.baseCode)) {
+            // If scanned code is different but valid, update productCode
+            if (scannedCode !== productCode && scannedCode.startsWith(batch.baseCode)) {
+              setProductCode(scannedCode);
+            }
+            handleAdmitProduct(scannedCode);
+          } else {
+            showToast(`Invalid barcode: ${scannedCode}. Expected format: ${batch.baseCode}-XX`, 'error');
+          }
+        }
+        return;
+      }
+
+      // Ignore modifier keys and special keys
+      if (e.key.length > 1) return;
+
+      // Accumulate barcode characters
+      barcode += e.key;
+
+      // Clear previous timeout and set new one
+      // Barcode scanners type very fast (usually < 100ms between characters)
+      clearTimeout(barcodeTimeout);
+      barcodeTimeout = setTimeout(() => {
+        barcode = ''; // Reset if typing is too slow (likely human input)
+      }, 100);
+    };
+
+    // Add event listener
+    window.addEventListener('keypress', handleKeyPress);
+
+    // Cleanup
+    return () => {
+      window.removeEventListener('keypress', handleKeyPress);
+      clearTimeout(barcodeTimeout);
+    };
+  }, [scannerActive, batch, productCode, admittedCount]);
   
   async function getWarehouseLocation() {
     try {
@@ -90,82 +166,102 @@ export default function AdmitBatchPage() {
     return 'Mohammadpur';
   }
 
-  const handleAdmitProduct = async () => {
-    if (!batch) {
-      showToast('Batch information is missing', 'error');
-      return;
+// Replace the handleAdmitProduct function with this updated version
+
+const handleAdmitProduct = async (scannedCode?: string) => {
+  if (!batch) {
+    showToast('Batch information is missing', 'error');
+    return;
+  }
+
+  const codeToUse = scannedCode || productCode;
+  if (!codeToUse) {
+    showToast('Product code is required', 'error');
+    return;
+  }
+
+  try {
+    // Check if barcode already exists in inventory
+    const inventoryResponse = await fetch('/api/inventory');
+    if (inventoryResponse.ok) {
+      const existingInventory = await inventoryResponse.json();
+      const barcodeExists = existingInventory.some(
+        (item: any) => item.barcode === codeToUse
+      );
+
+      if (barcodeExists) {
+        showToast(
+          `This barcode (${codeToUse}) has already been admitted. Cannot admit the same product twice.`,
+          'error'
+        );
+        return;
+      }
     }
 
-    if (!productCode) {
-      showToast('Product code is required', 'error');
-      return;
+    const location = await getWarehouseLocation();
+
+    // Create inventory item
+    const inventoryItem = {
+      productId: batch.productId,
+      batchId: batch.id,
+      barcode: codeToUse,
+      costPrice: Number(batch.costPrice),
+      sellingPrice: Number(batch.sellingPrice),
+      location,
+      status: 'available',
+      admittedAt: new Date().toISOString()
+    };
+
+    // Validate required fields before sending
+    if (!inventoryItem.productId || !inventoryItem.barcode || 
+        !inventoryItem.costPrice || !inventoryItem.sellingPrice) {
+      throw new Error('Missing required fields. Please check batch data.');
     }
 
-    try {
-      const location = await getWarehouseLocation();
+    // Save to inventory
+    const response = await fetch('/api/inventory', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(inventoryItem),
+    });
 
-      // Create inventory item
-      const inventoryItem = {
-        productId: batch.productId,
-        batchId: batch.id,
-        barcode: productCode,
-        costPrice: Number(batch.costPrice),
-        sellingPrice: Number(batch.sellingPrice),
-        location,
-        status: 'available',
-        admittedAt: new Date().toISOString()
-      };
-
-      // Validate required fields before sending
-      if (!inventoryItem.productId || !inventoryItem.barcode || 
-          !inventoryItem.costPrice || !inventoryItem.sellingPrice) {
-        throw new Error('Missing required fields. Please check batch data.');
-      }
-
-      // Save to inventory
-      const response = await fetch('/api/inventory', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(inventoryItem),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(`Failed to admit product: ${response.status} - ${errorData.error || 'Unknown error'}`);
-      }
-
-      const result = await response.json();
-
-      // Update local state
-      if (admittedCount + 1 < batch.quantity) {
-        setAdmittedCount(admittedCount + 1);
-        setCurrentCount(currentCount + 1);
-        showToast('Product admitted successfully!', 'success');
-      } else {
-        // Last product admitted
-        setAdmittedCount(admittedCount + 1);
-        showToast('All products from this batch have been admitted!', 'success');
-        try {
-          await fetch(`/api/batch/${batch.id}`, {
-            method: 'PATCH',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ admitted: 'yes' }),
-          });
-        } catch (error) {
-          console.error('Failed to update batch status:', error);
-        }
-
-        // Redirect back after short delay
-        setTimeout(() => {
-          window.location.href = '/inventory/manage_stock';
-        }, 1500);
-      }
-    } catch (error) {
-      showToast(`Failed to admit product: ${error instanceof Error ? error.message : 'Unknown error'}`, 'error');
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(`Failed to admit product: ${response.status} - ${errorData.error || 'Unknown error'}`);
     }
-  };
+
+    const result = await response.json();
+
+    // Update local state
+    if (admittedCount + 1 < batch.quantity) {
+      setAdmittedCount(admittedCount + 1);
+      setCurrentCount(currentCount + 1);
+      showToast(`Product ${codeToUse} admitted successfully!`, 'success');
+    } else {
+      // Last product admitted
+      setAdmittedCount(admittedCount + 1);
+      showToast('All products from this batch have been admitted!', 'success');
+      try {
+        await fetch(`/api/batch/${batch.id}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ admitted: 'yes' }),
+        });
+      } catch (error) {
+        console.error('Failed to update batch status:', error);
+      }
+
+      // Redirect back after short delay
+      setTimeout(() => {
+        window.location.href = '/inventory/manage_stock';
+      }, 1500);
+    }
+  } catch (error) {
+    showToast(`Failed to admit product: ${error instanceof Error ? error.message : 'Unknown error'}`, 'error');
+  }
+};
 
   const handleProductCodeChange = (value: string) => {
     setProductCode(value);
@@ -285,12 +381,12 @@ export default function AdmitBatchPage() {
                     <div className={`text-sm ${
                       scannerActive ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'
                     }`}>
-                      {scannerActive ? 'Barcode Scanner is active' : 'Click Here to activate'}
+                      {scannerActive ? 'Ready to scan' : 'Click to activate'}
                     </div>
                   </div>
                 </div>
                 <div className={`w-3 h-3 rounded-full ${
-                  scannerActive ? 'bg-green-500' : 'bg-red-500'
+                  scannerActive ? 'bg-green-500 animate-pulse' : 'bg-red-500'
                 }`} />
               </button>
             </div>
@@ -311,6 +407,11 @@ export default function AdmitBatchPage() {
                   style={{ width: `${(admittedCount / batch.quantity) * 100}%` }}
                 />
               </div>
+              {lastScannedCode && scannerActive && (
+                <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
+                  Last scanned: <span className="font-mono font-semibold">{lastScannedCode}</span>
+                </p>
+              )}
             </div>
 
             {/* Admit Product Form */}
@@ -338,7 +439,7 @@ export default function AdmitBatchPage() {
                   </div>
                   
                   <button
-                    onClick={handleAdmitProduct}
+                    onClick={() => handleAdmitProduct()}
                     disabled={admittedCount >= batch.quantity}
                     className="flex items-center gap-2 px-6 py-2.5 bg-gray-900 dark:bg-white text-white dark:text-gray-900 rounded-lg font-medium hover:bg-gray-800 dark:hover:bg-gray-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                   >
@@ -374,13 +475,22 @@ export default function AdmitBatchPage() {
             {/* Scanner Active Message */}
             {scannerActive && (
               <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-12 text-center">
-                <Scan className="w-16 h-16 text-gray-400 dark:text-gray-500 mx-auto mb-4" />
+                <div className="relative inline-block mb-4">
+                  <Scan className="w-16 h-16 text-gray-400 dark:text-gray-500 mx-auto" />
+                  <div className="absolute -top-1 -right-1 w-4 h-4 bg-green-500 rounded-full animate-pulse" />
+                </div>
                 <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
                   Barcode Scanner Active
                 </h3>
-                <p className="text-gray-500 dark:text-gray-400">
-                  Scan products to admit them automatically, or turn off the scanner to admit manually
+                <p className="text-gray-500 dark:text-gray-400 mb-4">
+                  Scan products to admit them automatically
                 </p>
+                <div className="inline-flex items-center gap-2 px-4 py-2 bg-gray-100 dark:bg-gray-700 rounded-lg">
+                  <span className="text-sm text-gray-600 dark:text-gray-400">Expected format:</span>
+                  <code className="text-sm font-mono font-semibold text-gray-900 dark:text-white">
+                    {batch.baseCode}-XX
+                  </code>
+                </div>
               </div>
             )}
           </main>

@@ -2,10 +2,10 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { ChevronDown, ChevronRight } from 'lucide-react';
 import ProductListItem from './ProductListItem';
 import VariationsModal from './VariationsModal';
 
-/* ---------- Interfaces ---------- */
 interface Product {
   id: number | string;
   name: string;
@@ -42,7 +42,12 @@ interface ProductTableProps {
   onSelectVariation?: (product: Product, variation: { id: string | number; attributes: Record<string, any> }) => void;
 }
 
-/* ---------- Main Product Table ---------- */
+interface GroupedProduct {
+  baseName: string;
+  products: Product[];
+  isVariationGroup: boolean;
+}
+
 export default function ProductTable({
   products,
   fields = [],
@@ -120,7 +125,46 @@ export default function ProductTable({
     setModalProduct(product);
   };
 
-  /* ---------- Selection Logic ---------- */
+  const groupProducts = (): GroupedProduct[] => {
+    const grouped = new Map<string, Product[]>();
+
+    products.forEach(product => {
+      const variationMatch = product.name.match(/^(.+?)\s*-\s*Variation\s+\d+$/i);
+      const baseName = variationMatch ? variationMatch[1].trim() : product.name;
+
+      if (!grouped.has(baseName)) {
+        grouped.set(baseName, []);
+      }
+      grouped.get(baseName)!.push(product);
+    });
+
+    const groupedArray: GroupedProduct[] = Array.from(grouped.entries()).map(([baseName, prods]) => {
+      const sorted = prods.sort((a, b) => {
+        const aMatch = a.name.match(/Variation\s+(\d+)$/i);
+        const bMatch = b.name.match(/Variation\s+(\d+)$/i);
+
+        if (!aMatch && !bMatch) return 0;
+        if (!aMatch && bMatch) return -1;
+        if (aMatch && !bMatch) return 1;
+        
+        if (aMatch && bMatch) {
+          const aNum = parseInt(aMatch[1]);
+          const bNum = parseInt(bMatch[1]);
+          return aNum - bNum;
+        }
+        return 0;
+      });
+
+      return {
+        baseName,
+        products: sorted,
+        isVariationGroup: sorted.length > 1
+      };
+    });
+
+    return groupedArray;
+  };
+
   const toggleSelect = (id: number | string) => {
     const newSelected = selectedIds.includes(id)
       ? selectedIds.filter((x) => x !== id)
@@ -135,6 +179,8 @@ export default function ProductTable({
     setSelectedIds(newSelected);
     onSelectChange?.(newSelected);
   };
+
+  const groupedProducts = groupProducts();
 
   return (
     <>
@@ -157,33 +203,39 @@ export default function ProductTable({
           </div>
         )}
 
-        {/* Product List */}
+        {/* Product Groups */}
         {products.length === 0 ? (
           <div className="text-center py-12 text-gray-500 dark:text-gray-400 border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800">
             <p className="text-lg font-medium">No products found</p>
             <p className="text-sm mt-1">Try adjusting your search or filters</p>
           </div>
         ) : (
-          products.map((product) => {
-            const attrs = product.attributes || {};
+          groupedProducts.map((group) => {
+            const baseProduct = group.products[0];
+            const attrs = baseProduct.attributes || {};
             const mainImage = getMainImage(attrs);
             const categoryPath = getCategoryPath(attrs);
 
             return (
-              <ProductListItem
-                key={product.id}
-                product={product}
-                image={mainImage}
-                categoryPath={categoryPath}
-                onDelete={onDelete}
-                onEdit={onEdit}
-                onView={handleView}
-                onSelect={onSelect}
-                selectable={selectable}
-                selected={selectedIds.includes(product.id)}
-                toggleSelect={toggleSelect}
-                onViewVariations={handleViewVariations}
-              />
+              <div key={group.baseName} className="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden bg-white dark:bg-gray-800">
+                <ProductListItem
+                  product={{
+                    ...baseProduct,
+                    name: group.baseName
+                  }}
+                  image={mainImage}
+                  categoryPath={categoryPath}
+                  onDelete={onDelete}
+                  onEdit={onEdit}
+                  onView={handleView}
+                  onSelect={onSelect}
+                  selectable={selectable}
+                  selected={selectedIds.includes(baseProduct.id)}
+                  toggleSelect={toggleSelect}
+                  onViewVariations={group.isVariationGroup ? () => handleViewVariations({ ...baseProduct, name: group.baseName }) : undefined}
+                  variationCount={group.isVariationGroup ? group.products.length : undefined}
+                />
+              </div>
             );
           })
         )}
@@ -192,7 +244,16 @@ export default function ProductTable({
       {/* Variations Modal */}
       {modalProduct && (
         <VariationsModal
-          product={modalProduct}
+          product={{
+            ...modalProduct,
+            variations: groupedProducts
+              .find(g => g.baseName === modalProduct.name)
+              ?.products
+              .map(p => ({
+                id: p.id,
+                attributes: p.attributes
+              })) || []
+          }}
           mainImage={getMainImage(modalProduct.attributes)}
           onClose={() => setModalProduct(null)}
           onSelectVariation={onSelectVariation}

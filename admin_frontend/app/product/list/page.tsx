@@ -6,7 +6,7 @@ import {
   Plus,
   Search,
   ChevronLeft,
-  ChevronRight,
+  ChevronRight
 } from 'lucide-react';
 import Header from '@/components/Header';
 import Sidebar from '@/components/Sidebar';
@@ -107,7 +107,6 @@ export default function ProductPage() {
 
   const handleSelect = (product: Product) => {
     if (selectMode && redirectPath) {
-      // Pass back product id and name via URL (without variationId)
       const url = `${redirectPath}?productId=${product.id}&productName=${encodeURIComponent(product.name)}`;
       router.push(url);
     }
@@ -118,14 +117,9 @@ export default function ProductPage() {
     variation: { id: string | number; attributes: Record<string, any> }
   ) => {
     if (selectMode && redirectPath) {
-      // Find the variation index
       const variationIndex = product.variations?.findIndex(v => v.id === variation.id) ?? -1;
       const variationNumber = variationIndex !== -1 ? variationIndex + 1 : 1;
-      
-      // Create variation name like "Silk Sharee - Variation 1"
       const variationName = `${product.name} - Variation ${variationNumber}`;
-      
-      // Pass back variation id as productId, variation name, and original product id as parentProductId
       const url = `${redirectPath}?productId=${variation.id}&productName=${encodeURIComponent(variationName)}&parentProductId=${product.id}`;
       router.push(url);
     }

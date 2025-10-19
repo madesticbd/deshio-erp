@@ -61,17 +61,38 @@ export default function PurchaseHistoryPage() {
   const [endDate, setEndDate] = useState('');
   const [expandedSale, setExpandedSale] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [userRole, setUserRole] = useState<string>('');
+  const [userStoreId, setUserStoreId] = useState<string>('');
 
   useEffect(() => {
-    fetchSales();
-    fetchOutlets();
+    // Get user role and store info from localStorage
+    const role = localStorage.getItem('userRole') || '';
+    const storeId = localStorage.getItem('storeId') || '';
+    setUserRole(role);
+    setUserStoreId(storeId);
+    
+    // Auto-select outlet for store managers
+    if (role === 'store_manager' && storeId) {
+      setSelectedOutlet(storeId);
+    }
+    
+    fetchSales(role, storeId);
+    fetchOutlets(role, storeId);
   }, []);
 
-  const fetchSales = async () => {
+  const fetchSales = async (role: string, storeId: string) => {
     try {
       const response = await fetch('/api/sales');
       const data = await response.json();
-      setSales(data.reverse()); // Show newest first
+      
+      // Filter sales based on user role
+      let filteredData = data;
+      if (role === 'store_manager' && storeId) {
+        // Store managers only see sales from their outlet
+        filteredData = data.filter((sale: Sale) => sale.outletId === storeId);
+      }
+      
+      setSales(filteredData.reverse()); // Show newest first
       setLoading(false);
     } catch (error) {
       console.error('Error fetching sales:', error);
@@ -79,11 +100,19 @@ export default function PurchaseHistoryPage() {
     }
   };
 
-  const fetchOutlets = async () => {
+  const fetchOutlets = async (role: string, storeId: string) => {
     try {
       const response = await fetch('/api/stores');
       const data = await response.json();
-      setOutlets(data);
+      
+      if (role === 'store_manager' && storeId) {
+        // Store managers only see their outlet
+        const userStore = data.find((store: Store) => String(store.id) === String(storeId));
+        setOutlets(userStore ? [userStore] : []);
+      } else {
+        // Super admin sees all outlets
+        setOutlets(data);
+      }
     } catch (error) {
       console.error('Error fetching outlets:', error);
     }
@@ -145,7 +174,9 @@ export default function PurchaseHistoryPage() {
                   Purchase History
                 </h1>
                 <p className="text-sm text-gray-600 dark:text-gray-400">
-                  View and manage all sales transactions
+                  {userRole === 'store_manager' 
+                    ? 'View and manage your store sales transactions' 
+                    : 'View and manage all sales transactions'}
                 </p>
               </div>
 
@@ -186,7 +217,8 @@ export default function PurchaseHistoryPage() {
                   <select
                     value={selectedOutlet}
                     onChange={(e) => setSelectedOutlet(e.target.value)}
-                    className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    disabled={userRole === 'store_manager'}
+                    className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100 disabled:dark:bg-gray-600"
                   >
                     <option value="">All Outlets</option>
                     {outlets.map((outlet) => (

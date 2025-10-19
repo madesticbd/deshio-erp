@@ -1,0 +1,35 @@
+{
+  "users": [
+    {
+      "id": 1,
+      "username": "admin_master",
+      "password": "12345",
+      "role": "super_admin",
+      "email": "admin@company.com",
+      "fullName": "System Administrator"
+    },
+    {
+      "id": 2,
+      "username": "store_mgr_01",
+      "password": "12345",
+      "role": "store_manager",
+      "email": "store.manager@company.com",
+      "fullName": "John Smith",
+      "storeId": "1759737165411",
+      "storeName": "Uttara"
+    },
+    {
+      "id": 3,
+      "username": "social_commerce_mgr",
+      "password": "12345",
+      "role": "social_commerce_manager",
+      "email": "social.manager@company.com",
+      "fullName": "Sarah Johnson",
+      "platforms": [
+        "facebook",
+        "instagram",
+        "whatsapp_business"
+      ]
+    }
+  ]
+}

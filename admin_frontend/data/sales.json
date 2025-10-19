@@ -119,5 +119,46 @@
       "due": 65
     },
     "createdAt": "2025-10-13T04:07:16.090Z"
+  },
+  {
+    "id": "sale-1760609315887",
+    "salesBy": "Admin",
+    "outletId": "1759737165411",
+    "date": "2025-10-16",
+    "customer": {
+      "name": "Sabuj",
+      "mobile": "01745191964",
+      "address": ""
+    },
+    "items": [
+      {
+        "id": 1760609309355,
+        "productId": 1759738578875,
+        "productName": "Cotton Sharee",
+        "size": "",
+        "qty": 2,
+        "price": 5000,
+        "discount": 0,
+        "amount": 10000
+      }
+    ],
+    "amounts": {
+      "subtotal": 10000,
+      "totalDiscount": 0,
+      "vat": 500,
+      "vatRate": 5,
+      "transportCost": 0,
+      "total": 10500
+    },
+    "payments": {
+      "cash": 0,
+      "card": 0,
+      "bkash": 0,
+      "nagad": 0,
+      "transactionFee": 0,
+      "totalPaid": 0,
+      "due": 10500
+    },
+    "createdAt": "2025-10-16T10:08:35.887Z"
   }
 ]
