@@ -93,7 +93,7 @@
     "costPrice": 500,
     "sellingPrice": 700,
     "location": "Uttara",
-    "status": "sold",
+    "status": "available",
     "admittedAt": "2025-10-16T06:17:17.469Z",
     "id": 1760594740016,
     "createdAt": "2025-10-16T06:06:58.783Z",
@@ -108,11 +108,12 @@
     "costPrice": 500,
     "sellingPrice": 700,
     "location": "Uttara",
-    "status": "available",
+    "status": "sold",
     "admittedAt": "2025-10-16T06:17:25.030Z",
     "id": 1760594741820,
     "createdAt": "2025-10-16T06:06:58.783Z",
-    "updatedAt": "2025-10-16T06:17:25.429Z"
+    "updatedAt": "2025-10-18T16:30:04.860Z",
+    "soldAt": "2025-10-18T16:30:04.393Z"
   },
   {
     "productId": 1760593481284,
@@ -191,11 +192,13 @@
     "costPrice": 1000,
     "sellingPrice": 2000,
     "location": "Banasree",
-    "status": "available",
+    "status": "sold",
     "admittedAt": "2025-10-16T06:19:42.949Z",
     "id": 1760595272860,
     "createdAt": "2025-10-16T06:15:34.114Z",
-    "updatedAt": "2025-10-16T11:12:29.515Z"
+    "updatedAt": "2025-10-19T05:41:30.975Z",
+    "saleId": "sale-1760852324309",
+    "soldAt": "2025-10-19T05:41:30.975Z"
   },
   {
     "productId": 1760593404487,
@@ -406,5 +409,31 @@
     "id": 1760595310657,
     "createdAt": "2025-10-16T06:16:06.136Z",
     "updatedAt": "2025-10-16T11:23:24.836Z"
+  },
+  {
+    "productId": 1760593481284,
+    "batchId": 1760852587199,
+    "barcode": "BATCH1760852587199-01",
+    "costPrice": 300,
+    "sellingPrice": 500,
+    "location": "In Transit to Uttara",
+    "status": "in-transit",
+    "admittedAt": "2025-10-19T05:45:42.912Z",
+    "id": 1760852743398,
+    "createdAt": "2025-10-19T05:45:43.398Z",
+    "updatedAt": "2025-10-19T05:46:11.862Z"
+  },
+  {
+    "productId": 1760593481284,
+    "batchId": 1760852587199,
+    "barcode": "BATCH1760852587199-02",
+    "costPrice": 300,
+    "sellingPrice": 500,
+    "location": "In Transit to Uttara",
+    "status": "in-transit",
+    "admittedAt": "2025-10-19T05:45:45.182Z",
+    "id": 1760852745626,
+    "createdAt": "2025-10-19T05:45:45.626Z",
+    "updatedAt": "2025-10-19T05:46:12.315Z"
   }
 ]

@@ -80,7 +80,7 @@
     "barcode": "BATCH1760594714624-06",
     "productId": 1760593481284,
     "productName": "Ear rings",
-    "status": "pending",
+    "status": "sold",
     "store": "1760592803601",
     "addedBy": "Admin",
     "addedAt": "2025-10-18T07:30:33.405Z",
@@ -88,8 +88,10 @@
     "customerPhone": null,
     "costPrice": 500,
     "originalSellingPrice": 700,
-    "sellingPrice": null,
+    "sellingPrice": 440,
     "returnReason": "ui test",
-    "image": "/uploads/defect-1760772633399.jpeg"
+    "image": "/uploads/defect-1760772633399.jpeg",
+    "soldAt": "2025-10-19T05:38:44.310Z",
+    "updatedAt": "2025-10-19T05:38:44.310Z"
   }
 ]

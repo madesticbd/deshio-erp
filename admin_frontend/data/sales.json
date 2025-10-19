@@ -371,5 +371,76 @@
       "due": 1890
     },
     "createdAt": "2025-10-18T07:34:32.245Z"
+  },
+  {
+    "id": "sale-1760852324309",
+    "salesBy": "Admin",
+    "outletId": "1760592803601",
+    "date": "2025-10-19",
+    "customer": {
+      "name": "Rumy Parvez",
+      "mobile": "01818316964",
+      "address": "International Affairs Division ,Paramanu Bhaban ,Bangladesh Atomic Energy Commission,"
+    },
+    "items": [
+      {
+        "id": 1760852490974.9883,
+        "productId": 1760593404487,
+        "productName": "Jamdani",
+        "size": "1",
+        "qty": 1,
+        "price": 2000,
+        "discount": 0,
+        "amount": 2000,
+        "barcodes": [
+          "BATCH1760595196440-04"
+        ]
+      }
+    ],
+    "amounts": {
+      "subtotal": 2000,
+      "totalDiscount": 0,
+      "vat": 100,
+      "vatRate": 5,
+      "transportCost": 0,
+      "total": 2100
+    },
+    "payments": {
+      "cash": 0,
+      "card": 0,
+      "bkash": 0,
+      "nagad": 0,
+      "transactionFee": 0,
+      "totalPaid": 0,
+      "due": 2100
+    },
+    "createdAt": "2025-10-19T05:38:44.309Z",
+    "exchangeHistory": [
+      {
+        "date": "2025-10-19T05:41:30.975Z",
+        "removedProducts": [
+          {
+            "productId": 1760852295710,
+            "quantity": 1
+          }
+        ],
+        "replacementProducts": [
+          {
+            "id": 1760593404487,
+            "batchId": 1760595196440,
+            "name": "Jamdani",
+            "price": 2000,
+            "quantity": 1,
+            "amount": 2000,
+            "size": "1"
+          }
+        ],
+        "originalTotal": 462,
+        "newTotal": 2100,
+        "difference": 1638,
+        "note": "Customer owes additional payment"
+      }
+    ],
+    "updatedAt": "2025-10-19T05:41:30.975Z"
   }
 ]
