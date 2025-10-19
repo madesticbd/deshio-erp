@@ -1,21 +1,53 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Search, X } from 'lucide-react';
+import { Search, X, Package } from 'lucide-react';
 import Header from '@/components/Header';
 import Sidebar from '@/components/Sidebar';
 import { useRouter } from 'next/navigation';
 
-
 interface Product {
-  id: number | string; // Support both numeric IDs and variation string IDs
-  productId?: number | string; // For tracking in cart
+  id: number;
+  name: string;
+  attributes: {
+    mainImage?: string;
+    Price?: string;
+    [key: string]: any;
+  };
+}
+
+interface InventoryItem {
+  id: number;
+  productId: number;
+  barcode: string;
+  status: string;
+  location: string;
+  sellingPrice: number;
+  [key: string]: any;
+}
+
+interface DefectItem {
+  id: string;
+  barcode: string;
+  productId: number;
+  productName: string;
+  sellingPrice?: number;
+  store?: string;
+}
+
+interface CartProduct {
+  id: number | string;
+  productId?: number | string;
+  batchId?: number | string;
   productName: string;
   size: string;
   qty: number;
   price: number;
   discount: number;
   amount: number;
+  isDefective?: boolean;
+  defectId?: string;
+  barcode?: string;
 }
 
 export default function SocialCommercePage() {
@@ -35,7 +67,6 @@ export default function SocialCommercePage() {
   const [division, setDivision] = useState('');
   const [district, setDistrict] = useState('');
   const [city, setCity] = useState('');
- 
   const [zone, setZone] = useState('');
   const [area, setArea] = useState('');
   const [deliveryAddress, setDeliveryAddress] = useState('');
@@ -45,30 +76,47 @@ export default function SocialCommercePage() {
   const [districts, setDistricts] = useState<any[]>([]);
   const [upazillas, setUpazillas] = useState<any[]>([]);
 
-  
-  
   // Product search and selection
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<any[]>([]);
   const [selectedProduct, setSelectedProduct] = useState<any>(null);
-  const [cart, setCart] = useState<Product[]>([]);
+  const [cart, setCart] = useState<CartProduct[]>([]);
   
   const [quantity, setQuantity] = useState('');
   const [discountPercent, setDiscountPercent] = useState('');
   const [discountTk, setDiscountTk] = useState('');
   const [amount, setAmount] = useState('0.00');
 
-  // Flatten products with variations into searchable items
+  // Defective product states
+  const [defectiveProduct, setDefectiveProduct] = useState<DefectItem | null>(null);
+  const [defectivePrice, setDefectivePrice] = useState('');
+  const [defectiveStore, setDefectiveStore] = useState('');
+
+  // Load defective product from sessionStorage
+  useEffect(() => {
+    const defectData = sessionStorage.getItem('defectItem');
+    if (defectData) {
+      try {
+        const defect = JSON.parse(defectData);
+        setDefectiveProduct(defect);
+        setDefectivePrice(defect.sellingPrice?.toString() || '');
+        setDefectiveStore(defect.store || '');
+        alert('Defective product loaded. Please complete the order.');
+      } catch (error) {
+        console.error('Error parsing defect data:', error);
+      }
+    }
+  }, []);
+
   const getFlattenedProducts = () => {
     const flattened: any[] = [];
     
     allProducts.forEach(product => {
       if (product.variations && product.variations.length > 0) {
-        // Product has variations - create separate entries for each
         product.variations.forEach((variation: any, index: number) => {
           const colorAttr = variation.attributes?.Colour || `Variation ${index + 1}`;
           flattened.push({
-            id: variation.id, // Use variation ID
+            id: variation.id,
             name: `${product.name} - ${colorAttr}`,
             originalProductId: product.id,
             isVariation: true,
@@ -80,7 +128,6 @@ export default function SocialCommercePage() {
           });
         });
       } else {
-        // Regular product without variations
         flattened.push({
           ...product,
           isVariation: false
@@ -91,14 +138,31 @@ export default function SocialCommercePage() {
     return flattened;
   };
 
-  // Fetch products and inventory on component mount
+  const calculateAmount = (
+    basePrice: number,
+    qty: number,
+    discountPercent: number,
+    discountTk: number
+  ) => {
+    const baseAmount = basePrice * qty;
+    const percentDiscount = (baseAmount * discountPercent) / 100;
+    const totalDiscount = percentDiscount + discountTk;
+    const finalAmount = baseAmount - totalDiscount;
+    
+    return {
+      baseAmount,
+      percentDiscount,
+      totalDiscount,
+      finalAmount: Math.max(0, finalAmount)
+    };
+  };
+
   useEffect(() => {
     const fetchProducts = async () => {
       try {
         const response = await fetch('/api/products');
         if (response.ok) {
           const data = await response.json();
-          console.log('Products loaded:', data.length);
           setAllProducts(data);
         }
       } catch (error) {
@@ -111,8 +175,6 @@ export default function SocialCommercePage() {
         const response = await fetch('/api/inventory');
         if (response.ok) {
           const data = await response.json();
-          console.log('Inventory loaded:', data.length);
-          console.log('Sample inventory item:', data[0]);
           setInventory(data);
         }
       } catch (error) {
@@ -148,7 +210,7 @@ export default function SocialCommercePage() {
         const res = await fetch(`https://bdapi.vercel.app/api/v.1/district/${selectedDivision.id}`);
         const data = await res.json();
         setDistricts(data.data);
-        setUpazillas([]); // reset
+        setUpazillas([]);
       } catch (err) {
         console.error('Error fetching districts:', err);
       }
@@ -176,18 +238,18 @@ export default function SocialCommercePage() {
     fetchUpazillas();
   }, [district, districts]);
 
-  // Helper function to get available inventory count for a product/variation
-  const getAvailableInventory = (productId: number | string) => {
-    const available = inventory.filter(item => {
-      // Handle both numeric IDs and variation string IDs
+  const getAvailableInventory = (productId: number | string, batchId?: number | string) => {
+    return inventory.filter(item => {
       const itemProductId = typeof item.productId === 'string' ? item.productId : String(item.productId);
       const searchProductId = typeof productId === 'string' ? productId : String(productId);
-      return itemProductId === searchProductId && item.status === 'available';
-    });
-    return available.length;
+      const matchesProduct = itemProductId === searchProductId && item.status === 'available';
+      if (batchId !== undefined) {
+        return matchesProduct && item.batchId === batchId;
+      }
+      return matchesProduct;
+    }).length;
   };
 
-  // Live search with debounce - only show products with available inventory
   useEffect(() => {
     if (!searchQuery.trim()) {
       setSearchResults([]);
@@ -196,43 +258,57 @@ export default function SocialCommercePage() {
 
     const delayDebounce = setTimeout(() => {
       const flattenedProducts = getFlattenedProducts();
-      
-      console.log('Search query:', searchQuery);
-      console.log('All flattened products count:', flattenedProducts.length);
-      console.log('Inventory count:', inventory.length);
-      
-      // First filter by name match
-      const nameMatches = flattenedProducts.filter((product: any) =>
-        product.name.toLowerCase().includes(searchQuery.toLowerCase())
-      );
-      
-      console.log('Name matches:', nameMatches.length);
-      
-      // Then filter by available inventory
-      const results = nameMatches.filter((product: any) => {
-        const availableCount = getAvailableInventory(product.id);
-        console.log(`Product "${product.name}" (ID: ${product.id}) has ${availableCount} available items`);
-        return availableCount > 0;
+      const results: any[] = [];
+
+      flattenedProducts.forEach((prod: any) => {
+        const availableItems = inventory.filter((item: any) => 
+          String(item.productId) === String(prod.id) && item.status === 'available'
+        );
+
+        if (availableItems.length === 0) return;
+
+        const groups: { [key: string]: { batchId: any; price: number; count: number } } = {};
+
+        availableItems.forEach((item: any) => {
+          const bid = item.batchId;
+          if (!groups[bid]) {
+            groups[bid] = {
+              batchId: bid,
+              price: item.sellingPrice,
+              count: 0
+            };
+          }
+          groups[bid].count++;
+        });
+
+        if (prod.name.toLowerCase().includes(searchQuery.toLowerCase())) {
+          Object.values(groups).forEach((group) => {
+            results.push({
+              ...prod,
+              batchId: group.batchId,
+              attributes: { ...prod.attributes, Price: group.price },
+              available: group.count
+            });
+          });
+        }
       });
       
-      console.log('Final results with inventory:', results.length);
       setSearchResults(results);
     }, 300);
 
     return () => clearTimeout(delayDebounce);
   }, [searchQuery, allProducts, inventory]);
 
-  // Select product from search results
   const handleProductSelect = (product: any) => {
     setSelectedProduct(product);
     setSearchQuery('');
     setSearchResults([]);
-    setQuantity('1'); // Auto-set quantity to 1
-    setDiscountPercent(''); // Reset discount
-    setDiscountTk(''); // Reset discount
+    setQuantity('1');
+    setDiscountPercent('');
+    setDiscountTk('');
+    setAmount('0.00');
   };
 
-  // Calculate amount
   useEffect(() => {
     if (selectedProduct && quantity) {
       const price = parseFloat(selectedProduct.attributes.Price);
@@ -240,14 +316,42 @@ export default function SocialCommercePage() {
       const discPer = parseFloat(discountPercent) || 0;
       const discTk = parseFloat(discountTk) || 0;
       
-      const baseAmount = price * qty;
-      const percentDiscount = (baseAmount * discPer) / 100;
-      const totalDiscount = percentDiscount + discTk;
-      setAmount((baseAmount - totalDiscount).toFixed(2));
+      const { finalAmount } = calculateAmount(price, qty, discPer, discTk);
+      setAmount(finalAmount.toFixed(2));
     } else {
       setAmount('0.00');
     }
   }, [selectedProduct, quantity, discountPercent, discountTk]);
+
+  const addDefectiveToCart = () => {
+    if (!defectiveProduct || !defectivePrice) {
+      alert('Defective product price is required');
+      return;
+    }
+
+    const price = parseFloat(defectivePrice);
+    
+    const newItem: CartProduct = {
+      id: Date.now(),
+      productId: defectiveProduct.productId,
+      productName: defectiveProduct.productName,
+      size: '1',
+      qty: 1,
+      price: price,
+      discount: 0,
+      amount: price,
+      isDefective: true,
+      defectId: defectiveProduct.id,
+      barcode: defectiveProduct.barcode
+    };
+    
+    setCart([...cart, newItem]);
+    alert('Defective product added to cart');
+    
+    setDefectiveProduct(null);
+    setDefectivePrice('');
+    sessionStorage.removeItem('defectItem');
+  };
 
   const addToCart = () => {
     if (!selectedProduct || !quantity || parseInt(quantity) <= 0) {
@@ -255,13 +359,11 @@ export default function SocialCommercePage() {
       return;
     }
 
-    // Check available inventory - handle both numeric and string IDs
-    const availableQty = getAvailableInventory(selectedProduct.id);
+    const availableQty = getAvailableInventory(selectedProduct.id, selectedProduct.batchId);
     const requestedQty = parseInt(quantity);
     
-    // Check existing quantity in cart
     const existingItem = cart.find(
-      item => String(item.productId) === String(selectedProduct.id)
+      item => String(item.productId) === String(selectedProduct.id) && item.batchId === selectedProduct.batchId
     );
     const cartQty = existingItem ? existingItem.qty : 0;
     
@@ -275,51 +377,42 @@ export default function SocialCommercePage() {
     const discPer = parseFloat(discountPercent) || 0;
     const discTk = parseFloat(discountTk) || 0;
     
-    const baseAmount = price * qty;
-    const percentDiscount = (baseAmount * discPer) / 100;
-    const totalDiscountValue = percentDiscount + discTk;
+    const { finalAmount, totalDiscount } = calculateAmount(price, qty, discPer, discTk);
     
-    // Check if product already exists in cart
     const existingItemIndex = cart.findIndex(
-      item => String(item.productId) === String(selectedProduct.id) && item.price === price
+      item => String(item.productId) === String(selectedProduct.id) && item.batchId === selectedProduct.batchId && item.price === price
     );
     
     if (existingItemIndex !== -1) {
-      // Update existing item
       const updatedCart = [...cart];
       const existingItem = updatedCart[existingItemIndex];
-      
-      // Add quantities and recalculate
       const newQty = existingItem.qty + qty;
-      const newBaseAmount = price * newQty;
-      const newPercentDiscount = (newBaseAmount * discPer) / 100;
-      const newTotalDiscount = existingItem.discount + totalDiscountValue;
+      const { finalAmount: newAmount } = calculateAmount(price, newQty, discPer, discTk);
       
       updatedCart[existingItemIndex] = {
         ...existingItem,
         qty: newQty,
-        discount: newTotalDiscount,
-        amount: newBaseAmount - newTotalDiscount
+        discount: existingItem.discount + totalDiscount,
+        amount: newAmount
       };
       
       setCart(updatedCart);
     } else {
-      // Add new item
-      const newItem: Product = {
+      const newItem: CartProduct = {
         id: Date.now(),
-        productId: selectedProduct.id, // Store the actual product/variation ID
+        productId: selectedProduct.id,
+        batchId: selectedProduct.batchId,
         productName: selectedProduct.name,
-        size: '1', // Set size as 1
+        size: '1',
         qty: qty,
         price: price,
-        discount: totalDiscountValue,
-        amount: baseAmount - totalDiscountValue
+        discount: totalDiscount,
+        amount: finalAmount
       };
       
       setCart([...cart, newItem]);
     }
     
-    // Reset
     setSelectedProduct(null);
     setQuantity('');
     setDiscountPercent('');
@@ -327,7 +420,7 @@ export default function SocialCommercePage() {
     setAmount('0.00');
   };
 
-  const removeFromCart = (id: number) => {
+  const removeFromCart = (id: number | string) => {
     setCart(cart.filter(item => item.id !== id));
   };
 
@@ -344,28 +437,6 @@ export default function SocialCommercePage() {
     }
     
     try {
-      // Update inventory status for each product in cart
-      for (const item of cart) {
-        const availableItems = inventory.filter(inv => {
-          const invProductId = typeof inv.productId === 'string' ? inv.productId : String(inv.productId);
-          const itemProductId = typeof item.productId === 'string' ? item.productId : String(item.productId);
-          return invProductId === itemProductId && inv.status === 'available';
-        }).slice(0, item.qty);
-        
-        // Update each inventory item to sold
-        for (const invItem of availableItems) {
-          await fetch(`/api/inventory/${invItem.id}`, {
-            method: 'PATCH',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              status: 'sold',
-              soldAt: new Date().toISOString()
-            })
-          });
-        }
-      }
-      
-      // Store order data in session storage for the next page
       const orderData = {
         salesBy,
         date,
@@ -391,7 +462,7 @@ export default function SocialCommercePage() {
       sessionStorage.setItem('pendingOrder', JSON.stringify(orderData));
       router.push('/social-commerce/amount-details');
     } catch (error) {
-      console.error('Error updating inventory:', error);
+      console.error('Error processing order:', error);
       alert('Failed to process order. Please try again.');
     }
   };
@@ -429,6 +500,78 @@ export default function SocialCommercePage() {
                   />
                 </div>
               </div>
+
+              {/* Defective Product Section */}
+              {defectiveProduct && (
+                <div className="mb-6 bg-orange-50 dark:bg-orange-900/20 border-2 border-orange-300 dark:border-orange-700 rounded-lg p-4">
+                  <div className="flex items-start justify-between mb-4">
+                    <div className="flex items-center gap-3">
+                      <Package className="w-6 h-6 text-orange-600 dark:text-orange-400" />
+                      <div>
+                        <h3 className="text-lg font-semibold text-orange-900 dark:text-orange-300">
+                          Defective Product Order
+                        </h3>
+                        <p className="text-sm text-orange-700 dark:text-orange-400">
+                          Complete the order for this defective item
+                        </p>
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => {
+                        setDefectiveProduct(null);
+                        setDefectivePrice('');
+                        sessionStorage.removeItem('defectItem');
+                      }}
+                      className="text-orange-600 dark:text-orange-400 hover:text-orange-700"
+                    >
+                      <X className="w-5 h-5" />
+                    </button>
+                  </div>
+                  
+                  <div className="grid grid-cols-2 gap-4 mb-4">
+                    <div>
+                      <p className="text-sm text-orange-700 dark:text-orange-400 mb-1">Product Name</p>
+                      <p className="font-medium text-orange-900 dark:text-orange-200">{defectiveProduct.productName}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-orange-700 dark:text-orange-400 mb-1">Barcode</p>
+                      <p className="font-mono text-orange-900 dark:text-orange-200">{defectiveProduct.barcode}</p>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-orange-700 dark:text-orange-400 mb-1">
+                        Selling Price (৳)
+                      </label>
+                      <input
+                        type="text"
+                        value={defectivePrice}
+                        readOnly
+                        className="w-full px-3 py-2 border border-orange-300 dark:border-orange-600 rounded-md bg-orange-100 dark:bg-orange-900/30 text-orange-900 dark:text-orange-200"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-orange-700 dark:text-orange-400 mb-1">
+                        Store Location
+                      </label>
+                      <input
+                        type="text"
+                        value={defectiveStore}
+                        readOnly
+                        className="w-full px-3 py-2 border border-orange-300 dark:border-orange-600 rounded-md bg-orange-100 dark:bg-orange-900/30 text-orange-900 dark:text-orange-200"
+                      />
+                    </div>
+                  </div>
+
+                  <button
+                    onClick={addDefectiveToCart}
+                    className="mt-4 w-full px-4 py-2 bg-orange-600 hover:bg-orange-700 text-white rounded-md font-medium"
+                  >
+                    Add Defective Product to Cart
+                  </button>
+                </div>
+              )}
 
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6">
                 {/* Left Column - Customer Info & Address */}
@@ -488,7 +631,6 @@ export default function SocialCommercePage() {
                     <h3 className="text-sm font-medium text-gray-900 dark:text-white mb-4">Delivery Address</h3>
                     
                     <div className="space-y-3">
-                      {/* Division and District in one line */}
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         <div>
                           <label className="block text-xs text-gray-700 dark:text-gray-300 mb-1">Division*</label>
@@ -512,7 +654,7 @@ export default function SocialCommercePage() {
                             value={district}
                             onChange={(e) => setDistrict(e.target.value)}
                             disabled={!division}
-                            className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                            className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white disabled:opacity-50"
                           >
                             <option value="">Select District</option>
                             {districts.map((d) => (
@@ -524,7 +666,6 @@ export default function SocialCommercePage() {
                         </div>
                       </div>
 
-                      {/* Upazilla and Zone in one line */}
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         <div>
                           <label className="block text-xs text-gray-700 dark:text-gray-300 mb-1">Upazilla*</label>
@@ -532,7 +673,7 @@ export default function SocialCommercePage() {
                             value={city}
                             onChange={(e) => setCity(e.target.value)}
                             disabled={!district}
-                            className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                            className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white disabled:opacity-50"
                           >
                             <option value="">Select Upazilla</option>
                             {upazillas.map((u) => (
@@ -614,10 +755,10 @@ export default function SocialCommercePage() {
                     {searchResults.length > 0 && (
                       <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 max-h-60 md:max-h-80 overflow-y-auto mb-4 p-1">
                         {searchResults.map((product) => {
-                          const availableQty = getAvailableInventory(product.id);
+                          const availableQty = product.available;
                           return (
                             <div
-                              key={product.id}
+                              key={`${product.id}-${product.batchId}`}
                               onClick={() => handleProductSelect(product)}
                               className="border border-gray-200 dark:border-gray-600 rounded p-2 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
                             >
@@ -626,7 +767,7 @@ export default function SocialCommercePage() {
                                 alt={product.name} 
                                 className="w-full h-24 sm:h-32 object-cover rounded mb-2" 
                               />
-                              <p className="text-xs text-gray-900 dark:text-white font-medium truncate">{product.name}</p>
+                              <p className="text-xs text-gray-900 dark:text-white font-medium truncate">{product.name} (Batch {product.batchId})</p>
                               <p className="text-xs text-gray-600 dark:text-gray-400">{product.attributes.Price} Tk</p>
                               <p className="text-xs text-green-600 dark:text-green-400 mt-1">Available: {availableQty}</p>
                             </div>
@@ -656,9 +797,9 @@ export default function SocialCommercePage() {
                             className="w-16 h-16 object-cover rounded flex-shrink-0" 
                           />
                           <div className="min-w-0">
-                            <p className="text-sm text-gray-900 dark:text-white font-medium truncate">{selectedProduct.name}</p>
+                            <p className="text-sm text-gray-900 dark:text-white font-medium truncate">{selectedProduct.name} (Batch {selectedProduct.batchId})</p>
                             <p className="text-sm text-gray-600 dark:text-gray-400">Price: {selectedProduct.attributes.Price} Tk</p>
-                            <p className="text-sm text-green-600 dark:text-green-400">Available: {getAvailableInventory(selectedProduct.id)} units</p>
+                            <p className="text-sm text-green-600 dark:text-green-400">Available: {getAvailableInventory(selectedProduct.id, selectedProduct.batchId)} units</p>
                           </div>
                         </div>
                       </div>
@@ -716,17 +857,19 @@ export default function SocialCommercePage() {
                             value={discountPercent}
                             onChange={(e) => setDiscountPercent(e.target.value)}
                             disabled={!selectedProduct}
+                            min="0"
                             className="w-full px-2 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white disabled:opacity-50 disabled:cursor-not-allowed [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                           />
                         </div>
                         <div>
-                          <label className="block text-xs text-gray-700 dark:text-gray-300 mb-1">Tk.</label>
+                          <label className="block text-xs text-gray-700 dark:text-gray-300 mb-1">Discount Tk</label>
                           <input
                             type="number"
                             placeholder="0"
                             value={discountTk}
                             onChange={(e) => setDiscountTk(e.target.value)}
                             disabled={!selectedProduct}
+                            min="0"
                             className="w-full px-2 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white disabled:opacity-50 disabled:cursor-not-allowed [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                           />
                         </div>
@@ -775,9 +918,17 @@ export default function SocialCommercePage() {
                             </tr>
                           ) : (
                             cart.map((item) => (
-                              <tr key={item.id} className="border-b border-gray-200 dark:border-gray-700">
+                              <tr key={item.id} className={`border-b border-gray-200 dark:border-gray-700 ${item.isDefective ? 'bg-orange-50 dark:bg-orange-900/10' : ''}`}>
                                 <td className="px-3 py-2 text-gray-900 dark:text-white">
-                                  <div className="max-w-[120px] truncate">{item.productName}</div>
+                                  <div className="max-w-[120px]">
+                                    <p className="truncate">{item.productName}</p>
+                                    {item.batchId && <p className="text-xs text-gray-500">(Batch {item.batchId})</p>}
+                                    {item.isDefective && (
+                                      <span className="inline-block mt-1 px-2 py-0.5 bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400 text-xs rounded">
+                                        Defective
+                                      </span>
+                                    )}
+                                  </div>
                                 </td>
                                 <td className="px-3 py-2 text-gray-900 dark:text-white whitespace-nowrap">{item.qty}</td>
                                 <td className="px-3 py-2 text-gray-900 dark:text-white whitespace-nowrap">{item.price.toFixed(2)}</td>

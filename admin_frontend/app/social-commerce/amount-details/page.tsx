@@ -10,6 +10,7 @@ export default function AmountDetailsPage() {
   const [darkMode, setDarkMode] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [orderData, setOrderData] = useState<any>(null);
+  const [isProcessing, setIsProcessing] = useState(false);
   
   // Amount details
   const [vatRate, setVatRate] = useState('5');
@@ -17,6 +18,14 @@ export default function AmountDetailsPage() {
   const [sslCommerzPaid, setSslCommerzPaid] = useState('0');
   const [advancePaid, setAdvancePaid] = useState('0');
   const [transactionId, setTransactionId] = useState('');
+
+  const getTodayDate = () => {
+    const today = new Date();
+    const day = String(today.getDate()).padStart(2, '0');
+    const month = String(today.getMonth() + 1).padStart(2, '0');
+    const year = today.getFullYear();
+    return `${day}-${month}-${year}`;
+  };
 
   useEffect(() => {
     const storedOrder = sessionStorage.getItem('pendingOrder');
@@ -44,29 +53,114 @@ export default function AmountDetailsPage() {
   const paidSslCommerz = parseFloat(sslCommerzPaid) || 0;
   const paidAdvance = parseFloat(advancePaid) || 0;
   const totalPaid = paidSslCommerz + paidAdvance;
-  const dueAmount = total - totalPaid;
+  const dueAmount = Math.max(0, total - totalPaid);
+  const returnAmount = Math.max(0, totalPaid - total);
+
+  const updateDefectStatus = async (defectId: string) => {
+    try {
+      await fetch(`/api/defects?id=${defectId}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          status: 'sold',
+          soldAt: new Date().toISOString()
+        }),
+      });
+    } catch (error) {
+      console.error('Error updating defect status:', error);
+      throw error;
+    }
+  };
 
   const handlePlaceOrder = async () => {
-    const completeOrderData = {
-      ...orderData,
-      amounts: {
-        subtotal,
-        totalDiscount,
-        vat,
-        vatRate: parseFloat(vatRate),
-        transportCost: transport,
-        total
-      },
-      payments: {
-        sslCommerz: paidSslCommerz,
-        advance: paidAdvance,
-        transactionId,
-        totalPaid,
-        due: dueAmount
-      }
-    };
+    setIsProcessing(true);
+    let inventoryUpdateSuccess = true;
 
     try {
+      // Fetch current inventory
+      const invResponse = await fetch('/api/inventory');
+      if (!invResponse.ok) {
+        throw new Error('Failed to fetch inventory');
+      }
+      const inventory = await invResponse.json();
+
+      // For each product in the order
+      for (const item of orderData.products) {
+        // Skip inventory update for defective products
+        if (item.isDefective) {
+          if (item.defectId) {
+            await updateDefectStatus(item.defectId);
+          }
+          continue;
+        }
+
+        // Find available inventory items for regular products
+        const availableItems = inventory.filter((inv: any) => 
+          String(inv.productId) === String(item.productId) &&
+          inv.batchId === item.batchId &&
+          inv.status === 'available'
+        );
+
+        if (availableItems.length < item.qty) {
+          console.error(`Insufficient inventory for product ${item.productId} (batch ${item.batchId}): available ${availableItems.length}, needed ${item.qty}`);
+          inventoryUpdateSuccess = false;
+          continue;
+        }
+
+        // Update the first 'qty' items
+        const itemsToUpdate = availableItems.slice(0, item.qty);
+        const updatePromises = itemsToUpdate.map(async (invItem: any) => {
+          try {
+            const response = await fetch(`/api/inventory/${invItem.id}`, {
+              method: 'PATCH',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                status: 'sold',
+                soldAt: new Date().toISOString()
+              })
+            });
+
+            if (!response.ok) {
+              throw new Error(`Failed to update item ${invItem.id}`);
+            }
+          } catch (error) {
+            console.error(`Error updating inventory item ${invItem.id}:`, error);
+            inventoryUpdateSuccess = false;
+          }
+        });
+
+        await Promise.all(updatePromises);
+      }
+
+      if (!inventoryUpdateSuccess) {
+        alert('Failed to update some inventory items. Please check the console for details.');
+        setIsProcessing(false);
+        return;
+      }
+
+      // Step 2: Create the order
+      const completeOrderData = {
+        ...orderData,
+        date: orderData.date || getTodayDate(),
+        amounts: {
+          subtotal,
+          totalDiscount,
+          vat,
+          vatRate: parseFloat(vatRate),
+          transportCost: transport,
+          total
+        },
+        payments: {
+          sslCommerz: paidSslCommerz,
+          advance: paidAdvance,
+          transactionId,
+          totalPaid,
+          due: dueAmount
+        }
+      };
+
       const response = await fetch('/api/social-orders', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -76,15 +170,17 @@ export default function AmountDetailsPage() {
       const result = await response.json();
 
       if (response.ok) {
-        alert('Order placed successfully! Barcodes have been allocated.');
+        alert('Order placed successfully!');
         sessionStorage.removeItem('pendingOrder');
-        router.push('/social-commerce');
+        router.push('/orders');
       } else {
         alert(result.error || 'Failed to place order');
+        setIsProcessing(false);
       }
     } catch (error) {
       console.error('Error:', error);
       alert('Error placing order');
+      setIsProcessing(false);
     }
   };
 
@@ -135,10 +231,28 @@ export default function AmountDetailsPage() {
                     <p className="text-sm font-medium text-gray-900 dark:text-white mb-3">Products ({orderData.products.length})</p>
                     <div className="space-y-2 max-h-60 md:max-h-80 overflow-y-auto">
                       {orderData.products.map((product: any) => (
-                        <div key={product.id} className="flex justify-between items-center p-2 bg-gray-50 dark:bg-gray-700 rounded">
+                        <div key={product.id} className={`flex justify-between items-center p-2 rounded ${
+                          product.isDefective 
+                            ? 'bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-700' 
+                            : 'bg-gray-50 dark:bg-gray-700'
+                        }`}>
                           <div className="min-w-0 flex-1">
-                            <p className="text-sm text-gray-900 dark:text-white truncate">{product.productName}</p>
-                            <p className="text-xs text-gray-600 dark:text-gray-400">Qty: {product.qty} × {product.price.toFixed(2)} Tk</p>
+                            <p className="text-sm text-gray-900 dark:text-white truncate">
+                              {product.productName}
+                              {product.isDefective && (
+                                <span className="ml-2 px-2 py-0.5 bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400 text-xs rounded">
+                                  Defective
+                                </span>
+                              )}
+                            </p>
+                            <p className="text-xs text-gray-600 dark:text-gray-400">
+                              Qty: {product.qty} × {product.price.toFixed(2)} Tk
+                            </p>
+                            {product.barcode && (
+                              <p className="text-xs text-gray-500 dark:text-gray-400 font-mono">
+                                Barcode: {product.barcode}
+                              </p>
+                            )}
                           </div>
                           <p className="text-sm font-medium text-gray-900 dark:text-white ml-2">{product.amount.toFixed(2)} Tk</p>
                         </div>
@@ -186,7 +300,8 @@ export default function AmountDetailsPage() {
                           type="number"
                           value={vatRate}
                           onChange={(e) => setVatRate(e.target.value)}
-                          className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                          disabled={isProcessing}
+                          className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white disabled:opacity-50 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                         />
                       </div>
                     </div>
@@ -197,7 +312,8 @@ export default function AmountDetailsPage() {
                         type="number"
                         value={transportCost}
                         onChange={(e) => setTransportCost(e.target.value)}
-                        className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                        disabled={isProcessing}
+                        className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white disabled:opacity-50 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                       />
                     </div>
 
@@ -217,7 +333,8 @@ export default function AmountDetailsPage() {
                             type="number"
                             value={sslCommerzPaid}
                             onChange={(e) => setSslCommerzPaid(e.target.value)}
-                            className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                            disabled={isProcessing}
+                            className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white disabled:opacity-50 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                           />
                         </div>
                         <div>
@@ -226,7 +343,8 @@ export default function AmountDetailsPage() {
                             type="number"
                             value={advancePaid}
                             onChange={(e) => setAdvancePaid(e.target.value)}
-                            className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                            disabled={isProcessing}
+                            className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white disabled:opacity-50 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                           />
                         </div>
                       </div>
@@ -236,8 +354,9 @@ export default function AmountDetailsPage() {
                           type="text"
                           value={transactionId}
                           onChange={(e) => setTransactionId(e.target.value)}
+                          disabled={isProcessing}
                           placeholder="Enter transaction ID"
-                          className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400"
+                          className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 disabled:opacity-50"
                         />
                       </div>
                     </div>
@@ -245,7 +364,7 @@ export default function AmountDetailsPage() {
                     <div className="flex justify-between text-sm">
                       <span className="text-gray-600 dark:text-gray-400">Return</span>
                       <span className="text-green-600 dark:text-green-400 font-medium">
-                        {(totalPaid - total).toFixed(2)} Tk
+                        {returnAmount.toFixed(2)} Tk
                       </span>
                     </div>
 
@@ -257,15 +376,24 @@ export default function AmountDetailsPage() {
                     <div className="grid grid-cols-2 gap-3 pt-4">
                       <button 
                         onClick={() => router.back()}
-                        className="px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 text-sm rounded hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                        disabled={isProcessing}
+                        className="px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 text-sm rounded hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                       >
                         Back
                       </button>
                       <button
                         onClick={handlePlaceOrder}
-                        className="px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white text-sm font-medium rounded transition-colors"
+                        disabled={isProcessing}
+                        className="px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white text-sm font-medium rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                       >
-                        Place Order
+                        {isProcessing ? (
+                          <>
+                            <span className="inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
+                            Processing...
+                          </>
+                        ) : (
+                          'Place Order'
+                        )}
                       </button>
                     </div>
                   </div>

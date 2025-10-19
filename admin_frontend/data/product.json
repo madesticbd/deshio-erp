@@ -1,56 +1,36 @@
 [
   {
-    "id": 1759737987171,
+    "id": 1760593404487,
     "name": "Jamdani",
     "attributes": {
-      "mainImage": "/uploads/1759737875133-jamdani product.webp",
+      "mainImage": "/uploads/1760593653705-jamdani product.webp",
       "category": "1",
-      "subcategory": "2",
-      "Fabric-type": "Cotton",
-      "origin": "Tangail, Bangladesh",
-      "care-instructions": "Better to dry wash",
-      "Price": "1500",
-      "Image": [
-        "/uploads/1759738411866-Shadam jamdani2.jpg",
-        "/uploads/1759738423655-jam2.jpg"
-      ]
-    }
-  },
-  {
-    "id": 1759738578875,
-    "name": "Cotton Sharee",
-    "attributes": {
-      "mainImage": "/uploads/1759738532116-cotton.webp",
-      "category": "1",
-      "subcategory": "",
-      "Fabric-type": "Cotton",
-      "origin": "Tangail, Bangladesh",
-      "care-instructions": "Better to dry wash",
-      "Price": "1000",
-      "Image": "/uploads/1759738721718-Shadam jamdani2.jpg"
-    }
-  },
-  {
-    "id": 1760331323533,
-    "name": "Silk Sharee",
-    "attributes": {
-      "mainImage": "/uploads/1760331300494-Saree.webp",
-      "category": "1",
-      "subcategory": ""
+      "subcategory": "3",
+      "Price": "1400"
     },
-    "variations": [
-      {
-        "id": "var-1760331309470-0.8982553750265224",
-        "attributes": {
-          "Colour": "Blue"
-        }
-      },
-      {
-        "id": "var-1760331317619-0.24980637119233984",
-        "attributes": {
-          "Colour": "Green"
-        }
-      }
-    ]
+    "variations": []
+  },
+  {
+    "id": 1760593481284,
+    "name": "Ear rings",
+    "attributes": {
+      "mainImage": "/uploads/1760593676588-jwel.jpg",
+      "category": "5",
+      "subcategory": "",
+      "Usage": "Dont wash",
+      "Description": "everyday wears"
+    },
+    "variations": []
+  },
+  {
+    "id": 1760593716940,
+    "name": "Shotoronji",
+    "attributes": {
+      "mainImage": "/uploads/1760593701965-shoto.jpg",
+      "category": "2",
+      "subcategory": "",
+      "Description": "washable"
+    },
+    "variations": []
   }
 ]

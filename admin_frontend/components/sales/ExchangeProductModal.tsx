@@ -1,14 +1,39 @@
+// components/sales/ExchangeProductModal.tsx
 import { useState, useEffect } from 'react';
 import { X, Search, ArrowRightLeft } from 'lucide-react';
-import { Order, Product } from '@/types/order';
+
+interface Sale {
+  id: string;
+  items: Array<{
+    id: number;
+    productName: string;
+    size: string;
+    qty: number;
+    price: number;
+    discount: number;
+    amount: number;
+  }>;
+  amounts: {
+    subtotal: number;
+    totalDiscount: number;
+    vat: number;
+    vatRate: number;
+    transportCost: number;
+    total: number;
+  };
+  payments: {
+    totalPaid: number;
+    due: number;
+  };
+}
 
 interface ExchangeProductModalProps {
-  order: Order;
+  sale: Sale;
   onClose: () => void;
   onExchange: (exchangeData: any) => Promise<void>;
 }
 
-export default function ExchangeProductModal({ order, onClose, onExchange }: ExchangeProductModalProps) {
+export default function ExchangeProductModal({ sale, onClose, onExchange }: ExchangeProductModalProps) {
   const [selectedProducts, setSelectedProducts] = useState<number[]>([]);
   const [removedQuantities, setRemovedQuantities] = useState<{ [key: number]: number }>({});
   const [allProducts, setAllProducts] = useState<any[]>([]);
@@ -50,7 +75,7 @@ export default function ExchangeProductModal({ order, onClose, onExchange }: Exc
     fetchInventory();
   }, []);
 
-  // Flatten products with variations into searchable items (same as your main component)
+  // Flatten products with variations into searchable items
   const getFlattenedProducts = () => {
     const flattened: any[] = [];
     
@@ -190,10 +215,25 @@ export default function ExchangeProductModal({ order, onClose, onExchange }: Exc
     // Get price from batch data (inventory)
     const price = selectedReplacement.attributes.Price;
     
-    // Check available quantity
+    // Calculate net stock requirement considering exchanges
+    // If the same product is being exchanged, we need to account for returned stock
+    let netRequiredQty = qty;
+    
+    selectedProducts.forEach(productId => {
+      const removedProduct = sale.items.find(p => p.id === productId);
+      if (removedProduct && String(removedProduct.id) === String(selectedReplacement.id)) {
+        // Same product is being exchanged, so returned stock offsets requirement
+        const returnedQty = removedQuantities[productId] || 0;
+        netRequiredQty -= returnedQty;
+      }
+    });
+    
+    // Check available quantity (only need to check if net requirement is positive)
     const availableQty = getAvailableInventory(selectedReplacement.id, selectedReplacement.batchId);
-    if (qty > availableQty) {
-      alert(`Only ${availableQty} units available for this batch`);
+    if (netRequiredQty > availableQty) {
+      if (netRequiredQty > 0) {
+        alert(`Only ${availableQty} additional units available for this batch (${Math.abs(netRequiredQty - availableQty)} will come from exchanged stock)`);
+      }
       return;
     }
 
@@ -267,11 +307,11 @@ export default function ExchangeProductModal({ order, onClose, onExchange }: Exc
     );
   };
 
-  // Calculate totals with proper logic
+  // FIXED: Calculate totals with proper logic matching the working file
   const calculateTotals = () => {
     // Original amount (what's being removed)
     const originalAmount = selectedProducts.reduce((sum, productId) => {
-      const product = order.products.find(p => p.id === productId);
+      const product = sale.items.find(p => p.id === productId);
       if (!product) return sum;
       const qty = removedQuantities[productId] || 0;
       return sum + (product.price * qty);
@@ -281,7 +321,7 @@ export default function ExchangeProductModal({ order, onClose, onExchange }: Exc
     const newSubtotal = replacementProducts.reduce((sum, p) => sum + p.amount, 0);
 
     // VAT calculation
-    const vatRate = order.amounts.vatRate || 0;
+    const vatRate = sale.amounts.vatRate || 0;
     const vatAmount = Math.round(newSubtotal * (vatRate / 100));
     
     // Total new amount with VAT
@@ -325,14 +365,13 @@ export default function ExchangeProductModal({ order, onClose, onExchange }: Exc
 
     setIsProcessing(true);
     try {
-      // Call the exchange API endpoint
-      const response = await fetch('/api/social-orders/exchange', {
+      const response = await fetch('/api/sales/exchange', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          orderId: order.id,
+          saleId: sale.id,
           removedProducts: selectedProducts.map(id => ({
             productId: id,
             quantity: removedQuantities[id]
@@ -355,8 +394,8 @@ export default function ExchangeProductModal({ order, onClose, onExchange }: Exc
       }
 
       const result = await response.json();
-
-      // Call parent's onExchange to refresh the order list
+      
+      // Call parent's onExchange to refresh the sale list
       await onExchange(result);
 
       const diffText = result.difference > 0 
@@ -378,32 +417,27 @@ export default function ExchangeProductModal({ order, onClose, onExchange }: Exc
   return (
     <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
       <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl max-w-5xl w-full max-h-[90vh] overflow-y-auto border border-gray-200 dark:border-gray-800">
-        {/* Header */}
         <div className="sticky top-0 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800 px-6 py-5 flex items-center justify-between rounded-t-2xl z-10">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 bg-blue-100 dark:bg-blue-900/20 rounded-lg flex items-center justify-center">
               <ArrowRightLeft className="w-5 h-5 text-blue-600 dark:text-blue-400" />
             </div>
             <div>
-              <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Exchange - Order #{order.id}</h2>
+              <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Exchange - Sale #{sale.id}</h2>
               <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">Select items to exchange</p>
             </div>
           </div>
-          <button
-            onClick={onClose}
-            className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
-          >
+          <button onClick={onClose} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors">
             <X className="w-6 h-6 text-gray-600 dark:text-gray-400" />
           </button>
         </div>
 
         <div className="p-6 space-y-6">
-          {/* Select Items to Exchange */}
           <div className="bg-gray-50 dark:bg-gray-800 rounded-xl p-5 border border-gray-200 dark:border-gray-700">
             <h3 className="font-semibold text-gray-900 dark:text-white text-lg mb-4">Select Items to Exchange</h3>
             
             <div className="space-y-3">
-              {order.products.map((product) => (
+              {sale.items.map((product) => (
                 <div key={product.id} className="bg-white dark:bg-gray-900 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
                   <div className="flex items-start gap-3">
                     <input
@@ -454,7 +488,6 @@ export default function ExchangeProductModal({ order, onClose, onExchange }: Exc
             </div>
           </div>
 
-          {/* Search Replacement */}
           {selectedProducts.length > 0 && (
             <div className="bg-gray-50 dark:bg-gray-800 rounded-xl p-5 border border-gray-200 dark:border-gray-700">
               <h3 className="font-semibold text-gray-900 dark:text-white text-lg mb-4">Search Replacement</h3>
@@ -467,15 +500,11 @@ export default function ExchangeProductModal({ order, onClose, onExchange }: Exc
                   onChange={(e) => setSearchQuery(e.target.value)}
                   className="flex-1 px-3 py-2 text-sm border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-900 text-gray-900 dark:text-white placeholder-gray-400 focus:ring-2 focus:ring-blue-500 outline-none"
                 />
-                <button 
-                  type="button"
-                  className="px-4 py-2 bg-black hover:bg-gray-800 text-white rounded-lg transition-colors"
-                >
+                <button type="button" className="px-4 py-2 bg-black hover:bg-gray-800 text-white rounded-lg transition-colors">
                   <Search size={18} />
                 </button>
               </div>
 
-              {/* Search Results */}
               {searchResults.length > 0 && !selectedReplacement && (
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 max-h-60 overflow-y-auto mb-4 p-2 bg-white dark:bg-gray-900 rounded border border-gray-200 dark:border-gray-700">
                   {searchResults.map((product) => (
@@ -484,11 +513,7 @@ export default function ExchangeProductModal({ order, onClose, onExchange }: Exc
                       onClick={() => handleProductImageClick(product)}
                       className="border-2 border-gray-200 dark:border-gray-600 rounded-lg p-2 hover:border-blue-500 dark:hover:border-blue-400 hover:shadow-lg transition-all cursor-pointer"
                     >
-                      <img 
-                        src={product.attributes.mainImage} 
-                        alt={product.name} 
-                        className="w-full h-24 object-cover rounded mb-2" 
-                      />
+                      <img src={product.attributes.mainImage} alt={product.name} className="w-full h-24 object-cover rounded mb-2" />
                       <p className="text-xs text-gray-900 dark:text-white font-medium truncate">
                         {product.name} (Batch {product.batchId})
                       </p>
@@ -499,7 +524,6 @@ export default function ExchangeProductModal({ order, onClose, onExchange }: Exc
                 </div>
               )}
 
-              {/* Selected Replacement Product - Ask for Quantity */}
               {selectedReplacement && (
                 <div className="mb-4 p-4 bg-blue-50 dark:bg-blue-900/20 border-2 border-blue-500 dark:border-blue-600 rounded-lg">
                   <div className="flex items-center justify-between mb-3">
@@ -517,11 +541,7 @@ export default function ExchangeProductModal({ order, onClose, onExchange }: Exc
                   </div>
                   
                   <div className="flex gap-3 mb-4">
-                    <img 
-                      src={selectedReplacement.attributes.mainImage} 
-                      alt={selectedReplacement.name} 
-                      className="w-16 h-16 object-cover rounded border-2 border-blue-400" 
-                    />
+                    <img src={selectedReplacement.attributes.mainImage} alt={selectedReplacement.name} className="w-16 h-16 object-cover rounded border-2 border-blue-400" />
                     <div className="flex-1">
                       <p className="text-sm font-medium text-gray-900 dark:text-white">
                         {selectedReplacement.name} (Batch {selectedReplacement.batchId})
@@ -587,7 +607,6 @@ export default function ExchangeProductModal({ order, onClose, onExchange }: Exc
                 </div>
               )}
 
-              {/* Selected Replacements List */}
               {replacementProducts.length > 0 && (
                 <div className="space-y-2">
                   <h4 className="text-sm font-semibold text-gray-900 dark:text-white mb-2">Selected Replacements</h4>
@@ -641,7 +660,6 @@ export default function ExchangeProductModal({ order, onClose, onExchange }: Exc
             </div>
           )}
 
-          {/* Summary */}
           <div className="bg-gray-50 dark:bg-gray-800 rounded-xl p-5 border border-gray-200 dark:border-gray-700">
             <h3 className="font-semibold text-gray-900 dark:text-white text-lg mb-4">Summary</h3>
             
@@ -694,7 +712,6 @@ export default function ExchangeProductModal({ order, onClose, onExchange }: Exc
             </div>
           </div>
 
-          {/* Action Button */}
           <div className="flex justify-end">
             <button
               type="button"
