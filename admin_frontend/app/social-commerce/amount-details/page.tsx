@@ -19,6 +19,14 @@ export default function AmountDetailsPage() {
   const [advancePaid, setAdvancePaid] = useState('0');
   const [transactionId, setTransactionId] = useState('');
 
+  const getTodayDate = () => {
+    const today = new Date();
+    const day = String(today.getDate()).padStart(2, '0');
+    const month = String(today.getMonth() + 1).padStart(2, '0');
+    const year = today.getFullYear();
+    return `${day}-${month}-${year}`;
+  };
+
   useEffect(() => {
     const storedOrder = sessionStorage.getItem('pendingOrder');
     if (storedOrder) {
@@ -48,6 +56,24 @@ export default function AmountDetailsPage() {
   const dueAmount = Math.max(0, total - totalPaid);
   const returnAmount = Math.max(0, totalPaid - total);
 
+  const updateDefectStatus = async (defectId: string) => {
+    try {
+      await fetch(`/api/defects?id=${defectId}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          status: 'sold',
+          soldAt: new Date().toISOString()
+        }),
+      });
+    } catch (error) {
+      console.error('Error updating defect status:', error);
+      throw error;
+    }
+  };
+
   const handlePlaceOrder = async () => {
     setIsProcessing(true);
     let inventoryUpdateSuccess = true;
@@ -62,7 +88,15 @@ export default function AmountDetailsPage() {
 
       // For each product in the order
       for (const item of orderData.products) {
-        // Find available inventory items for this product and batch
+        // Skip inventory update for defective products
+        if (item.isDefective) {
+          if (item.defectId) {
+            await updateDefectStatus(item.defectId);
+          }
+          continue;
+        }
+
+        // Find available inventory items for regular products
         const availableItems = inventory.filter((inv: any) => 
           String(inv.productId) === String(item.productId) &&
           inv.batchId === item.batchId &&
@@ -109,6 +143,7 @@ export default function AmountDetailsPage() {
       // Step 2: Create the order
       const completeOrderData = {
         ...orderData,
+        date: orderData.date || getTodayDate(),
         amounts: {
           subtotal,
           totalDiscount,
@@ -135,9 +170,9 @@ export default function AmountDetailsPage() {
       const result = await response.json();
 
       if (response.ok) {
-        alert('Order placed successfully! Barcodes have been allocated.');
+        alert('Order placed successfully!');
         sessionStorage.removeItem('pendingOrder');
-        router.push('/social-commerce');
+        router.push('/orders');
       } else {
         alert(result.error || 'Failed to place order');
         setIsProcessing(false);
@@ -196,10 +231,28 @@ export default function AmountDetailsPage() {
                     <p className="text-sm font-medium text-gray-900 dark:text-white mb-3">Products ({orderData.products.length})</p>
                     <div className="space-y-2 max-h-60 md:max-h-80 overflow-y-auto">
                       {orderData.products.map((product: any) => (
-                        <div key={product.id} className="flex justify-between items-center p-2 bg-gray-50 dark:bg-gray-700 rounded">
+                        <div key={product.id} className={`flex justify-between items-center p-2 rounded ${
+                          product.isDefective 
+                            ? 'bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-700' 
+                            : 'bg-gray-50 dark:bg-gray-700'
+                        }`}>
                           <div className="min-w-0 flex-1">
-                            <p className="text-sm text-gray-900 dark:text-white truncate">{product.productName}</p>
-                            <p className="text-xs text-gray-600 dark:text-gray-400">Qty: {product.qty} × {product.price.toFixed(2)} Tk</p>
+                            <p className="text-sm text-gray-900 dark:text-white truncate">
+                              {product.productName}
+                              {product.isDefective && (
+                                <span className="ml-2 px-2 py-0.5 bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400 text-xs rounded">
+                                  Defective
+                                </span>
+                              )}
+                            </p>
+                            <p className="text-xs text-gray-600 dark:text-gray-400">
+                              Qty: {product.qty} × {product.price.toFixed(2)} Tk
+                            </p>
+                            {product.barcode && (
+                              <p className="text-xs text-gray-500 dark:text-gray-400 font-mono">
+                                Barcode: {product.barcode}
+                              </p>
+                            )}
                           </div>
                           <p className="text-sm font-medium text-gray-900 dark:text-white ml-2">{product.amount.toFixed(2)} Tk</p>
                         </div>

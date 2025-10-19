@@ -1,171 +1,33 @@
 [
   {
-    "id": 1759737987171,
+    "id": 1760593404487,
     "name": "Jamdani",
     "attributes": {
-      "mainImage": "/uploads/1759737875133-jamdani product.webp",
+      "mainImage": "/uploads/1760593653705-jamdani product.webp",
       "category": "1",
-      "subcategory": "2",
-      "Fabric-type": "Cotton",
-      "origin": "Tangail, Bangladesh",
-      "care-instructions": "Better to dry wash",
-      "Image": [
-        "/uploads/1759738411866-Shadam jamdani2.jpg",
-        "/uploads/1759738423655-jam2.jpg"
-      ]
+      "subcategory": "3",
+      "Price": "1400"
     }
   },
   {
-    "id": 1759738578875,
-    "name": "Cotton Sharee",
+    "id": 1760593481284,
+    "name": "Ear rings",
     "attributes": {
-      "mainImage": "/uploads/1759738532116-cotton.webp",
-      "category": "1",
+      "mainImage": "/uploads/1760593676588-jwel.jpg",
+      "category": "5",
       "subcategory": "",
-      "Fabric-type": "Cotton",
-      "origin": "Tangail, Bangladesh",
-      "care-instructions": "Better to dry wash",
-      "Image": "/uploads/1759738721718-Shadam jamdani2.jpg"
+      "Usage": "Dont wash",
+      "Description": "everyday wears"
     }
   },
   {
-    "id": 1760592314098,
-    "name": "Sharee - Variation 1",
+    "id": 1760593716940,
+    "name": "Shotoronji",
     "attributes": {
-      "mainImage": "/uploads/1760592208649-stock-photo-dhakai-jamdani-saree-is-a-traditional-handloom-saree-that-originated-in-dhaka-bangladesh-it-is-a-2281360143.jpg",
-      "category": "1",
-      "subcategory": "2",
-      "Fabric-type": "Jamdani"
-    }
-  },
-  {
-    "id": 1760592314100,
-    "name": "Sharee - Variation 2",
-    "attributes": {
-      "mainImage": "/uploads/1760592208649-stock-photo-dhakai-jamdani-saree-is-a-traditional-handloom-saree-that-originated-in-dhaka-bangladesh-it-is-a-2281360143.jpg",
-      "category": "1",
-      "subcategory": "2",
-      "Fabric-type": "Jamdani"
-    }
-  },
-  {
-    "id": 1760595294211,
-    "name": "Jama",
-    "attributes": {
-      "mainImage": "/uploads/1760595288616-70214abeb6632312b283a5f0220d46a2.jpg",
-      "category": "1",
-      "subcategory": ""
-    }
-  },
-  {
-    "id": 1760595398977,
-    "name": "katan - Variation 1",
-    "attributes": {
-      "mainImage": "/uploads/1760595385266-1000040975-removebg-preview.png",
-      "category": "1",
-      "subcategory": ""
-    }
-  },
-  {
-    "id": 1760631319045,
-    "name": "Goyna - Variation 1",
-    "attributes": {
-      "mainImage": "/uploads/1760631298769-1000040976.jpg",
-      "category": "1",
-      "subcategory": ""
-    }
-  },
-  {
-    "id": 1760631319048,
-    "name": "Goyna - Variation 2",
-    "attributes": {
-      "mainImage": "/uploads/1760631298769-1000040976.jpg",
-      "category": "1",
-      "subcategory": ""
-    }
-  },
-  {
-    "id": 1760631729330,
-    "name": "xyz - Variation 1",
-    "attributes": {
-      "mainImage": "/uploads/1760631702702-images (1).jpeg",
-      "category": "1",
+      "mainImage": "/uploads/1760593701965-shoto.jpg",
+      "category": "2",
       "subcategory": "",
-      "Colour": "Red"
-    }
-  },
-  {
-    "id": 1760631729333,
-    "name": "xyz - Variation 2",
-    "attributes": {
-      "mainImage": "/uploads/1760631702702-images (1).jpeg",
-      "category": "1",
-      "subcategory": "",
-      "Colour": "Blue"
-    }
-  },
-  {
-    "id": 1760631798425,
-    "name": "zzz - Variation 1",
-    "attributes": {
-      "mainImage": "/uploads/1760631774905-c68ba8ad67f2e8bc33a7dbc0b68c4e4a.jpg",
-      "category": "1",
-      "subcategory": ""
-    }
-  },
-  {
-    "id": 1760631798428,
-    "name": "zzz - Variation 2",
-    "attributes": {
-      "mainImage": "/uploads/1760631774905-c68ba8ad67f2e8bc33a7dbc0b68c4e4a.jpg",
-      "category": "1",
-      "subcategory": ""
-    }
-  },
-  {
-    "id": 1760632417549,
-    "name": "wyx - Variation 1",
-    "attributes": {
-      "mainImage": "/uploads/1760632382503-Electronic Device.jpeg",
-      "category": "1",
-      "subcategory": ""
-    }
-  },
-  {
-    "id": 1760632417551,
-    "name": "wyx - Variation 2",
-    "attributes": {
-      "mainImage": "/uploads/1760632382503-Electronic Device.jpeg",
-      "category": "1",
-      "subcategory": ""
-    }
-  },
-  {
-    "id": 1760635535232,
-    "name": "adriii - Variation 1",
-    "attributes": {
-      "mainImage": "/uploads/1760635466046-Fashion.jpeg",
-      "category": "1",
-      "subcategory": "",
-      "Pattern": "Polka Dots",
-      "Colour": "Red",
-      "Image": [
-        "/uploads/1760635513074-Electronic Device.jpeg"
-      ]
-    }
-  },
-  {
-    "id": 1760635535234,
-    "name": "adriii - Variation 2",
-    "attributes": {
-      "mainImage": "/uploads/1760635466046-Fashion.jpeg",
-      "category": "1",
-      "subcategory": "",
-      "Pattern": "Polka Dots",
-      "Colour": "Blue",
-      "Image": [
-        "/uploads/1760635528190-70214abeb6632312b283a5f0220d46a2.jpg"
-      ]
+      "Description": "washable"
     }
   }
 ]

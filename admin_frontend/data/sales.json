@@ -1,49 +1,106 @@
 [
   {
-    "id": "sale-1759739135018",
+    "id": "sale-1760595750616",
     "salesBy": "Admin",
-    "outletId": "1759737165411",
-    "date": "2025-10-06",
+    "outletId": "1760592803601",
+    "date": "2025-10-16",
     "customer": {
-      "name": "Rumy Parvez",
-      "mobile": "01924129777",
-      "address": "International Affairs division,Paramanu Bhaban,Agargaon,Dhaka"
+      "name": "Nishat Tasneem",
+      "mobile": "01818316964",
+      "address": "International Affairs Division ,Paramanu Bhaban ,Bangladesh Atomic Energy Commission,"
     },
-    "items": [
-      {
-        "id": 1759739092159,
-        "productName": "Jamdani",
-        "size": "",
-        "qty": 2,
-        "price": 1500,
-        "discount": 200,
-        "amount": 2800
-      }
-    ],
+    "items": [],
     "amounts": {
-      "subtotal": 2800,
-      "totalDiscount": 200,
-      "vat": 140,
+      "subtotal": 0,
+      "totalDiscount": 0,
+      "vat": 0,
       "vatRate": 5,
-      "transportCost": 0,
-      "total": 2940
+      "transportCost": 50,
+      "total": 50
     },
     "payments": {
-      "cash": 2000,
+      "cash": 1000,
       "card": 0,
-      "bkash": 940,
+      "bkash": 0,
       "nagad": 0,
       "transactionFee": 0,
-      "totalPaid": 2940,
+      "totalPaid": 1000,
       "due": 0
     },
-    "createdAt": "2025-10-06T08:25:35.018Z"
+    "createdAt": "2025-10-16T06:22:30.616Z",
+    "returnHistory": [
+      {
+        "date": "2025-10-16",
+        "time": "15:58",
+        "timestamp": "2025-10-16T09:58:59.052Z",
+        "returnedProducts": [
+          {
+            "productId": 1760595722288,
+            "productName": "Ear rings",
+            "quantity": 1,
+            "price": 700,
+            "amount": 700
+          }
+        ],
+        "originalTotal": 1520,
+        "newTotal": 785,
+        "refundAmount": 735,
+        "refundToCustomer": 215,
+        "note": "Refund ৳215 to customer"
+      },
+      {
+        "date": "2025-10-16",
+        "time": "16:40",
+        "timestamp": "2025-10-16T10:40:45.262Z",
+        "returnedProducts": [
+          {
+            "productId": 1760610969208.1206,
+            "productName": "Ear rings",
+            "quantity": 1,
+            "price": 700,
+            "amount": 700
+          }
+        ],
+        "originalTotal": 785,
+        "newTotal": 50,
+        "refundAmount": 735,
+        "refundToCustomer": 950,
+        "note": "Refund ৳950 to customer"
+      }
+    ],
+    "updatedAt": "2025-10-16T10:40:45.262Z",
+    "exchangeHistory": [
+      {
+        "date": "2025-10-16T10:36:09.208Z",
+        "removedProducts": [
+          {
+            "productId": 1760595722288,
+            "quantity": 1
+          }
+        ],
+        "replacementProducts": [
+          {
+            "id": 1760593481284,
+            "batchId": 1760594714624,
+            "name": "Ear rings",
+            "price": 700,
+            "quantity": 1,
+            "amount": 700,
+            "size": "1"
+          }
+        ],
+        "originalTotal": 785,
+        "newTotal": 785,
+        "difference": 0,
+        "note": "No payment difference"
+      }
+    ]
   },
   {
-    "id": "sale-1759902879012",
+    "id": "sale-1760611634083",
     "salesBy": "Admin",
-    "outletId": "1759737104297",
-    "date": "2025-10-08",
+    "outletId": "1760592830554",
+    "date": "2025-10-16",
     "customer": {
       "name": "Rumy Parvez",
       "mobile": "01818316964",
@@ -51,104 +108,27 @@
     },
     "items": [
       {
-        "id": 1759902854648,
-        "productName": "Cotton Sharee",
-        "size": "",
-        "qty": 1,
-        "price": 1500,
-        "discount": 150,
-        "amount": 1350
-      }
-    ],
-    "amounts": {
-      "subtotal": 1350,
-      "totalDiscount": 150,
-      "vat": 67.5,
-      "vatRate": 5,
-      "transportCost": 100,
-      "total": 1517.5
-    },
-    "payments": {
-      "cash": 1500,
-      "card": 17.5,
-      "bkash": 0,
-      "nagad": 0,
-      "transactionFee": 0,
-      "totalPaid": 1517.5,
-      "due": 0
-    },
-    "createdAt": "2025-10-08T05:54:39.012Z"
-  },
-  {
-    "id": "sale-1760328436090",
-    "salesBy": "Admin",
-    "outletId": "1759737165411",
-    "date": "2025-10-13",
-    "customer": {
-      "name": "Adrita Ahsan",
-      "mobile": "01745191964",
-      "address": "Dhaka"
-    },
-    "items": [
-      {
-        "id": 1760328403452,
-        "productId": 1759737987171,
-        "productName": "Jamdani",
-        "size": "",
-        "qty": 1,
-        "price": 1300,
-        "discount": 0,
-        "amount": 1300
-      }
-    ],
-    "amounts": {
-      "subtotal": 1300,
-      "totalDiscount": 0,
-      "vat": 65,
-      "vatRate": 5,
-      "transportCost": 0,
-      "total": 1365
-    },
-    "payments": {
-      "cash": 1300,
-      "card": 0,
-      "bkash": 0,
-      "nagad": 0,
-      "transactionFee": 0,
-      "totalPaid": 1300,
-      "due": 65
-    },
-    "createdAt": "2025-10-13T04:07:16.090Z"
-  },
-  {
-    "id": "sale-1760609315887",
-    "salesBy": "Admin",
-    "outletId": "1759737165411",
-    "date": "2025-10-16",
-    "customer": {
-      "name": "Sabuj",
-      "mobile": "01745191964",
-      "address": ""
-    },
-    "items": [
-      {
-        "id": 1760609309355,
-        "productId": 1759738578875,
-        "productName": "Cotton Sharee",
-        "size": "",
+        "id": 1760613327914.3835,
+        "productId": 1760593481284,
+        "productName": "Ear rings",
+        "size": "1",
         "qty": 2,
-        "price": 5000,
+        "price": 700,
         "discount": 0,
-        "amount": 10000
+        "amount": 1400,
+        "barcodes": [
+          "BATCH1760594714624-01",
+          "BATCH1760594714624-02"
+        ]
       }
     ],
     "amounts": {
-      "subtotal": 10000,
+      "subtotal": 1400,
       "totalDiscount": 0,
-      "vat": 500,
+      "vat": 70,
       "vatRate": 5,
       "transportCost": 0,
-      "total": 10500
+      "total": 1470
     },
     "payments": {
       "cash": 0,
@@ -157,8 +137,310 @@
       "nagad": 0,
       "transactionFee": 0,
       "totalPaid": 0,
-      "due": 10500
+      "due": 1470
     },
-    "createdAt": "2025-10-16T10:08:35.887Z"
+    "createdAt": "2025-10-16T10:47:14.083Z",
+    "exchangeHistory": [
+      {
+        "date": "2025-10-16T11:10:38.053Z",
+        "removedProducts": [
+          {
+            "productId": 1760611629632,
+            "quantity": 1
+          }
+        ],
+        "replacementProducts": [
+          {
+            "id": 1760593404487,
+            "batchId": 1760595196440,
+            "name": "Jamdani",
+            "price": 2000,
+            "quantity": 1,
+            "amount": 2000,
+            "size": "1"
+          }
+        ],
+        "originalTotal": 2100,
+        "newTotal": 2100,
+        "difference": 0,
+        "note": "No payment difference"
+      },
+      {
+        "date": "2025-10-16T11:12:29.515Z",
+        "removedProducts": [
+          {
+            "productId": 1760613038053.1404,
+            "quantity": 1
+          }
+        ],
+        "replacementProducts": [
+          {
+            "id": 1760593481284,
+            "batchId": 1760594714624,
+            "name": "Ear rings",
+            "price": 700,
+            "quantity": 1,
+            "amount": 700,
+            "size": "1"
+          }
+        ],
+        "originalTotal": 2100,
+        "newTotal": 735,
+        "difference": -1365,
+        "note": "Refund to customer"
+      },
+      {
+        "date": "2025-10-16T11:14:38.569Z",
+        "removedProducts": [
+          {
+            "productId": 1760613149515.7192,
+            "quantity": 1
+          }
+        ],
+        "replacementProducts": [
+          {
+            "id": 1760593481284,
+            "batchId": 1760594714624,
+            "name": "Ear rings",
+            "price": 700,
+            "quantity": 1,
+            "amount": 700,
+            "size": "1"
+          }
+        ],
+        "originalTotal": 735,
+        "newTotal": 735,
+        "difference": 0,
+        "note": "No payment difference"
+      },
+      {
+        "date": "2025-10-16T11:15:27.914Z",
+        "removedProducts": [
+          {
+            "productId": 1760613278568.9778,
+            "quantity": 1
+          }
+        ],
+        "replacementProducts": [
+          {
+            "id": 1760593481284,
+            "batchId": 1760594714624,
+            "name": "Ear rings",
+            "price": 700,
+            "quantity": 2,
+            "amount": 1400,
+            "size": "1"
+          }
+        ],
+        "originalTotal": 735,
+        "newTotal": 1470,
+        "difference": 735,
+        "note": "Customer owes additional payment"
+      }
+    ],
+    "updatedAt": "2025-10-16T11:15:27.914Z"
+  },
+  {
+    "id": "sale-1760616926025",
+    "salesBy": "Admin",
+    "outletId": "1760592803601",
+    "date": "2025-10-16",
+    "customer": {
+      "name": "Rumy Parvez",
+      "mobile": "01818316964",
+      "address": "International Affairs Division ,Paramanu Bhaban ,Bangladesh Atomic Energy Commission,"
+    },
+    "items": [
+      {
+        "id": 1760616883188,
+        "productId": 1760593716940,
+        "productName": "Shotoronji",
+        "size": "",
+        "qty": 1,
+        "price": 400,
+        "discount": 0,
+        "amount": 400,
+        "isDefective": true,
+        "defectId": "defect-1760613804837",
+        "barcode": "BATCH1760595237962-10"
+      }
+    ],
+    "amounts": {
+      "subtotal": 400,
+      "totalDiscount": 0,
+      "vat": 20,
+      "vatRate": 5,
+      "transportCost": 0,
+      "total": 420
+    },
+    "payments": {
+      "cash": 0,
+      "card": 0,
+      "bkash": 0,
+      "nagad": 0,
+      "transactionFee": 0,
+      "totalPaid": 0,
+      "due": 420
+    },
+    "createdAt": "2025-10-16T12:15:26.026Z"
+  },
+  {
+    "id": "sale-1760772332818",
+    "salesBy": "Admin",
+    "outletId": "1760592803601",
+    "date": "2025-10-18",
+    "customer": {
+      "name": "Nishat Tasneem",
+      "mobile": "01818316964",
+      "address": "International Affairs Division ,Paramanu Bhaban ,Bangladesh Atomic Energy Commission,"
+    },
+    "items": [
+      {
+        "id": 1760772286218,
+        "productId": 1760593716940,
+        "productName": "Shotoronji",
+        "size": "",
+        "qty": 1,
+        "price": 400,
+        "discount": 0,
+        "amount": 400,
+        "isDefective": true,
+        "defectId": "defect-1760614109327",
+        "barcode": "BATCH1760595237962-02"
+      }
+    ],
+    "amounts": {
+      "subtotal": 400,
+      "totalDiscount": 0,
+      "vat": 20,
+      "vatRate": 5,
+      "transportCost": 0,
+      "total": 420
+    },
+    "payments": {
+      "cash": 0,
+      "card": 0,
+      "bkash": 0,
+      "nagad": 0,
+      "transactionFee": 0,
+      "totalPaid": 0,
+      "due": 420
+    },
+    "createdAt": "2025-10-18T07:25:32.818Z"
+  },
+  {
+    "id": "sale-1760772872245",
+    "salesBy": "Admin",
+    "outletId": "1760592830554",
+    "date": "2025-10-18",
+    "customer": {
+      "name": "Sanjana Afreen2",
+      "mobile": "01818316964",
+      "address": "International Affairs Division ,Paramanu Bhaban ,Bangladesh Atomic Energy Commission,"
+    },
+    "items": [
+      {
+        "id": 1760772868803,
+        "productId": 1760593404487,
+        "productName": "Jamdani",
+        "size": "",
+        "qty": 1,
+        "price": 2000,
+        "discount": 200,
+        "amount": 1800,
+        "isDefective": false,
+        "defectId": null,
+        "barcode": null
+      }
+    ],
+    "amounts": {
+      "subtotal": 1800,
+      "totalDiscount": 200,
+      "vat": 90,
+      "vatRate": 5,
+      "transportCost": 0,
+      "total": 1890
+    },
+    "payments": {
+      "cash": 0,
+      "card": 0,
+      "bkash": 0,
+      "nagad": 0,
+      "transactionFee": 0,
+      "totalPaid": 0,
+      "due": 1890
+    },
+    "createdAt": "2025-10-18T07:34:32.245Z"
+  },
+  {
+    "id": "sale-1760852324309",
+    "salesBy": "Admin",
+    "outletId": "1760592803601",
+    "date": "2025-10-19",
+    "customer": {
+      "name": "Rumy Parvez",
+      "mobile": "01818316964",
+      "address": "International Affairs Division ,Paramanu Bhaban ,Bangladesh Atomic Energy Commission,"
+    },
+    "items": [
+      {
+        "id": 1760852490974.9883,
+        "productId": 1760593404487,
+        "productName": "Jamdani",
+        "size": "1",
+        "qty": 1,
+        "price": 2000,
+        "discount": 0,
+        "amount": 2000,
+        "barcodes": [
+          "BATCH1760595196440-04"
+        ]
+      }
+    ],
+    "amounts": {
+      "subtotal": 2000,
+      "totalDiscount": 0,
+      "vat": 100,
+      "vatRate": 5,
+      "transportCost": 0,
+      "total": 2100
+    },
+    "payments": {
+      "cash": 0,
+      "card": 0,
+      "bkash": 0,
+      "nagad": 0,
+      "transactionFee": 0,
+      "totalPaid": 0,
+      "due": 2100
+    },
+    "createdAt": "2025-10-19T05:38:44.309Z",
+    "exchangeHistory": [
+      {
+        "date": "2025-10-19T05:41:30.975Z",
+        "removedProducts": [
+          {
+            "productId": 1760852295710,
+            "quantity": 1
+          }
+        ],
+        "replacementProducts": [
+          {
+            "id": 1760593404487,
+            "batchId": 1760595196440,
+            "name": "Jamdani",
+            "price": 2000,
+            "quantity": 1,
+            "amount": 2000,
+            "size": "1"
+          }
+        ],
+        "originalTotal": 462,
+        "newTotal": 2100,
+        "difference": 1638,
+        "note": "Customer owes additional payment"
+      }
+    ],
+    "updatedAt": "2025-10-19T05:41:30.975Z"
   }
 ]

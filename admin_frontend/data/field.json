@@ -1,3 +1,32 @@
 [
-  
+  {
+    "id": 1760593230201,
+    "name": "Color",
+    "type": "Text",
+    "mode": "Multiple"
+  },
+  {
+    "id": 1760593244339,
+    "name": "Usage",
+    "type": "Text",
+    "mode": "Single"
+  },
+  {
+    "id": 1760593257458,
+    "name": "Price",
+    "type": "Number",
+    "mode": "Single"
+  },
+  {
+    "id": 1760593271103,
+    "name": "Image",
+    "type": "Image",
+    "mode": "Multiple"
+  },
+  {
+    "id": 1760593286057,
+    "name": "Description",
+    "type": "Text",
+    "mode": "Single"
+  }
 ]

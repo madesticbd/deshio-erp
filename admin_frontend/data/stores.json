@@ -1,0 +1,35 @@
+[
+  {
+    "id": 1760592803601,
+    "name": "Uttara",
+    "location": "Uttara,Dhaka",
+    "type": "store",
+    "pathao_key": "UTT123",
+    "revenue": 60000,
+    "revenueChange": 1500,
+    "products": 70,
+    "orders": 20
+  },
+  {
+    "id": 1760592830554,
+    "name": "Banasree",
+    "location": "Banasree,Dhaka",
+    "type": "store",
+    "pathao_key": "BAN123",
+    "revenue": 60000,
+    "revenueChange": 1500,
+    "products": 70,
+    "orders": 20
+  },
+  {
+    "id": 1760594674008,
+    "name": "Agargaon",
+    "location": "dhaka",
+    "type": "warehouse",
+    "pathao_key": "MIR345",
+    "revenue": 60000,
+    "revenueChange": 1500,
+    "products": 70,
+    "orders": 20
+  }
+]

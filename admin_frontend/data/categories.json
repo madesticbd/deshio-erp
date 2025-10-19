@@ -1,3 +1,44 @@
 [
-  
+  {
+    "title": "Sharee",
+    "description": "Budget friendly",
+    "slug": "sharee",
+    "image": "/uploads/1760593579729-Sharee Catagory.webp",
+    "subcategories": [
+      {
+        "title": "Jamdani",
+        "description": "Mid",
+        "slug": "jamdani",
+        "image": "/uploads/1760593060934-jamdani product.webp",
+        "subcategories": [
+          {
+            "title": "60 count",
+            "description": "low budget",
+            "slug": "60-count",
+            "image": "/uploads/1760593110011-Shadam jamdani2.jpg",
+            "subcategories": [],
+            "id": "4"
+          }
+        ],
+        "id": "3"
+      }
+    ],
+    "id": "1"
+  },
+  {
+    "title": "Shotoronji",
+    "description": "Mats",
+    "slug": "shotoronji",
+    "image": "/uploads/1760593607979-shoto.jpg",
+    "subcategories": [],
+    "id": "2"
+  },
+  {
+    "title": "Jewellery",
+    "description": "low budget",
+    "slug": "jewellery",
+    "image": "/uploads/1760593622529-jwel.jpg",
+    "subcategories": [],
+    "id": "5"
+  }
 ]

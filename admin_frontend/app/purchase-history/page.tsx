@@ -1,9 +1,11 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Search, Filter, ChevronDown, ChevronUp, Download, Trash2, Eye } from 'lucide-react';
+import { Search, Filter, ChevronDown, ChevronUp, Download, Trash2, Eye, MoreVertical, Edit, ArrowRightLeft, RotateCcw } from 'lucide-react';
 import Header from '@/components/Header';
 import Sidebar from '@/components/Sidebar';
+import ExchangeProductModal from '@/components/sales/ExchangeProductModal';
+import ReturnProductModal from '@/components/sales/ReturnProductModal';
 
 interface Sale {
   id: string;
@@ -63,6 +65,10 @@ export default function PurchaseHistoryPage() {
   const [loading, setLoading] = useState(true);
   const [userRole, setUserRole] = useState<string>('');
   const [userStoreId, setUserStoreId] = useState<string>('');
+  const [activeMenu, setActiveMenu] = useState<string | null>(null);
+  const [selectedSale, setSelectedSale] = useState<Sale | null>(null);
+  const [showExchangeModal, setShowExchangeModal] = useState(false);
+  const [showReturnModal, setShowReturnModal] = useState(false);
 
   useEffect(() => {
     // Get user role and store info from localStorage
@@ -132,6 +138,36 @@ export default function PurchaseHistoryPage() {
       } catch (error) {
         console.error('Error deleting sale:', error);
       }
+    }
+  };
+
+  const handleExchange = (sale: Sale) => {
+    setSelectedSale(sale);
+    setShowExchangeModal(true);
+    setActiveMenu(null);
+  };
+
+  const handleReturn = (sale: Sale) => {
+    setSelectedSale(sale);
+    setShowReturnModal(true);
+    setActiveMenu(null);
+  };
+
+  const handleProcessExchange = async (exchangeData: any) => {
+    try {
+      await fetchSales();
+    } catch (error) {
+      console.error('Error processing exchange:', error);
+      throw error;
+    }
+  };
+
+  const handleProcessReturn = async (returnData: any) => {
+    try {
+      await fetchSales();
+    } catch (error) {
+      console.error('Error processing return:', error);
+      throw error;
     }
   };
 
@@ -256,8 +292,8 @@ export default function PurchaseHistoryPage() {
                   <div className="text-gray-500 dark:text-gray-400">No sales found</div>
                 </div>
               ) : (
-                <div className="space-y-4">
-                  {filteredSales.map((sale) => (
+                <div className="space-y-4 relative">
+                  {filteredSales.map((sale, index) => (
                     <div
                       key={sale.id}
                       className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden transition-all hover:shadow-md"
@@ -313,6 +349,51 @@ export default function PurchaseHistoryPage() {
                                 ৳{sale.amounts.total.toFixed(2)}
                               </div>
                             </div>
+                            
+{/* Three Dots Menu */}
+<div className="relative">
+  <button
+    type="button"
+    onClick={(e) => {
+      e.stopPropagation();
+      setActiveMenu(activeMenu === sale.id ? null : sale.id);
+    }}
+    className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md transition-colors relative z-10"
+  >
+    <MoreVertical className="w-5 h-5 text-gray-600 dark:text-gray-400" />
+  </button>
+  
+  {activeMenu === sale.id && (
+    <div 
+      className="absolute right-0 top-full mt-2 w-48 bg-white dark:bg-gray-800 rounded-lg shadow-2xl border-2 border-gray-300 dark:border-gray-600 z-50"
+    >
+      <button
+        type="button"
+        onClick={(e) => {
+          e.stopPropagation();
+          handleExchange(sale);
+        }}
+        className="w-full px-4 py-3 text-left text-sm font-medium text-gray-900 dark:text-white hover:bg-blue-50 dark:hover:bg-blue-900/20 flex items-center gap-3 rounded-t-lg transition-colors"
+      >
+        <ArrowRightLeft className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+        <span>Exchange Products</span>
+      </button>
+      <div className="h-px bg-gray-200 dark:bg-gray-700"></div>
+      <button
+        type="button"
+        onClick={(e) => {
+          e.stopPropagation();
+          handleReturn(sale);
+        }}
+        className="w-full px-4 py-3 text-left text-sm font-medium text-gray-900 dark:text-white hover:bg-red-50 dark:hover:bg-red-900/20 flex items-center gap-3 rounded-b-lg transition-colors"
+      >
+        <RotateCcw className="w-4 h-4 text-red-600 dark:text-red-400" />
+        <span>Return Products</span>
+      </button>
+    </div>
+  )}
+</div>
+                            
                             <button
                               onClick={() => setExpandedSale(expandedSale === sale.id ? null : sale.id)}
                               className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md transition-colors"
@@ -459,6 +540,31 @@ export default function PurchaseHistoryPage() {
           </main>
         </div>
       </div>
+
+      {/* Modals */}
+      {showExchangeModal && selectedSale && (
+        <ExchangeProductModal
+          sale={selectedSale}
+          onClose={() => setShowExchangeModal(false)}
+          onExchange={handleProcessExchange}
+        />
+      )}
+
+      {showReturnModal && selectedSale && (
+        <ReturnProductModal
+          sale={selectedSale}
+          onClose={() => setShowReturnModal(false)}
+          onReturn={handleProcessReturn}
+        />
+      )}
+
+     {/* Click outside to close menu */}
+{activeMenu !== null && (
+  <div
+    className="fixed inset-0 z-40"
+    onClick={() => setActiveMenu(null)}
+  />
+)}
     </div>
   );
 }

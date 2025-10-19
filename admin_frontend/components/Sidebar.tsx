@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { LayoutDashboard, Store, FolderTree, Package, ClipboardList, CreditCard, ShoppingCart, Image, X } from 'lucide-react';
+import { LayoutDashboard, Store, FolderTree, Package, ClipboardList, CreditCard, ShoppingCart, Image, X, AlertTriangle } from 'lucide-react';
 import { useState, useEffect } from 'react';
 
 interface SidebarProps {
@@ -56,6 +56,7 @@ export default function Sidebar({ isOpen, setIsOpen }: SidebarProps) {
     { icon: Package, label: 'Orders', href: '/orders', roles: ['super_admin', 'social_commerce_manager'] },
     { icon: ClipboardList, label: 'Purchase History', href: '/purchase-history', roles: ['super_admin', 'store_manager'] },
     { icon: CreditCard, label: 'Transaction', href: '/transaction', roles: ['super_admin'] },
+    { icon: AlertTriangle, label: 'Defect Panel', href: '/defects', roles: ['super_admin', 'store_manager']},
   ];
 
   // Filter menu items based on user role
@@ -110,6 +111,8 @@ export default function Sidebar({ isOpen, setIsOpen }: SidebarProps) {
               const isActive =
                 pathname === item.href || (item.subMenu && item.subMenu.some(sub => pathname === sub.href));
 
+              const Icon = item.icon;
+
               return (
                 <li key={index}>
                   <div>
@@ -128,8 +131,8 @@ export default function Sidebar({ isOpen, setIsOpen }: SidebarProps) {
                           ? 'text-gray-900 dark:text-white bg-gray-100 dark:bg-gray-700 font-medium'
                           : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
                       }`}
-                    >
-                      <item.icon className="w-4 h-4" />
+                      >
+                      <Icon className="w-4 h-4" />
                       <span>{item.label}</span>
                     </Link>
 
