@@ -1,0 +1,35 @@
+{
+  "categories": [
+    {
+      "id": "1760885729822",
+      "name": "Electricity",
+      "createdAt": "2025-10-19T14:55:29.822Z"
+    }
+  ],
+  "expenses": [
+    {
+      "id": "1760886220033",
+      "name": "Electricity bill",
+      "description": "test",
+      "type": "variable",
+      "amount": 1500,
+      "category": "Electricity",
+      "date": "2025-10-19T00:00:00.000Z",
+      "comment": "",
+    "receiptImage": "/uploads/receipt-1760886220027.png",
+      "createdAt": "2025-10-19T14:56:22.324Z"
+    },
+    {
+      "id": "1760886220030",
+      "name": "Test2",
+      "description": "test description",
+      "type": "fixed",
+      "amount": 200,
+      "category": "Electricity",
+      "date": "2025-10-19T00:00:00.000Z",
+      "comment": "",
+      "receiptImage": "/uploads/receipt-1760886220027.png",
+      "createdAt": "2025-10-19T15:03:40.030Z"
+    }
+  ]
+}
