@@ -442,5 +442,181 @@
       }
     ],
     "updatedAt": "2025-10-19T05:41:30.975Z"
+  },
+  {
+    "id": "sale-1760938985164",
+    "salesBy": "Admin",
+    "outletId": "1760592830554",
+    "date": "2025-10-20",
+    "customer": {
+      "name": "Nafisa Tasnim",
+      "mobile": "01924",
+      "address": "International Affairs Division ,Paramanu Bhaban ,Bangladesh Atomic Energy Commission,"
+    },
+    "items": [
+      {
+        "id": 1760938966262,
+        "productId": 1760593404487,
+        "productName": "Jamdani",
+        "size": "",
+        "qty": 1,
+        "price": 820,
+        "discount": 0,
+        "amount": 820,
+        "isDefective": true,
+        "defectId": "defect-1760938868165",
+        "barcode": "BATCH1760595196440-07"
+      }
+    ],
+    "amounts": {
+      "subtotal": 820,
+      "totalDiscount": 0,
+      "vat": 41,
+      "vatRate": 5,
+      "transportCost": 0,
+      "total": 861
+    },
+    "payments": {
+      "cash": 0,
+      "card": 0,
+      "bkash": 0,
+      "nagad": 0,
+      "transactionFee": 0,
+      "totalPaid": 0,
+      "due": 861
+    },
+    "createdAt": "2025-10-20T05:43:05.164Z"
+  },
+  {
+    "id": "sale-1760941769015",
+    "salesBy": "Admin",
+    "outletId": "1760592830554",
+    "date": "2025-10-20",
+    "customer": {
+      "name": "Nilufar yesmin",
+      "mobile": "01818316964",
+      "address": "International Affairs Division ,Paramanu Bhaban ,Bangladesh Atomic Energy Commission,"
+    },
+    "items": [
+      {
+        "id": 1760941760368,
+        "productId": 1760593404487,
+        "productName": "Jamdani",
+        "size": "",
+        "qty": 1,
+        "price": 2000,
+        "discount": 0,
+        "amount": 2000,
+        "isDefective": false,
+        "defectId": null,
+        "barcode": null
+      }
+    ],
+    "amounts": {
+      "subtotal": 2000,
+      "totalDiscount": 0,
+      "vat": 100,
+      "vatRate": 5,
+      "transportCost": 0,
+      "total": 2100
+    },
+    "payments": {
+      "cash": 0,
+      "card": 0,
+      "bkash": 0,
+      "nagad": 0,
+      "transactionFee": 0,
+      "totalPaid": 0,
+      "due": 2100
+    },
+    "createdAt": "2025-10-20T06:29:29.015Z"
+  },
+  {
+    "id": "sale-1760941836796",
+    "salesBy": "Admin",
+    "outletId": "1760592803601",
+    "date": "2025-10-20",
+    "customer": {
+      "name": "nilufar",
+      "mobile": "01818316964",
+      "address": "International Affairs Division ,Paramanu Bhaban ,Bangladesh Atomic Energy Commission,"
+    },
+    "items": [
+      {
+        "id": 1760941826987,
+        "productId": 1760593716940,
+        "productName": "Shotoronji",
+        "size": "",
+        "qty": 1,
+        "price": 900,
+        "discount": 0,
+        "amount": 900,
+        "isDefective": false,
+        "defectId": null,
+        "barcode": null
+      }
+    ],
+    "amounts": {
+      "subtotal": 900,
+      "totalDiscount": 0,
+      "vat": 45,
+      "vatRate": 5,
+      "transportCost": 0,
+      "total": 945
+    },
+    "payments": {
+      "cash": 800,
+      "card": 0,
+      "bkash": 0,
+      "nagad": 0,
+      "transactionFee": 0,
+      "totalPaid": 800,
+      "due": 145
+    },
+    "createdAt": "2025-10-20T06:30:36.796Z"
+  },
+  {
+    "id": "sale-1760977600024",
+    "salesBy": "Admin",
+    "outletId": "1760592803601",
+    "date": "2025-10-20",
+    "customer": {
+      "name": "nilu3",
+      "mobile": "01818316964",
+      "address": "International Affairs Division ,Paramanu Bhaban ,Bangladesh Atomic Energy Commission,"
+    },
+    "items": [
+      {
+        "id": 1760977591528,
+        "productId": 1760593716940,
+        "productName": "Shotoronji",
+        "size": "",
+        "qty": 1,
+        "price": 900,
+        "discount": 0,
+        "amount": 900,
+        "isDefective": false,
+        "defectId": null,
+        "barcode": null
+      }
+    ],
+    "amounts": {
+      "subtotal": 900,
+      "totalDiscount": 0,
+      "vat": 45,
+      "vatRate": 5,
+      "transportCost": 0,
+      "total": 945
+    },
+    "payments": {
+      "cash": 800,
+      "card": 0,
+      "bkash": 0,
+      "nagad": 0,
+      "transactionFee": 0,
+      "totalPaid": 800,
+      "due": 145
+    },
+    "createdAt": "2025-10-20T16:26:40.024Z"
   }
 ]

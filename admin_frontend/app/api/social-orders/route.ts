@@ -6,6 +6,104 @@ import path from 'path';
 const ordersFilePath = path.resolve('data', 'orders.json');
 const inventoryFilePath = path.resolve('data', 'inventory.json');
 const defectsFilePath = path.resolve('data', 'defects.json');
+const transactionsFilePath = path.resolve('data', 'transactions.json');
+
+// Helper: Read transactions
+const readTransactionsFromFile = () => {
+  try {
+    if (fs.existsSync(transactionsFilePath)) {
+      const fileData = fs.readFileSync(transactionsFilePath, 'utf8');
+      return JSON.parse(fileData);
+    } else {
+      return { categories: [], expenses: [] };
+    }
+  } catch (error) {
+    console.error('❌ Error reading transactions file:', error);
+    return { categories: [], expenses: [] };
+  }
+};
+
+// Helper: Write transactions
+const writeTransactionsToFile = (data: any) => {
+  try {
+    fs.mkdirSync(path.dirname(transactionsFilePath), { recursive: true });
+    fs.writeFileSync(transactionsFilePath, JSON.stringify(data, null, 2), 'utf8');
+  } catch (error) {
+    console.error('❌ Error writing transactions file:', error);
+    throw error;
+  }
+};
+
+// Helper: Add transaction entry
+const addTransactionEntry = (orderData: any) => {
+  try {
+    const transactions = readTransactionsFromFile();
+    
+    // Get product names for the transaction
+    const productNames = orderData.products?.map((p: any) => p.productName || p.name).join(', ') || 'Products';
+    const productCount = orderData.products?.length || 0;
+    
+    const transactionName = productCount === 1 
+      ? `Order: ${productNames}` 
+      : `Order: ${productNames.split(',')[0].trim()} +${productCount - 1} more`;
+    
+    // Calculate total amount from products
+    let totalAmount = 0;
+    if (orderData.products && Array.isArray(orderData.products)) {
+      totalAmount = orderData.products.reduce((sum: number, product: any) => {
+        const price = parseFloat(product.price || product.unitPrice || 0);
+        const qty = parseInt(product.qty || product.quantity || 1);
+        return sum + (price * qty);
+      }, 0);
+    }
+    
+    // Fallback to order-level totals if calculation fails
+    if (totalAmount === 0) {
+      totalAmount = parseFloat(orderData.totalCost || orderData.totalAmount || orderData.total || 0);
+    }
+    
+    console.log(`💰 Order total calculated: ${totalAmount}`);
+    
+    // ✅ Set as income from social orders
+    const transactionEntry = {
+      id: `order-${orderData.id}`,
+      name: transactionName,
+      description: `Order from ${orderData.customerName || 'Social Customer'}`,
+      type: 'variable',
+      amount: totalAmount,       // positive for income
+      category: 'Social Orders', // changed from "Inventory Purchase"
+      date: new Date().toISOString(),
+      comment: `Products: ${productNames}`,
+      receiptImage: '',
+      createdAt: new Date().toISOString(),
+    };
+    
+    // Push to income array instead of expenses
+    transactions.income = transactions.income || [];
+    transactions.income.push(transactionEntry);
+    
+    writeTransactionsToFile(transactions);
+    
+    console.log(`✅ Transaction entry created for order ${orderData.id} with amount ${totalAmount} as income`);
+  } catch (error) {
+    console.error('❌ Error adding transaction entry:', error);
+  }
+};
+
+// Helper: Remove transaction entry
+const removeTransactionEntry = (orderId: string) => {
+  try {
+    const transactions = readTransactionsFromFile();
+    const transactionId = `order-${orderId}`;
+    
+    transactions.expenses = transactions.expenses.filter((exp: any) => exp.id !== transactionId);
+    writeTransactionsToFile(transactions);
+    
+    console.log(`✅ Transaction entry removed for order ${orderId}`);
+  } catch (error) {
+    console.error('❌ Error removing transaction entry:', error);
+  }
+};
 
 // Helper: Read all orders
 const readOrdersFromFile = () => {
@@ -160,7 +258,7 @@ export async function GET() {
   }
 }
 
-// POST — Save a new order with barcode allocation
+// POST — Save a new order with barcode allocation and transaction entry
 export async function POST(request: Request) {
   try {
     const newOrder = await request.json();
@@ -224,6 +322,9 @@ export async function POST(request: Request) {
 
     existingOrders.push(orderWithMeta);
     writeOrdersToFile(existingOrders);
+
+    // ✅ ADD TRANSACTION ENTRY
+    addTransactionEntry(orderWithMeta);
 
     console.log(`✅ Order ${orderId} created with ${productsWithBarcodes.length} products`);
 
@@ -307,6 +408,9 @@ export async function DELETE(request: Request) {
     const updatedOrders = orders.filter((order: any) => String(order.id) !== String(id));
     writeOrdersToFile(updatedOrders);
 
+    // ✅ REMOVE TRANSACTION ENTRY
+    removeTransactionEntry(id);
+
     return NextResponse.json({ 
       success: true, 
       message: 'Order cancelled successfully and inventory restored!' 
@@ -381,6 +485,11 @@ export async function PUT(request: Request) {
     console.log('Updated order with preserved barcodes:', orders[orderIndex]);
 
     writeOrdersToFile(orders);
+    
+    // ✅ UPDATE TRANSACTION ENTRY
+    removeTransactionEntry(id);
+    addTransactionEntry(orders[orderIndex]);
+    
     console.log('Order saved to file');
 
     return NextResponse.json({

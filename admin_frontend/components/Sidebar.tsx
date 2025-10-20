@@ -46,8 +46,9 @@ export default function Sidebar({ isOpen, setIsOpen }: SidebarProps) {
     { icon: ShoppingCart, label: 'Social commerce', href: '/social-commerce' },
     { icon: Package, label: 'Orders', href: '/orders' },
     { icon: ClipboardList, label: 'Purchase History', href: '/purchase-history' },
-    { icon: CreditCard, label: 'Transaction', href: '/transaction' },
     { icon: AlertTriangle, label: 'Defect Panel', href: '/defects' },
+    { icon: CreditCard, label: 'Transaction', href: '/transaction' },
+   
   ];
 
   return (

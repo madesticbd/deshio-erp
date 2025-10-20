@@ -419,5 +419,270 @@
       "due": 735
     },
     "createdAt": "2025-10-18T07:35:43.012Z"
+  },
+  {
+    "id": 1760941940688,
+    "salesBy": "Admin User",
+    "date": "06-Oct-2025",
+    "customer": {
+      "name": "Nilufar",
+      "email": "tasneem.nishat.4953@gmail.com",
+      "phone": "01818316964",
+      "socialId": "dfs"
+    },
+    "deliveryAddress": {
+      "division": "Khulna",
+      "district": "Satkhira",
+      "city": "Satkhira Sadar",
+      "zone": "zdg",
+      "area": "",
+      "address": "International Affairs Division ,Paramanu Bhaban ,Bangladesh Atomic Energy Commission,",
+      "postalCode": "1212"
+    },
+    "products": [
+      {
+        "id": 1760941924368,
+        "productId": 1760593716940,
+        "batchId": 1760595237962,
+        "productName": "Shotoronji",
+        "size": "1",
+        "qty": 1,
+        "price": 900,
+        "discount": 0,
+        "amount": 900,
+        "barcodes": [
+          "BATCH1760595237962-04"
+        ]
+      }
+    ],
+    "subtotal": 900,
+    "amounts": {
+      "subtotal": 900,
+      "totalDiscount": 0,
+      "vat": 45,
+      "vatRate": 5,
+      "transportCost": 0,
+      "total": 945
+    },
+    "payments": {
+      "sslCommerz": 900,
+      "advance": 0,
+      "transactionId": "",
+      "totalPaid": 900,
+      "due": 45
+    },
+    "createdAt": "2025-10-20T06:32:20.691Z"
+  },
+  {
+    "id": 1760942287277,
+    "salesBy": "Admin User",
+    "date": "06-Oct-2025",
+    "customer": {
+      "name": "Rodoshi",
+      "email": "tasneem.nishat.4953@gmail.com",
+      "phone": "01818316964",
+      "socialId": "ascds"
+    },
+    "deliveryAddress": {
+      "division": "Khulna",
+      "district": "Satkhira",
+      "city": "Assasuni",
+      "zone": "ad",
+      "area": "",
+      "address": "International Affairs Division ,Paramanu Bhaban ,Bangladesh Atomic Energy Commission,",
+      "postalCode": "12"
+    },
+    "products": [
+      {
+        "id": 1760942277568,
+        "productId": 1760593716940,
+        "batchId": 1760595237962,
+        "productName": "Shotoronji",
+        "size": "1",
+        "qty": 1,
+        "price": 900,
+        "discount": 0,
+        "amount": 900,
+        "barcodes": [
+          "BATCH1760595237962-06"
+        ]
+      }
+    ],
+    "subtotal": 900,
+    "amounts": {
+      "subtotal": 900,
+      "totalDiscount": 0,
+      "vat": 45,
+      "vatRate": 5,
+      "transportCost": 0,
+      "total": 945
+    },
+    "payments": {
+      "sslCommerz": 897,
+      "advance": 0,
+      "transactionId": "",
+      "totalPaid": 897,
+      "due": 48
+    },
+    "createdAt": "2025-10-20T06:38:07.281Z"
+  },
+  {
+    "id": 1760943018412,
+    "salesBy": "Admin User",
+    "date": "06-Oct-2025",
+    "customer": {
+      "name": "Preownti",
+      "email": "tasneem.nishat.4953@gmail.com",
+      "phone": "01818316964",
+      "socialId": "dxa"
+    },
+    "deliveryAddress": {
+      "division": "Sylhet",
+      "district": "Sylhet",
+      "city": "Jaintiapur",
+      "zone": "da",
+      "area": "",
+      "address": "International Affairs Division ,Paramanu Bhaban ,Bangladesh Atomic Energy Commission,",
+      "postalCode": "121"
+    },
+    "products": [
+      {
+        "id": 1760943008729,
+        "productId": 1760593404487,
+        "batchId": 1760595196440,
+        "productName": "Jamdani",
+        "size": "1",
+        "qty": 1,
+        "price": 2000,
+        "discount": 0,
+        "amount": 2000,
+        "barcodes": [
+          "BATCH1760595196440-08"
+        ]
+      }
+    ],
+    "subtotal": 2000,
+    "amounts": {
+      "subtotal": 2000,
+      "totalDiscount": 0,
+      "vat": 100,
+      "vatRate": 5,
+      "transportCost": 0,
+      "total": 2100
+    },
+    "payments": {
+      "sslCommerz": 2000,
+      "advance": 0,
+      "transactionId": "",
+      "totalPaid": 2000,
+      "due": 100
+    },
+    "createdAt": "2025-10-20T06:50:18.414Z"
+  },
+  {
+    "id": 1760974414439,
+    "salesBy": "Admin User",
+    "date": "06-Oct-2025",
+    "customer": {
+      "name": "Nilu",
+      "email": "tasneem.nishat.4953@gmail.com",
+      "phone": "01818316964",
+      "socialId": ""
+    },
+    "deliveryAddress": {
+      "division": "Chattagram",
+      "district": "Khagrachhari",
+      "city": "Ramgarh",
+      "zone": "sds",
+      "area": "",
+      "address": "International Affairs Division ,Paramanu Bhaban ,Bangladesh Atomic Energy Commission,",
+      "postalCode": "1212"
+    },
+    "products": [
+      {
+        "id": 1760974402645,
+        "productId": 1760593481284,
+        "batchId": 1760594714624,
+        "productName": "Ear rings",
+        "size": "1",
+        "qty": 1,
+        "price": 700,
+        "discount": 0,
+        "amount": 700,
+        "barcodes": [
+          "BATCH1760594714624-09"
+        ]
+      }
+    ],
+    "subtotal": 700,
+    "amounts": {
+      "subtotal": 700,
+      "totalDiscount": 0,
+      "vat": 35,
+      "vatRate": 5,
+      "transportCost": 0,
+      "total": 735
+    },
+    "payments": {
+      "sslCommerz": 500,
+      "advance": 0,
+      "transactionId": "",
+      "totalPaid": 500,
+      "due": 235
+    },
+    "createdAt": "2025-10-20T15:33:34.442Z"
+  },
+  {
+    "id": 1760976029450,
+    "salesBy": "Admin User",
+    "date": "06-Oct-2025",
+    "customer": {
+      "name": "nilu2",
+      "email": "tasneem.nishat.4953@gmail.com",
+      "phone": "01818316964",
+      "socialId": ""
+    },
+    "deliveryAddress": {
+      "division": "Rajshahi",
+      "district": "Bogura",
+      "city": "Sherpur",
+      "zone": "",
+      "area": "",
+      "address": "International Affairs Division ,Paramanu Bhaban ,Bangladesh Atomic Energy Commission,",
+      "postalCode": "1212"
+    },
+    "products": [
+      {
+        "id": 1760976020458,
+        "productId": 1760593404487,
+        "batchId": 1760595196440,
+        "productName": "Jamdani",
+        "size": "1",
+        "qty": 1,
+        "price": 2000,
+        "discount": 0,
+        "amount": 2000,
+        "barcodes": [
+          "BATCH1760595196440-10"
+        ]
+      }
+    ],
+    "subtotal": 2000,
+    "amounts": {
+      "subtotal": 2000,
+      "totalDiscount": 0,
+      "vat": 100,
+      "vatRate": 5,
+      "transportCost": 0,
+      "total": 2100
+    },
+    "payments": {
+      "sslCommerz": 2000,
+      "advance": 0,
+      "transactionId": "",
+      "totalPaid": 2000,
+      "due": 100
+    },
+    "createdAt": "2025-10-20T16:00:29.452Z"
   }
 ]

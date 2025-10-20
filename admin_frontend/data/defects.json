@@ -93,5 +93,24 @@
     "image": "/uploads/defect-1760772633399.jpeg",
     "soldAt": "2025-10-19T05:38:44.310Z",
     "updatedAt": "2025-10-19T05:38:44.310Z"
+  },
+  {
+    "id": "defect-1760938868165",
+    "barcode": "BATCH1760595196440-07",
+    "productId": 1760593404487,
+    "productName": "Jamdani",
+    "status": "sold",
+    "store": "1760592830554",
+    "addedBy": "Admin",
+    "addedAt": "2025-10-20T05:41:08.165Z",
+    "originalOrderId": null,
+    "customerPhone": null,
+    "costPrice": 1000,
+    "originalSellingPrice": 2000,
+    "sellingPrice": 820,
+    "returnReason": "pos test",
+    "image": "/uploads/defect-1760938868160.png",
+    "soldAt": "2025-10-20T05:43:05.165Z",
+    "updatedAt": "2025-10-20T05:43:05.165Z"
   }
 ]

@@ -93,13 +93,13 @@
     "costPrice": 500,
     "sellingPrice": 700,
     "location": "Uttara",
-    "status": "available",
+    "status": "sold",
     "admittedAt": "2025-10-16T06:17:17.469Z",
     "id": 1760594740016,
     "createdAt": "2025-10-16T06:06:58.783Z",
-    "updatedAt": "2025-10-18T07:35:43.009Z",
+    "updatedAt": "2025-10-20T15:33:33.933Z",
     "orderId": 1760772943008,
-    "soldAt": "2025-10-18T07:35:43.009Z"
+    "soldAt": "2025-10-20T15:33:31.804Z"
   },
   {
     "productId": 1760593481284,
@@ -122,11 +122,13 @@
     "costPrice": 500,
     "sellingPrice": 700,
     "location": "Uttara",
-    "status": "available",
+    "status": "sold",
     "admittedAt": "2025-10-16T06:17:32.508Z",
     "id": 1760594743782,
     "createdAt": "2025-10-16T06:06:58.783Z",
-    "updatedAt": "2025-10-16T06:17:32.898Z"
+    "updatedAt": "2025-10-20T15:33:34.440Z",
+    "orderId": 1760974414439,
+    "soldAt": "2025-10-20T15:33:34.440Z"
   },
   {
     "productId": 1760593481284,
@@ -207,11 +209,12 @@
     "costPrice": 1000,
     "sellingPrice": 2000,
     "location": "Banasree",
-    "status": "available",
+    "status": "sold",
     "admittedAt": "2025-10-16T06:19:49.460Z",
     "id": 1760595274888,
     "createdAt": "2025-10-16T06:15:34.114Z",
-    "updatedAt": "2025-10-16T06:19:49.857Z"
+    "updatedAt": "2025-10-20T06:29:29.382Z",
+    "soldAt": "2025-10-20T06:29:29.026Z"
   },
   {
     "productId": 1760593404487,
@@ -220,11 +223,12 @@
     "costPrice": 1000,
     "sellingPrice": 2000,
     "location": "Banasree",
-    "status": "available",
+    "status": "sold",
     "admittedAt": "2025-10-16T06:19:58.245Z",
     "id": 1760595276541,
     "createdAt": "2025-10-16T06:15:34.114Z",
-    "updatedAt": "2025-10-16T06:19:58.640Z"
+    "updatedAt": "2025-10-20T06:50:17.957Z",
+    "soldAt": "2025-10-20T06:50:17.408Z"
   },
   {
     "productId": 1760593404487,
@@ -233,11 +237,11 @@
     "costPrice": 1000,
     "sellingPrice": 2000,
     "location": "Banasree",
-    "status": "available",
+    "status": "defective",
     "admittedAt": "2025-10-16T06:20:06.457Z",
     "id": 1760595278134,
     "createdAt": "2025-10-16T06:15:34.114Z",
-    "updatedAt": "2025-10-16T06:20:06.861Z"
+    "updatedAt": "2025-10-20T05:41:08.164Z"
   },
   {
     "productId": 1760593404487,
@@ -246,11 +250,13 @@
     "costPrice": 1000,
     "sellingPrice": 2000,
     "location": "Banasree",
-    "status": "available",
+    "status": "sold",
     "admittedAt": "2025-10-16T06:20:14.305Z",
     "id": 1760595281521,
     "createdAt": "2025-10-16T06:15:34.114Z",
-    "updatedAt": "2025-10-16T06:20:14.692Z"
+    "updatedAt": "2025-10-20T06:50:18.413Z",
+    "orderId": 1760943018412,
+    "soldAt": "2025-10-20T06:50:18.413Z"
   },
   {
     "productId": 1760593404487,
@@ -259,11 +265,12 @@
     "costPrice": 1000,
     "sellingPrice": 2000,
     "location": "Banasree",
-    "status": "available",
+    "status": "sold",
     "admittedAt": "2025-10-16T06:20:21.221Z",
     "id": 1760595283169,
     "createdAt": "2025-10-16T06:15:34.114Z",
-    "updatedAt": "2025-10-16T06:20:21.624Z"
+    "updatedAt": "2025-10-20T16:00:28.802Z",
+    "soldAt": "2025-10-20T16:00:27.907Z"
   },
   {
     "productId": 1760593404487,
@@ -272,11 +279,13 @@
     "costPrice": 1000,
     "sellingPrice": 2000,
     "location": "Banasree",
-    "status": "available",
+    "status": "sold",
     "admittedAt": "2025-10-16T06:20:28.332Z",
     "id": 1760595284862,
     "createdAt": "2025-10-16T06:15:34.114Z",
-    "updatedAt": "2025-10-16T06:20:28.716Z"
+    "updatedAt": "2025-10-20T16:00:29.451Z",
+    "orderId": 1760976029450,
+    "soldAt": "2025-10-20T16:00:29.451Z"
   },
   {
     "productId": 1760593716940,
@@ -285,11 +294,12 @@
     "costPrice": 500,
     "sellingPrice": 900,
     "location": "Uttara",
-    "status": "available",
+    "status": "sold",
     "admittedAt": "2025-10-16T06:17:50.212Z",
     "id": 1760595295468,
     "createdAt": "2025-10-16T06:16:06.136Z",
-    "updatedAt": "2025-10-16T10:21:49.966Z"
+    "updatedAt": "2025-10-20T06:30:37.171Z",
+    "soldAt": "2025-10-20T06:30:36.802Z"
   },
   {
     "productId": 1760593716940,
@@ -313,11 +323,12 @@
     "costPrice": 500,
     "sellingPrice": 900,
     "location": "Uttara",
-    "status": "available",
+    "status": "sold",
     "admittedAt": "2025-10-16T06:18:04.332Z",
     "id": 1760595298736,
     "createdAt": "2025-10-16T06:16:06.136Z",
-    "updatedAt": "2025-10-16T06:18:04.723Z"
+    "updatedAt": "2025-10-20T06:32:20.268Z",
+    "soldAt": "2025-10-20T06:32:18.829Z"
   },
   {
     "productId": 1760593716940,
@@ -326,11 +337,13 @@
     "costPrice": 500,
     "sellingPrice": 900,
     "location": "Uttara",
-    "status": "available",
+    "status": "sold",
     "admittedAt": "2025-10-16T06:18:10.990Z",
     "id": 1760595300223,
     "createdAt": "2025-10-16T06:16:06.136Z",
-    "updatedAt": "2025-10-16T06:18:11.424Z"
+    "updatedAt": "2025-10-20T06:32:20.689Z",
+    "orderId": 1760941940688,
+    "soldAt": "2025-10-20T06:32:20.689Z"
   },
   {
     "productId": 1760593716940,
@@ -339,11 +352,12 @@
     "costPrice": 500,
     "sellingPrice": 900,
     "location": "Uttara",
-    "status": "available",
+    "status": "sold",
     "admittedAt": "2025-10-16T06:18:17.972Z",
     "id": 1760595301686,
     "createdAt": "2025-10-16T06:16:06.136Z",
-    "updatedAt": "2025-10-16T06:18:18.378Z"
+    "updatedAt": "2025-10-20T06:38:06.821Z",
+    "soldAt": "2025-10-20T06:38:06.298Z"
   },
   {
     "productId": 1760593716940,
@@ -352,11 +366,13 @@
     "costPrice": 500,
     "sellingPrice": 900,
     "location": "Uttara",
-    "status": "available",
+    "status": "sold",
     "admittedAt": "2025-10-16T06:18:25.733Z",
     "id": 1760595303772,
     "createdAt": "2025-10-16T06:16:06.136Z",
-    "updatedAt": "2025-10-16T06:18:26.154Z"
+    "updatedAt": "2025-10-20T06:38:07.279Z",
+    "orderId": 1760942287277,
+    "soldAt": "2025-10-20T06:38:07.279Z"
   },
   {
     "productId": 1760593716940,
@@ -365,11 +381,12 @@
     "costPrice": 500,
     "sellingPrice": 900,
     "location": "Uttara",
-    "status": "available",
+    "status": "sold",
     "admittedAt": "2025-10-16T06:18:33.119Z",
     "id": 1760595305614,
     "createdAt": "2025-10-16T06:16:06.136Z",
-    "updatedAt": "2025-10-16T06:18:33.451Z"
+    "updatedAt": "2025-10-20T16:26:40.497Z",
+    "soldAt": "2025-10-20T16:26:40.042Z"
   },
   {
     "productId": 1760593716940,

@@ -30,7 +30,21 @@ async saveExpense(expense: Omit<Expense, 'id' | 'createdAt'>): Promise<Expense> 
   
   return response.json();
 },
-
+async getTransactions(): Promise<{ expenses: Expense[], income: Expense[], categories: Category[] }> {
+  try {
+    const response = await fetch('/api/transactions');
+    const data = await response.json();
+    return {
+      expenses: data.expenses || [],
+      income: data.income || [],
+      categories: data.categories || []
+    };
+  } catch (error) {
+    console.error('Failed to fetch transactions:', error);
+    return { expenses: [], income: [], categories: [] };
+  }
+}
+,
   // Categories
   async getCategories(): Promise<Category[]> {
     try {

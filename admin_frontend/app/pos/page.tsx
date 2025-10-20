@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -9,12 +10,6 @@ interface Store {
   id: number;
   name: string;
   location: string;
-  type: string;
-  pathao_key: string;
-  revenue: number;
-  revenueChange: number;
-  products: number;
-  orders: number;
 }
 
 interface CartItem {
@@ -48,7 +43,6 @@ interface InventoryItem {
   status: string;
   location: string;
   sellingPrice: number;
-  [key: string]: any;
 }
 
 interface Toast {
@@ -77,7 +71,6 @@ export default function POSPage() {
   const [inventory, setInventory] = useState<InventoryItem[]>([]);
   const [toasts, setToasts] = useState<Toast[]>([]);
   
-  // Form states
   const [customerName, setCustomerName] = useState('');
   const [mobileNo, setMobileNo] = useState('');
   const [address, setAddress] = useState('');
@@ -89,12 +82,8 @@ export default function POSPage() {
   const [discountAmount, setDiscountAmount] = useState(0);
   const [amount, setAmount] = useState(0);
   
-  // Defective product states
   const [defectiveProduct, setDefectiveProduct] = useState<DefectItem | null>(null);
-  const [defectivePrice, setDefectivePrice] = useState('');
-  const [defectiveStore, setDefectiveStore] = useState('');
   
-  // Amount details
   const [vatRate, setVatRate] = useState(5);
   const [transportCost, setTransportCost] = useState(0);
   const [cashPaid, setCashPaid] = useState(0);
@@ -106,34 +95,24 @@ export default function POSPage() {
   const showToast = (message: string, type: 'success' | 'error') => {
     const id = Date.now();
     setToasts(prev => [...prev, { id, message, type }]);
-    setTimeout(() => {
-      setToasts(prev => prev.filter(toast => toast.id !== id));
-    }, 5000);
+    setTimeout(() => setToasts(prev => prev.filter(toast => toast.id !== id)), 5000);
   };
 
-  const removeToast = (id: number) => {
-    setToasts(prev => prev.filter(toast => toast.id !== id));
-  };
-
-  // Load defective product from sessionStorage
   useEffect(() => {
     const defectData = sessionStorage.getItem('defectItem');
     if (defectData) {
       try {
         const defect = JSON.parse(defectData);
-        setDefectiveProduct(defect);
-        setDefectivePrice(defect.sellingPrice?.toString() || '');
-        setDefectiveStore(defect.store || '');
-        
-        // Auto-select the store if available
         if (defect.store) {
           const outlet = outlets.find(o => o.name === defect.store || o.id.toString() === defect.store);
-          if (outlet) {
-            setSelectedOutlet(outlet.id.toString());
-          }
+          if (outlet) setSelectedOutlet(outlet.id.toString());
         }
-        
-        showToast('Defective product loaded. Please complete the sale.', 'success');
+        setProduct(defect.productName);
+        setSelectedProductId(defect.productId);
+        setSellingPrice(defect.sellingPrice || 0);
+        setQuantity(1);
+        setDefectiveProduct(defect);
+        showToast('Defective product loaded. Complete the sale.', 'success');
       } catch (error) {
         console.error('Error parsing defect data:', error);
       }
@@ -178,43 +157,29 @@ export default function POSPage() {
 
   const getAvailableProducts = () => {
     if (!selectedOutlet) return [];
-    
     const selectedOutletData = outlets.find(o => o.id.toString() === selectedOutlet);
     if (!selectedOutletData) return [];
-
-    const outletInventory = inventory.filter(
-      inv => inv.location === selectedOutletData.name && inv.status === 'available'
-    );
-
+    const outletInventory = inventory.filter(inv => inv.location === selectedOutletData.name && inv.status === 'available');
     const availableProductIds = [...new Set(outletInventory.map(inv => inv.productId))];
-
     return products.filter(prod => availableProductIds.includes(prod.id));
   };
 
   const getAvailableQuantity = (productId: number) => {
     if (!selectedOutlet) return 0;
-    
     const selectedOutletData = outlets.find(o => o.id.toString() === selectedOutlet);
     if (!selectedOutletData) return 0;
-
-    return inventory.filter(
-      inv => inv.productId === productId && 
-             inv.location === selectedOutletData.name && 
-             inv.status === 'available'
-    ).length;
+    return inventory.filter(inv => inv.productId === productId && inv.location === selectedOutletData.name && inv.status === 'available').length;
   };
 
   useEffect(() => {
     if (sellingPrice > 0 && quantity > 0) {
       const baseAmount = sellingPrice * quantity;
       let discount = 0;
-      
       if (discountPercent > 0) {
         discount = (baseAmount * discountPercent) / 100;
       } else if (discountAmount > 0) {
         discount = discountAmount;
       }
-      
       setAmount(baseAmount - discount);
     } else {
       setAmount(0);
@@ -226,15 +191,9 @@ export default function POSPage() {
     const selectedProd = products.find(p => p.name === productName);
     if (selectedProd) {
       setSelectedProductId(selectedProd.id);
-      
       const selectedOutletData = outlets.find(o => o.id.toString() === selectedOutlet);
       if (!selectedOutletData) return;
-
-      const inventoryItem = inventory.find(
-        inv => inv.productId === selectedProd.id && 
-               inv.location === selectedOutletData.name && 
-               inv.status === 'available'
-      );
+      const inventoryItem = inventory.find(inv => inv.productId === selectedProd.id && inv.location === selectedOutletData.name && inv.status === 'available');
       if (inventoryItem) {
         setSellingPrice(inventoryItem.sellingPrice);
       } else if (selectedProd.attributes.Price) {
@@ -244,69 +203,60 @@ export default function POSPage() {
   };
 
   const addDefectiveToCart = () => {
-    if (!defectiveProduct || !defectivePrice) {
+    if (!defectiveProduct || !sellingPrice || sellingPrice <= 0) {
       showToast('Defective product price is required', 'error');
       return;
     }
-
     if (!selectedOutlet) {
       showToast('Please select an outlet', 'error');
       return;
     }
-
-    const price = parseFloat(defectivePrice);
-    
     const newItem: CartItem = {
       id: Date.now(),
       productId: defectiveProduct.productId,
       productName: defectiveProduct.productName,
       size: '',
       qty: 1,
-      price: price,
+      price: sellingPrice,
       discount: 0,
-      amount: price,
+      amount: sellingPrice,
       isDefective: true,
       defectId: defectiveProduct.id,
       barcode: defectiveProduct.barcode
     };
-    
     setCart([...cart, newItem]);
     showToast('Defective product added to cart', 'success');
-    
-    // Clear defective product data
+    setProduct('');
+    setSelectedProductId(null);
+    setSellingPrice(0);
+    setQuantity(0);
     setDefectiveProduct(null);
-    setDefectivePrice('');
     sessionStorage.removeItem('defectItem');
   };
 
   const addToCart = () => {
+    if (defectiveProduct && selectedProductId === defectiveProduct.productId) {
+      return addDefectiveToCart();
+    }
     if (!product || !selectedProductId) {
       showToast('Please select a product', 'error');
       return;
     }
-    
     if (sellingPrice <= 0 || quantity <= 0) {
       showToast('Please enter valid price and quantity', 'error');
       return;
     }
-
     if (!selectedOutlet) {
       showToast('Please select an outlet', 'error');
       return;
     }
-
     const availableQty = getAvailableQuantity(selectedProductId);
-
     if (availableQty < quantity) {
       showToast(`Only ${availableQty} items available at this outlet`, 'error');
       return;
     }
-    
     const baseAmount = sellingPrice * quantity;
-    const discountValue = discountPercent > 0 
-      ? (baseAmount * discountPercent) / 100 
-      : discountAmount;
-    
+    const discountValue = discountPercent > 0 ? (baseAmount * discountPercent) / 100 : discountAmount;
     const newItem: CartItem = {
       id: Date.now(),
       productId: selectedProductId,
@@ -315,10 +265,10 @@ export default function POSPage() {
       qty: quantity,
       price: sellingPrice,
       discount: discountValue,
-      amount: baseAmount - discountValue
+      amount: baseAmount - discountValue,
+      isDefective: false
     };
     setCart([...cart, newItem]);
-    
     setProduct('');
     setSelectedProductId(null);
     setSellingPrice(0);
@@ -342,27 +292,14 @@ export default function POSPage() {
   const updateInventoryStatus = async (productId: number, quantity: number) => {
     try {
       if (!selectedOutlet) return;
-      
       const selectedOutletData = outlets.find(o => o.id.toString() === selectedOutlet);
       if (!selectedOutletData) return;
-
-      const availableItems = inventory.filter(
-        inv => inv.productId === productId && 
-               inv.location === selectedOutletData.name && 
-               inv.status === 'available'
-      );
-
+      const availableItems = inventory.filter(inv => inv.productId === productId && inv.location === selectedOutletData.name && inv.status === 'available');
       for (let i = 0; i < Math.min(quantity, availableItems.length); i++) {
         await fetch('/api/inventory', {
           method: 'PUT',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            id: availableItems[i].id,
-            status: 'sold',
-            soldAt: new Date().toISOString()
-          }),
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ id: availableItems[i].id, status: 'sold', soldAt: new Date().toISOString() }),
         });
       }
     } catch (error) {
@@ -380,72 +317,28 @@ export default function POSPage() {
       showToast('Please add products to cart', 'error');
       return;
     }
-
     const saleData = {
       salesBy: 'Admin',
       outletId: selectedOutlet,
       date: date,
-      customer: {
-        name: customerName,
-        mobile: mobileNo,
-        address: address
-      },
-      items: cart.map(item => ({
-        id: item.id,
-        productId: item.productId,
-        productName: item.productName,
-        size: item.size,
-        qty: item.qty,
-        price: item.price,
-        discount: item.discount,
-        amount: item.amount,
-        isDefective: item.isDefective || false,
-        defectId: item.defectId || null,
-        barcode: item.barcode || null
-      })),
-      amounts: {
-        subtotal: subtotal,
-        totalDiscount: totalDiscount,
-        vat: vat,
-        vatRate: vatRate,
-        transportCost: transportCost,
-        total: total
-      },
-      payments: {
-        cash: cashPaid,
-        card: cardPaid,
-        bkash: bkashPaid,
-        nagad: nagadPaid,
-        transactionFee: transactionFee,
-        totalPaid: totalPaid,
-        due: due
-      }
+      customer: { name: customerName, mobile: mobileNo, address: address },
+      items: cart.map(item => ({ id: item.id, productId: item.productId, productName: item.productName, size: item.size, qty: item.qty, price: item.price, discount: item.discount, amount: item.amount, isDefective: item.isDefective || false, defectId: item.defectId || null, barcode: item.barcode || null })),
+      amounts: { subtotal, totalDiscount, vat, vatRate, transportCost, total },
+      payments: { cash: cashPaid, card: cardPaid, bkash: bkashPaid, nagad: nagadPaid, transactionFee, totalPaid, due }
     };
-
     try {
-      console.log('💾 Saving sale with data:', saleData);
-      
       const response = await fetch('/api/sales', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(saleData),
       });
-
       if (response.ok) {
-        const result = await response.json();
-        console.log('✅ Sale saved successfully:', result);
-        
-        // Update inventory status for regular products only
         for (const item of cart) {
           if (!item.isDefective) {
             await updateInventoryStatus(item.productId, item.qty);
           }
         }
-
         showToast('Sale completed successfully!', 'success');
-        
         setCart([]);
         setCustomerName('');
         setMobileNo('');
@@ -456,11 +349,8 @@ export default function POSPage() {
         setNagadPaid(0);
         setTransactionFee(0);
         setTransportCost(0);
-
         await fetchInventory();
       } else {
-        const errorData = await response.json();
-        console.error('❌ Sale failed:', errorData);
         showToast('Failed to complete sale', 'error');
       }
     } catch (error) {
@@ -475,330 +365,116 @@ export default function POSPage() {
         <Sidebar isOpen={sidebarOpen} setIsOpen={setSidebarOpen} />
         <div className="flex-1 flex flex-col">
           <Header darkMode={darkMode} setDarkMode={setDarkMode} toggleSidebar={() => setSidebarOpen(!sidebarOpen)} />
-
           <main className="flex-1 overflow-auto p-6">
-            {/* Toast Notifications */}
             <div className="fixed top-4 right-4 z-50 space-y-2">
               {toasts.map((toast) => (
-                <div
-                  key={toast.id}
-                  className={`flex items-center gap-3 px-4 py-3 rounded-lg shadow-lg border ${
-                    toast.type === 'success'
-                      ? 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800'
-                      : 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800'
-                  } animate-slideIn`}
-                >
-                  {toast.type === 'success' ? (
-                    <CheckCircle2 className="w-5 h-5 text-green-600 dark:text-green-400 flex-shrink-0" />
-                  ) : (
-                    <AlertCircle className="w-5 h-5 text-red-600 dark:text-red-400 flex-shrink-0" />
-                  )}
-                  <p className={`text-sm font-medium ${
-                    toast.type === 'success'
-                      ? 'text-green-900 dark:text-green-300'
-                      : 'text-red-900 dark:text-red-300'
-                  }`}>
-                    {toast.message}
-                  </p>
-                  <button
-                    onClick={() => removeToast(toast.id)}
-                    className={`ml-2 ${
-                      toast.type === 'success'
-                        ? 'text-green-600 dark:text-green-400 hover:text-green-800 dark:hover:text-green-300'
-                        : 'text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300'
-                    }`}
-                  >
-                    <X className="w-4 h-4" />
-                  </button>
+                <div key={toast.id} className={`flex items-center gap-3 px-4 py-3 rounded-lg shadow-lg border ${toast.type === 'success' ? 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800' : 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800'}`}>
+                  {toast.type === 'success' ? <CheckCircle2 className="w-5 h-5 text-green-600 dark:text-green-400" /> : <AlertCircle className="w-5 h-5 text-red-600 dark:text-red-400" />}
+                  <p className={`text-sm font-medium ${toast.type === 'success' ? 'text-green-900 dark:text-green-300' : 'text-red-900 dark:text-red-300'}`}>{toast.message}</p>
+                  <button onClick={() => setToasts(prev => prev.filter(t => t.id !== toast.id))} className={toast.type === 'success' ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}><X className="w-4 h-4" /></button>
                 </div>
               ))}
             </div>
-
             <div className="max-w-7xl mx-auto">
               <h1 className="text-2xl font-semibold text-gray-900 dark:text-white mb-6">Point of Sale</h1>
-              
-              {/* Top Section */}
               <div className="grid grid-cols-3 gap-4 mb-6">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                    Sales By
-                  </label>
-                  <input
-                    type="text"
-                    value="Admin"
-                    readOnly
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-white"
-                  />
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Sales By</label>
+                  <input type="text" value="Admin" readOnly className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-white" />
                 </div>
-                
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                    Outlet <span className="text-red-500">*</span>
-                  </label>
-                  <select
-                    value={selectedOutlet}
-                    onChange={(e) => setSelectedOutlet(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                  >
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Outlet <span className="text-red-500">*</span></label>
+                  <select value={selectedOutlet} onChange={(e) => setSelectedOutlet(e.target.value)} className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white">
                     <option value="">Choose an Outlet</option>
-                    {outlets.map((outlet) => (
-                      <option key={outlet.id} value={outlet.id}>
-                        {outlet.name} - {outlet.location}
-                      </option>
-                    ))}
+                    {outlets.map((outlet) => (<option key={outlet.id} value={outlet.id}>{outlet.name} - {outlet.location}</option>))}
                   </select>
                 </div>
-                
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                    Date <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="date"
-                    value={date}
-                    onChange={(e) => setDate(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                  />
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Date <span className="text-red-500">*</span></label>
+                  <input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white" />
                 </div>
               </div>
-
-              {/* Defective Product Section */}
-              {defectiveProduct && (
-                <div className="mb-6 bg-orange-50 dark:bg-orange-900/20 border-2 border-orange-300 dark:border-orange-700 rounded-lg p-4">
-                  <div className="flex items-start justify-between mb-4">
-                    <div className="flex items-center gap-3">
-                      <Package className="w-6 h-6 text-orange-600 dark:text-orange-400" />
-                      <div>
-                        <h3 className="text-lg font-semibold text-orange-900 dark:text-orange-300">
-                          Defective Product Sale
-                        </h3>
-                        <p className="text-sm text-orange-700 dark:text-orange-400">
-                          Complete the sale for this defective item
-                        </p>
-                      </div>
-                    </div>
-                    <button
-                      onClick={() => {
-                        setDefectiveProduct(null);
-                        setDefectivePrice('');
-                        sessionStorage.removeItem('defectItem');
-                      }}
-                      className="text-orange-600 dark:text-orange-400 hover:text-orange-700"
-                    >
-                      <X className="w-5 h-5" />
-                    </button>
-                  </div>
-                  
-                  <div className="grid grid-cols-2 gap-4 mb-4">
-                    <div>
-                      <p className="text-sm text-orange-700 dark:text-orange-400 mb-1">Product Name</p>
-                      <p className="font-medium text-orange-900 dark:text-orange-200">{defectiveProduct.productName}</p>
-                    </div>
-                    <div>
-                      <p className="text-sm text-orange-700 dark:text-orange-400 mb-1">Barcode</p>
-                      <p className="font-mono text-orange-900 dark:text-orange-200">{defectiveProduct.barcode}</p>
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-sm font-medium text-orange-700 dark:text-orange-400 mb-1">
-                        Selling Price (৳)
-                      </label>
-                      <input
-                        type="text"
-                        value={defectivePrice}
-                        readOnly
-                        className="w-full px-3 py-2 border border-orange-300 dark:border-orange-600 rounded-md bg-orange-100 dark:bg-orange-900/30 text-orange-900 dark:text-orange-200"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-orange-700 dark:text-orange-400 mb-1">
-                        Store Location
-                      </label>
-                      <input
-                        type="text"
-                        value={defectiveStore}
-                        readOnly
-                        className="w-full px-3 py-2 border border-orange-300 dark:border-orange-600 rounded-md bg-orange-100 dark:bg-orange-900/30 text-orange-900 dark:text-orange-200"
-                      />
-                    </div>
-                  </div>
-
-                  <button
-                    onClick={addDefectiveToCart}
-                    className="mt-4 w-full px-4 py-2 bg-orange-600 hover:bg-orange-700 text-white rounded-md font-medium"
-                  >
-                    Add Defective Product to Cart
-                  </button>
-                </div>
-              )}
-
-              {/* Main Content Grid */}
               <div className="grid grid-cols-3 gap-6">
-                {/* Left Section */}
                 <div className="col-span-2 space-y-6">
-                  {/* Sales Information */}
-                  <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
-                    <div className="px-4 py-3 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
-                      <h2 className="text-sm font-medium text-gray-900 dark:text-white">Sales Information</h2>
+                  <div className={`bg-white dark:bg-gray-800 rounded-lg border ${defectiveProduct ? 'border-orange-300 dark:border-orange-700 shadow-lg' : 'border-gray-200 dark:border-gray-700'}`}>
+                    <div className={`px-4 py-3 border-b flex items-center justify-between ${defectiveProduct ? 'bg-orange-50 dark:bg-orange-900/20 border-orange-200 dark:border-orange-700' : 'border-gray-200 dark:border-gray-700'}`}>
+                      <div className="flex items-center gap-2">
+                        <h2 className="text-sm font-medium text-gray-900 dark:text-white">Sales Information</h2>
+                        {defectiveProduct && <span className="px-2 py-1 bg-orange-500 text-white text-xs font-medium rounded">Defective Product</span>}
+                      </div>
                       <ChevronDown className="w-4 h-4 text-gray-500" />
                     </div>
-                    
                     <div className="p-4 grid grid-cols-2 gap-4">
+                      {defectiveProduct && (
+                        <div className="col-span-2 mb-2 p-3 bg-orange-100 dark:bg-orange-900/30 border border-orange-300 dark:border-orange-700 rounded-md">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                              <Package className="w-4 h-4 text-orange-600 dark:text-orange-400" />
+                              <span className="text-sm font-medium text-orange-900 dark:text-orange-200">Selling Defective Item</span>
+                            </div>
+                            <div className="text-xs text-orange-700 dark:text-orange-400">Barcode: <span className="font-mono font-bold">{defectiveProduct.barcode}</span></div>
+                          </div>
+                        </div>
+                      )}
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                          Customer
-                        </label>
-                        <input
-                          type="text"
-                          placeholder="Search Customer Name or Phone number"
-                          value={customerName}
-                          onChange={(e) => setCustomerName(e.target.value)}
-                          className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm"
-                        />
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Customer</label>
+                        <input type="text" placeholder="Search Customer" value={customerName} onChange={(e) => setCustomerName(e.target.value)} className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm" />
                       </div>
-                      
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                          Product
-                        </label>
-                        <select
-                          value={product}
-                          onChange={(e) => handleProductSelect(e.target.value)}
-                          disabled={!selectedOutlet}
-                          className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm disabled:bg-gray-100 disabled:dark:bg-gray-600"
-                        >
-                          <option value="">Select Product</option>
-                          {getAvailableProducts().map((prod) => {
-                            const availableQty = getAvailableQuantity(prod.id);
-                            return (
-                              <option key={prod.id} value={prod.name}>
-                                {prod.name} ({availableQty} available)
-                              </option>
-                            );
-                          })}
-                        </select>
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Product {defectiveProduct && <span className="text-orange-600">(Defective - No Stock)</span>}</label>
+                        {defectiveProduct ? (
+                          <input 
+                            type="text" 
+                            value={product} 
+                            readOnly 
+                            className="w-full px-3 py-2 border border-orange-300 dark:border-orange-600 rounded-md bg-orange-50 dark:bg-orange-900/20 text-orange-900 dark:text-orange-200 font-medium text-sm cursor-not-allowed" 
+                          />
+                        ) : (
+                          <select value={product} onChange={(e) => handleProductSelect(e.target.value)} disabled={!selectedOutlet} className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm disabled:bg-gray-100 disabled:dark:bg-gray-600">
+                            <option value="">Select Product</option>
+                            {getAvailableProducts().map((prod) => (<option key={prod.id} value={prod.name}>{prod.name} ({getAvailableQuantity(prod.id)} available)</option>))}
+                          </select>
+                        )}
                       </div>
-                      
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                          Name
-                        </label>
-                        <input
-                          type="text"
-                          placeholder="Customer Name"
-                          value={customerName}
-                          onChange={(e) => setCustomerName(e.target.value)}
-                          className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm"
-                        />
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Name</label>
+                        <input type="text" placeholder="Customer Name" value={customerName} onChange={(e) => setCustomerName(e.target.value)} className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm" />
                       </div>
-                      
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                          Selling Price
-                        </label>
-                        <input
-                          type="number"
-                          value={sellingPrice}
-                          onChange={(e) => setSellingPrice(Number(e.target.value))}
-                          className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm"
-                        />
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Selling Price</label>
+                        <input type="number" value={sellingPrice} onChange={(e) => setSellingPrice(Number(e.target.value))} readOnly={!!defectiveProduct} className={`w-full px-3 py-2 border rounded-md text-sm ${defectiveProduct ? 'bg-orange-50 dark:bg-orange-900/20 border-orange-300 dark:border-orange-600 text-orange-900 dark:text-orange-200 font-medium cursor-not-allowed' : 'bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-white'}`} />
                       </div>
-                      
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                          Mobile No
-                        </label>
-                        <input
-                          type="text"
-                          placeholder="Mobile No"
-                          value={mobileNo}
-                          onChange={(e) => setMobileNo(e.target.value)}
-                          className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm"
-                        />
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Mobile No</label>
+                        <input type="text" placeholder="Mobile No" value={mobileNo} onChange={(e) => setMobileNo(e.target.value)} className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm" />
                       </div>
-                      
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                          Quantity
-                        </label>
-                        <input
-                          type="number"
-                          value={quantity}
-                          onChange={(e) => setQuantity(Number(e.target.value))}
-                          className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm"
-                        />
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Quantity</label>
+                        <input type="number" value={quantity} onChange={(e) => setQuantity(Number(e.target.value))} readOnly={!!defectiveProduct} className={`w-full px-3 py-2 border rounded-md text-sm ${defectiveProduct ? 'bg-orange-50 dark:bg-orange-900/20 border-orange-300 dark:border-orange-600 text-orange-900 dark:text-orange-200 font-medium cursor-not-allowed' : 'bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-white'}`} />
                       </div>
-                      
                       <div className="col-span-2">
-                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                          Address
-                        </label>
-                        <textarea
-                          placeholder="Address"
-                          value={address}
-                          onChange={(e) => setAddress(e.target.value)}
-                          rows={2}
-                          className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm"
-                        />
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Address</label>
+                        <textarea placeholder="Address" value={address} onChange={(e) => setAddress(e.target.value)} rows={2} className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm" />
                       </div>
-                      
                       <div className="grid grid-cols-2 gap-2">
                         <div>
-                          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                            Discount %
-                          </label>
-                          <input
-                            type="number"
-                            value={discountPercent}
-                            onChange={(e) => {
-                              setDiscountPercent(Number(e.target.value));
-                              setDiscountAmount(0);
-                            }}
-                            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm"
-                          />
+                          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Discount %</label>
+                          <input type="number" value={discountPercent} onChange={(e) => { setDiscountPercent(Number(e.target.value)); setDiscountAmount(0); }} disabled={!!defectiveProduct} className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm disabled:opacity-50" />
                         </div>
                         <div>
-                          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                            Tk.
-                          </label>
-                          <input
-                            type="number"
-                            value={discountAmount}
-                            onChange={(e) => {
-                              setDiscountAmount(Number(e.target.value));
-                              setDiscountPercent(0);
-                            }}
-                            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm"
-                          />
+                          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Tk.</label>
+                          <input type="number" value={discountAmount} onChange={(e) => { setDiscountAmount(Number(e.target.value)); setDiscountPercent(0); }} disabled={!!defectiveProduct} className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm disabled:opacity-50" />
                         </div>
                       </div>
-                      
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                          Amount
-                        </label>
-                        <input
-                          type="number"
-                          value={amount.toFixed(2)}
-                          readOnly
-                          className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-white text-sm"
-                        />
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Amount</label>
+                        <input type="number" value={amount.toFixed(2)} readOnly className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-white text-sm" />
                       </div>
-                      
                       <div className="col-span-2 flex justify-end">
-                        <button
-                          onClick={addToCart}
-                          className="px-6 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-md text-sm font-medium transition-colors"
-                        >
-                          Add to Cart
-                        </button>
+                        <button onClick={addToCart} className="px-6 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-md text-sm font-medium">Add to Cart</button>
                       </div>
                     </div>
                   </div>
-
-                  {/* Cart Table */}
                   <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
                     <table className="w-full">
                       <thead className="bg-gray-50 dark:bg-gray-700">
@@ -813,37 +489,22 @@ export default function POSPage() {
                         </tr>
                       </thead>
                       <tbody>
-                        {cart.length === 0 ? (
-                          <tr>
-                            <td colSpan={7} className="px-4 py-8 text-center text-sm text-gray-500 dark:text-gray-400">
-                              No products added to cart
-                            </td>
-                          </tr>
+                      {cart.length === 0 ? (
+                          <tr><td colSpan={7} className="px-4 py-8 text-center text-sm text-gray-500 dark:text-gray-400">No products added to cart</td></tr>
                         ) : (
                           cart.map((item) => (
                             <tr key={item.id} className={`border-t border-gray-200 dark:border-gray-700 ${item.isDefective ? 'bg-orange-50 dark:bg-orange-900/10' : ''}`}>
                               <td className="px-4 py-3 text-sm text-gray-900 dark:text-white">
-                                <div className="flex items-center gap-2">
-                                  {item.productName}
-                                  {item.isDefective && (
-                                    <span className="px-2 py-0.5 bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400 text-xs rounded">
-                                      Defective
-                                    </span>
-                                  )}
-                                </div>
+                                {item.productName}
+                                {item.isDefective && <span className="ml-2 px-2 py-0.5 bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400 text-xs rounded">Defective</span>}
                               </td>
                               <td className="px-4 py-3 text-sm text-gray-900 dark:text-white">{item.size || '-'}</td>
                               <td className="px-4 py-3 text-sm text-gray-900 dark:text-white">{item.qty}</td>
                               <td className="px-4 py-3 text-sm text-gray-900 dark:text-white">{item.price}</td>
-                              <td className="px-4 py-3 text-sm text-gray-900 dark:text-white">{item.discount.toFixed(2)} Tk</td>
+                              <td className="px-4 py-3 text-sm text-gray-900 dark:text-white">{item.discount.toFixed(2)}</td>
                               <td className="px-4 py-3 text-sm text-gray-900 dark:text-white">{item.amount.toFixed(2)}</td>
                               <td className="px-4 py-3">
-                                <button
-                                  onClick={() => removeFromCart(item.id)}
-                                  className="text-red-500 hover:text-red-700 transition-colors"
-                                >
-                                  <X className="w-4 h-4" />
-                                </button>
+                                <button onClick={() => removeFromCart(item.id)} className="text-red-500 hover:text-red-700"><X className="w-4 h-4" /></button>
                               </td>
                             </tr>
                           ))
@@ -852,56 +513,34 @@ export default function POSPage() {
                     </table>
                   </div>
                 </div>
-
-                {/* Right Section - Amount Details */}
                 <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 h-fit">
                   <div className="px-4 py-3 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
                     <h2 className="text-sm font-medium text-gray-900 dark:text-white">Amount Details</h2>
                     <ChevronDown className="w-4 h-4 text-gray-500" />
                   </div>
-                  
                   <div className="p-4 space-y-4">
                     <div className="flex justify-between text-sm">
                       <span className="text-gray-700 dark:text-gray-300">Sub Total</span>
                       <span className="text-gray-900 dark:text-white">{subtotal.toFixed(2)}</span>
                     </div>
-                    
                     <div className="flex justify-between text-sm">
-                      <span className="text-gray-700 dark:text-gray-300">Total Discount (Without VAT)</span>
+                      <span className="text-gray-700 dark:text-gray-300">Total Discount</span>
                       <span className="text-gray-900 dark:text-white">{totalDiscount.toFixed(2)}</span>
                     </div>
-                    
                     <div className="grid grid-cols-2 gap-2">
                       <div>
                         <label className="block text-xs text-gray-700 dark:text-gray-300 mb-1">Vat</label>
-                        <input
-                          type="number"
-                          value={vat.toFixed(2)}
-                          readOnly
-                          className="w-full px-2 py-1 border border-gray-300 dark:border-gray-600 rounded bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-white text-sm"
-                        />
+                        <input type="number" value={vat.toFixed(2)} readOnly className="w-full px-2 py-1 border border-gray-300 dark:border-gray-600 rounded bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-white text-sm" />
                       </div>
                       <div>
                         <label className="block text-xs text-gray-700 dark:text-gray-300 mb-1">Vat Rate %</label>
-                        <input
-                          type="number"
-                          value={vatRate}
-                          onChange={(e) => setVatRate(Number(e.target.value))}
-                          className="w-full px-2 py-1 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm"
-                        />
+                        <input type="number" value={vatRate} onChange={(e) => setVatRate(Number(e.target.value))} className="w-full px-2 py-1 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm" />
                       </div>
                     </div>
-                    
                     <div>
                       <label className="block text-xs text-gray-700 dark:text-gray-300 mb-1">Transport Cost</label>
-                      <input
-                        type="number"
-                        value={transportCost}
-                        onChange={(e) => setTransportCost(Number(e.target.value))}
-                        className="w-full px-2 py-1 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm"
-                      />
+                      <input type="number" value={transportCost} onChange={(e) => setTransportCost(Number(e.target.value))} className="w-full px-2 py-1 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm" />
                     </div>
-                    
                     <div className="pt-2 border-t border-gray-200 dark:border-gray-700">
                       <div className="flex justify-between text-sm mb-2">
                         <span className="font-medium text-gray-900 dark:text-white">Total</span>
@@ -912,72 +551,38 @@ export default function POSPage() {
                         <span className="text-gray-900 dark:text-white">0.00</span>
                       </div>
                     </div>
-                    
                     <div className="grid grid-cols-2 gap-2">
                       <div>
                         <label className="block text-xs text-gray-700 dark:text-gray-300 mb-1">Cash Paid</label>
-                        <input
-                          type="number"
-                          value={cashPaid}
-                          onChange={(e) => setCashPaid(Number(e.target.value))}
-                          className="w-full px-2 py-1 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm"
-                        />
+                        <input type="number" value={cashPaid} onChange={(e) => setCashPaid(Number(e.target.value))} className="w-full px-2 py-1 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm" />
                       </div>
                       <div>
                         <label className="block text-xs text-gray-700 dark:text-gray-300 mb-1">Card Paid</label>
-                        <input
-                          type="number"
-                          value={cardPaid}
-                          onChange={(e) => setCardPaid(Number(e.target.value))}
-                          className="w-full px-2 py-1 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm"
-                        />
+                        <input type="number" value={cardPaid} onChange={(e) => setCardPaid(Number(e.target.value))} className="w-full px-2 py-1 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm" />
                       </div>
                       <div>
                         <label className="block text-xs text-gray-700 dark:text-gray-300 mb-1">Bkash Paid</label>
-                        <input
-                          type="number"
-                          value={bkashPaid}
-                          onChange={(e) => setBkashPaid(Number(e.target.value))}
-                          className="w-full px-2 py-1 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm"
-                        />
+                        <input type="number" value={bkashPaid} onChange={(e) => setBkashPaid(Number(e.target.value))} className="w-full px-2 py-1 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm" />
                       </div>
                       <div>
                         <label className="block text-xs text-gray-700 dark:text-gray-300 mb-1">Nagad Paid</label>
-                        <input
-                          type="number"
-                          value={nagadPaid}
-                          onChange={(e) => setNagadPaid(Number(e.target.value))}
-                          className="w-full px-2 py-1 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm"
-                        />
+                        <input type="number" value={nagadPaid} onChange={(e) => setNagadPaid(Number(e.target.value))} className="w-full px-2 py-1 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm" />
                       </div>
                     </div>
-                    
                     <div>
                       <div className="flex justify-between mb-1">
                         <label className="block text-xs text-gray-700 dark:text-gray-300">Transaction Fee</label>
                         <span className="text-xs text-gray-500 dark:text-gray-400">Tk</span>
                       </div>
-                      <input
-                        type="number"
-                        value={transactionFee}
-                        onChange={(e) => setTransactionFee(Number(e.target.value))}
-                        className="w-full px-2 py-1 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm"
-                      />
+                      <input type="number" value={transactionFee} onChange={(e) => setTransactionFee(Number(e.target.value))} className="w-full px-2 py-1 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm" />
                     </div>
-                    
                     <div className="pt-2 border-t border-gray-200 dark:border-gray-700">
                       <div className="flex justify-between text-sm">
                         <span className="text-gray-700 dark:text-gray-300">Due</span>
                         <span className="text-gray-900 dark:text-white font-medium">{due.toFixed(2)}</span>
                       </div>
                     </div>
-                    
-                    <button
-                      onClick={handleSell}
-                      className="w-full py-2 bg-gray-900 hover:bg-gray-800 dark:bg-white dark:hover:bg-gray-100 text-white dark:text-gray-900 rounded-md text-sm font-medium transition-colors"
-                    >
-                      Sell
-                    </button>
+                    <button onClick={handleSell} className="w-full py-2 bg-gray-900 hover:bg-gray-800 dark:bg-white dark:hover:bg-gray-100 text-white dark:text-gray-900 rounded-md text-sm font-medium">Sell</button>
                   </div>
                 </div>
               </div>
@@ -985,22 +590,6 @@ export default function POSPage() {
           </main>
         </div>
       </div>
-
-      <style jsx>{`
-        @keyframes slideIn {
-          from {
-            transform: translateX(100%);
-            opacity: 0;
-          }
-          to {
-            transform: translateX(0);
-            opacity: 1;
-          }
-        }
-        .animate-slideIn {
-          animation: slideIn 0.3s ease-out;
-        }
-      `}</style>
     </div>
   );
 }

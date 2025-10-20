@@ -6,10 +6,22 @@ const dataFilePath = path.join(process.cwd(), 'data', 'transactions.json');
 
 export async function GET() {
   try {
-    const data = fs.readFileSync(dataFilePath, 'utf8');
-    return NextResponse.json(JSON.parse(data));
+    if (!fs.existsSync(dataFilePath)) {
+      return NextResponse.json({ expenses: [], income: [], categories: [] });
+    }
+
+    const rawData = fs.readFileSync(dataFilePath, 'utf8');
+    const parsedData = JSON.parse(rawData);
+
+    // Make sure default empty arrays exist
+    return NextResponse.json({
+      expenses: parsedData.expenses || [],
+      income: parsedData.income || [],
+      categories: parsedData.categories || [],
+    });
   } catch (error) {
-    return NextResponse.json({ expenses: [], categories: [] });
+    console.error('Error reading transactions file:', error);
+    return NextResponse.json({ expenses: [], income: [], categories: [] });
   }
 }
 
