@@ -157,7 +157,7 @@ export default function AdmitBatchPage() {
       const response = await fetch('/api/stores');
       if (response.ok) {
         const stores = await response.json();
-        const warehouse = stores.find((store: any) => store.type === 'warehouse');
+        const warehouse = stores.find((store: any) => String(store.type).toLowerCase() === 'warehouse');
         return warehouse ? warehouse.name : 'Mohammadpur';
       }
     } catch (error) {

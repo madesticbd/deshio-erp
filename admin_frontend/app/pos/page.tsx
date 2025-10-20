@@ -406,7 +406,7 @@ const fetchOutlets = async (role: string, storeId: string) => {
     }
 
     const saleData = {
-      salesBy: 'Admin',
+      salesBy: userName || 'Admin',
       outletId: selectedOutlet,
       date: date,
       customer: {
@@ -687,22 +687,22 @@ const fetchOutlets = async (role: string, storeId: string) => {
                         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                           Product
                         </label>
-                        <select
-                          value={selectedOutlet}
-                          onChange={(e) => setSelectedOutlet(e.target.value)}
-                          disabled={userRole === 'store_manager'} // Add this line
-                          className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white disabled:bg-gray-100 disabled:dark:bg-gray-600"
-                        >
-                          <option value="">Select Product</option>
-                          {getAvailableProducts().map((prod) => {
-                            const availableQty = getAvailableQuantity(prod.id);
-                            return (
-                              <option key={prod.id} value={prod.name}>
-                                {prod.name} ({availableQty} available)
-                              </option>
-                            );
-                          })}
-                        </select>
+                      <select
+                        value={product}
+                        onChange={(e) => handleProductSelect(e.target.value)}
+                        disabled={!selectedOutlet}
+                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm disabled:bg-gray-100 disabled:dark:bg-gray-600"
+                      >
+                        <option value="">Select Product</option>
+                        {getAvailableProducts().map((prod) => {
+                          const availableQty = getAvailableQuantity(prod.id);
+                          return (
+                            <option key={prod.id} value={prod.name}>
+                              {prod.name} ({availableQty} available)
+                            </option>
+                          );
+                        })}
+                      </select>
                       </div>
                       
                       <div>

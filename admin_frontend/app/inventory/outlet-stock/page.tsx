@@ -470,8 +470,8 @@ export default function OutletManageStockPage() {
                             />
                           </td>
                           <td className="py-3 px-4 text-sm text-gray-900 dark:text-white">{v.productName}</td>
-                          <td className="py-3 px-4 text-sm text-gray-900 dark:text-white">${v.costPrice}</td>
-                          <td className="py-3 px-4 text-sm text-gray-900 dark:text-white">${v.sellingPrice}</td>
+                          <td className="py-3 px-4 text-sm text-gray-900 dark:text-white">Tk{v.costPrice}</td>
+                          <td className="py-3 px-4 text-sm text-gray-900 dark:text-white">Tk{v.sellingPrice}</td>
                           <td className="py-3 px-4 text-sm text-gray-900 dark:text-white">{v.quantity}</td>
                           <td className="py-3 px-4">
                             {selectedVariants.has(v.variantId) ? (
