@@ -34,12 +34,12 @@ export default function FeaturesSection() {
           {features.map((feature, idx) => (
             <div key={idx} className="text-center group cursor-pointer">
               {/* Icon */}
-              <div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-teal-50 text-teal-600 mb-5 group-hover:bg-teal-600 group-hover:text-white transition-all duration-300 shadow-lg group-hover:shadow-xl">
+              <div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-red-50 text-red-600 mb-5 group-hover:bg-red-600 group-hover:text-white transition-all duration-300 shadow-lg group-hover:shadow-xl">
                 {feature.icon}
               </div>
               
               {/* Feature Info */}
-              <h3 className="font-bold text-gray-900 mb-2 text-lg group-hover:text-teal-600 transition-colors">
+              <h3 className="font-bold text-gray-900 mb-2 text-lg group-hover:text-gray-600 transition-colors">
                 {feature.title}
               </h3>
               <p className="text-sm text-gray-600">{feature.description}</p>

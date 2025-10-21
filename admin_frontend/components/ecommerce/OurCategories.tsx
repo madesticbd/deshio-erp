@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 
 interface Product {
   id: string | number;
@@ -21,6 +22,7 @@ interface InventoryItem {
 interface CategoryData {
   id: string;
   title: string;
+  slug: string;
   image: string;
   available: number;
 }
@@ -28,6 +30,7 @@ interface CategoryData {
 export default function OurCategories() {
   const [categories, setCategoriesData] = useState<CategoryData[]>([]);
   const [loading, setLoading] = useState(true);
+  const router = useRouter();
 
   useEffect(() => {
     const fetchData = async () => {
@@ -52,6 +55,7 @@ export default function OurCategories() {
             allCategories.push({
               id: cat.id,
               title: cat.title,
+              slug: cat.slug,
               image: cat.image,
               available: 0,
             });
@@ -115,9 +119,13 @@ export default function OurCategories() {
         {/* Categories Grid */}
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-8">
           {categories.map((cat) => (
-            <div key={cat.id} className="group text-center cursor-pointer">
+            <div 
+              key={cat.id} 
+              className="group text-center cursor-pointer"
+              onClick={() => router.push(`/e-commerce/${cat.slug}`)}
+            >
               {/* Category Image */}
-              <div className="relative aspect-square rounded-full overflow-hidden mb-5 border-4 border-gray-100 group-hover:border-teal-500 transition-all duration-300 shadow-lg group-hover:shadow-2xl">
+              <div className="relative aspect-square rounded-full overflow-hidden mb-5 border-4 border-gray-100 group-hover:border-red-700 transition-all duration-300 shadow-lg group-hover:shadow-2xl">
                 <img
                   src={cat.image}
                   alt={cat.title}
@@ -133,7 +141,7 @@ export default function OurCategories() {
               </div>
 
               {/* Category Info */}
-              <h3 className="font-bold text-gray-900 mb-1 text-lg group-hover:text-teal-600 transition-colors">
+              <h3 className="font-bold text-gray-900 mb-1 text-lg group-hover:text-red-700 transition-colors">
                 {cat.title}
               </h3>
               <p className="text-sm text-gray-500">{cat.available} Products</p>

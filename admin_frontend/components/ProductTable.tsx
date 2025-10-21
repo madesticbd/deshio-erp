@@ -2,7 +2,6 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { ChevronDown, ChevronRight } from 'lucide-react';
 import ProductListItem from './ProductListItem';
 import VariationsModal from './VariationsModal';
 
@@ -34,6 +33,7 @@ interface ProductTableProps {
   products: Product[];
   fields?: Field[];
   categories?: Category[];
+  getCategoryDisplayName?: (product: Product) => string;
   onDelete: (id: number | string) => void;
   onEdit: (product: Product) => void;
   onSelect?: (product: Product) => void;
@@ -52,6 +52,7 @@ export default function ProductTable({
   products,
   fields = [],
   categories = [],
+  getCategoryDisplayName,
   onDelete,
   onEdit,
   onSelect,
@@ -91,30 +92,42 @@ export default function ProductTable({
     return null;
   };
 
-  const getCategoryPath = (attributes: Record<string, any>): string => {
-    const catId = attributes?.category ?? attributes?.categoryId ?? attributes?.category_id;
-    const subId = attributes?.subcategory ?? attributes?.subCategory ?? attributes?.sub_category;
-
-    if (!catId && !subId) return '-';
-
-    if (Array.isArray(categories) && categories.length > 0) {
-      const top = categories.find((c) => String(c.id) === String(catId));
-      const topName = top ? (top.title ?? top.name ?? top.slug ?? null) : null;
-
-      let subName: string | null = null;
-      if (top && Array.isArray(top.subcategories) && subId) {
-        const sub = top.subcategories.find((s) => String(s.id) === String(subId));
-        subName = sub ? (sub.title ?? sub.name ?? sub.slug ?? null) : null;
-      }
-
-      if (topName && subName) return `${topName} / ${subName}`;
-      if (topName) return topName;
-      if (subName) return subName;
+  // Fallback category path function if not provided
+  const getDefaultCategoryPath = (product: Product): string => {
+    const attributes = product.attributes;
+    
+    // Get category path array from attributes
+    const path: string[] = [];
+    if (attributes.category) path.push(String(attributes.category));
+    if (attributes.subcategory) path.push(String(attributes.subcategory));
+    if (attributes.subSubcategory) path.push(String(attributes.subSubcategory));
+    
+    // Check for additional levels
+    let level = 3;
+    while (attributes[`level${level}`]) {
+      path.push(String(attributes[`level${level}`]));
+      level++;
     }
+    
+    const filteredPath = path.filter(id => id && id !== '');
+    if (filteredPath.length === 0) return '-';
 
-    if (catId && subId) return `Category ${catId} / Subcategory ${subId}`;
-    if (catId) return `Category ${catId}`;
-    return '-';
+    // Try to resolve category names
+    const names: string[] = [];
+    let current: Category[] = categories;
+    
+    for (const id of filteredPath) {
+      const cat = current.find(c => String(c.id) === String(id));
+      if (cat) {
+        names.push(cat.title || cat.name || String(cat.id));
+        current = cat.subcategories || [];
+      } else {
+        names.push(`Unknown (${id})`);
+        break;
+      }
+    }
+    
+    return names.length > 0 ? names.join(' > ') : '-';
   };
 
   const handleView = (productId: number | string) => {
@@ -214,7 +227,11 @@ export default function ProductTable({
             const baseProduct = group.products[0];
             const attrs = baseProduct.attributes || {};
             const mainImage = getMainImage(attrs);
-            const categoryPath = getCategoryPath(attrs);
+            
+            // Use provided function or fallback
+            const categoryPath = getCategoryDisplayName 
+              ? getCategoryDisplayName(baseProduct)
+              : getDefaultCategoryPath(baseProduct);
 
             return (
               <div key={group.baseName} className="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden bg-white dark:bg-gray-800">

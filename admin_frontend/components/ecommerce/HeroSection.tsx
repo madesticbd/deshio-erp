@@ -1,28 +1,33 @@
-'use client';
-
-import React from 'react';
+"use client"
 
 export default function HeroSection() {
   return (
-    <section className="relative bg-gradient-to-br from-teal-50 via-white to-blue-50 overflow-hidden">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20 md:py-32">
-        <div className="grid md:grid-cols-2 gap-12 items-center">
+    <section className="relative bg-gradient-to-br from-red-50 via-white to-blue-50 overflow-hidden">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 md:py-10">
+        <div className="grid md:grid-cols-2 gap-8 items-center">
           {/* Left Content */}
-          <div className="text-center md:text-left">
-            <span className="inline-block text-teal-600 font-semibold text-sm tracking-wider uppercase mb-4">
-              New Collection 2025
-            </span>
-            <h1 className="text-4xl md:text-6xl font-bold text-gray-900 mb-6 leading-tight">
-              Discover Timeless <span className="text-teal-600">Elegance</span>
-            </h1>
-            <p className="text-lg text-gray-600 mb-8 max-w-lg mx-auto md:mx-0">
-              Handcrafted sarees from Bangladesh's finest artisans. Experience the perfect blend of tradition and contemporary design.
-            </p>
-            <div className="flex flex-col sm:flex-row gap-4 justify-center md:justify-start">
-              <button className="px-8 py-4 bg-teal-600 text-white font-semibold rounded-lg hover:bg-teal-700 transition-colors shadow-lg hover:shadow-xl">
+          <div className="space-y-6">
+            <div className="inline-flex items-center gap-2 px-4 py-2 bg-red-100 rounded-full">
+              <span className="w-2 h-2 bg-red-600 rounded-full"></span>
+              <span className="text-red-700 font-semibold text-sm tracking-wide">New Collection 2025</span>
+            </div>
+
+            <div className="space-y-3">
+              <h1 className="text-4xl md:text-5xl font-bold text-gray-900 leading-tight text-balance">
+                Timeless Elegance 
+              </h1>
+              <p className="text-base text-gray-600 leading-relaxed max-w-lg">
+                Handcrafted sarees from Bangladesh's finest artisans. Experience the perfect blend of tradition and
+                contemporary design.
+              </p>
+            </div>
+
+            <div className="flex flex-col sm:flex-row gap-3 pt-2">
+              <button className="group px-6 py-3 bg-red-700 text-white font-semibold rounded-xl hover:bg-red-700 transition-all duration-300 shadow-lg hover:shadow-xl hover:scale-105 flex items-center justify-center gap-2">
                 Shop Collection
+                <span className="group-hover:translate-x-1 transition-transform">→</span>
               </button>
-              <button className="px-8 py-4 bg-white text-gray-900 font-semibold rounded-lg hover:bg-gray-50 transition-colors border-2 border-gray-200">
+              <button className="px-6 py-3 bg-white text-gray-900 font-semibold rounded-xl hover:bg-gray-50 transition-all duration-300 border-2 border-gray-200 hover:border-gray-300">
                 View Lookbook
               </button>
             </div>
@@ -30,29 +35,24 @@ export default function HeroSection() {
 
           {/* Right Content - Image */}
           <div className="relative">
-            <div className="aspect-[3/4] rounded-2xl overflow-hidden shadow-2xl">
+            <div className="aspect-[3/4] rounded-3xl overflow-hidden shadow-2xl ring-1 ring-gray-200/50">
               <img
-                src="/uploads/1760593600288-Sharee Catagory.webp"
+                src="/uploads/1761017877218-f20af5905f3fe7df81ff340d55473c5c.jpg"
                 alt="Featured Collection"
-                className="w-full h-full object-cover"
-                onError={(e) => {
-                  e.currentTarget.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="600" height="800"%3E%3Crect fill="%23f3f4f6" width="600" height="800"/%3E%3Ctext x="50%25" y="50%25" text-anchor="middle" dy=".3em" fill="%239ca3af" font-size="24"%3EFeatured%3C/text%3E%3C/svg%3E';
-                }}
+                className="w-full h-full object-cover hover:scale-105 transition-transform duration-500"
               />
             </div>
-            
-            {/* Price Badge */}
-            <div className="absolute -bottom-6 -right-6 bg-white p-6 rounded-xl shadow-2xl">
-              <p className="text-sm text-gray-600 mb-1">Starting from</p>
-              <p className="text-3xl font-bold text-gray-900">৳4,999</p>
+
+            <div className="absolute -bottom-4 -right-4 bg-white p-4 rounded-2xl shadow-2xl ring-1 ring-gray-200/50 backdrop-blur-sm">
+              <p className="text-xs text-gray-500 font-medium mb-1 uppercase tracking-wide">Starting from</p>
+              <p className="text-2xl font-bold text-gray-900">৳4,999</p>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Decorative Elements */}
-      <div className="absolute top-20 left-10 w-20 h-20 bg-teal-200 rounded-full opacity-20 blur-xl"></div>
-      <div className="absolute bottom-20 right-10 w-32 h-32 bg-blue-200 rounded-full opacity-20 blur-xl"></div>
+      <div className="absolute top-32 left-0 w-72 h-72 bg-red-200 rounded-full opacity-10 blur-3xl -z-10"></div>
+      <div className="absolute bottom-0 right-0 w-96 h-96 bg-blue-200 rounded-full opacity-10 blur-3xl -z-10"></div>
     </section>
-  );
+  )
 }

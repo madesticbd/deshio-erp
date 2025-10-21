@@ -90,7 +90,7 @@ export default function SaleProducts() {
                 </div>
 
                 {/* Add to Cart Button */}
-                <button className={`absolute bottom-0 left-0 right-0 bg-teal-600 text-white py-3.5 font-semibold transition-transform duration-300 flex items-center justify-center gap-2 ${hoveredId === product.id ? 'translate-y-0' : 'translate-y-full'}`}>
+                <button className={`absolute bottom-0 left-0 right-0 bg-red-700 text-white py-3.5 font-semibold transition-transform duration-300 flex items-center justify-center gap-2 ${hoveredId === product.id ? 'translate-y-0' : 'translate-y-full'}`}>
                   <ShoppingCart size={18} />
                   Add to Cart
                 </button>
@@ -104,7 +104,7 @@ export default function SaleProducts() {
                   ))}
                 </div>
 
-                <h3 className="text-sm font-semibold text-gray-900 mb-3 line-clamp-2 group-hover:text-teal-600 transition-colors cursor-pointer">
+                <h3 className="text-sm font-semibold text-gray-900 mb-3 line-clamp-2 group-hover:text-red-700 transition-colors cursor-pointer">
                   {product.name}
                 </h3>
 
