@@ -684,5 +684,60 @@
       "due": 100
     },
     "createdAt": "2025-10-20T16:00:29.452Z"
+  },
+  {
+    "id": 1761115982594,
+    "salesBy": "Admin User",
+    "date": "06-Oct-2025",
+    "customer": {
+      "name": "test3",
+      "email": "tasneem.nishat.4953@gmail.com",
+      "phone": "01818316964",
+      "socialId": ""
+    },
+    "deliveryAddress": {
+      "division": "Khulna",
+      "district": "Chuadanga",
+      "city": "Damurhuda",
+      "zone": "asagfs",
+      "area": "",
+      "address": "International Affairs Division ,Paramanu Bhaban ,Bangladesh Atomic Energy Commission,",
+      "postalCode": "1212"
+    },
+    "products": [
+      {
+        "id": 1761115888470,
+        "productId": 1760593481284,
+        "productName": "Ear rings",
+        "size": "1",
+        "qty": 1,
+        "price": 330,
+        "discount": 0,
+        "amount": 330,
+        "isDefective": true,
+        "defectId": "defect-1761115819873",
+        "barcode": "BATCH1760594714624-10",
+        "barcodes": [
+          "BATCH1760594714624-10"
+        ]
+      }
+    ],
+    "subtotal": 330,
+    "amounts": {
+      "subtotal": 330,
+      "totalDiscount": 0,
+      "vat": 16.5,
+      "vatRate": 5,
+      "transportCost": 0,
+      "total": 346.5
+    },
+    "payments": {
+      "sslCommerz": 0,
+      "advance": 0,
+      "transactionId": "",
+      "totalPaid": 0,
+      "due": 346.5
+    },
+    "createdAt": "2025-10-22T06:53:02.598Z"
   }
 ]

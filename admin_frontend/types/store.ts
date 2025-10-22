@@ -8,4 +8,5 @@ export interface Store {
   revenueChange: number;
   products: number;
   orders: number;
+  isOnline: boolean;
 }

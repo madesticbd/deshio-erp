@@ -6,26 +6,6 @@ import Header from '@/components/Header';
 import Sidebar from '@/components/Sidebar';
 import { useRouter } from 'next/navigation';
 
-interface Product {
-  id: number;
-  name: string;
-  attributes: {
-    mainImage?: string;
-    Price?: string;
-    [key: string]: any;
-  };
-}
-
-interface InventoryItem {
-  id: number;
-  productId: number;
-  barcode: string;
-  status: string;
-  location: string;
-  sellingPrice: number;
-  [key: string]: any;
-}
-
 interface DefectItem {
   id: string;
   barcode: string;
@@ -57,7 +37,6 @@ export default function SocialCommercePage() {
   const [allProducts, setAllProducts] = useState<any[]>([]);
   const [inventory, setInventory] = useState<any[]>([]);
   
-  // Form fields
   const [date, setDate] = useState('06-Oct-2025');
   const [salesBy, setSalesBy] = useState('Admin User');
   const [userName, setUserName] = useState('');
@@ -76,7 +55,6 @@ export default function SocialCommercePage() {
   const [districts, setDistricts] = useState<any[]>([]);
   const [upazillas, setUpazillas] = useState<any[]>([]);
 
-  // Product search and selection
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<any[]>([]);
   const [selectedProduct, setSelectedProduct] = useState<any>(null);
@@ -87,21 +65,34 @@ export default function SocialCommercePage() {
   const [discountTk, setDiscountTk] = useState('');
   const [amount, setAmount] = useState('0.00');
 
-  // Defective product states
   const [defectiveProduct, setDefectiveProduct] = useState<DefectItem | null>(null);
-  const [defectivePrice, setDefectivePrice] = useState('');
-  const [defectiveStore, setDefectiveStore] = useState('');
 
-  // Load defective product from sessionStorage
   useEffect(() => {
     const defectData = sessionStorage.getItem('defectItem');
     if (defectData) {
       try {
         const defect = JSON.parse(defectData);
         setDefectiveProduct(defect);
-        setDefectivePrice(defect.sellingPrice?.toString() || '');
-        setDefectiveStore(defect.store || '');
-        alert('Defective product loaded. Please complete the order.');
+        
+        const defectiveProductData = {
+          id: defect.productId,
+          name: defect.productName,
+          batchId: 'defective',
+          attributes: {
+            mainImage: '',
+            Price: defect.sellingPrice || 0
+          },
+          available: 1,
+          isDefective: true,
+          defectId: defect.id,
+          barcode: defect.barcode
+        };
+        
+        setSelectedProduct(defectiveProductData);
+        setQuantity('1');
+        setAmount((defect.sellingPrice || 0).toFixed(2));
+        
+        alert('Defective product loaded. Complete the order to sell this item.');
       } catch (error) {
         console.error('Error parsing defect data:', error);
       }
@@ -324,36 +315,42 @@ export default function SocialCommercePage() {
   }, [selectedProduct, quantity, discountPercent, discountTk]);
 
   const addDefectiveToCart = () => {
-    if (!defectiveProduct || !defectivePrice) {
-      alert('Defective product price is required');
+    if (!selectedProduct || !selectedProduct.isDefective) {
+      alert('No defective product selected');
       return;
     }
 
-    const price = parseFloat(defectivePrice);
+    const price = parseFloat(selectedProduct.attributes.Price);
     
     const newItem: CartProduct = {
       id: Date.now(),
-      productId: defectiveProduct.productId,
-      productName: defectiveProduct.productName,
+      productId: selectedProduct.id,
+      productName: selectedProduct.name,
       size: '1',
       qty: 1,
       price: price,
       discount: 0,
       amount: price,
       isDefective: true,
-      defectId: defectiveProduct.id,
-      barcode: defectiveProduct.barcode
+      defectId: selectedProduct.defectId,
+      barcode: selectedProduct.barcode
     };
     
     setCart([...cart, newItem]);
     alert('Defective product added to cart');
     
+    setSelectedProduct(null);
     setDefectiveProduct(null);
-    setDefectivePrice('');
+    setQuantity('');
+    setAmount('0.00');
     sessionStorage.removeItem('defectItem');
   };
 
   const addToCart = () => {
+    if (selectedProduct && selectedProduct.isDefective) {
+      return addDefectiveToCart();
+    }
+
     if (!selectedProduct || !quantity || parseInt(quantity) <= 0) {
       alert('Please select a product and enter a valid quantity');
       return;
@@ -479,7 +476,6 @@ export default function SocialCommercePage() {
             <div className="max-w-7xl mx-auto">
               <h1 className="text-xl md:text-2xl font-semibold text-gray-900 dark:text-white mb-4 md:mb-6">Social Commerce</h1>
               
-              {/* Top Bar */}
               <div className="mb-4 md:mb-6 flex flex-col sm:flex-row items-start sm:items-center gap-3">
                 <div className="w-full sm:w-auto">
                   <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">Sales By</label>
@@ -501,82 +497,10 @@ export default function SocialCommercePage() {
                 </div>
               </div>
 
-              {/* Defective Product Section */}
-              {defectiveProduct && (
-                <div className="mb-6 bg-orange-50 dark:bg-orange-900/20 border-2 border-orange-300 dark:border-orange-700 rounded-lg p-4">
-                  <div className="flex items-start justify-between mb-4">
-                    <div className="flex items-center gap-3">
-                      <Package className="w-6 h-6 text-orange-600 dark:text-orange-400" />
-                      <div>
-                        <h3 className="text-lg font-semibold text-orange-900 dark:text-orange-300">
-                          Defective Product Order
-                        </h3>
-                        <p className="text-sm text-orange-700 dark:text-orange-400">
-                          Complete the order for this defective item
-                        </p>
-                      </div>
-                    </div>
-                    <button
-                      onClick={() => {
-                        setDefectiveProduct(null);
-                        setDefectivePrice('');
-                        sessionStorage.removeItem('defectItem');
-                      }}
-                      className="text-orange-600 dark:text-orange-400 hover:text-orange-700"
-                    >
-                      <X className="w-5 h-5" />
-                    </button>
-                  </div>
-                  
-                  <div className="grid grid-cols-2 gap-4 mb-4">
-                    <div>
-                      <p className="text-sm text-orange-700 dark:text-orange-400 mb-1">Product Name</p>
-                      <p className="font-medium text-orange-900 dark:text-orange-200">{defectiveProduct.productName}</p>
-                    </div>
-                    <div>
-                      <p className="text-sm text-orange-700 dark:text-orange-400 mb-1">Barcode</p>
-                      <p className="font-mono text-orange-900 dark:text-orange-200">{defectiveProduct.barcode}</p>
-                    </div>
-                  </div>
 
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-sm font-medium text-orange-700 dark:text-orange-400 mb-1">
-                        Selling Price (৳)
-                      </label>
-                      <input
-                        type="text"
-                        value={defectivePrice}
-                        readOnly
-                        className="w-full px-3 py-2 border border-orange-300 dark:border-orange-600 rounded-md bg-orange-100 dark:bg-orange-900/30 text-orange-900 dark:text-orange-200"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-orange-700 dark:text-orange-400 mb-1">
-                        Store Location
-                      </label>
-                      <input
-                        type="text"
-                        value={defectiveStore}
-                        readOnly
-                        className="w-full px-3 py-2 border border-orange-300 dark:border-orange-600 rounded-md bg-orange-100 dark:bg-orange-900/30 text-orange-900 dark:text-orange-200"
-                      />
-                    </div>
-                  </div>
-
-                  <button
-                    onClick={addDefectiveToCart}
-                    className="mt-4 w-full px-4 py-2 bg-orange-600 hover:bg-orange-700 text-white rounded-md font-medium"
-                  >
-                    Add Defective Product to Cart
-                  </button>
-                </div>
-              )}
 
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6">
-                {/* Left Column - Customer Info & Address */}
                 <div className="space-y-4 md:space-y-6">
-                  {/* Customer Information */}
                   <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4 md:p-5">
                     <h3 className="text-sm font-medium text-gray-900 dark:text-white mb-4">Customer Information</h3>
                     
@@ -626,7 +550,6 @@ export default function SocialCommercePage() {
                     </div>
                   </div>
 
-                  {/* Delivery Address */}
                   <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4 md:p-5">
                     <h3 className="text-sm font-medium text-gray-900 dark:text-white mb-4">Delivery Address</h3>
                     
@@ -732,11 +655,14 @@ export default function SocialCommercePage() {
                   </div>
                 </div>
 
-                {/* Right Column - Product Search & Cart */}
                 <div className="space-y-4 md:space-y-6">
-                  {/* Product Search */}
-                  <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4 md:p-5">
-                    <h3 className="text-sm font-medium text-gray-900 dark:text-white mb-4">Search Product</h3>
+                  <div className={`bg-white dark:bg-gray-800 rounded-lg border p-4 md:p-5 ${selectedProduct && selectedProduct.isDefective ? 'border-orange-300 dark:border-orange-700' : 'border-gray-200 dark:border-gray-700'}`}>
+                    <div className="flex items-center justify-between mb-4">
+                      <h3 className="text-sm font-medium text-gray-900 dark:text-white">Search Product</h3>
+                      {selectedProduct && selectedProduct.isDefective && (
+                        <span className="px-2 py-1 bg-orange-500 text-white text-xs font-medium rounded">Defective Product</span>
+                      )}
+                    </div>
                     
                     <div className="flex gap-2 mb-4">
                       <input
@@ -751,7 +677,6 @@ export default function SocialCommercePage() {
                       </button>
                     </div>
 
-                    {/* Search Results */}
                     {searchResults.length > 0 && (
                       <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 max-h-60 md:max-h-80 overflow-y-auto mb-4 p-1">
                         {searchResults.map((product) => {
@@ -776,39 +701,76 @@ export default function SocialCommercePage() {
                       </div>
                     )}
 
-                    {/* Selected Product */}
                     {selectedProduct && (
-                      <div className="mt-4 p-3 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded mb-4">
+                      <div className={`mt-4 p-3 border rounded mb-4 ${
+                        selectedProduct.isDefective 
+                          ? 'bg-orange-50 dark:bg-orange-900/20 border-orange-300 dark:border-orange-700' 
+                          : 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800'
+                      }`}>
                         <div className="flex items-center justify-between mb-2">
-                          <span className="text-sm font-medium text-gray-900 dark:text-white">Selected Product</span>
+                          <div className="flex items-center gap-2">
+                            <span className="text-sm font-medium text-gray-900 dark:text-white">Selected Product</span>
+                            {selectedProduct.isDefective && (
+                              <span className="px-2 py-0.5 bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400 text-xs rounded">
+                                Defective - No Stock
+                              </span>
+                            )}
+                          </div>
                           <button onClick={() => {
                             setSelectedProduct(null);
                             setQuantity('');
                             setDiscountPercent('');
                             setDiscountTk('');
+                            setAmount('0.00');
+                            if (defectiveProduct) {
+                              setDefectiveProduct(null);
+                              sessionStorage.removeItem('defectItem');
+                            }
                           }} className="text-red-600 hover:text-red-700">
                             <X size={16} />
                           </button>
                         </div>
                         <div className="flex gap-3">
-                          <img 
-                            src={selectedProduct.attributes.mainImage} 
-                            alt={selectedProduct.name} 
-                            className="w-16 h-16 object-cover rounded flex-shrink-0" 
-                          />
+                          {selectedProduct.attributes.mainImage && (
+                            <img 
+                              src={selectedProduct.attributes.mainImage} 
+                              alt={selectedProduct.name} 
+                              className="w-16 h-16 object-cover rounded flex-shrink-0" 
+                            />
+                          )}
                           <div className="min-w-0">
-                            <p className="text-sm text-gray-900 dark:text-white font-medium truncate">{selectedProduct.name} (Batch {selectedProduct.batchId})</p>
-                            <p className="text-sm text-gray-600 dark:text-gray-400">Price: {selectedProduct.attributes.Price} Tk</p>
-                            <p className="text-sm text-green-600 dark:text-green-400">Available: {getAvailableInventory(selectedProduct.id, selectedProduct.batchId)} units</p>
+                            <p className={`text-sm font-medium truncate ${
+                              selectedProduct.isDefective 
+                                ? 'text-orange-900 dark:text-orange-200' 
+                                : 'text-gray-900 dark:text-white'
+                            }`}>{selectedProduct.name}</p>
+                            {!selectedProduct.isDefective && selectedProduct.batchId && (
+                              <p className="text-sm text-gray-600 dark:text-gray-400">(Batch {selectedProduct.batchId})</p>
+                            )}
+                            <p className={`text-sm ${
+                              selectedProduct.isDefective 
+                                ? 'text-orange-600 dark:text-orange-400' 
+                                : 'text-gray-600 dark:text-gray-400'
+                            }`}>Price: {selectedProduct.attributes.Price} Tk</p>
+                            {!selectedProduct.isDefective ? (
+                              <p className="text-sm text-green-600 dark:text-green-400">
+                                Available: {getAvailableInventory(selectedProduct.id, selectedProduct.batchId)} units
+                              </p>
+                            ) : (
+                              <p className="text-sm text-orange-600 dark:text-orange-400">
+                                Barcode: {selectedProduct.barcode}
+                              </p>
+                            )}
                           </div>
                         </div>
                       </div>
                     )}
 
-                    {/* Product Details */}
                     <div className="space-y-3">
                       <div>
-                        <label className="block text-xs text-gray-700 dark:text-gray-300 mb-1">Quantity</label>
+                        <label className="block text-xs text-gray-700 dark:text-gray-300 mb-1">
+                          Quantity {selectedProduct?.isDefective && <span className="text-orange-600">(Fixed: 1)</span>}
+                        </label>
                         <div className="flex items-center gap-2">
                           <button
                             type="button"
@@ -818,7 +780,7 @@ export default function SocialCommercePage() {
                                 setQuantity(String(currentQty - 1));
                               }
                             }}
-                            disabled={!selectedProduct || !quantity || parseInt(quantity) <= 1}
+                            disabled={!selectedProduct || !quantity || parseInt(quantity) <= 1 || selectedProduct?.isDefective}
                             className="w-8 h-8 flex items-center justify-center border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors disabled:opacity-40 disabled:cursor-not-allowed text-lg"
                             title="Decrease quantity"
                           >
@@ -829,9 +791,14 @@ export default function SocialCommercePage() {
                             placeholder="0"
                             value={quantity}
                             onChange={(e) => setQuantity(e.target.value)}
-                            disabled={!selectedProduct}
+                            disabled={!selectedProduct || selectedProduct?.isDefective}
+                            readOnly={selectedProduct?.isDefective}
                             min="1"
-                            className="flex-1 px-3 py-2 text-sm text-center border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white disabled:opacity-50 disabled:cursor-not-allowed [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                            className={`flex-1 px-3 py-2 text-sm text-center border rounded disabled:cursor-not-allowed [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none ${
+                              selectedProduct?.isDefective
+                                ? 'bg-orange-50 dark:bg-orange-900/20 border-orange-300 dark:border-orange-600 text-orange-900 dark:text-orange-200 font-medium'
+                                : 'border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white disabled:opacity-50'
+                            }`}
                           />
                           <button
                             type="button"
@@ -839,7 +806,7 @@ export default function SocialCommercePage() {
                               const currentQty = parseInt(quantity) || 0;
                               setQuantity(String(currentQty + 1));
                             }}
-                            disabled={!selectedProduct}
+                            disabled={!selectedProduct || selectedProduct?.isDefective}
                             className="w-8 h-8 flex items-center justify-center border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors disabled:opacity-40 disabled:cursor-not-allowed text-lg"
                             title="Increase quantity"
                           >
@@ -856,7 +823,7 @@ export default function SocialCommercePage() {
                             placeholder="0"
                             value={discountPercent}
                             onChange={(e) => setDiscountPercent(e.target.value)}
-                            disabled={!selectedProduct}
+                            disabled={!selectedProduct || selectedProduct?.isDefective}
                             min="0"
                             className="w-full px-2 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white disabled:opacity-50 disabled:cursor-not-allowed [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                           />
@@ -868,7 +835,7 @@ export default function SocialCommercePage() {
                             placeholder="0"
                             value={discountTk}
                             onChange={(e) => setDiscountTk(e.target.value)}
-                            disabled={!selectedProduct}
+                            disabled={!selectedProduct || selectedProduct?.isDefective}
                             min="0"
                             className="w-full px-2 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white disabled:opacity-50 disabled:cursor-not-allowed [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                           />
@@ -886,14 +853,18 @@ export default function SocialCommercePage() {
 
                       <button
                         onClick={addToCart}
-                        className="w-full px-4 py-2.5 bg-black hover:bg-gray-800 text-white text-sm font-medium rounded transition-colors"
+                        disabled={!selectedProduct}
+                        className={`w-full px-4 py-2.5 text-white text-sm font-medium rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
+                          selectedProduct?.isDefective
+                            ? 'bg-orange-600 hover:bg-orange-700'
+                            : 'bg-black hover:bg-gray-800'
+                        }`}
                       >
-                        Add to Cart
+                        {selectedProduct?.isDefective ? 'Add Defective Product to Cart' : 'Add to Cart'}
                       </button>
                     </div>
                   </div>
 
-                  {/* Cart */}
                   <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
                     <div className="p-4 border-b border-gray-200 dark:border-gray-700">
                       <h3 className="text-sm font-medium text-gray-900 dark:text-white">Cart ({cart.length} items)</h3>

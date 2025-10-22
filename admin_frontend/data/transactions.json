@@ -145,6 +145,18 @@
       "comment": "Items: Shotoronji",
       "receiptImage": "",
       "createdAt": "2025-10-20T16:26:40.028Z"
+    },
+    {
+      "id": "order-1761115982594",
+      "name": "Order: Ear rings",
+      "description": "Order from Social Customer",
+      "type": "variable",
+      "amount": 330,
+      "category": "Social Orders",
+      "date": "2025-10-22T06:53:02.601Z",
+      "comment": "Products: Ear rings",
+      "receiptImage": "",
+      "createdAt": "2025-10-22T06:53:02.601Z"
     }
   ]
 }

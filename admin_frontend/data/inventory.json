@@ -93,11 +93,11 @@
     "costPrice": 500,
     "sellingPrice": 700,
     "location": "Uttara",
-    "status": "sold",
+    "status": "defective",
     "admittedAt": "2025-10-16T06:17:17.469Z",
     "id": 1760594740016,
     "createdAt": "2025-10-16T06:06:58.783Z",
-    "updatedAt": "2025-10-20T15:33:33.933Z",
+    "updatedAt": "2025-10-22T06:56:50.630Z",
     "orderId": 1760772943008,
     "soldAt": "2025-10-20T15:33:31.804Z"
   },
@@ -137,11 +137,11 @@
     "costPrice": 500,
     "sellingPrice": 700,
     "location": "Uttara",
-    "status": "available",
+    "status": "defective",
     "admittedAt": "2025-10-16T06:17:41.815Z",
     "id": 1760594747287,
     "createdAt": "2025-10-16T06:06:58.783Z",
-    "updatedAt": "2025-10-16T06:17:42.223Z"
+    "updatedAt": "2025-10-22T06:50:19.871Z"
   },
   {
     "productId": 1760593404487,

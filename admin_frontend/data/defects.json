@@ -112,5 +112,41 @@
     "image": "/uploads/defect-1760938868160.png",
     "soldAt": "2025-10-20T05:43:05.165Z",
     "updatedAt": "2025-10-20T05:43:05.165Z"
+  },
+  {
+    "id": "defect-1761115819873",
+    "barcode": "BATCH1760594714624-10",
+    "productId": 1760593481284,
+    "productName": "Ear rings",
+    "status": "sold",
+    "store": "1760592803601",
+    "addedBy": "Admin",
+    "addedAt": "2025-10-22T06:50:19.873Z",
+    "originalOrderId": null,
+    "customerPhone": null,
+    "costPrice": 500,
+    "originalSellingPrice": 700,
+    "sellingPrice": 330,
+    "returnReason": "social test",
+    "image": "/uploads/defect-1761115819866.png",
+    "soldAt": "2025-10-22T06:53:02.595Z",
+    "updatedAt": "2025-10-22T06:53:02.595Z"
+  },
+  {
+    "id": "defect-1761116210633",
+    "barcode": "BATCH1760594714624-07",
+    "productId": 1760593481284,
+    "productName": "Ear rings",
+    "status": "pending",
+    "store": "1760592803601",
+    "addedBy": "Admin",
+    "addedAt": "2025-10-22T06:56:50.633Z",
+    "originalOrderId": 1760772943008,
+    "customerPhone": null,
+    "costPrice": 500,
+    "originalSellingPrice": 700,
+    "sellingPrice": null,
+    "returnReason": "orange box",
+    "image": "/uploads/defect-1761116210623.png"
   }
 ]
