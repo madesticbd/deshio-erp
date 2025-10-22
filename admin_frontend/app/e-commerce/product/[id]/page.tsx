@@ -3,7 +3,9 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { ShoppingCart, Heart, Share2, Minus, Plus, ChevronLeft, ChevronRight, Check, X } from 'lucide-react';
+import { useCart } from '@/app/e-commerce/CartContext';
 import Navigation from '@/components/ecommerce/Navigation';
+import CartSidebar from '@/components/ecommerce/cart/CartSidebar';
 
 interface Product {
   id: string | number;
@@ -50,11 +52,18 @@ export default function ProductDetailPage() {
   const router = useRouter();
   const productId = params?.id as string;
   
+  // 🔥 CART CONTEXT
+  const { addToCart } = useCart();
+  
+  // 🔥 CART SIDEBAR STATE
+  const [cartSidebarOpen, setCartSidebarOpen] = useState(false);
+  
   const [product, setProduct] = useState<Product | null>(null);
   const [variations, setVariations] = useState<ProductVariation[]>([]);
   const [selectedVariation, setSelectedVariation] = useState<ProductVariation | null>(null);
   const [loading, setLoading] = useState(true);
   const [quantity, setQuantity] = useState(1);
+  const [isAdding, setIsAdding] = useState(false); // 🔥 ADD TO CART LOADING
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
   const [availableStock, setAvailableStock] = useState(0);
   const [categoryPath, setCategoryPath] = useState<string[]>([]);
@@ -64,27 +73,20 @@ export default function ProductDetailPage() {
     return name.replace(/\s*-\s*Variation\s+\d+$/i, '').trim();
   };
 
-    const getAllImages = (product: Product): string[] => {
-      const images: string[] = [];
+  const getAllImages = (product: Product): string[] => {
+    const images: string[] = [];
 
-      // If there are extra images, prioritize them
-      if (product.attributes.Image && Array.isArray(product.attributes.Image) && product.attributes.Image.length > 0) {
-        images.push(...product.attributes.Image);
-
-        // Add main image at the end (optional, to keep it in gallery view)
-        if (product.attributes.mainImage) {
-          images.push(product.attributes.mainImage);
-        }
-      } 
-      // If there are no extra images, just use mainImage
-      else if (product.attributes.mainImage) {
+    if (product.attributes.Image && Array.isArray(product.attributes.Image) && product.attributes.Image.length > 0) {
+      images.push(...product.attributes.Image);
+      if (product.attributes.mainImage) {
         images.push(product.attributes.mainImage);
       }
+    } else if (product.attributes.mainImage) {
+      images.push(product.attributes.mainImage);
+    }
 
-      return images;
-    };
-
-
+    return images;
+  };
 
   const findCategoryPath = (categories: Category[], targetId: string, path: string[] = []): string[] | null => {
     for (const cat of categories) {
@@ -100,6 +102,34 @@ export default function ProductDetailPage() {
     return null;
   };
 
+  // 🔥 ADD TO CART FUNCTION
+  const handleAddToCart = async () => {
+    if (!selectedVariation || availableStock === 0) return;
+
+    setIsAdding(true);
+
+    const cartItem = {
+      id: selectedVariation.id,
+      name: getBaseName(selectedVariation.name),
+      image: selectedVariation.images[0] || '',
+      price: selectedVariation.price,
+      sku: selectedVariation.id.toString(),
+      quantity: quantity,
+      // 🔥 EXTRA INFO FOR BETTER UX
+      color: selectedVariation.attributes.Color || '',
+      size: selectedVariation.attributes.Size || '',
+    };
+
+    // ✅ FIXED: Pass quantity parameter
+    addToCart(cartItem, quantity);
+
+    // 🔥 AUTO-OPEN CART AFTER ANIMATION
+    setTimeout(() => {
+      setIsAdding(false);
+      setCartSidebarOpen(true); // ← OPENS CART SIDEBAR!
+    }, 1200);
+  };
+
   useEffect(() => {
     const fetchData = async () => {
       try {
@@ -112,7 +142,6 @@ export default function ProductDetailPage() {
         const categoriesRes = await fetch('/api/categories');
         const categories: Category[] = await categoriesRes.json();
 
-        // Find the main product or variation by ID
         const foundProduct = allProducts.find(p => p.id.toString() === productId);
         
         if (!foundProduct) {
@@ -122,7 +151,6 @@ export default function ProductDetailPage() {
 
         setProduct(foundProduct);
 
-        // Get category path
         if (foundProduct.attributes.category) {
           const path = findCategoryPath(categories, foundProduct.attributes.category);
           if (path) {
@@ -131,14 +159,12 @@ export default function ProductDetailPage() {
           }
         }
 
-        // Check if this product has variations
         const baseName = getBaseName(foundProduct.name);
         const relatedProducts = allProducts.filter(p => 
           getBaseName(p.name) === baseName
         );
 
         if (relatedProducts.length > 1) {
-          // Has variations
           const variationsWithInventory = relatedProducts.map(p => {
             const productInventory = inventory.filter(
               item => item.productId === p.id || item.productId === Number(p.id)
@@ -162,7 +188,6 @@ export default function ProductDetailPage() {
 
           setVariations(variationsWithInventory);
           
-          // Set the current product as selected variation
           const currentVariation = variationsWithInventory.find(v => v.id.toString() === productId);
           if (currentVariation) {
             setSelectedVariation(currentVariation);
@@ -172,7 +197,6 @@ export default function ProductDetailPage() {
             setAvailableStock(variationsWithInventory[0].available);
           }
         } else {
-          // No variations, single product
           const productInventory = inventory.filter(
             item => item.productId === foundProduct.id || item.productId === Number(foundProduct.id)
           );
@@ -274,14 +298,19 @@ export default function ProductDetailPage() {
     ? selectedVariation.images 
     : ['/placeholder-image.jpg'];
 
-  // Get non-variation attributes for display
   const nonVariationAttributes = Object.entries(selectedVariation.attributes)
     .filter(([key]) => !['mainImage', 'Image', 'category', 'subcategory', 'subSubcategory', 'Price', 'Color', 'Size'].includes(key))
     .filter(([, value]) => value && value !== '');
 
   return (
-    <div className="min-h-screen bg-white">
+    <div className="min-h-screen bg-white relative">
       <Navigation />
+      
+      {/* 🔥 RIGHT-SIDE CART SIDEBAR */}
+      <CartSidebar 
+        isOpen={cartSidebarOpen} 
+        onClose={() => setCartSidebarOpen(false)} 
+      />
 
       {/* Breadcrumb */}
       <div className="bg-gray-50 border-b">
@@ -311,7 +340,6 @@ export default function ProductDetailPage() {
         <div className="grid lg:grid-cols-2 gap-12">
           {/* Image Gallery */}
           <div className="space-y-4">
-            {/* Main Image */}
             <div className="relative aspect-square bg-gray-50 rounded-lg overflow-hidden group">
               <img
                 src={currentImages[selectedImageIndex]}
@@ -351,7 +379,6 @@ export default function ProductDetailPage() {
               )}
             </div>
 
-            {/* Thumbnail Images */}
             {currentImages.length > 1 && (
               <div className="grid grid-cols-5 gap-2">
                 {currentImages.map((img, index) => (
@@ -384,7 +411,6 @@ export default function ProductDetailPage() {
               </p>
             </div>
 
-            {/* Non-variation attributes (Description, Usage, etc.) */}
             {nonVariationAttributes.length > 0 && (
               <div className="border-t border-b py-4 space-y-3">
                 {nonVariationAttributes.map(([key, value]) => (
@@ -396,10 +422,8 @@ export default function ProductDetailPage() {
               </div>
             )}
 
-            {/* Variations */}
             {variations.length > 1 && (
               <div className="space-y-4">
-                {/* Size Variation */}
                 {variations.some(v => v.attributes.Size) && (
                   <div>
                     <label className="block text-sm font-semibold text-gray-900 mb-3">
@@ -435,7 +459,6 @@ export default function ProductDetailPage() {
                   </div>
                 )}
 
-                {/* Color Variation */}
                 {variations.some(v => v.attributes.Color) && (
                   <div>
                     <label className="block text-sm font-semibold text-gray-900 mb-3">
@@ -479,7 +502,7 @@ export default function ProductDetailPage() {
               </div>
             )}
 
-            {/* Quantity and Add to Cart */}
+            {/* 🔥 QUANTITY & ADD TO CART */}
             <div className="space-y-4">
               <div className="flex items-center gap-4">
                 <label className="text-sm font-semibold text-gray-900">Quantity:</label>
@@ -507,12 +530,28 @@ export default function ProductDetailPage() {
 
               <div className="flex gap-3">
                 <button
-                  onClick={() => console.log('Add to cart:', { variation: selectedVariation, quantity })}
-                  disabled={availableStock === 0}
-                  className="flex-1 bg-red-700 text-white py-4 rounded-lg font-bold hover:bg-red-800 transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                  onClick={handleAddToCart}
+                  disabled={availableStock === 0 || isAdding}
+                  className={`
+                    flex-1 bg-red-700 text-white py-4 rounded-lg font-bold 
+                    flex items-center justify-center gap-2 transition-all duration-300
+                    ${isAdding 
+                      ? 'bg-green-600' 
+                      : 'hover:bg-red-800 disabled:bg-gray-300 disabled:cursor-not-allowed'
+                    }
+                  `}
                 >
-                  <ShoppingCart size={20} />
-                  ADD TO CART
+                  {isAdding ? (
+                    <>
+                      <ShoppingCart size={20} />
+                      ✓ ADDED
+                    </>
+                  ) : (
+                    <>
+                      <ShoppingCart size={20} />
+                      ADD TO CART
+                    </>
+                  )}
                 </button>
                 <button className="p-4 border-2 border-gray-300 rounded-lg hover:border-red-700 hover:text-red-700 transition-colors">
                   <Heart size={24} />
@@ -545,7 +584,6 @@ export default function ProductDetailPage() {
           </div>
         </div>
 
-        {/* Additional Product Information Tabs */}
         <div className="mt-16 border-t pt-12">
           <div className="grid md:grid-cols-3 gap-8">
             <div className="bg-gray-50 p-6 rounded-lg">

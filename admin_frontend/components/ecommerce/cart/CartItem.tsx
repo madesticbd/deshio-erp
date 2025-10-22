@@ -3,7 +3,6 @@
 import React from 'react';
 import { X, Plus, Minus } from 'lucide-react';
 import { useCart } from '../../../app/e-commerce/CartContext';
-import Navigation from '../Navigation';
 
 export default function CartItem({ item }: any) {
   const { updateQuantity, removeFromCart } = useCart();
@@ -12,7 +11,6 @@ export default function CartItem({ item }: any) {
 
   return (
     <div className="flex gap-4 border-b pb-4">
-      <Navigation />
       {/* Product Image */}
       <div className="relative w-20 h-20 flex-shrink-0">
         <img

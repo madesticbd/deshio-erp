@@ -1,9 +1,14 @@
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Heart, Eye, ShoppingCart } from 'lucide-react';
-import { useCart } from '../../../app/e-commerce/CartContext';
+import { useCart } from '@/app/e-commerce/CartContext';
 
-export default function ProductCard({ product }: any) {
+interface ProductCardProps {
+  product: any;
+  onCartOpen?: () => void;  // ← NEW: Opens cart sidebar
+}
+
+export default function ProductCard({ product, onCartOpen }: ProductCardProps) {
   const router = useRouter();
   const { addToCart } = useCart();
   const [isHovered, setIsHovered] = useState(false);
@@ -32,11 +37,14 @@ export default function ProductCard({ product }: any) {
       quantity: 1
     };
 
-    addToCart(cartItem);
+    // ✅ FIXED: Pass quantity parameter
+    addToCart(cartItem, 1);
 
+    // 🔥 AUTO-OPEN CART AFTER "ADDED" ANIMATION
     setTimeout(() => {
       setIsAdding(false);
-    }, 1000);
+      onCartOpen?.();  // ← OPENS CART SIDEBAR!
+    }, 1200);
   };
 
   return (

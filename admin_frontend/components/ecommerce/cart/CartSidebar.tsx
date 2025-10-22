@@ -1,12 +1,15 @@
-'use client';
-
 import React from 'react';
 import { X } from 'lucide-react';
 import { useCart } from '../../../app/e-commerce/CartContext';
 import { useRouter } from 'next/navigation';
 import CartItem from './CartItem';
 
-export default function CartSidebar({ isOpen, onClose }: any) {
+interface CartSidebarProps {
+  isOpen: boolean;
+  onClose: () => void;
+}
+
+export default function CartSidebar({ isOpen, onClose }: CartSidebarProps) {
   const { cartItems, getCartTotal } = useCart();
   const router = useRouter();
   const subtotal = getCartTotal();
@@ -26,22 +29,21 @@ export default function CartSidebar({ isOpen, onClose }: any) {
 
   return (
     <>
-      {/* Backdrop */}
-      {isOpen && (
-        <div 
-          className="fixed inset-0 bg-black bg-opacity-50 z-50 transition-opacity"
-          onClick={onClose}
-        />
-      )}
-
-      {/* Sidebar */}
+      {/* 🔥 NO BACKDROP - Products stay visible! */}
+      
+      {/* 🔥 RIGHT-SIDE SLIDE OVER SIDEBAR */}
       <div
-        className={`fixed right-0 top-0 h-full w-full sm:w-96 bg-white shadow-2xl z-50 transform transition-transform duration-300 flex flex-col ${
-          isOpen ? 'translate-x-0' : 'translate-x-full'
-        }`}
+        className={`
+          fixed right-0 top-0 h-full w-full sm:w-96 bg-white shadow-2xl z-50 
+          flex flex-col transform transition-transform duration-300 ease-in-out
+          ${isOpen 
+            ? 'translate-x-0' 
+            : 'translate-x-full sm:translate-x-full'
+          }
+        `}
       >
         {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b">
+        <div className="flex items-center justify-between p-6 border-b bg-white">
           <h2 className="text-xl font-bold text-gray-900">Shopping cart</h2>
           <button
             onClick={onClose}
@@ -68,7 +70,7 @@ export default function CartSidebar({ isOpen, onClose }: any) {
 
         {/* Footer */}
         {cartItems.length > 0 && (
-          <div className="border-t p-6 space-y-4">
+          <div className="border-t p-6 space-y-4 bg-white">
             {/* Free Shipping Progress */}
             {remaining > 0 ? (
               <div>
@@ -116,6 +118,15 @@ export default function CartSidebar({ isOpen, onClose }: any) {
           </div>
         )}
       </div>
+
+      {/* 🔥 MOBILE: Slight page shift for better UX */}
+      <style jsx>{`
+        @media (max-width: 640px) {
+          body {
+            overflow: ${isOpen ? 'hidden' : 'auto'};
+          }
+        }
+      `}</style>
     </>
   );
 }
