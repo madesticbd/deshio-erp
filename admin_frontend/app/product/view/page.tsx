@@ -25,10 +25,6 @@ interface Product {
     Colour?: string;
     [key: string]: any;
   };
-  variations?: {
-    id: string;
-    attributes: Record<string, any>;
-  }[];
 }
 
 interface Category {
@@ -47,13 +43,14 @@ export default function ProductViewPage() {
   const [darkMode, setDarkMode] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [product, setProduct] = useState<Product | null>(null);
+  const [allProducts, setAllProducts] = useState<Product[]>([]);
   const [fields, setFields] = useState<Field[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [mainImage, setMainImage] = useState<string>('');
   const [galleryImages, setGalleryImages] = useState<string[]>([]);
-  const [selectedVariation, setSelectedVariation] = useState<string | null>(null);
   const [zoomedImage, setZoomedImage] = useState<string | null>(null);
+  const [variationProducts, setVariationProducts] = useState<Product[]>([]);
   const [variationMainImages, setVariationMainImages] = useState<Record<string, string>>({});
 
   // Reserved attribute names that shouldn't be displayed in the attributes list
@@ -139,7 +136,13 @@ export default function ProductViewPage() {
     return '-';
   };
 
-  // Fetch product data
+  // Get base product name (without "- Variation X")
+  const getBaseName = (name: string): string => {
+    const match = name.match(/^(.+?)\s*-\s*Variation\s+\d+$/i);
+    return match ? match[1].trim() : name;
+  };
+
+  // Fetch product data and related products
   useEffect(() => {
     if (!productId) {
       router.push('/product');
@@ -149,10 +152,11 @@ export default function ProductViewPage() {
     const fetchData = async () => {
       setIsLoading(true);
       try {
-        const [productRes, fieldsRes, catsRes] = await Promise.all([
+        const [productRes, fieldsRes, catsRes, allProductsRes] = await Promise.all([
           fetch(`/api/products/${productId}`),
           fetch('/api/fields'),
           fetch('/api/categories'),
+          fetch('/api/products'),
         ]);
 
         if (!productRes.ok) {
@@ -162,8 +166,10 @@ export default function ProductViewPage() {
         const productData = await productRes.json();
         const fieldsData = await fieldsRes.json();
         const catsData = await catsRes.json();
+        const allProductsData = await allProductsRes.json();
 
         setProduct(productData);
+        setAllProducts(Array.isArray(allProductsData) ? allProductsData : []);
         setFields(Array.isArray(fieldsData) ? fieldsData : []);
         setCategories(Array.isArray(catsData) ? catsData : []);
 
@@ -174,10 +180,25 @@ export default function ProductViewPage() {
           setMainImage(images[0]);
         }
 
-        // Initialize variation main images
-        if (productData.variations && productData.variations.length > 0) {
+        // Check if this product is a variation
+        const baseName = getBaseName(productData.name);
+        const isVariation = productData.name.match(/^(.+?)\s*-\s*Variation\s+\d+$/i);
+
+        if (isVariation && allProductsData) {
+          // Find all related variation products
+          const relatedVariations = allProductsData
+            .filter((p: Product) => getBaseName(p.name) === baseName && p.name !== productData.name)
+            .sort((a: Product, b: Product) => {
+              const aNum = parseInt(a.name.match(/Variation\s+(\d+)$/i)?.[1] || '0');
+              const bNum = parseInt(b.name.match(/Variation\s+(\d+)$/i)?.[1] || '0');
+              return aNum - bNum;
+            });
+
+          setVariationProducts(relatedVariations);
+
+          // Initialize variation main images
           const varImageMap: Record<string, string> = {};
-          productData.variations.forEach((variation: any) => {
+          relatedVariations.forEach((variation: Product) => {
             const varImages = extractImages(variation.attributes);
             varImageMap[variation.id] = varImages[0] || ERROR_IMG_SRC;
           });
@@ -248,11 +269,6 @@ export default function ProductViewPage() {
              value !== '';
     })
     .map(([key, value]) => ({ label: key, value }));
-
-  // Get variation attribute keys (excluding images)
-  const variationAttributeKeys = product.variations && product.variations.length > 0
-    ? Object.keys(product.variations[0].attributes).filter(key => !isImageKey(key))
-    : [];
 
   return (
     <div className={`${darkMode ? 'dark' : ''} flex h-screen`}>
@@ -370,25 +386,26 @@ export default function ProductViewPage() {
               </div>
             </div>
 
-            {/* Variations Section */}
-            {product.variations && product.variations.length > 0 && (
+            {/* Other Variations Section */}
+            {variationProducts.length > 0 && (
               <div className="mt-8 border-t border-gray-200 dark:border-gray-700 pt-8">
                 <h2 className="text-2xl font-semibold text-gray-900 dark:text-white mb-6">
-                  Product Variations ({product.variations.length})
+                  Other Variations ({variationProducts.length})
                 </h2>
                 
                 <div className="space-y-6">
-                  {product.variations.map((variation, varIndex) => {
+                  {variationProducts.map((variation, idx) => {
                     const varImages = extractImages(variation.attributes);
                     const varMainImage = variationMainImages[variation.id] || varImages[0] || ERROR_IMG_SRC;
                     
                     return (
                       <div
                         key={variation.id}
-                        className="border border-gray-200 dark:border-gray-700 rounded-lg p-6 bg-gray-50 dark:bg-gray-800/50"
+                        className="border border-gray-200 dark:border-gray-700 rounded-lg p-6 bg-gray-50 dark:bg-gray-800/50 cursor-pointer hover:shadow-md transition-shadow"
+                        onClick={() => router.push(`/product/view?id=${variation.id}`)}
                       >
                         <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-                          Variation {varIndex + 1}
+                          {variation.name}
                         </h3>
                         
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -396,12 +413,15 @@ export default function ProductViewPage() {
                           <div className="space-y-3">
                             {/* Main Variation Image */}
                             <button
-                              onClick={() => setZoomedImage(varMainImage)}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setZoomedImage(varMainImage);
+                              }}
                               className="w-full aspect-square bg-gray-100 dark:bg-gray-700 rounded-lg overflow-hidden border-2 border-gray-200 dark:border-gray-600 hover:border-blue-500 dark:hover:border-blue-400 transition-colors cursor-zoom-in"
                             >
                               <ImageWithFallback
                                 src={varMainImage}
-                                alt={`Variation ${varIndex + 1}`}
+                                alt={variation.name}
                                 className="w-full h-full object-contain"
                               />
                             </button>
@@ -409,13 +429,16 @@ export default function ProductViewPage() {
                             {/* Variation Thumbnail Gallery */}
                             {varImages.length > 1 && (
                               <div className="grid grid-cols-5 gap-2">
-                                {varImages.map((img, idx) => (
+                                {varImages.map((img, imgIdx) => (
                                   <button
-                                    key={idx}
-                                    onClick={() => setVariationMainImages(prev => ({
-                                      ...prev,
-                                      [variation.id]: img
-                                    }))}
+                                    key={imgIdx}
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setVariationMainImages(prev => ({
+                                        ...prev,
+                                        [variation.id]: img
+                                      }));
+                                    }}
                                     className={`aspect-square rounded-lg overflow-hidden border-2 transition ${
                                       varMainImage === img
                                         ? 'border-blue-500 dark:border-blue-400'
@@ -424,7 +447,7 @@ export default function ProductViewPage() {
                                   >
                                     <ImageWithFallback
                                       src={img}
-                                      alt={`Variation ${varIndex + 1} - ${idx + 1}`}
+                                      alt={`${variation.name} - ${imgIdx + 1}`}
                                       className="w-full h-full object-cover"
                                     />
                                   </button>
@@ -440,7 +463,7 @@ export default function ProductViewPage() {
                             </h4>
                             <dl className="space-y-2">
                               {Object.entries(variation.attributes)
-                                .filter(([key]) => !isImageKey(key))
+                                .filter(([key]) => !isImageKey(key) && !reserved.has(key))
                                 .map(([key, value]) => (
                                   <div
                                     key={key}

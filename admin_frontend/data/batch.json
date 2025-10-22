@@ -34,5 +34,34 @@
     "admitted": "yes",
     "id": 1760852587199,
     "baseCode": "BATCH1760852587199"
+  },
+  {
+    "productId": 1761017042860,
+    "costPrice": 3000,
+    "sellingPrice": 5000,
+    "quantity": 5,
+    "admitted": "yes",
+    "id": 1761017131060,
+    "baseCode": "BATCH1761017131060"
+  },
+  {
+    "productId": 1761065353934,
+    "costPrice": 400,
+    "sellingPrice": 600,
+    "quantity": 5,
+    "admitted": "yes",
+    "parentProductId": "1761065353934",
+    "id": 1761065510189,
+    "baseCode": "BATCH1761065510189"
+  },
+  {
+    "productId": 1761065353936,
+    "costPrice": 400,
+    "sellingPrice": 600,
+    "quantity": 5,
+    "admitted": "yes",
+    "parentProductId": "1761065353934",
+    "id": 1761065530689,
+    "baseCode": "BATCH1761065530689"
   }
 ]

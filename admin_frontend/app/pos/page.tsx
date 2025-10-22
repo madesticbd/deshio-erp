@@ -76,6 +76,9 @@ export default function POSPage() {
   const [products, setProducts] = useState<Product[]>([]);
   const [inventory, setInventory] = useState<InventoryItem[]>([]);
   const [toasts, setToasts] = useState<Toast[]>([]);
+  const [userRole, setUserRole] = useState<string>('');
+  const [userStoreId, setUserStoreId] = useState<string>('');
+  const [userName, setUserName] = useState<string>('');
   
   // Form states
   const [customerName, setCustomerName] = useState('');
@@ -141,20 +144,41 @@ export default function POSPage() {
   }, [outlets]);
 
   useEffect(() => {
-    fetchOutlets();
-    fetchProducts();
-    fetchInventory();
-  }, []);
+  // Get user role and store info from localStorage
+  const role = localStorage.getItem('userRole') || '';
+  const storeId = localStorage.getItem('storeId') || '';
+  const name = localStorage.getItem('userName') || ''
+  setUserRole(role);
+  setUserStoreId(storeId);
+  setUserName(name);
+  
+  fetchOutlets(role, storeId);
+  fetchProducts();
+  fetchInventory();
+}, []);
 
-  const fetchOutlets = async () => {
-    try {
-      const response = await fetch('/api/stores');
-      const data = await response.json();
+const fetchOutlets = async (role: string, storeId: string) => {
+  try {
+    const response = await fetch('/api/stores');
+    const data = await response.json();
+    
+    if (role === 'store_manager' && storeId) {
+      // Filter to show only the store manager's outlet
+      const userStore = data.find((store: Store) => String(store.id) === String(storeId));
+      setOutlets(userStore ? [userStore] : data);
+      
+      // Auto-select the outlet for store managers
+      if (userStore) {
+        setSelectedOutlet(String(userStore.id));
+      }
+    } else {
+      // Super admin sees all outlets
       setOutlets(data);
-    } catch (error) {
-      console.error('Error fetching outlets:', error);
     }
-  };
+  } catch (error) {
+    console.error('Error fetching outlets:', error);
+  }
+};
 
   const fetchProducts = async () => {
     try {
@@ -382,7 +406,7 @@ export default function POSPage() {
     }
 
     const saleData = {
-      salesBy: 'Admin',
+      salesBy: userName || 'Admin',
       outletId: selectedOutlet,
       date: date,
       customer: {
@@ -525,7 +549,7 @@ export default function POSPage() {
                   </label>
                   <input
                     type="text"
-                    value="Admin"
+                    value= {userName}
                     readOnly
                     className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-white"
                   />
@@ -663,22 +687,22 @@ export default function POSPage() {
                         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                           Product
                         </label>
-                        <select
-                          value={product}
-                          onChange={(e) => handleProductSelect(e.target.value)}
-                          disabled={!selectedOutlet}
-                          className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm disabled:bg-gray-100 disabled:dark:bg-gray-600"
-                        >
-                          <option value="">Select Product</option>
-                          {getAvailableProducts().map((prod) => {
-                            const availableQty = getAvailableQuantity(prod.id);
-                            return (
-                              <option key={prod.id} value={prod.name}>
-                                {prod.name} ({availableQty} available)
-                              </option>
-                            );
-                          })}
-                        </select>
+                      <select
+                        value={product}
+                        onChange={(e) => handleProductSelect(e.target.value)}
+                        disabled={!selectedOutlet}
+                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm disabled:bg-gray-100 disabled:dark:bg-gray-600"
+                      >
+                        <option value="">Select Product</option>
+                        {getAvailableProducts().map((prod) => {
+                          const availableQty = getAvailableQuantity(prod.id);
+                          return (
+                            <option key={prod.id} value={prod.name}>
+                              {prod.name} ({availableQty} available)
+                            </option>
+                          );
+                        })}
+                      </select>
                       </div>
                       
                       <div>

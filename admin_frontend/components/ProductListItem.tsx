@@ -1,4 +1,7 @@
+'use client';
+
 import { useState, useRef, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { MoreVertical, Edit, Trash2 } from 'lucide-react';
 import { ImageWithFallback } from '@/components/figma/ImageWithFallback';
 
@@ -26,7 +29,8 @@ interface ProductListItemProps {
   selectable?: boolean;
   selected?: boolean;
   toggleSelect?: (id: number | string) => void;
-  onViewVariations: (product: Product) => void;
+  onViewVariations?: () => void;
+  variationCount?: number;
 }
 
 export default function ProductListItem({
@@ -41,21 +45,35 @@ export default function ProductListItem({
   selected,
   toggleSelect,
   onViewVariations,
+  variationCount,
 }: ProductListItemProps) {
   const [showDropdown, setShowDropdown] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const buttonRef = useRef<HTMLButtonElement>(null);
+  const [dropdownPos, setDropdownPos] = useState({ top: 0, left: 0 });
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
-        setShowDropdown(false);
+        if (buttonRef.current && !buttonRef.current.contains(event.target as Node)) {
+          setShowDropdown(false);
+        }
       }
     }
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  const hasVariations = product.variations && product.variations.length > 0;
+  const handleMenuClick = () => {
+    if (buttonRef.current) {
+      const rect = buttonRef.current.getBoundingClientRect();
+      setDropdownPos({
+        top: rect.bottom + window.scrollY,
+        left: rect.left + window.scrollX - 180
+      });
+    }
+    setShowDropdown(!showDropdown);
+  };
 
   return (
     <div className="border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 hover:shadow-md transition-shadow">
@@ -103,37 +121,45 @@ export default function ProductListItem({
         {/* Actions */}
         <div className="flex items-center gap-2 flex-shrink-0">
           {/* View Variations Button */}
-          {hasVariations && (
+          {variationCount && variationCount > 1 && onViewVariations && (
             <button
-              onClick={() => onViewVariations(product)}
-              className="px-3 py-1.5 text-sm bg-gray-900 hover:bg-gray-800 text-white rounded-lg transition-colors whitespace-nowrap"
+              onClick={onViewVariations}
+              className="px-3 py-1.5 text-sm bg-gray-900 hover:bg-gray-800 text-white rounded-lg transition-colors whitespace-nowrap dark:bg-white dark:text-gray-900 dark:hover:bg-gray-100"
             >
-              Variations ({product.variations.length})
+              Variations ({variationCount})
             </button>
           )}
 
-          {/* Select button (optional) */}
-          {onSelect && (
+          {/* Select button (optional) - only show if product has no variations */}
+          {onSelect && (!variationCount || variationCount <= 1) && (
             <button
               onClick={() => onSelect(product)}
-              className="px-3 py-1.5 text-sm bg-gray-900 hover:bg-gray-800 text-white rounded-lg transition-colors"
+              className="px-3 py-1.5 text-sm bg-gray-900 hover:bg-gray-800 text-white rounded-lg transition-colors dark:bg-white dark:text-gray-900 dark:hover:bg-gray-100"
             >
               Select
             </button>
           )}
 
           {/* Dropdown menu */}
-          <div className="relative" ref={dropdownRef}>
-            <button
-              onClick={() => setShowDropdown(!showDropdown)}
-              className="h-8 w-8 flex items-center justify-center hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
-              aria-label="More options"
-            >
-              <MoreVertical className="w-5 h-5 text-gray-500 dark:text-gray-400" />
-            </button>
+          <button
+            ref={buttonRef}
+            onClick={handleMenuClick}
+            className="h-8 w-8 flex items-center justify-center hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+            aria-label="More options"
+          >
+            <MoreVertical className="w-5 h-5 text-gray-500 dark:text-gray-400" />
+          </button>
 
-            {showDropdown && (
-              <div className="absolute right-0 mt-1 w-48 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg z-50 py-1">
+          {showDropdown &&
+            createPortal(
+              <div
+                ref={dropdownRef}
+                className="fixed w-48 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-xl z-50 py-2"
+                style={{
+                  top: `${dropdownPos.top}px`,
+                  left: `${dropdownPos.left}px`
+                }}
+              >
                 <button
                   onClick={() => {
                     onEdit(product);
@@ -156,9 +182,9 @@ export default function ProductListItem({
                   <Trash2 className="w-4 h-4" />
                   Delete
                 </button>
-              </div>
+              </div>,
+              document.body
             )}
-          </div>
         </div>
       </div>
     </div>
