@@ -93,13 +93,13 @@
     "costPrice": 500,
     "sellingPrice": 700,
     "location": "Uttara",
-    "status": "available",
+    "status": "sold",
     "admittedAt": "2025-10-16T06:17:17.469Z",
     "id": 1760594740016,
     "createdAt": "2025-10-16T06:06:58.783Z",
-    "updatedAt": "2025-10-18T07:35:43.009Z",
-    "orderId": 1760772943008,
-    "soldAt": "2025-10-18T07:35:43.009Z"
+    "updatedAt": "2025-10-22T16:48:31.520Z",
+    "orderId": 1761151711518,
+    "soldAt": "2025-10-22T16:48:31.520Z"
   },
   {
     "productId": 1760593481284,
@@ -122,11 +122,13 @@
     "costPrice": 500,
     "sellingPrice": 700,
     "location": "Uttara",
-    "status": "available",
+    "status": "sold",
     "admittedAt": "2025-10-16T06:17:32.508Z",
     "id": 1760594743782,
     "createdAt": "2025-10-16T06:06:58.783Z",
-    "updatedAt": "2025-10-16T06:17:32.898Z"
+    "updatedAt": "2025-10-22T17:18:52.673Z",
+    "orderId": 1761153532665,
+    "soldAt": "2025-10-22T17:18:52.673Z"
   },
   {
     "productId": 1760593481284,
@@ -207,11 +209,13 @@
     "costPrice": 1000,
     "sellingPrice": 2000,
     "location": "Banasree",
-    "status": "available",
+    "status": "sold",
     "admittedAt": "2025-10-16T06:19:49.460Z",
     "id": 1760595274888,
     "createdAt": "2025-10-16T06:15:34.114Z",
-    "updatedAt": "2025-10-16T06:19:49.857Z"
+    "updatedAt": "2025-10-22T16:53:50.166Z",
+    "orderId": 1761152030163,
+    "soldAt": "2025-10-22T16:53:50.166Z"
   },
   {
     "productId": 1760593404487,
@@ -220,11 +224,13 @@
     "costPrice": 1000,
     "sellingPrice": 2000,
     "location": "Banasree",
-    "status": "available",
+    "status": "sold",
     "admittedAt": "2025-10-16T06:19:58.245Z",
     "id": 1760595276541,
     "createdAt": "2025-10-16T06:15:34.114Z",
-    "updatedAt": "2025-10-16T06:19:58.640Z"
+    "updatedAt": "2025-10-22T17:20:10.959Z",
+    "orderId": 1761153610957,
+    "soldAt": "2025-10-22T17:20:10.959Z"
   },
   {
     "productId": 1760593404487,
@@ -285,11 +291,13 @@
     "costPrice": 500,
     "sellingPrice": 900,
     "location": "Uttara",
-    "status": "available",
+    "status": "sold",
     "admittedAt": "2025-10-16T06:17:50.212Z",
     "id": 1760595295468,
     "createdAt": "2025-10-16T06:16:06.136Z",
-    "updatedAt": "2025-10-16T10:21:49.966Z"
+    "updatedAt": "2025-10-22T17:21:25.546Z",
+    "orderId": 1761153685535,
+    "soldAt": "2025-10-22T17:21:25.546Z"
   },
   {
     "productId": 1760593716940,
@@ -442,11 +450,12 @@
     "barcode": "BATCH1761017131060-01",
     "costPrice": 3000,
     "sellingPrice": 5000,
-    "location": "Agargaon",
-    "status": "available",
+    "location": "In Transit to Uttara",
+    "status": "in-transit",
     "admittedAt": "2025-10-21T03:25:47.623Z",
     "id": 1761017148225,
-    "createdAt": "2025-10-21T03:25:48.225Z"
+    "createdAt": "2025-10-21T03:25:48.225Z",
+    "updatedAt": "2025-10-22T14:15:32.052Z"
   },
   {
     "productId": 1761017042860,
@@ -455,10 +464,13 @@
     "costPrice": 3000,
     "sellingPrice": 5000,
     "location": "Agargaon",
-    "status": "available",
+    "status": "sold",
     "admittedAt": "2025-10-21T03:25:50.775Z",
     "id": 1761017151448,
-    "createdAt": "2025-10-21T03:25:51.448Z"
+    "createdAt": "2025-10-21T03:25:51.448Z",
+    "orderId": 1761152030163,
+    "soldAt": "2025-10-22T16:53:50.172Z",
+    "updatedAt": "2025-10-22T16:53:50.172Z"
   },
   {
     "productId": 1761017042860,
@@ -467,10 +479,13 @@
     "costPrice": 3000,
     "sellingPrice": 5000,
     "location": "Agargaon",
-    "status": "available",
+    "status": "sold",
     "admittedAt": "2025-10-21T03:25:53.692Z",
     "id": 1761017154298,
-    "createdAt": "2025-10-21T03:25:54.298Z"
+    "createdAt": "2025-10-21T03:25:54.298Z",
+    "orderId": 1761153532665,
+    "soldAt": "2025-10-22T17:18:52.667Z",
+    "updatedAt": "2025-10-22T17:18:52.667Z"
   },
   {
     "productId": 1761017042860,
@@ -479,10 +494,13 @@
     "costPrice": 3000,
     "sellingPrice": 5000,
     "location": "Agargaon",
-    "status": "available",
+    "status": "sold",
     "admittedAt": "2025-10-21T03:25:56.332Z",
     "id": 1761017156853,
-    "createdAt": "2025-10-21T03:25:56.853Z"
+    "createdAt": "2025-10-21T03:25:56.853Z",
+    "orderId": 1761153788871,
+    "soldAt": "2025-10-22T17:23:08.873Z",
+    "updatedAt": "2025-10-22T17:23:08.873Z"
   },
   {
     "productId": 1761017042860,
@@ -503,10 +521,13 @@
     "costPrice": 400,
     "sellingPrice": 600,
     "location": "Agargaon",
-    "status": "available",
+    "status": "sold",
     "admittedAt": "2025-10-21T16:52:25.070Z",
     "id": 1761065545752,
-    "createdAt": "2025-10-21T16:52:25.752Z"
+    "createdAt": "2025-10-21T16:52:25.752Z",
+    "orderId": 1761153788871,
+    "soldAt": "2025-10-22T17:23:08.879Z",
+    "updatedAt": "2025-10-22T17:23:08.879Z"
   },
   {
     "productId": 1761065353934,

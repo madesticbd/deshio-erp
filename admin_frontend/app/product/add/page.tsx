@@ -480,7 +480,7 @@ export default function AddEditProductPage() {
         if (allSuccess) {
           const count = variations.length > 0 ? variations.length : 1;
           alert(`Successfully saved ${count} product(s)!`);
-          router.push('/products');
+          router.push('/product/list');
         } else {
           alert('Some products failed to save');
         }

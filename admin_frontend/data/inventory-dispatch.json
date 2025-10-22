@@ -634,5 +634,21 @@
     "status": "in-transit",
     "dispatchedAt": "2025-10-19T05:46:10.615Z",
     "createdAt": "2025-10-19T05:46:10.615Z"
+  },
+  {
+    "id": "1761142530662-0.7442999550488077",
+    "inventoryId": 1761017148225,
+    "productId": 1761017042860,
+    "batchId": 1761017131060,
+    "barcode": "BATCH1761017131060-01",
+    "costPrice": 3000,
+    "sellingPrice": 5000,
+    "fromStore": "Agargaon",
+    "fromStoreId": 1760594674008,
+    "toStore": "Uttara",
+    "toStoreId": 1760592803601,
+    "status": "in-transit",
+    "dispatchedAt": "2025-10-22T14:15:30.662Z",
+    "createdAt": "2025-10-22T14:15:30.663Z"
   }
 ]

@@ -419,5 +419,341 @@
       "due": 735
     },
     "createdAt": "2025-10-18T07:35:43.012Z"
+  },
+  {
+    "id": 1761151711518,
+    "salesBy": "E-Commerce Order",
+    "date": "2025-10-22",
+    "customer": {
+      "name": "Adrita Ahsan",
+      "email": "adrita06@gmail.com",
+      "phone": "01745191964"
+    },
+    "deliveryAddress": {
+      "division": "Dhaka",
+      "district": "Dhaka",
+      "city": "Dhaka",
+      "zone": "",
+      "area": "Kallyanpur",
+      "address": "House no. 18/3, mainroad, kallyanpur, dhaka",
+      "postalCode": "1207"
+    },
+    "products": [
+      {
+        "productId": 1760593481284,
+        "productName": "Ear rings",
+        "size": "N/A",
+        "qty": 1,
+        "price": 700,
+        "discount": 0,
+        "amount": 700,
+        "barcodes": [
+          "BATCH1760594714624-07"
+        ]
+      }
+    ],
+    "subtotal": 700,
+    "amounts": {
+      "subtotal": 700,
+      "totalDiscount": 0,
+      "vat": 0,
+      "vatRate": 0,
+      "transportCost": 60,
+      "total": 760
+    },
+    "payments": {
+      "sslCommerz": 0,
+      "advance": 0,
+      "transactionId": "",
+      "totalPaid": 0,
+      "due": 760
+    },
+    "createdAt": "2025-10-22T16:48:31.522Z"
+  },
+  {
+    "id": 1761152030163,
+    "salesBy": "E-Commerce Order",
+    "date": "2025-10-22",
+    "customer": {
+      "name": "Auhona Ahsan",
+      "email": "auhona04@gmail.com",
+      "phone": "01784372211"
+    },
+    "deliveryAddress": {
+      "division": "Chattogram",
+      "district": "chottogram",
+      "city": "agrabad",
+      "zone": "",
+      "area": "agrabad",
+      "address": "house no 18/3",
+      "postalCode": ""
+    },
+    "products": [
+      {
+        "productId": 1760593404487,
+        "productName": "Jamdani",
+        "size": "N/A",
+        "qty": 1,
+        "price": 1400,
+        "discount": 0,
+        "amount": 1400,
+        "barcodes": [
+          "BATCH1760595196440-05"
+        ]
+      },
+      {
+        "productId": 1761017042860,
+        "productName": "Jamdani 60 count",
+        "size": "N/A",
+        "qty": 1,
+        "price": 5000,
+        "discount": 0,
+        "amount": 5000,
+        "barcodes": [
+          "BATCH1761017131060-02"
+        ]
+      }
+    ],
+    "subtotal": 6400,
+    "amounts": {
+      "subtotal": 6400,
+      "totalDiscount": 0,
+      "vat": 0,
+      "vatRate": 0,
+      "transportCost": 0,
+      "total": 6400
+    },
+    "payments": {
+      "sslCommerz": 6400,
+      "advance": 0,
+      "transactionId": "TXN1761152029579",
+      "totalPaid": 6400,
+      "due": 0
+    },
+    "createdAt": "2025-10-22T16:53:50.175Z"
+  },
+  {
+    "id": 1761153532665,
+    "salesBy": "E-Commerce Order",
+    "date": "2025-10-22",
+    "customer": {
+      "name": "Adri",
+      "email": "adrita06@gmail.com",
+      "phone": "01745191964"
+    },
+    "deliveryAddress": {
+      "division": "Dhaka",
+      "district": "Gazipur",
+      "city": "Gazipur Sadar",
+      "zone": "Boardbazar",
+      "area": "",
+      "address": "Kalemeshwar",
+      "postalCode": ""
+    },
+    "products": [
+      {
+        "productId": 1761017042860,
+        "productName": "Jamdani 60 count",
+        "size": "N/A",
+        "qty": 1,
+        "price": 5000,
+        "discount": 0,
+        "amount": 5000,
+        "barcodes": [
+          "BATCH1761017131060-03"
+        ]
+      },
+      {
+        "productId": 1760593481284,
+        "productName": "Ear rings",
+        "size": "N/A",
+        "qty": 1,
+        "price": 700,
+        "discount": 0,
+        "amount": 700,
+        "barcodes": [
+          "BATCH1760594714624-09"
+        ]
+      }
+    ],
+    "subtotal": 5700,
+    "amounts": {
+      "subtotal": 5700,
+      "totalDiscount": 0,
+      "vat": 0,
+      "vatRate": 0,
+      "transportCost": 0,
+      "total": 5700
+    },
+    "payments": {
+      "sslCommerz": 0,
+      "advance": 0,
+      "transactionId": "",
+      "totalPaid": 0,
+      "due": 5700
+    },
+    "createdAt": "2025-10-22T17:18:52.676Z"
+  },
+  {
+    "id": 1761153610957,
+    "salesBy": "E-Commerce Order",
+    "date": "2025-10-22",
+    "customer": {
+      "name": "Adri",
+      "email": "adri",
+      "phone": "01745191964"
+    },
+    "deliveryAddress": {
+      "division": "Chattagram",
+      "district": "Comilla",
+      "city": "Meghna",
+      "zone": "sdlmlskj",
+      "area": "",
+      "address": "blkdsjl",
+      "postalCode": ""
+    },
+    "products": [
+      {
+        "productId": 1760593404487,
+        "productName": "Jamdani",
+        "size": "N/A",
+        "qty": 1,
+        "price": 1400,
+        "discount": 0,
+        "amount": 1400,
+        "barcodes": [
+          "BATCH1760595196440-06"
+        ]
+      }
+    ],
+    "subtotal": 1400,
+    "amounts": {
+      "subtotal": 1400,
+      "totalDiscount": 0,
+      "vat": 0,
+      "vatRate": 0,
+      "transportCost": 60,
+      "total": 1460
+    },
+    "payments": {
+      "sslCommerz": 0,
+      "advance": 0,
+      "transactionId": "",
+      "totalPaid": 0,
+      "due": 1460
+    },
+    "createdAt": "2025-10-22T17:20:10.962Z"
+  },
+  {
+    "id": 1761153685535,
+    "salesBy": "E-Commerce Order",
+    "date": "2025-10-22",
+    "customer": {
+      "name": "adklasm",
+      "email": "ksam;l",
+      "phone": "nfdmz"
+    },
+    "deliveryAddress": {
+      "division": "Chattagram",
+      "district": "Comilla",
+      "city": "Monohargonj",
+      "zone": "mmm",
+      "area": "",
+      "address": "ekjowj",
+      "postalCode": "1234"
+    },
+    "products": [
+      {
+        "productId": 1760593716940,
+        "productName": "Shotoronji",
+        "size": "N/A",
+        "qty": 1,
+        "price": 900,
+        "discount": 0,
+        "amount": 900,
+        "barcodes": [
+          "BATCH1760595237962-01"
+        ]
+      }
+    ],
+    "subtotal": 900,
+    "amounts": {
+      "subtotal": 900,
+      "totalDiscount": 0,
+      "vat": 0,
+      "vatRate": 0,
+      "transportCost": 60,
+      "total": 960
+    },
+    "payments": {
+      "sslCommerz": 0,
+      "advance": 0,
+      "transactionId": "",
+      "totalPaid": 0,
+      "due": 960
+    },
+    "createdAt": "2025-10-22T17:21:25.550Z"
+  },
+  {
+    "id": 1761153788871,
+    "salesBy": "E-Commerce Order",
+    "date": "2025-10-22",
+    "customer": {
+      "name": "adrita ahsan",
+      "email": "adrita@gmail.com",
+      "phone": "01745191964"
+    },
+    "deliveryAddress": {
+      "division": "Chattagram",
+      "district": "Comilla",
+      "city": "Debidwar",
+      "zone": "idk",
+      "area": "",
+      "address": "idk",
+      "postalCode": ""
+    },
+    "products": [
+      {
+        "productId": 1761017042860,
+        "productName": "Jamdani 60 count",
+        "size": "N/A",
+        "qty": 1,
+        "price": 5000,
+        "discount": 0,
+        "amount": 5000,
+        "barcodes": [
+          "BATCH1761017131060-04"
+        ]
+      },
+      {
+        "productId": 1761065353934,
+        "productName": "Necklace",
+        "size": "N/A",
+        "qty": 1,
+        "price": 600,
+        "discount": 0,
+        "amount": 600,
+        "barcodes": [
+          "BATCH1761065510189-01"
+        ]
+      }
+    ],
+    "subtotal": 5600,
+    "amounts": {
+      "subtotal": 5600,
+      "totalDiscount": 0,
+      "vat": 0,
+      "vatRate": 0,
+      "transportCost": 0,
+      "total": 5600
+    },
+    "payments": {
+      "sslCommerz": 0,
+      "advance": 0,
+      "transactionId": "",
+      "totalPaid": 0,
+      "due": 5600
+    },
+    "createdAt": "2025-10-22T17:23:08.883Z"
   }
 ]
