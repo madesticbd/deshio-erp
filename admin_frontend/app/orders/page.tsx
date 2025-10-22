@@ -26,6 +26,16 @@ export default function OrdersDashboard() {
   const [showExchangeModal, setShowExchangeModal] = useState(false);
   const [showReturnModal, setShowReturnModal] = useState(false);
   const [activeMenu, setActiveMenu] = useState<number | null>(null);
+  const [userRole, setUserRole] = useState<string>('');
+  const [userName, setUserName] = useState<string>('');
+
+  // Get user info from localStorage
+  useEffect(() => {
+    const role = localStorage.getItem('userRole') || '';
+    const name = localStorage.getItem('userName') || '';
+    setUserRole(role);
+    setUserName(name);
+  }, []);
 
   // Get today's date in DD-MM-YYYY format
   const getTodayDate = () => {
@@ -50,8 +60,20 @@ export default function OrdersDashboard() {
           ...order,
           date: order.date || getTodayDate()
         }));
-        setOrders(ordersWithDates);
-        setFilteredOrders(ordersWithDates);
+        
+        // Filter orders based on user role
+        const role = localStorage.getItem('userRole') || '';
+        const name = localStorage.getItem('userName') || '';
+        
+        let filteredData = ordersWithDates;
+        if (role === 'social_commerce_manager') {
+          // Social commerce managers only see their own orders
+          filteredData = ordersWithDates.filter((order: Order) => order.salesBy === name);
+        }
+        // Super admin and store managers see all orders
+        
+        setOrders(filteredData);
+        setFilteredOrders(filteredData);
         return;
       }
     } catch (error) {
@@ -64,8 +86,20 @@ export default function OrdersDashboard() {
         ...order,
         date: order.date || getTodayDate()
       }));
-      setOrders(ordersWithDates);
-      setFilteredOrders(ordersWithDates);
+      
+      // Filter orders based on user role
+      const role = localStorage.getItem('userRole') || '';
+      const name = localStorage.getItem('userName') || '';
+      
+      let filteredData = ordersWithDates;
+      if (role === 'social_commerce_manager') {
+        // Social commerce managers only see their own orders
+        filteredData = ordersWithDates.filter((order: Order) => order.salesBy === name);
+      }
+      // Super admin and store managers see all orders
+      
+      setOrders(filteredData);
+      setFilteredOrders(filteredData);
     } catch (error) {
       console.error('Failed to load orders:', error);
     }
@@ -225,7 +259,11 @@ export default function OrdersDashboard() {
               <div className="max-w-7xl mx-auto">
                 <div className="mb-6">
                   <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">Orders Dashboard</h1>
-                  <p className="text-gray-600 dark:text-gray-400">Overview of all your orders and sales</p>
+                  <p className="text-gray-600 dark:text-gray-400">
+                    {userRole === 'social_commerce_manager' 
+                      ? 'Overview of your orders and sales' 
+                      : 'Overview of all orders and sales'}
+                  </p>
                 </div>
 
                 <StatsCards 
@@ -287,14 +325,13 @@ export default function OrdersDashboard() {
         />
       )}
 
-    {showReturnModal && selectedOrder && (
-  <ReturnProductModal
-    order={selectedOrder}
-    onClose={() => setShowReturnModal(false)}
-    onReturn={handleProcessReturn}
-  />
-)}
-
+      {showReturnModal && selectedOrder && (
+        <ReturnProductModal
+          order={selectedOrder}
+          onClose={() => setShowReturnModal(false)}
+          onReturn={handleProcessReturn}
+        />
+      )}
 
       {activeMenu !== null && (
         <div

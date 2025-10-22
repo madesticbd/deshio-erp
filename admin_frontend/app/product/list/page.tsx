@@ -6,7 +6,7 @@ import {
   Plus,
   Search,
   ChevronLeft,
-  ChevronRight,
+  ChevronRight
 } from 'lucide-react';
 import Header from '@/components/Header';
 import Sidebar from '@/components/Sidebar';
@@ -79,11 +79,83 @@ export default function ProductPage() {
     fetchData();
   }, []);
 
+  // Helper function to get category path array from product attributes
+  const getCategoryPathFromProduct = (product: Product): string[] => {
+    const attrs = product.attributes || {};
+    
+    // Check new format first (if it exists)
+    if (attrs.categoryPath && Array.isArray(attrs.categoryPath)) {
+      return attrs.categoryPath;
+    }
+    
+    // Check old format
+    const path: string[] = [];
+    if (attrs.category) path.push(String(attrs.category));
+    if (attrs.subcategory) path.push(String(attrs.subcategory));
+    if (attrs.subSubcategory) path.push(String(attrs.subSubcategory));
+    
+    // Check for additional levels (level3, level4, level5, etc.)
+    let level = 3;
+    while (attrs[`level${level}`]) {
+      path.push(String(attrs[`level${level}`]));
+      level++;
+    }
+    
+    // Filter out empty strings
+    return path.filter(id => id && id !== '');
+  };
+
+  // Helper function to find category by path
+  const findCategoryByPath = (path: string[]): Category | null => {
+    if (path.length === 0) return null;
+    
+    let current: Category[] = categories;
+    let found: Category | null = null;
+    
+    for (const id of path) {
+      found = current.find(c => String(c.id) === String(id)) || null;
+      if (!found) return null;
+      current = found.subcategories || [];
+    }
+    
+    return found;
+  };
+
+  // Helper function to get full category display name
+  const getCategoryDisplayName = (product: Product): string => {
+    const path = getCategoryPathFromProduct(product);
+    if (path.length === 0) return 'Uncategorized';
+    
+    const names: string[] = [];
+    let current: Category[] = categories;
+    
+    for (let i = 0; i < path.length; i++) {
+      const id = path[i];
+      const cat = current.find(c => String(c.id) === String(id));
+      
+      if (cat) {
+        names.push(cat.title || cat.name || String(cat.id));
+        current = cat.subcategories || [];
+      } else {
+        // Category not found - might be a data issue
+        console.warn(`Category with id "${id}" not found at level ${i}`, { path, currentCategories: current });
+        names.push(`Unknown (${id})`);
+        break;
+      }
+    }
+    
+    return names.length > 0 ? names.join(' > ') : 'Uncategorized';
+  };
+
   // Filtered products
   const filteredProducts = useMemo(() => {
     const q = searchQuery.toLowerCase().trim();
-    return products.filter((p) => p.name.toLowerCase().includes(q));
-  }, [products, searchQuery]);
+    return products.filter((p) => {
+      const nameMatch = p.name.toLowerCase().includes(q);
+      const categoryMatch = getCategoryDisplayName(p).toLowerCase().includes(q);
+      return nameMatch || categoryMatch;
+    });
+  }, [products, searchQuery, categories]);
 
   // Pagination
   const totalPages = Math.max(1, Math.ceil(filteredProducts.length / itemsPerPage));
@@ -95,8 +167,13 @@ export default function ProductPage() {
   // CRUD
   const handleDelete = async (id: string | number) => {
     if (!confirm('Delete this product?')) return;
-    await fetch(`/api/products/${id}`, { method: 'DELETE' });
-    setProducts((prev) => prev.filter((p) => String(p.id) !== String(id)));
+    try {
+      await fetch(`/api/products/${id}`, { method: 'DELETE' });
+      setProducts((prev) => prev.filter((p) => String(p.id) !== String(id)));
+    } catch (err) {
+      console.error('Error deleting product:', err);
+      alert('Failed to delete product');
+    }
   };
 
   const handleEdit = (product: Product) => {
@@ -107,7 +184,6 @@ export default function ProductPage() {
 
   const handleSelect = (product: Product) => {
     if (selectMode && redirectPath) {
-      // Pass back product id and name via URL (without variationId)
       const url = `${redirectPath}?productId=${product.id}&productName=${encodeURIComponent(product.name)}`;
       router.push(url);
     }
@@ -118,14 +194,9 @@ export default function ProductPage() {
     variation: { id: string | number; attributes: Record<string, any> }
   ) => {
     if (selectMode && redirectPath) {
-      // Find the variation index
       const variationIndex = product.variations?.findIndex(v => v.id === variation.id) ?? -1;
       const variationNumber = variationIndex !== -1 ? variationIndex + 1 : 1;
-      
-      // Create variation name like "Silk Sharee - Variation 1"
       const variationName = `${product.name} - Variation ${variationNumber}`;
-      
-      // Pass back variation id as productId, variation name, and original product id as parentProductId
       const url = `${redirectPath}?productId=${variation.id}&productName=${encodeURIComponent(variationName)}&parentProductId=${product.id}`;
       router.push(url);
     }
@@ -168,7 +239,7 @@ export default function ProductPage() {
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                 <input
                   type="text"
-                  placeholder="Search products..."
+                  placeholder="Search products by name or category..."
                   value={searchQuery}
                   onChange={(e) => {
                     setSearchQuery(e.target.value);
@@ -186,13 +257,14 @@ export default function ProductPage() {
               </div>
             ) : filteredProducts.length === 0 ? (
               <div className="text-center py-12 text-gray-500 dark:text-gray-400">
-                No products found.
+                {searchQuery ? 'No products found matching your search.' : 'No products found.'}
               </div>
             ) : (
               <ProductTable
                 products={paginated}
                 fields={fields}
                 categories={categories}
+                getCategoryDisplayName={getCategoryDisplayName}
                 onDelete={handleDelete}
                 onEdit={handleEdit}
                 {...(selectMode && { 
@@ -206,7 +278,7 @@ export default function ProductPage() {
             {totalPages > 1 && (
               <div className="flex items-center justify-between mt-6 pt-6 border-t border-gray-200 dark:border-gray-700">
                 <p className="text-sm text-gray-600 dark:text-gray-400">
-                  Page {currentPage} of {totalPages}
+                  Showing {((currentPage - 1) * itemsPerPage) + 1} to {Math.min(currentPage * itemsPerPage, filteredProducts.length)} of {filteredProducts.length} products
                 </p>
                 <div className="flex gap-2">
                   <button
@@ -216,19 +288,31 @@ export default function ProductPage() {
                   >
                     <ChevronLeft className="w-4 h-4" />
                   </button>
-                  {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
-                    <button
-                      key={page}
-                      onClick={() => setCurrentPage(page)}
-                      className={`h-10 w-10 flex items-center justify-center rounded-lg transition-colors ${
-                        currentPage === page
-                          ? 'bg-gray-900 dark:bg-white text-white dark:text-gray-900'
-                          : 'border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white hover:bg-gray-100 dark:hover:bg-gray-700'
-                      }`}
-                    >
-                      {page}
-                    </button>
-                  ))}
+                  {Array.from({ length: Math.min(totalPages, 5) }, (_, i) => {
+                    let page;
+                    if (totalPages <= 5) {
+                      page = i + 1;
+                    } else if (currentPage <= 3) {
+                      page = i + 1;
+                    } else if (currentPage >= totalPages - 2) {
+                      page = totalPages - 4 + i;
+                    } else {
+                      page = currentPage - 2 + i;
+                    }
+                    return (
+                      <button
+                        key={page}
+                        onClick={() => setCurrentPage(page)}
+                        className={`h-10 w-10 flex items-center justify-center rounded-lg transition-colors ${
+                          currentPage === page
+                            ? 'bg-gray-900 dark:bg-white text-white dark:text-gray-900'
+                            : 'border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white hover:bg-gray-100 dark:hover:bg-gray-700'
+                        }`}
+                      >
+                        {page}
+                      </button>
+                    );
+                  })}
                   <button
                     onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
                     disabled={currentPage === totalPages}

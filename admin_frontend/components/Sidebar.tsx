@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { LayoutDashboard, Store, FolderTree, Package, ClipboardList, CreditCard, ShoppingCart, Image, X, AlertTriangle } from 'lucide-react';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 
 interface SidebarProps {
   isOpen: boolean;
@@ -13,43 +13,62 @@ interface SidebarProps {
 export default function Sidebar({ isOpen, setIsOpen }: SidebarProps) {
   const pathname = usePathname();
   const [openMenu, setOpenMenu] = useState<string | null>(null);
+  const [userRole, setUserRole] = useState<string>('');
+
+  useEffect(() => {
+    // Get user role from localStorage
+    const role = localStorage.getItem('userRole') || '';
+    setUserRole(role);
+  }, []);
 
   const toggleSubMenu = (menu: string) => {
     setOpenMenu(openMenu === menu ? null : menu);
   };
 
-  const menuItems = [
-    { icon: LayoutDashboard, label: 'Dashboard', href: '/dashboard' },
-    { icon: Store, label: 'Store', href: '/store' },
-    { icon: FolderTree, label: 'Category', href: '/category' },
-    { icon: Image, label: 'Gallery', href: '/gallery' },
+  const allMenuItems = [
+    { icon: LayoutDashboard, label: 'Dashboard', href: '/dashboard', roles: ['super_admin', 'store_manager', 'social_commerce_manager'] },
+    { icon: Store, label: 'Store', href: '/store', roles: ['super_admin', 'store_manager', 'social_commerce_manager'] },
+    { icon: FolderTree, label: 'Category', href: '/category', roles: ['super_admin'] },
+    { icon: Image, label: 'Gallery', href: '/gallery', roles: ['super_admin', 'social_commerce_manager'] },
     {
       icon: Package,
       label: 'Product',
       href: '#',
+      roles: ['super_admin'],
       subMenu: [
-        { label: 'Field', href: '/product/field' },
-        { label: 'Product', href: '/product/list' },
-        { label: 'Batch', href: '/product/batch' },
+        { label: 'Field', href: '/product/field', roles: ['super_admin'] },
+        { label: 'Product', href: '/product/list', roles: ['super_admin'] },
+        { label: 'Batch', href: '/product/batch', roles: ['super_admin'] },
       ],
     },
     {
       icon: ClipboardList,
       label: 'Inventory',
       href: '#',
+      roles: ['super_admin', 'store_manager', 'social_commerce_manager'],
       subMenu: [
-        { label: 'Manage Stock', href: '/inventory/manage_stock' },
-        { label: 'Inventory', href: '/inventory/view' },
+        { label: 'Manage Stock', href: '/inventory/manage_stock', roles: ['super_admin', 'store_manager'] },
+        { label: 'Inventory', href: '/inventory/view', roles: ['super_admin', 'social_commerce_manager'] },
       ],
     },
-    { icon: ShoppingCart, label: 'POS', href: '/pos' },
-    { icon: ShoppingCart, label: 'Social commerce', href: '/social-commerce' },
-    { icon: Package, label: 'Orders', href: '/orders' },
-    { icon: ClipboardList, label: 'Purchase History', href: '/purchase-history' },
-    { icon: AlertTriangle, label: 'Defect Panel', href: '/defects' },
-    { icon: CreditCard, label: 'Transaction', href: '/transaction' },
-   
+    { icon: ShoppingCart, label: 'POS', href: '/pos', roles: ['super_admin', 'store_manager'] },
+    { icon: ShoppingCart, label: 'Social commerce', href: '/social-commerce', roles: ['super_admin', 'social_commerce_manager'] },
+    { icon: Package, label: 'Orders', href: '/orders', roles: ['super_admin', 'social_commerce_manager'] },
+    { icon: ClipboardList, label: 'Purchase History', href: '/purchase-history', roles: ['super_admin', 'store_manager'] },
+    { icon: CreditCard, label: 'Transaction', href: '/transaction', roles: ['super_admin'] },
+    { icon: AlertTriangle, label: 'Defect Panel', href: '/defects', roles: ['super_admin', 'store_manager']},
   ];
+
+  // Filter menu items based on user role
+  const menuItems = allMenuItems.filter(item => item.roles.includes(userRole)).map(item => {
+    if (item.subMenu) {
+      return {
+        ...item,
+        subMenu: item.subMenu.filter(sub => sub.roles.includes(userRole))
+      };
+    }
+    return item;
+  });
 
   return (
     <>
@@ -92,6 +111,8 @@ export default function Sidebar({ isOpen, setIsOpen }: SidebarProps) {
               const isActive =
                 pathname === item.href || (item.subMenu && item.subMenu.some(sub => pathname === sub.href));
 
+              const Icon = item.icon;
+
               return (
                 <li key={index}>
                   <div>
@@ -110,13 +131,13 @@ export default function Sidebar({ isOpen, setIsOpen }: SidebarProps) {
                           ? 'text-gray-900 dark:text-white bg-gray-100 dark:bg-gray-700 font-medium'
                           : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
                       }`}
-                    >
-                      <item.icon className="w-4 h-4" />
+                      >
+                      <Icon className="w-4 h-4" />
                       <span>{item.label}</span>
                     </Link>
 
                     {/* Sub-menu */}
-                    {item.subMenu && openMenu === item.label.toLowerCase() && (
+                    {item.subMenu && item.subMenu.length > 0 && openMenu === item.label.toLowerCase() && (
                       <ul className="pl-6 space-y-1 mt-1">
                         {item.subMenu.map((subItem, subIndex) => {
                           const isSubActive = pathname === subItem.href;

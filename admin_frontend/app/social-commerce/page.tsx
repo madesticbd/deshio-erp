@@ -38,7 +38,7 @@ export default function SocialCommercePage() {
   const [inventory, setInventory] = useState<any[]>([]);
   
   const [date, setDate] = useState('06-Oct-2025');
-  const [salesBy, setSalesBy] = useState('Admin User');
+  const [salesBy, setSalesBy] = useState('');
   const [userName, setUserName] = useState('');
   const [userEmail, setUserEmail] = useState('');
   const [userPhone, setUserPhone] = useState('');
@@ -55,6 +55,13 @@ export default function SocialCommercePage() {
   const [districts, setDistricts] = useState<any[]>([]);
   const [upazillas, setUpazillas] = useState<any[]>([]);
 
+  // Get user info from localStorage
+  useEffect(() => {
+    const userName = localStorage.getItem('userName') || '';
+    setSalesBy(userName);
+  }, []);
+
+  // Product search and selection
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<any[]>([]);
   const [selectedProduct, setSelectedProduct] = useState<any>(null);

@@ -2,32 +2,51 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import users from "@/data/users.json";
 
 export default function LoginPage() {
   const router = useRouter();
-  const [email, setEmail] = useState("");
+  const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
 
   const handleLogin = () => {
-    if (!email.trim() || !password.trim()) {
-      setError("Please enter both email and password.");
+    if (!username.trim() || !password.trim()) {
+      setError("Please enter both username and password.");
       return;
     }
 
-    const emailRegex = new RegExp("^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$");
-    if (!emailRegex.test(email)) {
-      setError("Please enter a valid email address.");
+    // Find user in users.json
+    const user = users.users.find(
+      (u) => u.username === username && u.password === password
+    );
+
+    if (!user) {
+      setError("Invalid username or password.");
       return;
     }
 
     // Clear error
     setError("");
 
-    // Save login info (fake login)
+    // Save user info to localStorage
     localStorage.setItem("loggedIn", "true");
+    localStorage.setItem("userRole", user.role);
+    localStorage.setItem("userId", user.id.toString());
+    localStorage.setItem("userName", user.fullName);
+    localStorage.setItem("userEmail", user.email);
 
-    console.log("Logged in:", { email, password });
+    // Store additional role-specific data
+    if (user.role === "store_manager" && user.storeId) {
+      localStorage.setItem("storeId", user.storeId);
+      localStorage.setItem("storeName", user.storeName || "");
+    }
+
+    if (user.role === "social_commerce_manager" && user.platforms) {
+      localStorage.setItem("platforms", JSON.stringify(user.platforms));
+    }
+
+    console.log("Logged in:", user.fullName, "Role:", user.role);
 
     // Navigate to dashboard after login
     router.push("/dashboard");
@@ -64,20 +83,20 @@ export default function LoginPage() {
 
           {/* Form Inputs */}
           <div className="space-y-5">
-            {/* Email */}
+            {/* Username */}
             <div>
               <label
-                htmlFor="email"
+                htmlFor="username"
                 className="block mb-2 text-sm font-semibold text-gray-700"
               >
-                Email Address
+                Username
               </label>
               <input
-                id="email"
-                type="email"
-                placeholder="your.email@example.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                id="username"
+                type="text"
+                placeholder="Enter your username"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
                 onKeyPress={handleKeyPress}
                 className="w-full px-5 py-4 rounded-xl border-2 border-gray-200 bg-white text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all"
               />
