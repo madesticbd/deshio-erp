@@ -2,9 +2,13 @@
 
 import React, { useState } from 'react';
 import { ShoppingCart, Heart, Search, User, Menu, X } from 'lucide-react';
+import { useCart } from '@/app/e-commerce/CartContext';
+import CartSidebar from '@/components/ecommerce/cart/CartSidebar';
 
 export default function Navigation() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [cartSidebarOpen, setCartSidebarOpen] = useState(false);
+  const { getCartCount } = useCart();
 
   return (
     <>
@@ -60,11 +64,16 @@ export default function Navigation() {
                   3
                 </span>
               </button>
-              <button className="p-2 hover:bg-gray-100 rounded-full transition-colors relative">
+              <button 
+                onClick={() => setCartSidebarOpen(true)}
+                className="p-2 hover:bg-gray-100 rounded-full transition-colors relative"
+              >
                 <ShoppingCart size={20} className="text-gray-700" />
-                <span className="absolute -top-1 -right-1 bg-gray-900 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center font-semibold">
-                  2
-                </span>
+                {getCartCount() > 0 && (
+                  <span className="absolute -top-1 -right-1 bg-gray-900 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center font-semibold">
+                    {getCartCount()}
+                  </span>
+                )}
               </button>
               
               {/* Mobile Menu Button */}
@@ -104,6 +113,12 @@ export default function Navigation() {
           )}
         </div>
       </nav>
+
+      {/* Cart Sidebar */}
+      <CartSidebar 
+        isOpen={cartSidebarOpen} 
+        onClose={() => setCartSidebarOpen(false)} 
+      />
     </>
   );
 }
