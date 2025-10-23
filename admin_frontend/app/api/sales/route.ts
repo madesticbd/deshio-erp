@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import fs from 'fs';
 import path from 'path';
+import { triggerAccountingUpdate } from '@/lib/accounting-helper';
 
 // ✅ File paths
 const salesFilePath = path.resolve('data', 'sales.json');
@@ -235,6 +236,7 @@ export async function POST(request: Request) {
     
     // ✅ ADD TRANSACTION ENTRY
     addSaleTransactionEntry(saleWithMetadata);
+    triggerAccountingUpdate();
     
     console.log(`✅ Sale created: ${saleWithMetadata.id}`);
     
@@ -281,6 +283,7 @@ export async function DELETE(request: Request) {
     
     // ✅ REMOVE TRANSACTION ENTRY
     removeSaleTransactionEntry(id);
+    triggerAccountingUpdate();
     
     return NextResponse.json({ success: true });
   } catch (error) {

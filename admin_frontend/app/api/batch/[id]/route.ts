@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import fs from 'fs';
 import path from 'path';
+import { triggerAccountingUpdate } from '@/lib/accounting-helper';
 
 const filePath = path.join(process.cwd(), 'data', 'batch.json');
 
@@ -20,6 +21,7 @@ export async function DELETE(req: NextRequest, { params }: { params: { id: strin
 
     batches = batches.filter((b: any) => b.id !== id);
     fs.writeFileSync(filePath, JSON.stringify(batches, null, 2), 'utf-8');
+    triggerAccountingUpdate();
 
     return NextResponse.json({ message: 'Batch deleted' });
   } catch (err) {

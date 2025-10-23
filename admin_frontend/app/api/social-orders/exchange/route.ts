@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import fs from 'fs';
 import path from 'path';
+import { triggerAccountingUpdate } from '@/lib/accounting-helper';
 
 const ordersFilePath = path.resolve('data', 'orders.json');
 const inventoryFilePath = path.resolve('data', 'inventory.json');
@@ -195,7 +196,7 @@ export async function POST(request: Request) {
     // Write updates to files
     writeOrdersToFile(orders);
     writeInventoryToFile(inventory);
-
+    triggerAccountingUpdate();
     return NextResponse.json({
       success: true,
       message: 'Exchange processed successfully!',
