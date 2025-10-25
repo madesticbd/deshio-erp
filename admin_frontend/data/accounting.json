@@ -2,7 +2,7 @@
   "journalEntries": [
     {
       "id": "BATCH-1761226559721",
-      "date": "2025-10-23T14:02:05.083Z",
+      "date": "2025-10-25T13:33:26.448Z",
       "type": "Batch Creation",
       "description": "Purchased 10 units at ৳2000 each (Base Code: BATCH1761226559721)",
       "accounts": [
@@ -17,11 +17,11 @@
           "credit": 20000
         }
       ],
-      "createdAt": "2025-10-23T14:02:05.083Z"
+      "createdAt": "2025-10-25T13:33:26.448Z"
     },
     {
       "id": "BATCH-1761226587481",
-      "date": "2025-10-23T14:02:05.083Z",
+      "date": "2025-10-25T13:33:26.448Z",
       "type": "Batch Creation",
       "description": "Purchased 10 units at ৳2000 each (Base Code: BATCH1761226587481)",
       "accounts": [
@@ -36,11 +36,11 @@
           "credit": 20000
         }
       ],
-      "createdAt": "2025-10-23T14:02:05.083Z"
+      "createdAt": "2025-10-25T13:33:26.448Z"
     },
     {
       "id": "BATCH-1761226610600",
-      "date": "2025-10-23T14:02:05.083Z",
+      "date": "2025-10-25T13:33:26.448Z",
       "type": "Batch Creation",
       "description": "Purchased 10 units at ৳300 each (Base Code: BATCH1761226610600)",
       "accounts": [
@@ -55,7 +55,26 @@
           "credit": 3000
         }
       ],
-      "createdAt": "2025-10-23T14:02:05.083Z"
+      "createdAt": "2025-10-25T13:33:26.448Z"
+    },
+    {
+      "id": "SALE-sale-1761227755717-EXCHANGE-0",
+      "date": "2025-10-25T13:20:54.295Z",
+      "type": "Sales Exchange",
+      "description": "Exchange for Sale sale-1761227755717 - Refund ৳2625",
+      "accounts": [
+        {
+          "account": "Sales Returns",
+          "debit": 2625,
+          "credit": 0
+        },
+        {
+          "account": "Cash",
+          "debit": 0,
+          "credit": 2625
+        }
+      ],
+      "createdAt": "2025-10-25T13:33:26.448Z"
     },
     {
       "id": "ORDER-1761228070622",
@@ -69,7 +88,7 @@
           "credit": 525
         }
       ],
-      "createdAt": "2025-10-23T14:02:05.083Z"
+      "createdAt": "2025-10-25T13:33:26.448Z"
     },
     {
       "id": "ORDER-1761228070622-COGS",
@@ -88,7 +107,7 @@
           "credit": 300
         }
       ],
-      "createdAt": "2025-10-23T14:02:05.083Z"
+      "createdAt": "2025-10-25T13:33:26.448Z"
     },
     {
       "id": "SALE-sale-1761227755717",
@@ -102,17 +121,12 @@
           "credit": 0
         },
         {
-          "account": "Accounts Receivable",
-          "debit": 150,
-          "credit": 0
-        },
-        {
           "account": "Sales Revenue",
           "debit": 0,
-          "credit": 3150
+          "credit": 525
         }
       ],
-      "createdAt": "2025-10-23T14:02:05.083Z"
+      "createdAt": "2025-10-25T13:33:26.448Z"
     },
     {
       "id": "SALE-sale-1761227755717-COGS",
@@ -122,40 +136,40 @@
       "accounts": [
         {
           "account": "Cost of Goods Sold",
-          "debit": 2000,
+          "debit": 300,
           "credit": 0
         },
         {
           "account": "Inventory",
           "debit": 0,
-          "credit": 2000
+          "credit": 300
         }
       ],
-      "createdAt": "2025-10-23T14:02:05.083Z"
+      "createdAt": "2025-10-25T13:33:26.448Z"
     }
   ],
   "ledgerAccounts": {
     "Inventory": {
       "debit": 43000,
-      "credit": 2300,
-      "balance": 40700,
+      "credit": 600,
+      "balance": 42400,
       "entries": [
         {
-          "date": "2025-10-23T14:02:05.083Z",
+          "date": "2025-10-25T13:33:26.448Z",
           "ref": "BATCH-1761226559721",
           "debit": 20000,
           "credit": 0,
           "balance": 20000
         },
         {
-          "date": "2025-10-23T14:02:05.083Z",
+          "date": "2025-10-25T13:33:26.448Z",
           "ref": "BATCH-1761226587481",
           "debit": 20000,
           "credit": 0,
           "balance": 40000
         },
         {
-          "date": "2025-10-23T14:02:05.083Z",
+          "date": "2025-10-25T13:33:26.448Z",
           "ref": "BATCH-1761226610600",
           "debit": 3000,
           "credit": 0,
@@ -165,39 +179,39 @@
           "date": "2025-10-23T13:55:55.717Z",
           "ref": "SALE-sale-1761227755717-COGS",
           "debit": 0,
-          "credit": 2000,
-          "balance": 41000
+          "credit": 300,
+          "balance": 42700
         },
         {
           "date": "2025-10-23T14:01:10.625Z",
           "ref": "ORDER-1761228070622-COGS",
           "debit": 0,
           "credit": 300,
-          "balance": 40700
+          "balance": 42400
         }
       ]
     },
     "Cash": {
       "debit": 3000,
-      "credit": 43000,
-      "balance": -40000,
+      "credit": 45625,
+      "balance": -42625,
       "entries": [
         {
-          "date": "2025-10-23T14:02:05.083Z",
+          "date": "2025-10-25T13:33:26.448Z",
           "ref": "BATCH-1761226559721",
           "debit": 0,
           "credit": 20000,
           "balance": -20000
         },
         {
-          "date": "2025-10-23T14:02:05.083Z",
+          "date": "2025-10-25T13:33:26.448Z",
           "ref": "BATCH-1761226587481",
           "debit": 0,
           "credit": 20000,
           "balance": -40000
         },
         {
-          "date": "2025-10-23T14:02:05.083Z",
+          "date": "2025-10-25T13:33:26.448Z",
           "ref": "BATCH-1761226610600",
           "debit": 0,
           "credit": 3000,
@@ -209,65 +223,72 @@
           "debit": 3000,
           "credit": 0,
           "balance": -40000
-        }
-      ]
-    },
-    "Accounts Receivable": {
-      "debit": 150,
-      "credit": 0,
-      "balance": 150,
-      "entries": [
+        },
         {
-          "date": "2025-10-23T13:55:55.717Z",
-          "ref": "SALE-sale-1761227755717",
-          "debit": 150,
-          "credit": 0,
-          "balance": 150
+          "date": "2025-10-25T13:20:54.295Z",
+          "ref": "SALE-sale-1761227755717-EXCHANGE-0",
+          "debit": 0,
+          "credit": 2625,
+          "balance": -42625
         }
       ]
     },
     "Sales Revenue": {
       "debit": 0,
-      "credit": 3675,
-      "balance": -3675,
+      "credit": 1050,
+      "balance": -1050,
       "entries": [
         {
           "date": "2025-10-23T13:55:55.717Z",
           "ref": "SALE-sale-1761227755717",
           "debit": 0,
-          "credit": 3150,
-          "balance": -3150
+          "credit": 525,
+          "balance": -525
         },
         {
           "date": "2025-10-23T14:01:10.625Z",
           "ref": "ORDER-1761228070622",
           "debit": 0,
           "credit": 525,
-          "balance": -3675
+          "balance": -1050
         }
       ]
     },
     "Cost of Goods Sold": {
-      "debit": 2300,
+      "debit": 600,
       "credit": 0,
-      "balance": 2300,
+      "balance": 600,
       "entries": [
         {
           "date": "2025-10-23T13:55:55.717Z",
           "ref": "SALE-sale-1761227755717-COGS",
-          "debit": 2000,
+          "debit": 300,
           "credit": 0,
-          "balance": 2000
+          "balance": 300
         },
         {
           "date": "2025-10-23T14:01:10.625Z",
           "ref": "ORDER-1761228070622-COGS",
           "debit": 300,
           "credit": 0,
-          "balance": 2300
+          "balance": 600
+        }
+      ]
+    },
+    "Sales Returns": {
+      "debit": 2625,
+      "credit": 0,
+      "balance": 2625,
+      "entries": [
+        {
+          "date": "2025-10-25T13:20:54.295Z",
+          "ref": "SALE-sale-1761227755717-EXCHANGE-0",
+          "debit": 2625,
+          "credit": 0,
+          "balance": 2625
         }
       ]
     }
   },
-  "lastUpdated": "2025-10-23T14:02:05.083Z"
+  "lastUpdated": "2025-10-25T13:33:26.448Z"
 }

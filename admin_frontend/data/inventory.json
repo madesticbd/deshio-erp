@@ -296,11 +296,13 @@
     "costPrice": 300,
     "sellingPrice": 500,
     "location": "Uttara",
-    "status": "available",
+    "status": "sold",
     "admittedAt": "2025-10-23T13:42:22.235Z",
     "id": 1761226765970,
     "createdAt": "2025-10-23T13:40:10.641Z",
-    "updatedAt": "2025-10-23T13:42:22.590Z"
+    "updatedAt": "2025-10-25T13:20:54.294Z",
+    "saleId": "sale-1761227755717",
+    "soldAt": "2025-10-25T13:20:54.294Z"
   },
   {
     "productId": 1761226524325,
