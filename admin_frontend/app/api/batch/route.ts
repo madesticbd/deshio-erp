@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import fs from 'fs';
 import path from 'path';
 import { triggerAccountingUpdate } from '@/lib/accounting-helper';
+import { createBatchTransaction, removeTransaction } from '@/lib/transaction-helper';
 
 const filePath = path.join(process.cwd(), 'data', 'batch.json');
 
@@ -37,6 +38,7 @@ export async function POST(req: NextRequest) {
     batches.push(newBatch);
     fs.writeFileSync(filePath, JSON.stringify(batches, null, 2), 'utf-8');
     triggerAccountingUpdate();
+    createBatchTransaction(newBatch);
     return NextResponse.json(newBatch, { status: 201 });
   } catch (err) {
     return NextResponse.json({ error: 'Failed to save batch' }, { status: 500 });

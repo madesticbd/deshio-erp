@@ -1,110 +1,13 @@
+// app/api/orders/route.ts - FIXED VERSION
 import { NextResponse } from 'next/server';
 import fs from 'fs';
 import path from 'path';
 import { triggerAccountingUpdate } from '@/lib/accounting-helper';
+import { createOrderTransaction, removeTransaction } from '@/lib/transaction-helper';
 
-// ✅ Path to the JSON files
 const ordersFilePath = path.resolve('data', 'orders.json');
 const inventoryFilePath = path.resolve('data', 'inventory.json');
 const defectsFilePath = path.resolve('data', 'defects.json');
-const transactionsFilePath = path.resolve('data', 'transactions.json');
-
-// Helper: Read transactions
-const readTransactionsFromFile = () => {
-  try {
-    if (fs.existsSync(transactionsFilePath)) {
-      const fileData = fs.readFileSync(transactionsFilePath, 'utf8');
-      return JSON.parse(fileData);
-    } else {
-      return { categories: [], expenses: [] };
-    }
-  } catch (error) {
-    console.error('❌ Error reading transactions file:', error);
-    return { categories: [], expenses: [] };
-  }
-};
-
-// Helper: Write transactions
-const writeTransactionsToFile = (data: any) => {
-  try {
-    fs.mkdirSync(path.dirname(transactionsFilePath), { recursive: true });
-    fs.writeFileSync(transactionsFilePath, JSON.stringify(data, null, 2), 'utf8');
-  } catch (error) {
-    console.error('❌ Error writing transactions file:', error);
-    throw error;
-  }
-};
-
-// Helper: Add transaction entry
-const addTransactionEntry = (orderData: any) => {
-  try {
-    const transactions = readTransactionsFromFile();
-    
-    // Get product names for the transaction
-    const productNames = orderData.products?.map((p: any) => p.productName || p.name).join(', ') || 'Products';
-    const productCount = orderData.products?.length || 0;
-    
-    const transactionName = productCount === 1 
-      ? `Order: ${productNames}` 
-      : `Order: ${productNames.split(',')[0].trim()} +${productCount - 1} more`;
-    
-    // Calculate total amount from products
-    let totalAmount = 0;
-    if (orderData.products && Array.isArray(orderData.products)) {
-      totalAmount = orderData.products.reduce((sum: number, product: any) => {
-        const price = parseFloat(product.price || product.unitPrice || 0);
-        const qty = parseInt(product.qty || product.quantity || 1);
-        return sum + (price * qty);
-      }, 0);
-    }
-    
-    // Fallback to order-level totals if calculation fails
-    if (totalAmount === 0) {
-      totalAmount = parseFloat(orderData.totalCost || orderData.totalAmount || orderData.total || 0);
-    }
-    
-    console.log(`💰 Order total calculated: ${totalAmount}`);
-    
-    // ✅ Set as income from social orders
-    const transactionEntry = {
-      id: `order-${orderData.id}`,
-      name: transactionName,
-      description: `Order from ${orderData.customerName || 'Social Customer'}`,
-      type: 'variable',
-      amount: totalAmount,       // positive for income
-      category: 'Social Orders', // changed from "Inventory Purchase"
-      date: new Date().toISOString(),
-      comment: `Products: ${productNames}`,
-      receiptImage: '',
-      createdAt: new Date().toISOString(),
-    };
-    
-    // Push to income array instead of expenses
-    transactions.income = transactions.income || [];
-    transactions.income.push(transactionEntry);
-    
-    writeTransactionsToFile(transactions);
-    
-    console.log(`✅ Transaction entry created for order ${orderData.id} with amount ${totalAmount} as income`);
-  } catch (error) {
-    console.error('❌ Error adding transaction entry:', error);
-  }
-};
-
-// Helper: Remove transaction entry
-const removeTransactionEntry = (orderId: string) => {
-  try {
-    const transactions = readTransactionsFromFile();
-    const transactionId = `order-${orderId}`;
-    
-    transactions.expenses = transactions.expenses.filter((exp: any) => exp.id !== transactionId);
-    writeTransactionsToFile(transactions);
-    
-    console.log(`✅ Transaction entry removed for order ${orderId}`);
-  } catch (error) {
-    console.error('❌ Error removing transaction entry:', error);
-  }
-};
 
 // Helper: Read all orders
 const readOrdersFromFile = () => {
@@ -112,9 +15,8 @@ const readOrdersFromFile = () => {
     if (fs.existsSync(ordersFilePath)) {
       const fileData = fs.readFileSync(ordersFilePath, 'utf8');
       return JSON.parse(fileData);
-    } else {
-      return [];
     }
+    return [];
   } catch (error) {
     console.error('❌ Error reading orders file:', error);
     return [];
@@ -127,9 +29,8 @@ const readInventoryFromFile = () => {
     if (fs.existsSync(inventoryFilePath)) {
       const fileData = fs.readFileSync(inventoryFilePath, 'utf8');
       return JSON.parse(fileData);
-    } else {
-      return [];
     }
+    return [];
   } catch (error) {
     console.error('❌ Error reading inventory file:', error);
     return [];
@@ -142,9 +43,8 @@ const readDefectsFromFile = () => {
     if (fs.existsSync(defectsFilePath)) {
       const fileData = fs.readFileSync(defectsFilePath, 'utf8');
       return JSON.parse(fileData);
-    } else {
-      return [];
     }
+    return [];
   } catch (error) {
     console.error('❌ Error reading defects file:', error);
     return [];
@@ -268,6 +168,9 @@ export async function POST(request: Request) {
     // Generate order ID
     const orderId = Date.now();
 
+    console.log('📝 Creating order:', orderId);
+    console.log('📊 Order data:', JSON.stringify(newOrder, null, 2));
+
     // Process each product and allocate barcodes
     const productsWithBarcodes = [];
     
@@ -323,12 +226,23 @@ export async function POST(request: Request) {
 
     existingOrders.push(orderWithMeta);
     writeOrdersToFile(existingOrders);
+    console.log(`✅ Order saved to file: ${orderId}`);
 
-    // ✅ ADD TRANSACTION ENTRY
-    addTransactionEntry(orderWithMeta);
-    triggerAccountingUpdate();
+    // ✅ CREATE ORDER TRANSACTION (Fixed - using createOrderTransaction)
+    try {
+      console.log('💰 Creating order transaction entry...');
+      createOrderTransaction(orderWithMeta);
+      console.log('✅ Order transaction entry created successfully');
+    } catch (txError) {
+      console.error('❌ Error creating order transaction entry:', txError);
+    }
 
-    console.log(`✅ Order ${orderId} created with ${productsWithBarcodes.length} products`);
+    // Trigger accounting update
+    try {
+      triggerAccountingUpdate();
+    } catch (accError) {
+      console.error('⚠️ Error triggering accounting update:', accError);
+    }
 
     return NextResponse.json({
       success: true,
@@ -346,6 +260,8 @@ export async function DELETE(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
     const id = searchParams.get('id');
+
+    console.log('🗑️ Deleting order:', id);
 
     if (!id) {
       return NextResponse.json({ error: 'Missing order ID' }, { status: 400 });
@@ -409,10 +325,23 @@ export async function DELETE(request: Request) {
     // Remove order
     const updatedOrders = orders.filter((order: any) => String(order.id) !== String(id));
     writeOrdersToFile(updatedOrders);
+    console.log(`✅ Order removed from file: ${id}`);
 
-    // ✅ REMOVE TRANSACTION ENTRY
-    removeTransactionEntry(id);
-    triggerAccountingUpdate();
+    // ✅ REMOVE ORDER TRANSACTION (Fixed)
+    try {
+      console.log('💰 Removing order transaction entry...');
+      removeTransaction('order', id);
+      console.log('✅ Order transaction entry removed successfully');
+    } catch (txError) {
+      console.error('❌ Error removing order transaction entry:', txError);
+    }
+
+    // Trigger accounting update
+    try {
+      triggerAccountingUpdate();
+    } catch (accError) {
+      console.error('⚠️ Error triggering accounting update:', accError);
+    }
 
     return NextResponse.json({ 
       success: true, 
@@ -430,22 +359,22 @@ export async function PUT(request: Request) {
     const { searchParams } = new URL(request.url);
     const id = searchParams.get('id');
 
-    console.log('PUT request received for order ID:', id);
+    console.log('🔄 PUT request received for order ID:', id);
 
     if (!id) {
       return NextResponse.json({ error: 'Missing order ID' }, { status: 400 });
     }
 
     const updatedOrderData = await request.json();
-    console.log('Updated order data:', updatedOrderData);
+    console.log('📊 Updated order data:', updatedOrderData);
     
     const orders = readOrdersFromFile();
-    console.log('Current orders count:', orders.length);
+    console.log('📚 Current orders count:', orders.length);
     
     const orderIndex = orders.findIndex((order: any) => String(order.id) === String(id));
     
     if (orderIndex === -1) {
-      console.log('Order not found with ID:', id);
+      console.log('❌ Order not found with ID:', id);
       return NextResponse.json({ error: 'Order not found' }, { status: 404 });
     }
 
@@ -485,15 +414,27 @@ export async function PUT(request: Request) {
       updatedAt: new Date().toISOString(),
     };
 
-    console.log('Updated order with preserved barcodes:', orders[orderIndex]);
+    console.log('✅ Updated order with preserved barcodes');
 
     writeOrdersToFile(orders);
-    
-    // ✅ UPDATE TRANSACTION ENTRY
-    removeTransactionEntry(id);
-    addTransactionEntry(orders[orderIndex]);
-    
-    console.log('Order saved to file');
+    console.log('✅ Order saved to file');
+
+    // ✅ UPDATE ORDER TRANSACTION (Fixed)
+    try {
+      console.log('💰 Updating order transaction entry...');
+      removeTransaction('order', id);
+      createOrderTransaction(orders[orderIndex]);
+      console.log('✅ Order transaction entry updated successfully');
+    } catch (txError) {
+      console.error('❌ Error updating order transaction entry:', txError);
+    }
+
+    // Trigger accounting update
+    try {
+      triggerAccountingUpdate();
+    } catch (accError) {
+      console.error('⚠️ Error triggering accounting update:', accError);
+    }
 
     return NextResponse.json({
       success: true,

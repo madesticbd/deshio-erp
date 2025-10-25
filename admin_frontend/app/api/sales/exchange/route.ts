@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server';
 import fs from 'fs';
 import path from 'path';
 import { triggerAccountingUpdate } from '@/lib/accounting-helper';
+import { createSaleExchangeTransaction } from '@/lib/transaction-helper';
 
 const salesFilePath = path.resolve('data', 'sales.json');
 const inventoryFilePath = path.resolve('data', 'inventory.json');
@@ -202,6 +203,12 @@ export async function POST(request: Request) {
     // Write updates to files
     writeSalesToFile(sales);
     writeInventoryToFile(inventory);
+     createSaleExchangeTransaction(saleId, {
+      removedProducts,
+      replacementProducts,
+      difference: difference,
+      date: new Date().toISOString()
+    });
     triggerAccountingUpdate();
 
     return NextResponse.json({

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import fs from 'fs';
 import path from 'path';
 import { triggerAccountingUpdate } from '@/lib/accounting-helper';
+import { createBatchTransaction, removeTransaction } from '@/lib/transaction-helper';
 
 const filePath = path.join(process.cwd(), 'data', 'batch.json');
 
@@ -21,6 +22,7 @@ export async function DELETE(req: NextRequest, { params }: { params: { id: strin
 
     batches = batches.filter((b: any) => b.id !== id);
     fs.writeFileSync(filePath, JSON.stringify(batches, null, 2), 'utf-8');
+   removeTransaction('batch', String(id));
     triggerAccountingUpdate();
 
     return NextResponse.json({ message: 'Batch deleted' });

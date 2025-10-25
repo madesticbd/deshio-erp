@@ -69,5 +69,93 @@
       }
     ],
     "updatedAt": "2025-10-25T13:20:54.295Z"
+  },
+  {
+    "id": "sale-1761402839889",
+    "salesBy": "System Administrator",
+    "outletId": "1761224712010",
+    "date": "2025-10-25",
+    "customer": {
+      "name": "Nafisa ",
+      "mobile": "01818316964",
+      "address": "International Affairs Division ,Paramanu Bhaban ,Bangladesh Atomic Energy Commission,"
+    },
+    "items": [
+      {
+        "id": 1761402831092,
+        "productId": 1761225380902,
+        "productName": "Jamdani - Variation 3",
+        "size": "",
+        "qty": 1,
+        "price": 3000,
+        "discount": 0,
+        "amount": 3000,
+        "isDefective": false,
+        "defectId": null,
+        "barcode": null
+      }
+    ],
+    "amounts": {
+      "subtotal": 3000,
+      "totalDiscount": 0,
+      "vat": 150,
+      "vatRate": 5,
+      "transportCost": 0,
+      "total": 3150
+    },
+    "payments": {
+      "cash": 3150,
+      "card": 0,
+      "bkash": 0,
+      "nagad": 0,
+      "transactionFee": 0,
+      "totalPaid": 3150,
+      "due": 0
+    },
+    "createdAt": "2025-10-25T14:33:59.889Z"
+  },
+  {
+    "id": "sale-1761404166550",
+    "salesBy": "System Administrator",
+    "outletId": "1761224712010",
+    "date": "2025-10-25",
+    "customer": {
+      "name": "Oishee",
+      "mobile": "01818316964",
+      "address": "International Affairs Division ,Paramanu Bhaban ,Bangladesh Atomic Energy Commission,"
+    },
+    "items": [
+      {
+        "id": 1761404157822,
+        "productId": 1761226524325,
+        "productName": "Pearl necklace - Variation 2",
+        "size": "",
+        "qty": 1,
+        "price": 500,
+        "discount": 0,
+        "amount": 500,
+        "isDefective": false,
+        "defectId": null,
+        "barcode": null
+      }
+    ],
+    "amounts": {
+      "subtotal": 500,
+      "totalDiscount": 0,
+      "vat": 25,
+      "vatRate": 5,
+      "transportCost": 0,
+      "total": 525
+    },
+    "payments": {
+      "cash": 525,
+      "card": 0,
+      "bkash": 0,
+      "nagad": 0,
+      "transactionFee": 0,
+      "totalPaid": 525,
+      "due": 0
+    },
+    "createdAt": "2025-10-25T14:56:06.550Z"
   }
 ]

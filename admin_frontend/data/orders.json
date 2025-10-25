@@ -51,5 +51,58 @@
       "due": 0
     },
     "createdAt": "2025-10-23T14:01:10.625Z"
+  },
+  {
+    "id": 1761404718503,
+    "salesBy": "System Administrator",
+    "date": "06-Oct-2025",
+    "customer": {
+      "name": "Sneha",
+      "email": "tasneem.nishat.4953@gmail.com",
+      "phone": "01818316964",
+      "socialId": ""
+    },
+    "deliveryAddress": {
+      "division": "Rajshahi",
+      "district": "Rajshahi",
+      "city": "Godagari",
+      "zone": "",
+      "area": "",
+      "address": "International Affairs Division ,Paramanu Bhaban ,Bangladesh Atomic Energy Commission,",
+      "postalCode": "1212"
+    },
+    "products": [
+      {
+        "id": 1761404705665,
+        "productId": 1761225380902,
+        "batchId": 1761226587481,
+        "productName": "Jamdani - Variation 3",
+        "size": "1",
+        "qty": 1,
+        "price": 3000,
+        "discount": 0,
+        "amount": 3000,
+        "barcodes": [
+          "BATCH1761226587481-03"
+        ]
+      }
+    ],
+    "subtotal": 3000,
+    "amounts": {
+      "subtotal": 3000,
+      "totalDiscount": 0,
+      "vat": 150,
+      "vatRate": 5,
+      "transportCost": 0,
+      "total": 3150
+    },
+    "payments": {
+      "sslCommerz": 3000,
+      "advance": 0,
+      "transactionId": "",
+      "totalPaid": 3000,
+      "due": 150
+    },
+    "createdAt": "2025-10-25T15:05:18.510Z"
   }
 ]

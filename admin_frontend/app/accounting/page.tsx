@@ -357,7 +357,7 @@ export default function AccountingSystem() {
               )}
 
               {activeTab === 'income' && (
-                <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
+                <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden relative">
                   <div className="p-6 border-b border-gray-200 dark:border-gray-700">
                     <h2 className="text-xl font-bold text-gray-900 dark:text-white">Income Statement</h2>
                     <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">For the period</p>
@@ -448,10 +448,12 @@ export default function AccountingSystem() {
 
                     {/* Export Button */}
                     <div className="pt-6 border-t border-gray-200 dark:border-gray-700">
-                      <button className="w-full flex items-center justify-center gap-2 px-6 py-3 bg-gray-900 dark:bg-white text-white dark:text-gray-900 rounded-lg hover:bg-gray-800 dark:hover:bg-gray-100 font-medium">
-                        <Download className="w-5 h-5" />
-                        Export Income Statement
-                      </button>
+                      <div>
+                        <button className="absolute bottom-6 right-6 z-50 flex items-center gap-2 px-3 py-2 bg-gray-900 dark:bg-white text-white dark:text-gray-900 text-sm rounded-md shadow hover:bg-gray-800 dark:hover:bg-gray-100">
+                          <Download className="w-4 h-4" />
+                          Export Income Statement
+                        </button>
+                      </div>
                     </div>
                   </div>
                 </div>
