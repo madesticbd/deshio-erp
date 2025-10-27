@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -23,7 +22,8 @@ interface CartItem {
   amount: number;
   isDefective?: boolean;
   defectId?: string;
-  barcode?: string;
+  barcode?: string; // For defective items
+  barcodes?: string[]; // For non-defective items
 }
 
 interface Product {
@@ -73,7 +73,7 @@ export default function POSPage() {
   const [userRole, setUserRole] = useState<string>('');
   const [userStoreId, setUserStoreId] = useState<string>('');
   const [userName, setUserName] = useState<string>('');
-  
+
   const [customerName, setCustomerName] = useState('');
   const [mobileNo, setMobileNo] = useState('');
   const [address, setAddress] = useState('');
@@ -84,9 +84,9 @@ export default function POSPage() {
   const [discountPercent, setDiscountPercent] = useState(0);
   const [discountAmount, setDiscountAmount] = useState(0);
   const [amount, setAmount] = useState(0);
-  
+
   const [defectiveProduct, setDefectiveProduct] = useState<DefectItem | null>(null);
-  
+
   const [vatRate, setVatRate] = useState(5);
   const [transportCost, setTransportCost] = useState(0);
   const [cashPaid, setCashPaid] = useState(0);
@@ -123,41 +123,35 @@ export default function POSPage() {
   }, [outlets]);
 
   useEffect(() => {
-  // Get user role and store info from localStorage
-  const role = localStorage.getItem('userRole') || '';
-  const storeId = localStorage.getItem('storeId') || '';
-  const name = localStorage.getItem('userName') || ''
-  setUserRole(role);
-  setUserStoreId(storeId);
-  setUserName(name);
-  
-  fetchOutlets(role, storeId);
-  fetchProducts();
-  fetchInventory();
-}, []);
+    const role = localStorage.getItem('userRole') || '';
+    const storeId = localStorage.getItem('storeId') || '';
+    const name = localStorage.getItem('userName') || '';
+    setUserRole(role);
+    setUserStoreId(storeId);
+    setUserName(name);
 
-const fetchOutlets = async (role: string, storeId: string) => {
-  try {
-    const response = await fetch('/api/stores');
-    const data = await response.json();
-    
-    if (role === 'store_manager' && storeId) {
-      // Filter to show only the store manager's outlet
-      const userStore = data.find((store: Store) => String(store.id) === String(storeId));
-      setOutlets(userStore ? [userStore] : data);
-      
-      // Auto-select the outlet for store managers
-      if (userStore) {
-        setSelectedOutlet(String(userStore.id));
+    fetchOutlets(role, storeId);
+    fetchProducts();
+    fetchInventory();
+  }, []);
+
+  const fetchOutlets = async (role: string, storeId: string) => {
+    try {
+      const response = await fetch('/api/stores');
+      const data = await response.json();
+      if (role === 'store_manager' && storeId) {
+        const userStore = data.find((store: Store) => String(store.id) === String(storeId));
+        setOutlets(userStore ? [userStore] : data);
+        if (userStore) {
+          setSelectedOutlet(String(userStore.id));
+        }
+      } else {
+        setOutlets(data);
       }
-    } else {
-      // Super admin sees all outlets
-      setOutlets(data);
+    } catch (error) {
+      console.error('Error fetching outlets:', error);
     }
-  } catch (error) {
-    console.error('Error fetching outlets:', error);
-  }
-};
+  };
 
   const fetchProducts = async () => {
     try {
@@ -236,7 +230,7 @@ const fetchOutlets = async (role: string, storeId: string) => {
       return;
     }
     const newItem: CartItem = {
-      id: Date.now(),
+      id: Date.now() + Math.random(), // Match the decimal ID format
       productId: defectiveProduct.productId,
       productName: defectiveProduct.productName,
       size: '',
@@ -246,7 +240,7 @@ const fetchOutlets = async (role: string, storeId: string) => {
       amount: sellingPrice,
       isDefective: true,
       defectId: defectiveProduct.id,
-      barcode: defectiveProduct.barcode
+      barcode: defectiveProduct.barcode // Single barcode for defective items
     };
     setCart([...cart, newItem]);
     showToast('Defective product added to cart', 'success');
@@ -279,18 +273,38 @@ const fetchOutlets = async (role: string, storeId: string) => {
       showToast(`Only ${availableQty} items available at this outlet`, 'error');
       return;
     }
+    const selectedOutletData = outlets.find(o => o.id.toString() === selectedOutlet);
+    if (!selectedOutletData) {
+      showToast('Invalid outlet selected', 'error');
+      return;
+    }
+
+    // Fetch available inventory items for the selected product and outlet
+    const availableItems = inventory.filter(
+      inv => inv.productId === selectedProductId &&
+             inv.location === selectedOutletData.name &&
+             inv.status === 'available'
+    ).slice(0, quantity);
+
+    if (availableItems.length < quantity) {
+      showToast('Not enough items in inventory', 'error');
+      return;
+    }
+
     const baseAmount = sellingPrice * quantity;
     const discountValue = discountPercent > 0 ? (baseAmount * discountPercent) / 100 : discountAmount;
+
     const newItem: CartItem = {
-      id: Date.now(),
+      id: Date.now() + Math.random(), // Match the decimal ID format
       productId: selectedProductId,
       productName: product,
-      size: '',
+      size: '', // Size can be set based on additional input if needed
       qty: quantity,
       price: sellingPrice,
       discount: discountValue,
       amount: baseAmount - discountValue,
-      isDefective: false
+      isDefective: false,
+      barcodes: availableItems.map(item => item.barcode) // Array of barcodes for non-defective items
     };
     setCart([...cart, newItem]);
     setProduct('');
@@ -313,17 +327,22 @@ const fetchOutlets = async (role: string, storeId: string) => {
   const totalPaid = cashPaid + cardPaid + bkashPaid + nagadPaid;
   const due = total - totalPaid - transactionFee;
 
-  const updateInventoryStatus = async (productId: number, quantity: number) => {
+  const updateInventoryStatus = async (productId: number, quantity: number, barcodes: string[]) => {
     try {
       if (!selectedOutlet) return;
       const selectedOutletData = outlets.find(o => o.id.toString() === selectedOutlet);
       if (!selectedOutletData) return;
-      const availableItems = inventory.filter(inv => inv.productId === productId && inv.location === selectedOutletData.name && inv.status === 'available');
-      for (let i = 0; i < Math.min(quantity, availableItems.length); i++) {
+      const availableItems = inventory.filter(
+        inv => inv.productId === productId &&
+               inv.location === selectedOutletData.name &&
+               inv.status === 'available' &&
+               barcodes.includes(inv.barcode)
+      );
+      for (const item of availableItems.slice(0, quantity)) {
         await fetch('/api/inventory', {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ id: availableItems[i].id, status: 'sold', soldAt: new Date().toISOString() }),
+          body: JSON.stringify({ id: item.id, status: 'sold', soldAt: new Date().toISOString() }),
         });
       }
     } catch (error) {
@@ -341,14 +360,31 @@ const fetchOutlets = async (role: string, storeId: string) => {
       showToast('Please add products to cart', 'error');
       return;
     }
+    const now = new Date().toISOString();
     const saleData = {
+      id: `sale-${Date.now()}`, // Dynamic sale ID
       salesBy: userName || 'Admin',
       outletId: selectedOutlet,
       date: date,
       customer: { name: customerName, mobile: mobileNo, address: address },
-      items: cart.map(item => ({ id: item.id, productId: item.productId, productName: item.productName, size: item.size, qty: item.qty, price: item.price, discount: item.discount, amount: item.amount, isDefective: item.isDefective || false, defectId: item.defectId || null, barcode: item.barcode || null })),
+      items: cart.map(item => ({
+        id: item.id,
+        productId: item.productId,
+        productName: item.productName,
+        size: item.size,
+        qty: item.qty,
+        price: item.price,
+        discount: item.discount,
+        amount: item.amount,
+        isDefective: item.isDefective || false,
+        defectId: item.defectId || null,
+        ...(item.isDefective ? { barcode: item.barcode } : { barcodes: item.barcodes }) // Conditional barcode/barcodes
+      })),
       amounts: { subtotal, totalDiscount, vat, vatRate, transportCost, total },
-      payments: { cash: cashPaid, card: cardPaid, bkash: bkashPaid, nagad: nagadPaid, transactionFee, totalPaid, due }
+      payments: { cash: cashPaid, card: cardPaid, bkash: bkashPaid, nagad: nagadPaid, transactionFee, totalPaid, due },
+      createdAt: now,
+      updatedAt: now,
+      exchangeHistory: [] // Initialize as empty array
     };
     try {
       const response = await fetch('/api/sales', {
@@ -359,7 +395,7 @@ const fetchOutlets = async (role: string, storeId: string) => {
       if (response.ok) {
         for (const item of cart) {
           if (!item.isDefective) {
-            await updateInventoryStatus(item.productId, item.qty);
+            await updateInventoryStatus(item.productId, item.qty, item.barcodes || []);
           }
         }
         showToast('Sale completed successfully!', 'success');
@@ -383,6 +419,7 @@ const fetchOutlets = async (role: string, storeId: string) => {
     }
   };
 
+  // Rest of the component (UI rendering) remains unchanged
   return (
     <div className={darkMode ? 'dark' : ''}>
       <div className="flex h-screen bg-gray-50 dark:bg-gray-900">
@@ -404,7 +441,7 @@ const fetchOutlets = async (role: string, storeId: string) => {
               <div className="grid grid-cols-3 gap-4 mb-6">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Sales By</label>
-                  <input type="text" value="Admin" readOnly className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-white" />
+                  <input type="text" value={userRole === 'store_manager' ? userName : 'Admin'} readOnly className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-white" />
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Outlet <span className="text-red-500">*</span></label>

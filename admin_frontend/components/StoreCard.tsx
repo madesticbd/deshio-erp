@@ -21,10 +21,10 @@ interface StoreCardProps {
   onDelete?: (storeId: string) => void;
 }
 
-// Currency Formatter
-const currencyFormatter = new Intl.NumberFormat('en-US', {
+// Currency Formatter (Bangladeshi Taka)
+const currencyFormatter = new Intl.NumberFormat('en-BD', {
   style: 'currency',
-  currency: 'USD',
+  currency: 'BDT',
   minimumFractionDigits: 0,
   maximumFractionDigits: 0,
 });
@@ -33,7 +33,8 @@ function formatCurrency(num: number) {
   try {
     return currencyFormatter.format(num);
   } catch (err) {
-    return `$${num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',')}`;
+    // fallback
+    return `৳${num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',')}`;
   }
 }
 
@@ -72,15 +73,11 @@ export default function StoreCard({ store, showManageStock, onManageStock, onEdi
   };
 
   const handleEdit = () => {
-    if (onEdit) {
-      onEdit(store.id);
-    }
+    if (onEdit) onEdit(store.id);
   };
 
   const handleManageStock = () => {
-    if (onManageStock) {
-      onManageStock(store.id);
-    }
+    if (onManageStock) onManageStock(store.id);
   };
 
   return (
@@ -154,7 +151,7 @@ export default function StoreCard({ store, showManageStock, onManageStock, onEdi
                 <span
                   className={`ml-1 ${isPositive ? 'text-green-500' : 'text-red-500'}`}
                 >
-                  {isPositive ? '+' : '-'}${Math.abs(store.revenueChange)}
+                  {isPositive ? '+' : '-'}৳{Math.abs(store.revenueChange).toLocaleString('en-BD')}
                 </span>
               </span>
             )}

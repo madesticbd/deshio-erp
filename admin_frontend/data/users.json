@@ -14,7 +14,7 @@
       "password": "12345",
       "role": "store_manager",
       "email": "store.manager@company.com",
-      "fullName": "John Smith",
+      "fullName": "Neha Khan",
       "storeId": "1760592803601",
       "storeName": "Uttara"
     },
@@ -24,12 +24,22 @@
       "password": "12345",
       "role": "social_commerce_manager",
       "email": "social.manager@company.com",
-      "fullName": "Sarah Johnson",
+      "fullName": "Aisha Islam",
       "platforms": [
         "facebook",
         "instagram",
         "whatsapp_business"
       ]
+    },
+    {
+      "id": 2,
+      "username": "store_mgr_02",
+      "password": "12345",
+      "role": "store_manager",
+      "email": "store.manager@company.com",
+      "fullName": "Rafiq Ahmed",
+      "storeId": "1761224737580",
+      "storeName": "Banasree"
     }
   ]
 }
