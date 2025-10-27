@@ -11,17 +11,17 @@ interface Product {
   name: string;
   attributes: {
     mainImage?: string;
+    groupMainImage?: string;
+    variationImages?: string[];
     Image?: string | string[];
+    color?: string;
+    size?: string;
     [key: string]: any;
   };
-  variations?: {
-    id: string | number;
-    attributes: Record<string, any>;
-  }[];
 }
 
 interface InventoryItem {
-  productId: number | string; // Can be main product ID or variation ID
+  productId: number | string;
   sellingPrice: number;
   status: string;
   barcode: string;
@@ -34,7 +34,7 @@ interface ProductWithStock {
   sellingPrice: number;
   images: string[];
   isVariation?: boolean;
-  parentProductId?: number | string;
+  groupMainImage?: string;
 }
 
 export default function GalleryPage() {
@@ -72,7 +72,7 @@ export default function GalleryPage() {
 
       const availableInventory = inventory.filter((item) => item.status === 'available');
       
-      // Map to track stock for both main products and variations
+      // Map to track stock for products
       const stockMap = new Map<string | number, { count: number; sellingPrice: number }>();
 
       availableInventory.forEach((item) => {
@@ -86,43 +86,25 @@ export default function GalleryPage() {
 
       const productsInStock: ProductWithStock[] = [];
 
-      // Process main products
+      // Process all products
       products.forEach((product) => {
         const productKey = String(product.id);
         
-        // Check if main product has stock
+        // Check if product has stock
         if (stockMap.has(productKey)) {
           const stockInfo = stockMap.get(productKey)!;
+          const images = getAllImages(product);
+          const isVariation = !!(product.attributes.groupMainImage && 
+                                 (product.attributes.color || product.attributes.size || product.attributes.variationImages));
+          
           productsInStock.push({
             id: product.id,
             name: product.name,
             stockCount: stockInfo.count,
             sellingPrice: stockInfo.sellingPrice,
-            images: getAllImages(product),
-            isVariation: false,
-          });
-        }
-
-        // Check if any variations have stock
-        if (product.variations && product.variations.length > 0) {
-          product.variations.forEach((variation, index) => {
-            const variationKey = String(variation.id);
-            
-            if (stockMap.has(variationKey)) {
-              const stockInfo = stockMap.get(variationKey)!;
-              const variationImages = getVariationImages(product, variation);
-              const variationNumber = index + 1;
-              
-              productsInStock.push({
-                id: variation.id,
-                name: `${product.name} - Variation ${variationNumber}`,
-                stockCount: stockInfo.count,
-                sellingPrice: stockInfo.sellingPrice,
-                images: variationImages,
-                isVariation: true,
-                parentProductId: product.id,
-              });
-            }
+            images: images,
+            isVariation: isVariation,
+            groupMainImage: product.attributes.groupMainImage,
           });
         }
       });
@@ -138,47 +120,56 @@ export default function GalleryPage() {
 
   const getAllImages = (product: Product): string[] => {
     const images: string[] = [];
-    if (product.attributes.mainImage) images.push(product.attributes.mainImage);
-    if (product.attributes.Image) {
-      images.push(
-        ...(Array.isArray(product.attributes.Image)
-          ? product.attributes.Image
-          : [product.attributes.Image])
-      );
-    }
-    return images;
-  };
+    const seen = new Set<string>();
 
-  const getVariationImages = (product: Product, variation: { id: string | number; attributes: Record<string, any> }): string[] => {
-    const images: string[] = [];
-    
-    // First, try to get images from variation attributes
-    Object.entries(variation.attributes).forEach(([key, value]) => {
+    // Helper to add unique images
+    const addImage = (img: string) => {
+      if (img && !seen.has(img)) {
+        seen.add(img);
+        images.push(img);
+      }
+    };
+
+    // Priority order for variation products: variationImages -> mainImage -> other images
+    if (product.attributes.variationImages && Array.isArray(product.attributes.variationImages)) {
+      product.attributes.variationImages.forEach(addImage);
+    }
+
+    // Add mainImage if not already included
+    if (product.attributes.mainImage) {
+      addImage(product.attributes.mainImage);
+    }
+
+    // Skip groupMainImage - we don't want to show it in gallery
+
+    // Add Image attribute(s)
+    if (product.attributes.Image) {
+      if (Array.isArray(product.attributes.Image)) {
+        product.attributes.Image.forEach(addImage);
+      } else if (typeof product.attributes.Image === 'string') {
+        addImage(product.attributes.Image);
+      }
+    }
+
+    // Check for other image fields in attributes
+    Object.entries(product.attributes).forEach(([key, value]) => {
       const lowerKey = key.toLowerCase();
-      if (lowerKey.includes('image') || lowerKey.includes('img')) {
+      if ((lowerKey.includes('image') || lowerKey.includes('img')) && 
+          key !== 'mainImage' && 
+          key !== 'groupMainImage' && 
+          key !== 'variationImages' && 
+          key !== 'Image') {
         if (Array.isArray(value)) {
-          images.push(...value.filter(v => typeof v === 'string'));
+          value.forEach(v => {
+            if (typeof v === 'string') addImage(v);
+          });
         } else if (typeof value === 'string') {
-          images.push(value);
+          addImage(value);
         }
       }
     });
 
-    // If no variation images, fall back to product main image
-    if (images.length === 0 && product.attributes.mainImage) {
-      images.push(product.attributes.mainImage);
-    }
-
-    // If still no images, try product Image attribute
-    if (images.length === 0 && product.attributes.Image) {
-      if (Array.isArray(product.attributes.Image)) {
-        images.push(...product.attributes.Image);
-      } else {
-        images.push(product.attributes.Image);
-      }
-    }
-
-    return images;
+    return images.length > 0 ? images : ['/placeholder-image.jpg'];
   };
 
   const openLightbox = (image: string, productName: string, images: string[], index: number) => {

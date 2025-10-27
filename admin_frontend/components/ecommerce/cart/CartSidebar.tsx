@@ -18,7 +18,7 @@ export default function CartSidebar({ isOpen, onClose }: CartSidebarProps) {
   const progress = Math.min(100, (subtotal / freeShippingThreshold) * 100);
 
   const handleCheckout = () => {
-    router.push('/e-commerce/cart');
+    router.push('/e-commerce/checkout');
     onClose();
   };
 

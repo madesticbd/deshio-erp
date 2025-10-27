@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import QZTrayLoader from "@/components/QzTrayLoader";
 import { CartProvider } from "./e-commerce/CartContext";
+import { AuthProvider } from './e-commerce/AuthContext';
 import "./globals.css";
 
 const geistSans = Geist({
@@ -27,10 +28,12 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={`${geistSans.variable} ${geistMono.variable}`}>
-        <CartProvider>
-          <QZTrayLoader />
-          {children}
-        </CartProvider>
+        <AuthProvider>
+          <CartProvider>
+            <QZTrayLoader />
+            {children}
+          </CartProvider>
+        </AuthProvider>
       </body>
     </html>
   );
