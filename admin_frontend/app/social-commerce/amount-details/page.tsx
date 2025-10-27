@@ -56,91 +56,11 @@ export default function AmountDetailsPage() {
   const dueAmount = Math.max(0, total - totalPaid);
   const returnAmount = Math.max(0, totalPaid - total);
 
-  const updateDefectStatus = async (defectId: string) => {
-    try {
-      await fetch(`/api/defects?id=${defectId}`, {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          status: 'sold',
-          soldAt: new Date().toISOString()
-        }),
-      });
-    } catch (error) {
-      console.error('Error updating defect status:', error);
-      throw error;
-    }
-  };
-
   const handlePlaceOrder = async () => {
     setIsProcessing(true);
-    let inventoryUpdateSuccess = true;
 
     try {
-      // Fetch current inventory
-      const invResponse = await fetch('/api/inventory');
-      if (!invResponse.ok) {
-        throw new Error('Failed to fetch inventory');
-      }
-      const inventory = await invResponse.json();
-
-      // For each product in the order
-      for (const item of orderData.products) {
-        // Skip inventory update for defective products
-        if (item.isDefective) {
-          if (item.defectId) {
-            await updateDefectStatus(item.defectId);
-          }
-          continue;
-        }
-
-        // Find available inventory items for regular products
-        const availableItems = inventory.filter((inv: any) => 
-          String(inv.productId) === String(item.productId) &&
-          inv.batchId === item.batchId &&
-          inv.status === 'available'
-        );
-
-        if (availableItems.length < item.qty) {
-          console.error(`Insufficient inventory for product ${item.productId} (batch ${item.batchId}): available ${availableItems.length}, needed ${item.qty}`);
-          inventoryUpdateSuccess = false;
-          continue;
-        }
-
-        // Update the first 'qty' items
-        const itemsToUpdate = availableItems.slice(0, item.qty);
-        const updatePromises = itemsToUpdate.map(async (invItem: any) => {
-          try {
-            const response = await fetch(`/api/inventory/${invItem.id}`, {
-              method: 'PATCH',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                status: 'sold',
-                soldAt: new Date().toISOString()
-              })
-            });
-
-            if (!response.ok) {
-              throw new Error(`Failed to update item ${invItem.id}`);
-            }
-          } catch (error) {
-            console.error(`Error updating inventory item ${invItem.id}:`, error);
-            inventoryUpdateSuccess = false;
-          }
-        });
-
-        await Promise.all(updatePromises);
-      }
-
-      if (!inventoryUpdateSuccess) {
-        alert('Failed to update some inventory items. Please check the console for details.');
-        setIsProcessing(false);
-        return;
-      }
-
-      // Step 2: Create the order
+      // Create the complete order data with all payment details
       const completeOrderData = {
         ...orderData,
         date: orderData.date || getTodayDate(),
@@ -161,6 +81,7 @@ export default function AmountDetailsPage() {
         }
       };
 
+      // Send order to API - inventory allocation happens in the backend
       const response = await fetch('/api/social-orders', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -175,11 +96,11 @@ export default function AmountDetailsPage() {
         router.push('/orders');
       } else {
         alert(result.error || 'Failed to place order');
-        setIsProcessing(false);
       }
     } catch (error) {
       console.error('Error:', error);
       alert('Error placing order');
+    } finally {
       setIsProcessing(false);
     }
   };
@@ -403,6 +324,6 @@ export default function AmountDetailsPage() {
           </main>
         </div>
       </div>
-    </div>
-  );
+    </div>
+  );
 }

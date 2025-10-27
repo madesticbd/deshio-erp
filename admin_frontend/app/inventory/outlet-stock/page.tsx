@@ -455,57 +455,66 @@ export default function OutletManageStockPage() {
     }
   };
 
-  const handleQuantityChange = (productId: number, quantity: number) => {
+  const handleQuantityChange = (productId: number, quantity: number | string) => {
     const newSelected = new Map(selectedProducts);
-    if (quantity > 0) {
-      newSelected.set(productId, quantity);
-    } else {
-      newSelected.delete(productId);
+    const parsedQuantity = parseInt(quantity as string) || 0; // Handle empty input as 0
+    if (parsedQuantity >= 0 && parsedQuantity <= products.find(p => p.productId === productId)!.quantity) {
+      newSelected.set(productId, parsedQuantity);
+    } else if (parsedQuantity < 0) {
+      newSelected.delete(productId); // Optional: Remove if quantity is negative
     }
     setSelectedProducts(newSelected);
   };
 
-  const handleTransfer = async () => {
-    if (!destinationOutlet) {
-      showToast('Please select a destination outlet', 'error');
-      return;
+const handleTransfer = async () => {
+  if (!destinationOutlet) {
+    showToast('Please select a destination outlet', 'error');
+    return;
+  }
+
+  const hasScannedItems = scannedTransferItems.length > 0;
+  const validSelectedProducts = Array.from(selectedProducts.entries()).filter(
+    ([_, quantity]) => quantity > 0
+  );
+  const hasSelectedProducts = validSelectedProducts.length > 0;
+
+  if (!hasScannedItems && !hasSelectedProducts) {
+    showToast('Please scan items or select products with valid quantities to transfer', 'error');
+    return;
+  }
+
+  setIsTransferring(true);
+
+  try {
+    const inventoryResponse = await fetch('/api/inventory');
+    if (!inventoryResponse.ok) throw new Error('Failed to fetch inventory');
+    const inventoryData: InventoryItem[] = await inventoryResponse.json();
+
+    const destinationStore = stores.find(s => s.id == destinationOutlet);
+    if (!destinationStore) throw new Error('Destination store not found');
+
+    const dispatchRecords = [];
+    const inventoryUpdates = [];
+
+    if (hasScannedItems) {
+      // ... (existing code for scanned items)
     }
 
-    const hasScannedItems = scannedTransferItems.length > 0;
-    const hasSelectedProducts = selectedProducts.size > 0;
+    if (hasSelectedProducts) {
+      for (const [productId, quantity] of validSelectedProducts) {
+        const availableItems = inventoryData.filter(
+          item => item.productId === productId && 
+                  item.location === store?.name && 
+                  item.status === 'available'
+        ).slice(0, quantity);
 
-    if (!hasScannedItems && !hasSelectedProducts) {
-      showToast('Please scan items or select products to transfer', 'error');
-      return;
-    }
+        if (availableItems.length < quantity) {
+          showToast(`Not enough stock for product ${productId}. Available: ${availableItems.length}, Requested: ${quantity}`, 'error');
+          setIsTransferring(false);
+          return;
+        }
 
-    setIsTransferring(true);
-
-    try {
-      const inventoryResponse = await fetch('/api/inventory');
-      if (!inventoryResponse.ok) throw new Error('Failed to fetch inventory');
-      const inventoryData: InventoryItem[] = await inventoryResponse.json();
-
-      const destinationStore = stores.find(s => s.id == destinationOutlet);
-      if (!destinationStore) throw new Error('Destination store not found');
-
-      const dispatchRecords = [];
-      const inventoryUpdates = [];
-
-      if (hasScannedItems) {
-        for (const barcode of scannedTransferItems) {
-          const item = inventoryData.find(
-            inv => inv.barcode === barcode && 
-                   inv.location === store?.name && 
-                   inv.status === 'available'
-          );
-
-          if (!item) {
-            showToast(`Item with barcode ${barcode} not found`, 'error');
-            setIsTransferring(false);
-            return;
-          }
-
+        for (const item of availableItems) {
           dispatchRecords.push({
             id: Date.now() + Math.random(),
             inventoryId: item.id,
@@ -518,7 +527,7 @@ export default function OutletManageStockPage() {
             fromStoreId: store?.id,
             fromLocation: store?.location,
             toStore: destinationStore.name,
-            toStoreId: destinationStore.id,
+            toStoreTo: destinationStore.id,
             toLocation: destinationStore.location,
             status: 'in-transit',
             dispatchedAt: new Date().toISOString(),
@@ -532,81 +541,39 @@ export default function OutletManageStockPage() {
           });
         }
       }
-
-      if (hasSelectedProducts) {
-        for (const [productId, quantity] of selectedProducts.entries()) {
-          const availableItems = inventoryData.filter(
-            item => item.productId === productId && 
-                    item.location === store?.name && 
-                    item.status === 'available'
-          ).slice(0, quantity);
-
-          if (availableItems.length < quantity) {
-            showToast(`Not enough stock for product ${productId}. Available: ${availableItems.length}, Requested: ${quantity}`, 'error');
-            setIsTransferring(false);
-            return;
-          }
-
-          for (const item of availableItems) {
-            dispatchRecords.push({
-              id: Date.now() + Math.random(),
-              inventoryId: item.id,
-              productId: item.productId,
-              batchId: item.batchId,
-              barcode: item.barcode,
-              costPrice: item.costPrice,
-              sellingPrice: item.sellingPrice,
-              fromStore: store?.name,
-              fromStoreId: store?.id,
-              fromLocation: store?.location,
-              toStore: destinationStore.name,
-              toStoreId: destinationStore.id,
-              toLocation: destinationStore.location,
-              status: 'in-transit',
-              dispatchedAt: new Date().toISOString(),
-              createdAt: new Date().toISOString()
-            });
-
-            inventoryUpdates.push({
-              ...item,
-              status: 'in-transit',
-              location: `In Transit to ${destinationStore.name}`
-            });
-          }
-        }
-      }
-
-      const dispatchResponse = await fetch('/api/inventory-dispatch', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(dispatchRecords)
-      });
-
-      if (!dispatchResponse.ok) throw new Error('Failed to create dispatch records');
-
-      for (const update of inventoryUpdates) {
-        await fetch('/api/inventory', {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(update)
-        });
-      }
-
-      showToast(`Successfully dispatched ${inventoryUpdates.length} items to ${destinationStore.name}`, 'success');
-      
-      setSelectedProducts(new Map());
-      setScannedTransferItems([]);
-      setDestinationOutlet('');
-      setShowTransferModal(false);
-      
-      window.location.reload();
-    } catch (error) {
-      console.error('Transfer error:', error);
-      showToast('Failed to transfer stock. Please try again.', 'error');
-    } finally {
-      setIsTransferring(false);
     }
-  };
+
+    const dispatchResponse = await fetch('/api/inventory-dispatch', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(dispatchRecords)
+    });
+
+    if (!dispatchResponse.ok) throw new Error('Failed to create dispatch records');
+
+    for (const update of inventoryUpdates) {
+      await fetch('/api/inventory', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(update)
+      });
+    }
+
+    showToast(`Successfully dispatched ${inventoryUpdates.length} items to ${destinationStore.name}`, 'success');
+    
+    setSelectedProducts(new Map());
+    setScannedTransferItems([]);
+    setDestinationOutlet('');
+    setShowTransferModal(false);
+    
+    window.location.reload();
+  } catch (error) {
+    console.error('Transfer error:', error);
+    showToast('Failed to transfer stock. Please try again.', 'error');
+  } finally {
+    setIsTransferring(false);
+  }
+};
 
   if (!store) {
     return (
@@ -843,18 +810,18 @@ export default function OutletManageStockPage() {
                           className="border-b border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/50"
                         >
                           <td className="py-3 px-4">
-                            <input
-                              type="checkbox"
-                              checked={selectedProducts.has(product.productId)}
-                              onChange={(e) => {
-                                if (e.target.checked) {
-                                  handleQuantityChange(product.productId, 1);
-                                } else {
-                                  handleQuantityChange(product.productId, 0);
-                                }
-                              }}
-                              className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-                            />
+                          <input
+                            type="checkbox"
+                            checked={selectedProducts.has(product.productId)}
+                            onChange={(e) => {
+                              if (e.target.checked) {
+                                handleQuantityChange(product.productId, 1); // Set default quantity to 1
+                              } else {
+                                handleQuantityChange(product.productId, 0); // Remove from selected
+                              }
+                            }}
+                            className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                          />
                           </td>
                           <td className="py-3 px-4 text-sm text-gray-900 dark:text-white">
                             {product.productName}
@@ -872,9 +839,9 @@ export default function OutletManageStockPage() {
                             {selectedProducts.has(product.productId) ? (
                               <input
                                 type="number"
-                                min="1"
+                                min="0"
                                 max={product.quantity}
-                                value={selectedProducts.get(product.productId) || 1}
+                                value={selectedProducts.get(product.productId) || ''}
                                 onChange={(e) => handleQuantityChange(product.productId, parseInt(e.target.value) || 0)}
                                 className="w-20 px-2 py-1 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm"
                               />

@@ -1,67 +1,45 @@
 [
   {
-    "id": 1761225380899,
-    "name": "Jamdani - Variation 1",
+    "id": 1761575188439,
+    "name": "Toshor-Purple",
     "attributes": {
-      "mainImage": "/uploads/1761225323396-Shadam jamdani2.jpg",
-      "category": "1",
-      "subcategory": "3",
-      "Description": "Budget friendly",
-      "color": "Red"
-    }
-  },
-  {
-    "id": 1761225380901,
-    "name": "Jamdani - Variation 2",
-    "attributes": {
-      "mainImage": "/uploads/1761225323396-Shadam jamdani2.jpg",
-      "category": "1",
-      "subcategory": "3",
-      "Description": "Budget friendly",
-      "color": "Blue"
-    }
-  },
-  {
-    "id": 1761225380902,
-    "name": "Jamdani - Variation 3",
-    "attributes": {
-      "mainImage": "/uploads/1761225323396-Shadam jamdani2.jpg",
-      "category": "1",
-      "subcategory": "3",
-      "Description": "Budget friendly",
-      "color": "White"
-    }
-  },
-  {
-    "id": 1761226524325,
-    "name": "Pearl necklace - Variation 2",
-    "attributes": {
-      "mainImage": "/uploads/1761225588381-pearl-necklace-set-500x500.webp",
-      "category": "2",
-      "subcategory": "4",
-      "Description": "artificial pearls",
-      "color": "White"
-    }
-  },
-  {
-    "id": 1761226524323,
-    "name": "Pearl necklace - Variation 1",
-    "attributes": {
-      "mainImage": "/uploads/1761225588381-pearl-necklace-set-500x500.webp",
-      "category": "2",
-      "subcategory": "4",
-      "Description": "artificial pearls",
-      "color": "Blue"
-    }
-  },
-  {
-    "id": 1761287820536,
-    "name": "Katha Stich",
-    "attributes": {
-      "mainImage": "/uploads/1761287815249-0146a3b4c4d686615d1c2dbe34f42d9e.webp",
+      "mainImage": "/uploads/1761575125348-PBU1303-8.webp",
       "category": "1",
       "subcategory": "",
-      "Color": "Pink"
+      "Description": "Regular Wear",
+      "groupMainImage": "/uploads/1761575098760-PBU1303-8.webp",
+      "color": "Purple",
+      "size": "",
+      "variationImages": [
+        "/uploads/1761575125348-PBU1303-8.webp",
+        "/uploads/1761575150031-PBU1305-5a.webp"
+      ]
+    }
+  },
+  {
+    "id": 1761575188441,
+    "name": "Toshor-Red",
+    "attributes": {
+      "mainImage": "/uploads/1761575166570-PBU1305-7.webp",
+      "category": "1",
+      "subcategory": "",
+      "Description": "Regular Wear",
+      "groupMainImage": "/uploads/1761575098760-PBU1303-8.webp",
+      "color": "Red",
+      "size": "",
+      "variationImages": [
+        "/uploads/1761575166570-PBU1305-7.webp"
+      ]
+    }
+  },
+  {
+    "id": 1761581478031,
+    "name": "Katha Stich",
+    "attributes": {
+      "mainImage": "/uploads/1761581467451-0146a3b4c4d686615d1c2dbe34f42d9e.webp",
+      "category": "1",
+      "subcategory": "",
+      "color": "Pink"
     }
   }
 ]
