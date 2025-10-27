@@ -1,429 +1,8 @@
 [
   {
-    "id": 1760600106787,
-    "salesBy": "Admin User",
-    "date": "06-Oct-2025",
-    "customer": {
-      "name": "Samin Tahmid",
-      "email": "tasneem.nishat.4953@gmail.com",
-      "phone": "01818316964",
-      "socialId": "samin"
-    },
-    "deliveryAddress": {
-      "division": "Sylhet",
-      "district": "Moulvibazar",
-      "city": "Rajnagar",
-      "zone": "sds",
-      "area": "",
-      "address": "International Affairs Division ,Paramanu Bhaban ,Bangladesh Atomic Energy Commission,",
-      "postalCode": "1212"
-    },
-    "products": [
-      {
-        "id": 1760600030752,
-        "productId": 1760593404487,
-        "batchId": 1760595196440,
-        "productName": "Jamdani",
-        "size": "1",
-        "qty": 2,
-        "price": 2000,
-        "discount": 0,
-        "amount": 4000,
-        "barcodes": [
-          "BATCH1760595196440-01",
-          "BATCH1760595196440-02"
-        ]
-      }
-    ],
-    "subtotal": 4000,
-    "amounts": {
-      "subtotal": 4000,
-      "totalDiscount": 0,
-      "vat": 200,
-      "vatRate": 5,
-      "transportCost": 60,
-      "total": 4260
-    },
-    "payments": {
-      "sslCommerz": 1000,
-      "advance": 2000,
-      "transactionId": "",
-      "totalPaid": 3000,
-      "due": 1260
-    },
-    "createdAt": "2025-10-16T07:35:06.789Z"
-  },
-  {
-    "id": 1760600727032,
-    "salesBy": "Admin User",
-    "date": "06-Oct-2025",
-    "customer": {
-      "name": "adrita ahsan",
-      "email": "tasneem.nishat.4953@gmail.com",
-      "phone": "01818316964",
-      "socialId": "adrita"
-    },
-    "deliveryAddress": {
-      "division": "Barisal",
-      "district": "Barisal",
-      "city": "Mehendiganj",
-      "zone": "fggf",
-      "area": "",
-      "address": "International Affairs Division ,Paramanu Bhaban ,Bangladesh Atomic Energy Commission,",
-      "postalCode": "1212"
-    },
-    "products": [
-      {
-        "id": 1760610068663.438,
-        "productId": 1760593716940,
-        "productName": "Shotoronji",
-        "size": "1",
-        "qty": 1,
-        "price": 900,
-        "discount": 0,
-        "amount": 900,
-        "barcodes": [
-          "BATCH1760595237962-01",
-          "BATCH1760595237962-02"
-        ]
-      }
-    ],
-    "subtotal": 900,
-    "amounts": {
-      "subtotal": 900,
-      "totalDiscount": 0,
-      "vat": 45,
-      "vatRate": 5,
-      "transportCost": 50,
-      "total": 995
-    },
-    "payments": {
-      "sslCommerz": 0,
-      "advance": 0,
-      "transactionId": "",
-      "totalPaid": 0,
-      "due": 995
-    },
-    "createdAt": "2025-10-16T07:45:27.034Z",
-    "exchangeHistory": [
-      {
-        "date": "2025-10-16T10:20:14.573Z",
-        "removedProducts": [
-          {
-            "productId": 1760600713235,
-            "quantity": 1
-          }
-        ],
-        "replacementProducts": [
-          {
-            "id": 1760593716940,
-            "batchId": 1760595237962,
-            "name": "Shotoronji",
-            "price": 900,
-            "quantity": 1,
-            "amount": 900,
-            "size": "1"
-          }
-        ],
-        "originalTotal": 995,
-        "newTotal": 995,
-        "difference": 0,
-        "note": "No payment difference"
-      },
-      {
-        "date": "2025-10-16T10:21:08.663Z",
-        "removedProducts": [
-          {
-            "productId": 1760610014573.2793,
-            "quantity": 1
-          }
-        ],
-        "replacementProducts": [
-          {
-            "id": 1760593716940,
-            "batchId": 1760595237962,
-            "name": "Shotoronji",
-            "price": 900,
-            "quantity": 2,
-            "amount": 1800,
-            "size": "1"
-          }
-        ],
-        "originalTotal": 995,
-        "newTotal": 1940,
-        "difference": 945,
-        "note": "Customer owes additional payment"
-      }
-    ],
-    "updatedAt": "2025-10-16T10:21:49.966Z",
-    "returnHistory": [
-      {
-        "date": "2025-10-16",
-        "time": "16:21",
-        "timestamp": "2025-10-16T10:21:49.966Z",
-        "returnedProducts": [
-          {
-            "productId": 1760610068663.438,
-            "productName": "Shotoronji",
-            "quantity": 1,
-            "price": 900,
-            "amount": 900
-          }
-        ],
-        "originalTotal": 1940,
-        "newTotal": 995,
-        "refundAmount": 945,
-        "refundToCustomer": 0,
-        "note": "Order total reduced by ৳945"
-      }
-    ]
-  },
-  {
-    "id": 1760608187823,
-    "salesBy": "Admin User",
-    "date": "06-Oct-2025",
-    "customer": {
-      "name": "sneha",
-      "email": "tasneem.nishat.4953@gmail.com",
-      "phone": "01818316964",
-      "socialId": ""
-    },
-    "deliveryAddress": {
-      "division": "Chattagram",
-      "district": "Khagrachhari",
-      "city": "Matiranga",
-      "zone": "",
-      "area": "",
-      "address": "International Affairs Division ,Paramanu Bhaban ,Bangladesh Atomic Energy Commission,",
-      "postalCode": "121"
-    },
-    "products": [
-      {
-        "id": 1760615038844.6948,
-        "productId": 1760593481284,
-        "productName": "Ear rings",
-        "size": "1",
-        "qty": 1,
-        "price": 700,
-        "discount": 0,
-        "amount": 700,
-        "barcodes": [
-          "BATCH1760594714624-03"
-        ]
-      }
-    ],
-    "subtotal": 700,
-    "amounts": {
-      "subtotal": 700,
-      "totalDiscount": 0,
-      "vat": 35,
-      "vatRate": 5,
-      "transportCost": 0,
-      "total": 735
-    },
-    "payments": {
-      "sslCommerz": 0,
-      "advance": 0,
-      "transactionId": "",
-      "totalPaid": 0,
-      "due": 735
-    },
-    "createdAt": "2025-10-16T09:49:47.825Z",
-    "exchangeHistory": [
-      {
-        "date": "2025-10-16T11:43:58.845Z",
-        "removedProducts": [
-          {
-            "productId": 1760608167765,
-            "quantity": 1
-          }
-        ],
-        "replacementProducts": [
-          {
-            "id": 1760593481284,
-            "batchId": 1760594714624,
-            "name": "Ear rings",
-            "price": 700,
-            "quantity": 1,
-            "amount": 700,
-            "size": "1"
-          }
-        ],
-        "originalTotal": 735,
-        "newTotal": 735,
-        "difference": 0,
-        "note": "No payment difference"
-      }
-    ],
-    "updatedAt": "2025-10-16T11:43:58.845Z"
-  },
-  {
-    "id": 1760771629800,
-    "salesBy": "Admin User",
-    "date": "06-Oct-2025",
-    "customer": {
-      "name": "Nishat Oishee",
-      "email": "tasneem.nishat.4953@gmail.com",
-      "phone": "01818316964",
-      "socialId": "dfgfd"
-    },
-    "deliveryAddress": {
-      "division": "Rangpur",
-      "district": "Thakurgaon",
-      "city": "Ranisankail",
-      "zone": "das",
-      "area": "",
-      "address": "International Affairs Division ,Paramanu Bhaban ,Bangladesh Atomic Energy Commission,",
-      "postalCode": "213"
-    },
-    "products": [
-      {
-        "id": 1760771589877,
-        "productId": 1760593481284,
-        "productName": "Ear rings",
-        "size": "1",
-        "qty": 1,
-        "price": 200,
-        "discount": 0,
-        "amount": 200,
-        "isDefective": true,
-        "defectId": "defect-1760615237902",
-        "barcode": "BATCH1760594714624-03",
-        "barcodes": [
-          "BATCH1760594714624-04"
-        ]
-      }
-    ],
-    "subtotal": 200,
-    "amounts": {
-      "subtotal": 200,
-      "totalDiscount": 0,
-      "vat": 10,
-      "vatRate": 5,
-      "transportCost": 0,
-      "total": 210
-    },
-    "payments": {
-      "sslCommerz": 0,
-      "advance": 0,
-      "transactionId": "",
-      "totalPaid": 0,
-      "due": 210
-    },
-    "createdAt": "2025-10-18T07:13:49.803Z"
-  },
-  {
-    "id": 1760772442525,
-    "salesBy": "Admin User",
-    "date": "06-Oct-2025",
-    "customer": {
-      "name": "Jarin Subha",
-      "email": "tasneem.nishat.4953@gmail.com",
-      "phone": "01818316964",
-      "socialId": "saddf"
-    },
-    "deliveryAddress": {
-      "division": "Rajshahi",
-      "district": "Bogura",
-      "city": "Gabtali",
-      "zone": "asdsa",
-      "area": "",
-      "address": "International Affairs Division ,Paramanu Bhaban ,Bangladesh Atomic Energy Commission,",
-      "postalCode": "1212"
-    },
-    "products": [
-      {
-        "id": 1760772395379,
-        "productId": 1760593404487,
-        "productName": "Jamdani",
-        "size": "1",
-        "qty": 1,
-        "price": 800,
-        "discount": 0,
-        "amount": 800,
-        "isDefective": true,
-        "defectId": "defect-1760614424965",
-        "barcode": "BATCH1760595196440-01",
-        "barcodes": [
-          "BATCH1760595196440-01"
-        ]
-      }
-    ],
-    "subtotal": 800,
-    "amounts": {
-      "subtotal": 800,
-      "totalDiscount": 0,
-      "vat": 40,
-      "vatRate": 5,
-      "transportCost": 0,
-      "total": 840
-    },
-    "payments": {
-      "sslCommerz": 0,
-      "advance": 0,
-      "transactionId": "",
-      "totalPaid": 0,
-      "due": 840
-    },
-    "createdAt": "2025-10-18T07:27:22.527Z"
-  },
-  {
-    "id": 1760772943008,
-    "salesBy": "Admin User",
-    "date": "06-Oct-2025",
-    "customer": {
-      "name": "Nishat Tasnim",
-      "email": "tasneem.nishat.4953@gmail.com",
-      "phone": "01818316964",
-      "socialId": "dasf"
-    },
-    "deliveryAddress": {
-      "division": "Dhaka",
-      "district": "Gopalganj",
-      "city": "Kashiani",
-      "zone": "ax",
-      "area": "",
-      "address": "International Affairs Division ,Paramanu Bhaban ,Bangladesh Atomic Energy Commission,",
-      "postalCode": "1212"
-    },
-    "products": [
-      {
-        "id": 1760772932011,
-        "productId": 1760593481284,
-        "batchId": 1760594714624,
-        "productName": "Ear rings",
-        "size": "1",
-        "qty": 1,
-        "price": 700,
-        "discount": 0,
-        "amount": 700,
-        "barcodes": [
-          "BATCH1760594714624-07"
-        ]
-      }
-    ],
-    "subtotal": 700,
-    "amounts": {
-      "subtotal": 700,
-      "totalDiscount": 0,
-      "vat": 35,
-      "vatRate": 5,
-      "transportCost": 0,
-      "total": 735
-    },
-    "payments": {
-      "sslCommerz": 0,
-      "advance": 0,
-      "transactionId": "",
-      "totalPaid": 0,
-      "due": 735
-    },
-    "createdAt": "2025-10-18T07:35:43.012Z"
-  },
-  {
-    "id": 1761151711518,
+    "id": 1761336981057,
     "salesBy": "E-Commerce Order",
-    "date": "2025-10-22",
+    "date": "2025-10-24",
     "customer": {
       "name": "Adrita Ahsan",
       "email": "adrita06@gmail.com",
@@ -432,328 +11,170 @@
     "deliveryAddress": {
       "division": "Dhaka",
       "district": "Dhaka",
-      "city": "Dhaka",
-      "zone": "",
+      "city": "",
+      "zone": "Dhaka",
       "area": "Kallyanpur",
-      "address": "House no. 18/3, mainroad, kallyanpur, dhaka",
+      "address": "Flat no. B2",
       "postalCode": "1207"
     },
     "products": [
       {
-        "productId": 1760593481284,
-        "productName": "Ear rings",
-        "size": "N/A",
-        "qty": 1,
-        "price": 700,
-        "discount": 0,
-        "amount": 700,
-        "barcodes": [
-          "BATCH1760594714624-07"
-        ]
-      }
-    ],
-    "subtotal": 700,
-    "amounts": {
-      "subtotal": 700,
-      "totalDiscount": 0,
-      "vat": 0,
-      "vatRate": 0,
-      "transportCost": 60,
-      "total": 760
-    },
-    "payments": {
-      "sslCommerz": 0,
-      "advance": 0,
-      "transactionId": "",
-      "totalPaid": 0,
-      "due": 760
-    },
-    "createdAt": "2025-10-22T16:48:31.522Z"
-  },
-  {
-    "id": 1761152030163,
-    "salesBy": "E-Commerce Order",
-    "date": "2025-10-22",
-    "customer": {
-      "name": "Auhona Ahsan",
-      "email": "auhona04@gmail.com",
-      "phone": "01784372211"
-    },
-    "deliveryAddress": {
-      "division": "Chattogram",
-      "district": "chottogram",
-      "city": "agrabad",
-      "zone": "",
-      "area": "agrabad",
-      "address": "house no 18/3",
-      "postalCode": ""
-    },
-    "products": [
-      {
-        "productId": 1760593404487,
-        "productName": "Jamdani",
-        "size": "N/A",
-        "qty": 1,
-        "price": 1400,
-        "discount": 0,
-        "amount": 1400,
-        "barcodes": [
-          "BATCH1760595196440-05"
-        ]
-      },
-      {
-        "productId": 1761017042860,
-        "productName": "Jamdani 60 count",
+        "productId": 1761287820536,
+        "productName": "Katha Stich",
         "size": "N/A",
         "qty": 1,
         "price": 5000,
         "discount": 0,
         "amount": 5000,
         "barcodes": [
-          "BATCH1761017131060-02"
+          "BATCH1761335605648-01"
+        ]
+      },
+      {
+        "productId": 1761284271565,
+        "productName": "Toshor Silk-Red",
+        "size": "N/A",
+        "qty": 1,
+        "price": 1300,
+        "discount": 0,
+        "amount": 1300,
+        "barcodes": [
+          "BATCH1761335622190-01"
         ]
       }
     ],
-    "subtotal": 6400,
+    "subtotal": 6300,
     "amounts": {
-      "subtotal": 6400,
+      "subtotal": 6300,
       "totalDiscount": 0,
       "vat": 0,
       "vatRate": 0,
       "transportCost": 0,
-      "total": 6400
+      "total": 6300
     },
     "payments": {
-      "sslCommerz": 6400,
+      "sslCommerz": 0,
       "advance": 0,
-      "transactionId": "TXN1761152029579",
-      "totalPaid": 6400,
-      "due": 0
+      "transactionId": "",
+      "totalPaid": 0,
+      "due": 6300
     },
-    "createdAt": "2025-10-22T16:53:50.175Z"
+    "createdAt": "2025-10-24T20:16:21.066Z"
   },
   {
-    "id": 1761153532665,
+    "id": 1761375257234,
+    "userId": "1761340110643",
     "salesBy": "E-Commerce Order",
-    "date": "2025-10-22",
+    "date": "2025-10-25",
     "customer": {
-      "name": "Adri",
-      "email": "adrita06@gmail.com",
+      "name": "adrita_ahsan",
+      "email": "adritaahsan06@gmail.com",
       "phone": "01745191964"
     },
     "deliveryAddress": {
       "division": "Dhaka",
-      "district": "Gazipur",
-      "city": "Gazipur Sadar",
-      "zone": "Boardbazar",
-      "area": "",
-      "address": "Kalemeshwar",
-      "postalCode": ""
+      "district": "Dhaka",
+      "city": "Dhaka",
+      "zone": "",
+      "area": "Kallyanpur",
+      "address": "House#18/3, Flat#B2, Mainroad, Kallyanpur, Dhaka",
+      "postalCode": "1207"
     },
     "products": [
       {
-        "productId": 1761017042860,
-        "productName": "Jamdani 60 count",
+        "productId": 1761287820536,
+        "productName": "Katha Stich",
         "size": "N/A",
         "qty": 1,
         "price": 5000,
         "discount": 0,
         "amount": 5000,
         "barcodes": [
-          "BATCH1761017131060-03"
-        ]
-      },
-      {
-        "productId": 1760593481284,
-        "productName": "Ear rings",
-        "size": "N/A",
-        "qty": 1,
-        "price": 700,
-        "discount": 0,
-        "amount": 700,
-        "barcodes": [
-          "BATCH1760594714624-09"
+          "BATCH1761335605648-02"
         ]
       }
     ],
-    "subtotal": 5700,
+    "subtotal": 5000,
     "amounts": {
-      "subtotal": 5700,
+      "subtotal": 5000,
       "totalDiscount": 0,
       "vat": 0,
       "vatRate": 0,
       "transportCost": 0,
-      "total": 5700
+      "total": 5000
     },
     "payments": {
       "sslCommerz": 0,
       "advance": 0,
       "transactionId": "",
       "totalPaid": 0,
-      "due": 5700
+      "due": 5000
     },
-    "createdAt": "2025-10-22T17:18:52.676Z"
+    "createdAt": "2025-10-25T06:54:17.239Z"
   },
   {
-    "id": 1761153610957,
+    "id": 1761541893762,
+    "userId": null,
     "salesBy": "E-Commerce Order",
-    "date": "2025-10-22",
+    "date": "2025-10-27",
     "customer": {
-      "name": "Adri",
-      "email": "adri",
+      "name": "Adrita Ahsan",
+      "email": "adritaahsan06@gmail.com",
       "phone": "01745191964"
     },
     "deliveryAddress": {
-      "division": "Chattagram",
-      "district": "Comilla",
-      "city": "Meghna",
-      "zone": "sdlmlskj",
-      "area": "",
-      "address": "blkdsjl",
-      "postalCode": ""
+      "division": "Dhaka",
+      "district": "Dhaka",
+      "city": "Dhaka",
+      "zone": "",
+      "area": "Kallyanpur",
+      "address": "House#18/3",
+      "postalCode": "1207"
     },
     "products": [
       {
-        "productId": 1760593404487,
-        "productName": "Jamdani",
+        "productId": 1761284271565,
+        "productName": "Toshor Silk-Red",
         "size": "N/A",
-        "qty": 1,
-        "price": 1400,
+        "qty": 3,
+        "price": 1300,
         "discount": 0,
-        "amount": 1400,
+        "amount": 3900,
         "barcodes": [
-          "BATCH1760595196440-06"
+          "BATCH1761335622190-02",
+          "BATCH1761335622190-03",
+          "BATCH1761335622190-04"
         ]
-      }
-    ],
-    "subtotal": 1400,
-    "amounts": {
-      "subtotal": 1400,
-      "totalDiscount": 0,
-      "vat": 0,
-      "vatRate": 0,
-      "transportCost": 60,
-      "total": 1460
-    },
-    "payments": {
-      "sslCommerz": 0,
-      "advance": 0,
-      "transactionId": "",
-      "totalPaid": 0,
-      "due": 1460
-    },
-    "createdAt": "2025-10-22T17:20:10.962Z"
-  },
-  {
-    "id": 1761153685535,
-    "salesBy": "E-Commerce Order",
-    "date": "2025-10-22",
-    "customer": {
-      "name": "adklasm",
-      "email": "ksam;l",
-      "phone": "nfdmz"
-    },
-    "deliveryAddress": {
-      "division": "Chattagram",
-      "district": "Comilla",
-      "city": "Monohargonj",
-      "zone": "mmm",
-      "area": "",
-      "address": "ekjowj",
-      "postalCode": "1234"
-    },
-    "products": [
+      },
       {
-        "productId": 1760593716940,
-        "productName": "Shotoronji",
-        "size": "N/A",
-        "qty": 1,
-        "price": 900,
-        "discount": 0,
-        "amount": 900,
-        "barcodes": [
-          "BATCH1760595237962-01"
-        ]
-      }
-    ],
-    "subtotal": 900,
-    "amounts": {
-      "subtotal": 900,
-      "totalDiscount": 0,
-      "vat": 0,
-      "vatRate": 0,
-      "transportCost": 60,
-      "total": 960
-    },
-    "payments": {
-      "sslCommerz": 0,
-      "advance": 0,
-      "transactionId": "",
-      "totalPaid": 0,
-      "due": 960
-    },
-    "createdAt": "2025-10-22T17:21:25.550Z"
-  },
-  {
-    "id": 1761153788871,
-    "salesBy": "E-Commerce Order",
-    "date": "2025-10-22",
-    "customer": {
-      "name": "adrita ahsan",
-      "email": "adrita@gmail.com",
-      "phone": "01745191964"
-    },
-    "deliveryAddress": {
-      "division": "Chattagram",
-      "district": "Comilla",
-      "city": "Debidwar",
-      "zone": "idk",
-      "area": "",
-      "address": "idk",
-      "postalCode": ""
-    },
-    "products": [
-      {
-        "productId": 1761017042860,
-        "productName": "Jamdani 60 count",
+        "productId": 1761287820536,
+        "productName": "Katha Stich",
         "size": "N/A",
         "qty": 1,
         "price": 5000,
         "discount": 0,
         "amount": 5000,
         "barcodes": [
-          "BATCH1761017131060-04"
-        ]
-      },
-      {
-        "productId": 1761065353934,
-        "productName": "Necklace",
-        "size": "N/A",
-        "qty": 1,
-        "price": 600,
-        "discount": 0,
-        "amount": 600,
-        "barcodes": [
-          "BATCH1761065510189-01"
+          "BATCH1761335605648-03"
         ]
       }
     ],
-    "subtotal": 5600,
+    "subtotal": 8900,
     "amounts": {
-      "subtotal": 5600,
+      "subtotal": 8900,
       "totalDiscount": 0,
       "vat": 0,
       "vatRate": 0,
       "transportCost": 0,
-      "total": 5600
+      "total": 8900
     },
     "payments": {
       "sslCommerz": 0,
       "advance": 0,
       "transactionId": "",
       "totalPaid": 0,
-      "due": 5600
+      "due": 8900
     },
-    "createdAt": "2025-10-22T17:23:08.883Z"
+    "createdAt": "2025-10-27T05:11:33.765Z"
   }
 ]

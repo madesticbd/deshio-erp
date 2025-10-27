@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { X } from 'lucide-react';
 import { useCart } from '../CartContext';
 import Navigation from '@/components/ecommerce/Navigation';
+import { useAuth } from '@/app/e-commerce/AuthContext';
 
 export default function CartPage() {
   const router = useRouter();
@@ -14,7 +15,7 @@ export default function CartPage() {
   // Select all items by default when cart items change
   React.useEffect(() => {
     if (cartItems.length > 0) {
-      setSelectedItems(new Set(cartItems.map(item => item.id)));
+      setSelectedItems(new Set(cartItems.map((item: any) => item.id)));
     }
   }, [cartItems.length]);
 
@@ -22,7 +23,7 @@ export default function CartPage() {
     if (selectedItems.size === cartItems.length) {
       setSelectedItems(new Set());
     } else {
-      setSelectedItems(new Set(cartItems.map(item => item.id)));
+      setSelectedItems(new Set(cartItems.map((item: any) => item.id)));
     }
   };
 
@@ -36,21 +37,21 @@ export default function CartPage() {
     setSelectedItems(newSelected);
   };
 
-  const getSelectedTotal = () => {
+   const getSelectedTotal = (): number => {
     return cartItems
-      .filter(item => selectedItems.has(item.id))
-      .reduce((total, item) => {
+      .filter((item: any) => selectedItems.has(item.id))
+      .reduce((total: number, item: any) => {
         const price = parseFloat(item.price || 0);
         return total + (price * item.quantity);
       }, 0);
   };
-
   const subtotal = getSelectedTotal();
   const freeShippingThreshold = 5000;
   const remaining = Math.max(0, freeShippingThreshold - subtotal);
   const progress = Math.min(100, (subtotal / freeShippingThreshold) * 100);
   const shippingFee = subtotal >= freeShippingThreshold ? 0 : 60;
   const total = subtotal + shippingFee;
+  const { user, isAuthenticated } = useAuth();
 
   if (cartItems.length === 0) {
     return (

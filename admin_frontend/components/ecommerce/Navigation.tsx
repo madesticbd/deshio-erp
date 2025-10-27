@@ -2,6 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { ShoppingCart, Heart, Search, User, Menu, X, ChevronRight } from 'lucide-react';
 import { useCart } from '@/app/e-commerce/CartContext';
+import { useAuth } from '@/app/e-commerce/AuthContext';
 import CartSidebar from '@/components/ecommerce/cart/CartSidebar';
 import { useRouter } from 'next/navigation';
 
@@ -12,7 +13,9 @@ export default function Navigation() {
   const [categories, setCategories] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [expandedCategories, setExpandedCategories] = useState(new Set());
+  
   const { getCartCount } = useCart();
+  const { user, isAuthenticated } = useAuth();
   const router = useRouter();
 
   // Prevent body scroll when sidebar is open
@@ -45,7 +48,7 @@ export default function Navigation() {
   }, []);
 
   // Toggle subcategory visibility
-  const toggleSubcategory = (categoryId) => {
+  const toggleSubcategory = (categoryId: string | number) => {
     const newExpanded = new Set(expandedCategories);
     if (newExpanded.has(categoryId)) {
       newExpanded.delete(categoryId);
@@ -56,7 +59,7 @@ export default function Navigation() {
   };
 
   // Render category tree for dropdown and mobile menu
-  const renderCategoryTree = (cats, level = 0, isMobile = false) => {
+  const renderCategoryTree = (cats: any[], level = 0, isMobile = false) => {
     if (isLoading) {
       return <div className="py-2 px-4">Loading categories...</div>;
     }
@@ -120,68 +123,86 @@ export default function Navigation() {
           <div className="flex items-center justify-between h-16">
             {/* Logo */}
             <div className="flex items-center">
-              <h1 className="text-2xl font-bold text-gray-900">
+              <h1 
+                className="text-2xl font-bold text-gray-900 cursor-pointer" 
+                onClick={() => router.push('/e-commerce')}
+              >
                 <span className="text-gray-900">Deshio</span>
               </h1>
             </div>
+
             {/* Desktop Navigation */}
             <div className="hidden md:flex items-center space-x-8">
-              <a
-                href="/e-commerce"
+              <button
+                onClick={() => router.push('/e-commerce')}
                 className="text-gray-900 hover:text-red-600 font-medium transition-colors"
               >
                 Home
-              </a>
+              </button>
               <div
                 className="relative"
                 onMouseEnter={() => setIsShopHovered(true)}
                 onMouseLeave={() => setIsShopHovered(false)}
               >
-                <a
-                  href="#"
-                  className="text-gray-700 hover:text-red-600 transition-colors"
+                <button
+                  className="text-gray-700 hover:text-red-600 transition-colors py-2"
                 >
                   Shop
-                </a>
+                </button>
                 {isShopHovered && categories.length > 0 && (
-                  <div className="absolute left-0 mt-2 w-48 bg-white border border-gray-200 shadow-lg rounded-md z-50">
-                    {renderCategoryTree(categories.filter(cat => !cat.parentId))}
+                  <div className="absolute left-0 top-full w-48 bg-white border border-gray-200 shadow-lg rounded-md z-50">
+                    {renderCategoryTree(categories.filter((cat: any) => !cat.parentId))}
                   </div>
                 )}
               </div>
-              <a
-                href="#"
+              <button
                 className="text-gray-700 hover:text-red-600 transition-colors"
               >
                 Sale
-              </a>
-              <a
-                href="#"
+              </button>
+              <button
                 className="text-gray-700 hover:text-red-600 transition-colors"
               >
                 About
-              </a>
-              <a
-                href="#"
+              </button>
+              <button
                 className="text-gray-700 hover:text-red-600 transition-colors"
               >
                 Contact
-              </a>
+              </button>
             </div>
+
             {/* Right Icons */}
             <div className="flex items-center gap-4">
               <button className="p-2 hover:bg-gray-100 rounded-full transition-colors">
                 <Search size={20} className="text-gray-700" />
               </button>
-              <button className="p-2 hover:bg-gray-100 rounded-full transition-colors">
+
+              {/* User Icon with Auth */}
+              <button 
+                onClick={() => {
+                  if (isAuthenticated) {
+                    router.push('/e-commerce/my-account');
+                  } else {
+                    router.push('/e-commerce/login');
+                  }
+                }}
+                className="p-2 hover:bg-gray-100 rounded-full transition-colors relative"
+                title={isAuthenticated ? `Logged in as ${user?.username}` : 'Login'}
+              >
                 <User size={20} className="text-gray-700" />
+                {isAuthenticated && (
+                  <span className="absolute -top-1 -right-1 bg-red-700 w-2 h-2 rounded-full"></span>
+                )}
               </button>
+
               <button className="p-2 hover:bg-gray-100 rounded-full transition-colors relative">
                 <Heart size={20} className="text-gray-700" />
                 <span className="absolute -top-1 -right-1 bg-gray-900 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center font-semibold">
                   3
                 </span>
               </button>
+
               <button
                 onClick={() => setCartSidebarOpen(true)}
                 className="p-2 hover:bg-gray-100 rounded-full transition-colors relative"
@@ -193,6 +214,7 @@ export default function Navigation() {
                   </span>
                 )}
               </button>
+
               <button
                 className="md:hidden p-2"
                 onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
@@ -201,50 +223,66 @@ export default function Navigation() {
               </button>
             </div>
           </div>
+
           {/* Mobile Menu */}
           {mobileMenuOpen && (
             <div className="md:hidden py-4 border-t border-gray-200">
               <div className="flex flex-col space-y-3">
-                <a
-                  href="/e-commerce"
-                  className="text-gray-900 hover:text-red-600 font-medium transition-colors py-2"
+                <button
+                  onClick={() => {
+                    router.push('/e-commerce');
+                    setMobileMenuOpen(false);
+                  }}
+                  className="text-gray-900 hover:text-red-600 font-medium transition-colors py-2 text-left"
                 >
                   Home
-                </a>
+                </button>
                 <div className="flex flex-col">
-                  <a
-                    href="#"
-                    className="text-gray-900 hover:text-red-600 font-medium transition-colors py-2"
-                  >
+                  <span className="text-gray-900 font-medium py-2">
                     Shop
-                  </a>
+                  </span>
                   <div className="pl-4">
-                    {renderCategoryTree(categories.filter(cat => !cat.parentId), 0, true)}
+                    {renderCategoryTree(categories.filter((cat: any) => !cat.parentId), 0, true)}
                   </div>
                 </div>
-                <a
-                  href="#"
-                  className="text-gray-700 hover:text-red-600 transition-colors py-2"
-                >
+                <button className="text-gray-700 hover:text-red-600 transition-colors py-2 text-left">
                   Sale
-                </a>
-                <a
-                  href="#"
-                  className="text-gray-700 hover:text-red-600 transition-colors py-2"
-                >
+                </button>
+                <button className="text-gray-700 hover:text-red-600 transition-colors py-2 text-left">
                   About
-                </a>
-                <a
-                  href="#"
-                  className="text-gray-700 hover:text-red-600 transition-colors py-2"
-                >
+                </button>
+                <button className="text-gray-700 hover:text-red-600 transition-colors py-2 text-left">
                   Contact
-                </a>
+                </button>
+                
+                {/* Mobile User Menu */}
+                {isAuthenticated ? (
+                  <button
+                    onClick={() => {
+                      router.push('/e-commerce/my-account');
+                      setMobileMenuOpen(false);
+                    }}
+                    className="text-red-700 hover:text-red-600 font-medium transition-colors py-2 text-left border-t pt-4"
+                  >
+                    My Account ({user?.username})
+                  </button>
+                ) : (
+                  <button
+                    onClick={() => {
+                      router.push('/e-commerce/login');
+                      setMobileMenuOpen(false);
+                    }}
+                    className="text-red-700 hover:text-red-600 font-medium transition-colors py-2 text-left border-t pt-4"
+                  >
+                    Login / Register
+                  </button>
+                )}
               </div>
             </div>
           )}
         </div>
       </nav>
+
       {/* Cart Sidebar */}
       <CartSidebar
         isOpen={cartSidebarOpen}

@@ -44,6 +44,7 @@ interface ProductTableProps {
 
 interface GroupedProduct {
   baseName: string;
+  groupMainImage: string | null;
   products: Product[];
   isVariationGroup: boolean;
 }
@@ -63,6 +64,7 @@ export default function ProductTable({
   const router = useRouter();
   const [selectedIds, setSelectedIds] = useState<(number | string)[]>([]);
   const [modalProduct, setModalProduct] = useState<Product | null>(null);
+  const [modalGroupedProducts, setModalGroupedProducts] = useState<Product[]>([]);
 
   const isImageValue = (v: any) => {
     if (typeof v !== 'string') return false;
@@ -134,44 +136,76 @@ export default function ProductTable({
     router.push(`/product/view?id=${productId}`);
   };
 
-  const handleViewVariations = (product: Product) => {
-    setModalProduct(product);
+  const handleViewVariations = (baseName: string, groupedProducts: Product[], groupMainImage: string | null) => {
+    // Create a mock product for the modal with the base name and variations
+    setModalProduct({
+      id: `group-${groupMainImage || baseName}`,
+      name: baseName,
+      attributes: { mainImage: groupMainImage },
+      variations: groupedProducts.map(p => ({
+        id: p.id,
+        attributes: p.attributes
+      }))
+    });
+    setModalGroupedProducts(groupedProducts);
   };
 
   const groupProducts = (): GroupedProduct[] => {
-    const grouped = new Map<string, Product[]>();
+    const grouped = new Map<string, { products: Product[], groupMainImage: string | null }>();
 
     products.forEach(product => {
-      const variationMatch = product.name.match(/^(.+?)\s*-\s*Variation\s+\d+$/i);
-      const baseName = variationMatch ? variationMatch[1].trim() : product.name;
+      const attrs = product.attributes || {};
+      const groupKey = attrs.groupMainImage;
+      const hasVariationData = attrs.color || attrs.size || attrs.variationImages;
 
-      if (!grouped.has(baseName)) {
-        grouped.set(baseName, []);
+      if (groupKey && hasVariationData) {
+        // This is a variation product - group by groupMainImage
+        if (!grouped.has(groupKey)) {
+          grouped.set(groupKey, { 
+            products: [], 
+            groupMainImage: groupKey 
+          });
+        }
+        grouped.get(groupKey)!.products.push(product);
+      } else {
+        // Standalone product - use its own ID as unique key
+        const uniqueKey = `standalone-${product.id}`;
+        grouped.set(uniqueKey, { 
+          products: [product], 
+          groupMainImage: null 
+        });
       }
-      grouped.get(baseName)!.push(product);
     });
 
-    const groupedArray: GroupedProduct[] = Array.from(grouped.entries()).map(([baseName, prods]) => {
-      const sorted = prods.sort((a, b) => {
-        const aMatch = a.name.match(/Variation\s+(\d+)$/i);
-        const bMatch = b.name.match(/Variation\s+(\d+)$/i);
-
-        if (!aMatch && !bMatch) return 0;
-        if (!aMatch && bMatch) return -1;
-        if (aMatch && !bMatch) return 1;
-        
-        if (aMatch && bMatch) {
-          const aNum = parseInt(aMatch[1]);
-          const bNum = parseInt(bMatch[1]);
-          return aNum - bNum;
+    const groupedArray: GroupedProduct[] = Array.from(grouped.entries()).map(([key, data]) => {
+      const firstProduct = data.products[0];
+      
+      // Extract base name by removing color/size suffix
+      let baseName = firstProduct.name;
+      if (data.groupMainImage) {
+        // Try to extract base name by removing the last hyphenated part
+        const parts = firstProduct.name.split('-');
+        if (parts.length > 1) {
+          baseName = parts[0].trim();
         }
-        return 0;
+      }
+
+      // Sort variations by color and size
+      const sorted = data.products.sort((a, b) => {
+        const aColor = a.attributes?.color || '';
+        const bColor = b.attributes?.color || '';
+        const aSize = a.attributes?.size || '';
+        const bSize = b.attributes?.size || '';
+        
+        if (aColor !== bColor) return aColor.localeCompare(bColor);
+        return aSize.localeCompare(bSize);
       });
 
       return {
         baseName,
+        groupMainImage: data.groupMainImage,
         products: sorted,
-        isVariationGroup: sorted.length > 1
+        isVariationGroup: sorted.length > 1 && !!data.groupMainImage
       };
     });
 
@@ -226,7 +260,8 @@ export default function ProductTable({
           groupedProducts.map((group) => {
             const baseProduct = group.products[0];
             const attrs = baseProduct.attributes || {};
-            const mainImage = getMainImage(attrs);
+            // Use groupMainImage if available, otherwise use the first product's main image
+            const mainImage = group.groupMainImage || getMainImage(attrs);
             
             // Use provided function or fallback
             const categoryPath = getCategoryDisplayName 
@@ -234,7 +269,7 @@ export default function ProductTable({
               : getDefaultCategoryPath(baseProduct);
 
             return (
-              <div key={group.baseName} className="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden bg-white dark:bg-gray-800">
+              <div key={`${group.baseName}-${baseProduct.id}`} className="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden bg-white dark:bg-gray-800">
                 <ProductListItem
                   product={{
                     ...baseProduct,
@@ -249,7 +284,7 @@ export default function ProductTable({
                   selectable={selectable}
                   selected={selectedIds.includes(baseProduct.id)}
                   toggleSelect={toggleSelect}
-                  onViewVariations={group.isVariationGroup ? () => handleViewVariations({ ...baseProduct, name: group.baseName }) : undefined}
+                  onViewVariations={group.isVariationGroup ? () => handleViewVariations(group.baseName, group.products, group.groupMainImage) : undefined}
                   variationCount={group.isVariationGroup ? group.products.length : undefined}
                 />
               </div>
@@ -261,19 +296,14 @@ export default function ProductTable({
       {/* Variations Modal */}
       {modalProduct && (
         <VariationsModal
-          product={{
-            ...modalProduct,
-            variations: groupedProducts
-              .find(g => g.baseName === modalProduct.name)
-              ?.products
-              .map(p => ({
-                id: p.id,
-                attributes: p.attributes
-              })) || []
+          product={modalProduct}
+          mainImage={modalProduct.attributes?.mainImage || null}
+          onClose={() => {
+            setModalProduct(null);
+            setModalGroupedProducts([]);
           }}
-          mainImage={getMainImage(modalProduct.attributes)}
-          onClose={() => setModalProduct(null)}
           onSelectVariation={onSelectVariation}
+          groupedProducts={modalGroupedProducts}
         />
       )}
     </>

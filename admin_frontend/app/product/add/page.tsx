@@ -31,15 +31,13 @@ interface FieldValue {
   instanceId: string;
 }
 
-interface VariationFieldConfig {
-  fieldId: number;
-  fieldName: string;
-  fieldType: string;
-}
-
 interface VariationData {
   id: string;
-  values: Record<string, any>;
+  values: {
+    color: string;
+    size: string;
+    image: string[];
+  };
 }
 
 // --- Component -------------------------------------------------------------
@@ -66,8 +64,13 @@ export default function AddEditProductPage() {
   const [generalFields, setGeneralFields] = useState<FieldValue[]>([]);
   const [uploadingMain, setUploadingMain] = useState(false);
 
-  // Variations Section
-  const [variationFieldConfigs, setVariationFieldConfigs] = useState<VariationFieldConfig[]>([]);
+  // Variations Section - Fixed fields: color, size, image
+  const variationFieldsConfig = {
+    color: { name: 'Color', type: 'text' },
+    size: { name: 'Size', type: 'dropdown', options: ['XS', 'S', 'M', 'L', 'XL', 'XXL', 'XXXL'] },
+    image: { name: 'Image', type: 'image' }
+  };
+
   const [variations, setVariations] = useState<VariationData[]>([]);
 
   // Data
@@ -196,10 +199,65 @@ export default function AddEditProductPage() {
         const reconstructedFields: FieldValue[] = [];
         
         Object.keys(attrs).forEach((key) => {
-          // Skip the base attributes (old and new format)
-          if (['mainImage', 'category', 'subcategory', 'subSubcategory', 'categoryPath'].includes(key)) return;
+          // Skip the base attributes but INCLUDE variation-specific attributes (color, size, variationImages)
+          if (['mainImage', 'category', 'subcategory', 'subSubcategory', 'categoryPath', 'groupMainImage'].includes(key)) return;
           
-          // Find the matching field definition
+          // Handle variation images specially
+          if (key === 'variationImages') {
+            // Find or create an image field for variation images
+            const imageFieldDef = availableFields.find(f => f.type.toLowerCase() === 'image');
+            if (imageFieldDef) {
+              reconstructedFields.push({
+                fieldId: imageFieldDef.id,
+                fieldName: 'Variation Images',
+                fieldType: 'image',
+                value: attrs[key],
+                instanceId: `gen-varimages-${Date.now()}`
+              });
+            }
+            return;
+          }
+          
+          // Handle color field
+          if (key === 'color') {
+            const fieldDef = availableFields.find(f => f.name.toLowerCase() === 'color');
+            if (fieldDef) {
+              reconstructedFields.push({
+                fieldId: fieldDef.id,
+                fieldName: fieldDef.name,
+                fieldType: fieldDef.type,
+                value: attrs[key],
+                instanceId: `gen-${fieldDef.id}-${Date.now()}-${Math.random()}`
+              });
+            }
+            return;
+          }
+          
+          // Handle size field - create it even if field doesn't exist in availableFields
+          if (key === 'size') {
+            const fieldDef = availableFields.find(f => f.name.toLowerCase() === 'size');
+            if (fieldDef) {
+              reconstructedFields.push({
+                fieldId: fieldDef.id,
+                fieldName: fieldDef.name,
+                fieldType: fieldDef.type,
+                value: attrs[key],
+                instanceId: `gen-${fieldDef.id}-${Date.now()}-${Math.random()}`
+              });
+            } else {
+              // Create a size field even if it doesn't exist in availableFields
+              reconstructedFields.push({
+                fieldId: 9999, // Temporary ID for size
+                fieldName: 'Size',
+                fieldType: 'text',
+                value: attrs[key],
+                instanceId: `gen-size-${Date.now()}-${Math.random()}`
+              });
+            }
+            return;
+          }
+          
+          // Find the matching field definition for other fields
           const fieldDef = availableFields.find(f => f.name === key);
           if (fieldDef) {
             reconstructedFields.push({
@@ -282,8 +340,9 @@ export default function AddEditProductPage() {
       } else if (instanceId) {
         setGeneralFields(prev => prev.map(f => {
           if (f.instanceId === instanceId) {
-            const newValue = Array.isArray(f.value) ? [...f.value, url] : url;
-            return { ...f, value: newValue };
+            // Always treat as array for image fields
+            const currentImages = Array.isArray(f.value) ? f.value : (f.value ? [f.value] : []);
+            return { ...f, value: [...currentImages, url] };
           }
           return f;
         }));
@@ -297,46 +356,25 @@ export default function AddEditProductPage() {
   };
 
   // ========== VARIATION SECTION ==========
-  const addVariationField = (field: Field) => {
-    if (!variationFieldConfigs.find(vf => vf.fieldId === field.id)) {
-      setVariationFieldConfigs([...variationFieldConfigs, {
-        fieldId: field.id,
-        fieldName: field.name,
-        fieldType: field.type
-      }]);
-    }
-  };
-
-  const removeVariationField = (fieldId: number) => {
-    setVariationFieldConfigs(variationFieldConfigs.filter(vf => vf.fieldId !== fieldId));
-    setVariations(variations.map(v => {
-      const newValues = { ...v.values };
-      const fieldConfig = variationFieldConfigs.find(vf => vf.fieldId === fieldId);
-      if (fieldConfig) delete newValues[fieldConfig.fieldName];
-      return { ...v, values: newValues };
-    }));
-  };
-
   const addVariation = () => {
     const newVarId = `var-${Date.now()}-${Math.random()}`;
-    const values: Record<string, any> = {};
-    variationFieldConfigs.forEach(config => {
-      values[config.fieldName] = config.fieldType === 'image' ? [] : '';
-    });
-    setVariations([...variations, { id: newVarId, values }]);
+    setVariations([...variations, { 
+      id: newVarId, 
+      values: { color: '', size: '', image: [] }
+    }]);
   };
 
   const removeVariation = (varId: string) => {
     setVariations(variations.filter(v => v.id !== varId));
   };
 
-  const updateVariationValue = (varId: string, fieldName: string, value: any) => {
+  const updateVariationValue = (varId: string, field: 'color' | 'size', value: string) => {
     setVariations(variations.map(v => 
-      v.id === varId ? { ...v, values: { ...v.values, [fieldName]: value } } : v
+      v.id === varId ? { ...v, values: { ...v.values, [field]: value } } : v
     ));
   };
 
-  const handleVariationImageUpload = async (file: File, varId: string, fieldName: string) => {
+  const handleVariationImageUpload = async (file: File, varId: string) => {
     if (!file.type.startsWith('image/')) {
       alert('Please upload an image file');
       return;
@@ -351,10 +389,9 @@ export default function AddEditProductPage() {
     if (url) {
       setVariations(prev => prev.map(v => {
         if (v.id === varId) {
-          const currentImages = Array.isArray(v.values[fieldName]) ? v.values[fieldName] : [];
           return {
             ...v,
-            values: { ...v.values, [fieldName]: [...currentImages, url] }
+            values: { ...v.values, image: [...v.values.image, url] }
           };
         }
         return v;
@@ -362,14 +399,24 @@ export default function AddEditProductPage() {
     }
   };
 
-  const removeVariationImage = (varId: string, fieldName: string, imgUrl: string) => {
+  const removeVariationImage = (varId: string, imgUrl: string) => {
     setVariations(prev => prev.map(v => {
       if (v.id === varId) {
-        const images = (v.values[fieldName] || []).filter((img: string) => img !== imgUrl);
-        return { ...v, values: { ...v.values, [fieldName]: images } };
+        return {
+          ...v,
+          values: { ...v.values, image: v.values.image.filter(img => img !== imgUrl) }
+        };
       }
       return v;
     }));
+  };
+
+  // Helper to generate variation name
+  const generateVariationName = (baseName: string, variation: VariationData): string => {
+    const parts = [baseName];
+    if (variation.values.color) parts.push(variation.values.color);
+    if (variation.values.size) parts.push(variation.values.size);
+    return parts.join('-');
   };
 
   const handleSubmit = async () => {
@@ -386,6 +433,21 @@ export default function AddEditProductPage() {
     if (categoryPath.length === 0) {
       alert('Category is required');
       return;
+    }
+
+    // Validate variations if they exist
+    if (variations.length > 0) {
+      for (const variation of variations) {
+        if (variation.values.image.length === 0) {
+          alert('All variations must have at least one image');
+          return;
+        }
+        // Only validate that at least color OR size is provided
+        if (!variation.values.color && !variation.values.size) {
+          alert('Each variation must have at least color or size specified');
+          return;
+        }
+      }
     }
 
     try {
@@ -415,6 +477,24 @@ export default function AddEditProductPage() {
 
       if (isEditMode) {
         // UPDATE existing product
+        // Check if this is a variation product and update accordingly
+        const variationImagesField = generalFields.find(f => f.fieldName === 'Variation Images');
+        const colorField = generalFields.find(f => f.fieldName.toLowerCase() === 'color');
+        const sizeField = generalFields.find(f => f.fieldName.toLowerCase() === 'size');
+        
+        if (variationImagesField && variationImagesField.value && Array.isArray(variationImagesField.value) && variationImagesField.value.length > 0) {
+          // This is a variation product - update with variation-specific fields
+          baseAttributes.mainImage = variationImagesField.value[0]; // First image as main
+          baseAttributes.variationImages = variationImagesField.value;
+          
+          if (colorField) {
+            baseAttributes.color = colorField.value;
+          }
+          if (sizeField) {
+            baseAttributes.size = sizeField.value;
+          }
+        }
+
         const product = {
           id: parseInt(productId!),
           name: formData.name,
@@ -438,15 +518,24 @@ export default function AddEditProductPage() {
         const savePromises = [];
 
         if (variations.length > 0) {
-          // Save each variation as a separate product
+          // Save each variation as a separate product with variation name
           variations.forEach((variation, idx) => {
+            const variationName = generateVariationName(formData.name, variation);
+            
+            // Use variation image as main image, keep original main image for grouping reference
+            const variationAttributes = {
+              ...baseAttributes,
+              mainImage: variation.values.image[0], // Use first variation image as main
+              groupMainImage: formData.mainImage, // Keep original for grouping
+              color: variation.values.color,
+              size: variation.values.size,
+              variationImages: variation.values.image
+            };
+
             const varProduct = {
               id: Date.now() + idx,
-              name: `${formData.name} - Variation ${idx + 1}`,
-              attributes: {
-                ...baseAttributes,
-                ...variation.values
-              }
+              name: variationName,
+              attributes: variationAttributes
             };
 
             savePromises.push(
@@ -509,7 +598,36 @@ export default function AddEditProductPage() {
   };
 
   const renderFieldValue = (field: FieldValue) => {
-    const { instanceId, fieldType, value } = field;
+    const { instanceId, fieldType, fieldName, value } = field;
+
+    // Check if this is a Size field - use dropdown
+    if (fieldName.toLowerCase() === 'size') {
+      return (
+        <select
+          value={value || ''}
+          onChange={(e) => updateGeneralFieldValue(instanceId, e.target.value)}
+          className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
+        >
+          <option value="">Select size</option>
+          {['XS', 'S', 'M', 'L', 'XL', 'XXL', 'XXXL'].map((size) => (
+            <option key={size} value={size}>{size}</option>
+          ))}
+        </select>
+      );
+    }
+
+    // Check if this is a Color field - use text input with color styling
+    if (fieldName.toLowerCase() === 'color') {
+      return (
+        <input
+          type="text"
+          value={value || ''}
+          onChange={(e) => updateGeneralFieldValue(instanceId, e.target.value)}
+          className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
+          placeholder="e.g., Blue, Red, Black"
+        />
+      );
+    }
 
     switch (fieldType.toLowerCase()) {
       case 'text':
@@ -525,40 +643,58 @@ export default function AddEditProductPage() {
         );
 
       case 'image':
+        const images = Array.isArray(value) ? value : (value ? [value] : []);
+        const isVariationImages = fieldName === 'Variation Images';
+        
         return (
           <div className="space-y-2">
-            <label className="flex-1 cursor-pointer">
-              <div className="flex items-center justify-center gap-2 px-3 py-2 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg hover:border-blue-500 dark:hover:border-blue-400 transition-colors">
-                <Upload className="w-4 h-4" />
-                <span className="text-sm">Choose Image</span>
-              </div>
-              <input
-                type="file"
-                accept="image/*"
-                onChange={(e) => {
-                  const file = e.target.files?.[0];
-                  if (file) handleGeneralImageUpload(file, false, instanceId);
-                }}
-                className="hidden"
-              />
-            </label>
-
-            {Array.isArray(value) && value.length > 0 && (
-              <div className="flex flex-wrap gap-2">
-                {value.map((img: string, idx: number) => (
-                  <div key={idx} className="relative">
-                    <img src={img} alt="Preview" className="w-20 h-20 object-cover rounded-lg border border-gray-300 dark:border-gray-600" />
-                    <button
-                      type="button"
-                      onClick={() => updateGeneralFieldValue(instanceId, value.filter((_: any, i: number) => i !== idx))}
-                      className="absolute -top-1 -right-1 p-1 bg-red-500 text-white rounded-full hover:bg-red-600"
-                    >
-                      <X className="w-3 h-3" />
-                    </button>
-                  </div>
-                ))}
-              </div>
+            {isVariationImages && (
+              <p className="text-xs text-gray-500 dark:text-gray-400">
+                These are the product variation images. First image is used as the main image for this variation.
+              </p>
             )}
+            <div className="flex flex-wrap gap-2">
+              {images.map((img: string, idx: number) => (
+                <div key={idx} className="relative">
+                  <img 
+                    src={img} 
+                    alt={`Preview ${idx + 1}`}
+                    className="w-20 h-20 object-cover rounded-lg border border-gray-300 dark:border-gray-600" 
+                  />
+                  {isVariationImages && idx === 0 && (
+                    <div className="absolute -top-2 -left-2 bg-blue-500 text-white text-xs px-1.5 py-0.5 rounded">
+                      Main
+                    </div>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const newImages = images.filter((_: any, i: number) => i !== idx);
+                      updateGeneralFieldValue(instanceId, newImages);
+                    }}
+                    className="absolute -top-1 -right-1 p-1 bg-red-500 text-white rounded-full hover:bg-red-600"
+                  >
+                    <X className="w-3 h-3" />
+                  </button>
+                </div>
+              ))}
+
+              <label className="cursor-pointer w-20 h-20 flex items-center justify-center border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg hover:border-blue-500 dark:hover:border-blue-400 transition-colors">
+                <Plus className="w-6 h-6 text-gray-400" />
+                <input
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) {
+                      handleGeneralImageUpload(file, false, instanceId);
+                    }
+                    e.target.value = '';
+                  }}
+                />
+              </label>
+            </div>
           </div>
         );
 
@@ -632,6 +768,9 @@ export default function AddEditProductPage() {
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                       Main Image <span className="text-red-500">*</span>
                     </label>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">
+                      {variations.length > 0 ? 'This image will be used for grouping variations together on the e-commerce platform' : 'This will be the main product image'}
+                    </p>
                     <label className="cursor-pointer block">
                       <div className="flex items-center justify-center gap-2 px-4 py-8 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg hover:border-blue-500 dark:hover:border-blue-400 transition-colors">
                         <Upload className="w-5 h-5" />
@@ -798,73 +937,43 @@ export default function AddEditProductPage() {
               {activeTab === 'variations' && !isEditMode && (
                 <div className="space-y-6">
                   <div>
-                    <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Variation Fields</h3>
-                    <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
-                      Select which fields will be used for variations. Each variation will allow you to set unique values for these fields.
+                    <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">Product Variations</h3>
+                    <p className="text-sm text-gray-600 dark:text-gray-400 mb-6">
+                      Create variations with different colors, sizes, and images. Each variation will be saved with a name like: "{formData.name || 'Product'}-Blue-XS"
                     </p>
-
-                    {/* Available Fields to Add as Variation Fields */}
-                    <div className="mb-6">
-                      <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">Select fields:</p>
-                      <div className="flex flex-wrap gap-2">
-                        {availableFields
-                          .filter(f => !variationFieldConfigs.find(vc => vc.fieldId === f.id))
-                          .map((field) => (
-                            <button
-                              key={field.id}
-                              type="button"
-                              onClick={() => addVariationField(field)}
-                              className="px-3 py-1 text-sm bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 rounded-lg hover:bg-blue-200 dark:hover:bg-blue-800 transition-colors flex items-center gap-1"
-                            >
-                              <Plus className="w-4 h-4" />
-                              {field.name}
-                            </button>
-                          ))}
-                      </div>
+                    
+                    <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4 mb-6">
+                      <h4 className="font-medium text-blue-900 dark:text-blue-300 mb-2">How Variations Work:</h4>
+                      <ul className="text-sm text-blue-800 dark:text-blue-400 space-y-1">
+                        <li>• <strong>Main Image (General Info)</strong>: Used for grouping variations together on the e-commerce platform</li>
+                        <li>• <strong>Variation Image</strong>: Displayed when viewing individual product variations</li>
+                        <li>• Each variation requires at least one image and either color or size (or both)</li>
+                        <li>• You can add only color variations, only size variations, or both</li>
+                      </ul>
                     </div>
-
-                    {/* Selected Variation Fields */}
-                    {variationFieldConfigs.length > 0 && (
-                      <div className="border border-gray-300 dark:border-gray-700 rounded-lg p-4 bg-gray-50 dark:bg-gray-700">
-                        <h4 className="font-medium text-gray-900 dark:text-white mb-3">Selected Fields:</h4>
-                        <div className="flex flex-wrap gap-2">
-                          {variationFieldConfigs.map((config) => (
-                            <div
-                              key={config.fieldId}
-                              className="flex items-center gap-2 px-3 py-2 bg-gray-200 dark:bg-gray-600 rounded-lg"
-                            >
-                              <span className="text-sm font-medium text-gray-900 dark:text-white">{config.fieldName}</span>
-                              <button
-                                type="button"
-                                onClick={() => removeVariationField(config.fieldId)}
-                                className="text-gray-600 dark:text-gray-300 hover:text-red-600 dark:hover:text-red-400"
-                              >
-                                <X className="w-4 h-4" />
-                              </button>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
                   </div>
 
                   {/* Variations */}
-                  {variationFieldConfigs.length > 0 && (
-                    <div className="border-t border-gray-300 dark:border-gray-700 pt-6">
-                      <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Variations</h3>
-                      <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
-                        Each variation will be saved as: "{formData.name || 'Product'} - Variation 1", "{formData.name || 'Product'} - Variation 2", etc.
-                      </p>
+                  <div>
+                    <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Variations</h3>
 
-                      {variations.length === 0 ? (
-                        <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">No variations yet. Click "Add Variation" to create one.</p>
-                      ) : null}
+                    {variations.length === 0 ? (
+                      <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">No variations yet. Click "Add Variation" to create one.</p>
+                    ) : null}
 
-                      <div className="space-y-4 mb-4">
-                        {variations.map((variation, varIdx) => (
+                    <div className="space-y-4 mb-4">
+                      {variations.map((variation, varIdx) => {
+                        const previewName = generateVariationName(formData.name || 'Product', variation);
+                        
+                        return (
                           <div key={variation.id} className="bg-gray-50 dark:bg-gray-700 p-4 rounded-lg border border-gray-300 dark:border-gray-600">
                             <div className="flex items-center justify-between mb-4">
-                              <h4 className="font-semibold text-gray-900 dark:text-white">Variation {varIdx + 1}</h4>
+                              <div>
+                                <h4 className="font-semibold text-gray-900 dark:text-white">Variation {varIdx + 1}</h4>
+                                <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                                  Will be saved as: <span className="font-medium text-gray-900 dark:text-white">{previewName}</span>
+                                </p>
+                              </div>
                               <button
                                 type="button"
                                 onClick={() => removeVariation(variation.id)}
@@ -875,72 +984,99 @@ export default function AddEditProductPage() {
                             </div>
 
                             <div className="space-y-4">
-                              {variationFieldConfigs.map((config) => (
-                                <div key={config.fieldId}>
-                                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                                    {config.fieldName}
-                                  </label>
+                              {/* Color Field */}
+                              <div>
+                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                  Color <span className="text-red-500">*</span>
+                                </label>
+                                <input
+                                  type="text"
+                                  value={variation.values.color || ''}
+                                  onChange={(e) => updateVariationValue(variation.id, 'color', e.target.value)}
+                                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
+                                  placeholder="e.g., Blue, Red, Black"
+                                />
+                              </div>
 
-                                  {config.fieldType.toLowerCase() === 'image' ? (
-                                    <div className="space-y-2">
-                                      <div className="flex flex-wrap gap-2">
-                                        {(variation.values[config.fieldName] || []).map((imgUrl: string, imgIdx: number) => (
-                                          <div key={imgIdx} className="relative">
-                                            <img
-                                              src={imgUrl}
-                                              alt="Variation"
-                                              className="w-20 h-20 object-cover rounded-lg border border-gray-300 dark:border-gray-600"
-                                            />
-                                            <button
-                                              type="button"
-                                              onClick={() => removeVariationImage(variation.id, config.fieldName, imgUrl)}
-                                              className="absolute -top-1 -right-1 p-1 bg-red-500 text-white rounded-full hover:bg-red-600"
-                                            >
-                                              <X className="w-3 h-3" />
-                                            </button>
+                              {/* Size Field */}
+                              <div>
+                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                  Size <span className="text-red-500">*</span>
+                                </label>
+                                <select
+                                  value={variation.values.size || ''}
+                                  onChange={(e) => updateVariationValue(variation.id, 'size', e.target.value)}
+                                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
+                                >
+                                  <option value="">Select size</option>
+                                  {variationFieldsConfig.size.options.map((size) => (
+                                    <option key={size} value={size}>{size}</option>
+                                  ))}
+                                </select>
+                              </div>
+
+                              {/* Image Field */}
+                              <div>
+                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                  Variation Images <span className="text-red-500">*</span>
+                                </label>
+                                <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">
+                                  First image will be used as the main image for this variation
+                                </p>
+                                <div className="space-y-2">
+                                  <div className="flex flex-wrap gap-2">
+                                    {variation.values.image.map((imgUrl: string, imgIdx: number) => (
+                                      <div key={imgIdx} className="relative">
+                                        <img
+                                          src={imgUrl}
+                                          alt="Variation"
+                                          className="w-20 h-20 object-cover rounded-lg border border-gray-300 dark:border-gray-600"
+                                        />
+                                        {imgIdx === 0 && (
+                                          <div className="absolute -top-2 -left-2 bg-blue-500 text-white text-xs px-1.5 py-0.5 rounded">
+                                            Main
                                           </div>
-                                        ))}
-
-                                        <label className="cursor-pointer w-20 h-20 flex items-center justify-center border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg hover:border-blue-500 dark:hover:border-blue-400 transition-colors">
-                                          <Plus className="w-6 h-6 text-gray-400" />
-                                          <input
-                                            type="file"
-                                            accept="image/*"
-                                            className="hidden"
-                                            onChange={(e) => {
-                                              const file = e.target.files?.[0];
-                                              if (file) handleVariationImageUpload(file, variation.id, config.fieldName);
-                                              e.target.value = '';
-                                            }}
-                                          />
-                                        </label>
+                                        )}
+                                        <button
+                                          type="button"
+                                          onClick={() => removeVariationImage(variation.id, imgUrl)}
+                                          className="absolute -top-1 -right-1 p-1 bg-red-500 text-white rounded-full hover:bg-red-600"
+                                        >
+                                          <X className="w-3 h-3" />
+                                        </button>
                                       </div>
-                                    </div>
-                                  ) : (
-                                    <input
-                                      type={config.fieldType === 'number' ? 'number' : 'text'}
-                                      value={variation.values[config.fieldName] || ''}
-                                      onChange={(e) => updateVariationValue(variation.id, config.fieldName, e.target.value)}
-                                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
-                                      placeholder={`Enter ${config.fieldName.toLowerCase()}`}
-                                    />
-                                  )}
+                                    ))}
+
+                                    <label className="cursor-pointer w-20 h-20 flex items-center justify-center border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg hover:border-blue-500 dark:hover:border-blue-400 transition-colors">
+                                      <Plus className="w-6 h-6 text-gray-400" />
+                                      <input
+                                        type="file"
+                                        accept="image/*"
+                                        className="hidden"
+                                        onChange={(e) => {
+                                          const file = e.target.files?.[0];
+                                          if (file) handleVariationImageUpload(file, variation.id);
+                                          e.target.value = '';
+                                        }}
+                                      />
+                                    </label>
+                                  </div>
                                 </div>
-                              ))}
+                              </div>
                             </div>
                           </div>
-                        ))}
-                      </div>
-
-                      <button
-                        type="button"
-                        onClick={addVariation}
-                        className="w-full py-2 bg-gray-900 dark:bg-white hover:bg-gray-800 dark:hover:bg-gray-100 text-white dark:text-gray-900 rounded-lg font-medium transition-colors"
-                      >
-                        Add Another Variation
-                      </button>
+                        );
+                      })}
                     </div>
-                  )}
+
+                    <button
+                      type="button"
+                      onClick={addVariation}
+                      className="w-full py-2 bg-gray-900 dark:bg-white hover:bg-gray-800 dark:hover:bg-gray-100 text-white dark:text-gray-900 rounded-lg font-medium transition-colors"
+                    >
+                      Add Another Variation
+                    </button>
+                  </div>
                 </div>
               )}
             </div>

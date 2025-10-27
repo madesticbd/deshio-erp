@@ -1,75 +1,46 @@
 [
   {
-    "id": 1760593404487,
-    "name": "Jamdani",
+    "id": 1761284271563,
+    "name": "Toshor Silk-Purple",
     "attributes": {
-      "mainImage": "/uploads/1761017877218-f20af5905f3fe7df81ff340d55473c5c.jpg",
+      "mainImage": "/uploads/1761284252272-PBU1303-8.webp",
       "category": "1",
-      "subcategory": "3",
-      "subSubcategory": "",
-      "Price": "1400"
-    }
-  },
-  {
-    "id": 1760593481284,
-    "name": "Ear rings",
-    "attributes": {
-      "mainImage": "/uploads/1760593676588-jwel.jpg",
-      "category": "5",
       "subcategory": "",
-      "Usage": "Dont wash",
-      "Description": "everyday wears"
-    }
-  },
-  {
-    "id": 1760593716940,
-    "name": "Shotoronji",
-    "attributes": {
-      "mainImage": "/uploads/1760593701965-shoto.jpg",
-      "category": "2",
-      "subcategory": "",
-      "Description": "washable"
-    }
-  },
-  {
-    "id": 1761017042860,
-    "name": "Jamdani 60 count",
-    "attributes": {
-      "mainImage": "/uploads/1761017008989-images (2).jpeg",
-      "category": "1",
-      "subcategory": "3",
-      "subSubcategory": "4",
-      "Color": "White"
-    }
-  },
-  {
-    "id": 1761065353934,
-    "name": "Necklace - Variation 1",
-    "attributes": {
-      "mainImage": "/uploads/1761065318016-Two-Line-Classy-Oxidised-Necklace-Set-with-different-colour-stones-Options-11942N-Necklace-Set-Griiham-6.jpg",
-      "category": "5",
-      "subcategory": "",
-      "Description": "everyday wears",
-      "Color": "Blue",
-      "Size": "Medium",
-      "Image": [
-        "/uploads/1761065338141-Two-Line-Classy-Oxidised-Necklace-Set-with-different-colour-stones-Options-11942N-Necklace-Set-Griiham-6.jpg"
+      "Description": "Party Wear",
+      "groupMainImage": "/uploads/1761284180166-PBU1303-8.webp",
+      "color": "Purple",
+      "size": "",
+      "variationImages": [
+        "/uploads/1761284252272-PBU1303-8.webp",
+        "/uploads/1761284255286-PBU1305-5a.webp"
       ]
     }
   },
   {
-    "id": 1761065353936,
-    "name": "Necklace - Variation 2",
+    "id": 1761284271565,
+    "name": "Toshor Silk-Red",
     "attributes": {
-      "mainImage": "/uploads/1761065318016-Two-Line-Classy-Oxidised-Necklace-Set-with-different-colour-stones-Options-11942N-Necklace-Set-Griiham-6.jpg",
-      "category": "5",
+      "mainImage": "/uploads/1761284267092-PBU1305-7.webp",
+      "category": "1",
       "subcategory": "",
-      "Description": "everyday wears",
-      "Color": "Green",
-      "Size": "Large",
-      "Image": [
-        "/uploads/1761065347818-images (3).jpeg"
+      "Description": "Party Wear",
+      "groupMainImage": "/uploads/1761284180166-PBU1303-8.webp",
+      "color": "Red",
+      "size": "",
+      "variationImages": [
+        "/uploads/1761284267092-PBU1305-7.webp",
+        "/uploads/1761284269809-PBU1305-7a.webp"
       ]
+    }
+  },
+  {
+    "id": 1761287820536,
+    "name": "Katha Stich",
+    "attributes": {
+      "mainImage": "/uploads/1761287815249-0146a3b4c4d686615d1c2dbe34f42d9e.webp",
+      "category": "1",
+      "subcategory": "",
+      "Color": "Pink"
     }
   }
 ]

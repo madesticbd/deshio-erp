@@ -3,16 +3,20 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useCart } from '../CartContext';
+import { useAuth } from '../AuthContext';
 import Navigation from '@/components/ecommerce/Navigation';
-import { ShoppingBag, MapPin, CreditCard, Check, X, Minus, Plus } from 'lucide-react';
+import { ShoppingBag, MapPin, CreditCard, Check, Minus, Plus, Trash2, User, X } from 'lucide-react';
 
 export default function CheckoutPage() {
   const router = useRouter();
-  const { cartItems, getCartTotal, clearCart, updateQuantity, removeFromCart } = useCart();
+  const { cartItems, updateQuantity, removeFromCart } = useCart();
+  const { user, isAuthenticated, loading: authLoading } = useAuth();
+  
   const [isProcessing, setIsProcessing] = useState(false);
   const [currentStep, setCurrentStep] = useState(1);
   const [selectedItemIds, setSelectedItemIds] = useState<Set<string | number>>(new Set());
   const [checkoutItems, setCheckoutItems] = useState<any[]>([]);
+  const [showLoginPrompt, setShowLoginPrompt] = useState(true);
 
   // Form states
   const [customer, setCustomer] = useState({
@@ -33,11 +37,21 @@ export default function CheckoutPage() {
 
   const [divisions, setDivisions] = useState<any[]>([]);
   const [districts, setDistricts] = useState<any[]>([]);
-  const [upazillas, setUpazillas] = useState<any[]>([]);
-
   const [paymentMethod, setPaymentMethod] = useState('cash_on_delivery');
 
-  // Get selected items from localStorage on mount
+  // Pre-fill customer information if logged in
+  useEffect(() => {
+    if (isAuthenticated && user) {
+      setCustomer(prev => ({
+        name: user.username || prev.name,
+        email: user.email || prev.email,
+        phone: prev.phone,
+      }));
+      setShowLoginPrompt(false);
+    }
+  }, [isAuthenticated, user]);
+
+  // Get selected items from localStorage
   useEffect(() => {
     try {
       const savedSelectedIds = localStorage.getItem('checkout-selected-items');
@@ -45,11 +59,9 @@ export default function CheckoutPage() {
         const parsedIds = JSON.parse(savedSelectedIds);
         setSelectedItemIds(new Set(parsedIds));
         
-        // Filter cart items to only show selected ones
-        const selectedItems = cartItems.filter(item => parsedIds.includes(item.id));
+        const selectedItems = cartItems.filter((item: any) => parsedIds.includes(item.id));
         setCheckoutItems(selectedItems);
       } else {
-        // If no selection saved, redirect back to cart
         router.push('/e-commerce/cart');
       }
     } catch (error) {
@@ -58,55 +70,7 @@ export default function CheckoutPage() {
     }
   }, []);
 
-  // Remove item from checkout (not from cart)
-  const removeFromCheckout = (itemId: string | number) => {
-    const newCheckoutItems = checkoutItems.filter(item => item.id !== itemId);
-    setCheckoutItems(newCheckoutItems);
-    
-    const newSelectedIds = new Set(selectedItemIds);
-    newSelectedIds.delete(itemId);
-    setSelectedItemIds(newSelectedIds);
-    
-    // Update localStorage
-    localStorage.setItem('checkout-selected-items', JSON.stringify(Array.from(newSelectedIds)));
-    
-    // If no items left, go back to cart
-    if (newCheckoutItems.length === 0) {
-      router.push('/e-commerce/cart');
-    }
-  };
-
-  // Update quantity in checkout
-  const updateCheckoutQuantity = (itemId: string | number, newQuantity: number) => {
-    if (newQuantity <= 0) {
-      removeFromCheckout(itemId);
-      return;
-    }
-    
-    setCheckoutItems(prevItems =>
-      prevItems.map(item =>
-        item.id === itemId ? { ...item, quantity: newQuantity } : item
-      )
-    );
-    
-    // Also update in cart
-    updateQuantity(itemId, newQuantity);
-  };
-
-  const getCheckoutTotal = () => {
-    return checkoutItems.reduce((total, item) => {
-      const price = parseFloat(item.price || 0);
-      return total + (price * item.quantity);
-    }, 0);
-  };
-
-  const subtotal = getCheckoutTotal();
-  const shippingCost = subtotal >= 5000 ? 0 : 60;
-  const vatRate = 0; // 0% VAT
-  const vat = (subtotal * vatRate) / 100;
-  const total = subtotal + shippingCost + vat;
-
-  // Fetch divisions on mount
+  // Fetch divisions
   useEffect(() => {
     const fetchDivisions = async () => {
       try {
@@ -132,7 +96,6 @@ export default function CheckoutPage() {
         const res = await fetch(`https://bdapi.vercel.app/api/v.1/district/${selectedDivision.id}`);
         const data = await res.json();
         setDistricts(data.data);
-        setUpazillas([]);
         setDeliveryAddress(prev => ({ ...prev, district: '', city: '' }));
       } catch (err) {
         console.error('Error fetching districts:', err);
@@ -142,35 +105,61 @@ export default function CheckoutPage() {
     fetchDistricts();
   }, [deliveryAddress.division, divisions]);
 
-  // Fetch upazillas when district changes
-  useEffect(() => {
-    if (!deliveryAddress.district) return;
+  const removeFromCheckout = (itemId: string | number) => {
+    const newCheckoutItems = checkoutItems.filter(item => item.id !== itemId);
+    setCheckoutItems(newCheckoutItems);
+    
+    const newSelectedIds = new Set(selectedItemIds);
+    newSelectedIds.delete(itemId);
+    setSelectedItemIds(newSelectedIds);
+    
+    localStorage.setItem('checkout-selected-items', JSON.stringify(Array.from(newSelectedIds)));
+    
+    if (newCheckoutItems.length === 0) {
+      router.push('/e-commerce/cart');
+    }
+  };
 
-    const selectedDistrict = districts.find((d) => d.name === deliveryAddress.district);
-    if (!selectedDistrict) return;
+  const updateCheckoutQuantity = (itemId: string | number, newQuantity: number) => {
+    if (newQuantity <= 0) {
+      removeFromCheckout(itemId);
+      return;
+    }
+    
+    setCheckoutItems(prevItems =>
+      prevItems.map(item =>
+        item.id === itemId ? { ...item, quantity: newQuantity } : item
+      )
+    );
+    
+    updateQuantity(itemId, newQuantity);
+  };
 
-    const fetchUpazillas = async () => {
-      try {
-        const res = await fetch(`https://bdapi.vercel.app/api/v.1/upazilla/${selectedDistrict.id}`);
-        const data = await res.json();
-        setUpazillas(data.data);
-        setDeliveryAddress(prev => ({ ...prev, city: '' }));
-      } catch (err) {
-        console.error('Error fetching upazillas:', err);
-      }
-    };
+  const getCheckoutTotal = () => {
+    return checkoutItems.reduce((total, item) => {
+      const price = parseFloat(item.price || 0);
+      return total + (price * item.quantity);
+    }, 0);
+  };
 
-    fetchUpazillas();
-  }, [deliveryAddress.district, districts]);
+  const subtotal = getCheckoutTotal();
+  const shippingCost = subtotal >= 5000 ? 0 : 60;
+  const vatRate = 0;
+  const vat = (subtotal * vatRate) / 100;
+  const total = subtotal + shippingCost + vat;
+
+  const handleLoginRedirect = () => {
+    localStorage.setItem('redirect-after-login', '/e-commerce/checkout');
+    router.push('/e-commerce/login');
+  };
 
   const handleSubmitOrder = async () => {
-    // Validation
     if (!customer.name || !customer.phone) {
       alert('Please fill in all required customer information');
       return;
     }
 
-    if (!deliveryAddress.division || !deliveryAddress.district || !deliveryAddress.city || !deliveryAddress.zone || !deliveryAddress.address) {
+    if (!deliveryAddress.division || !deliveryAddress.district || !deliveryAddress.city || !deliveryAddress.address) {
       alert('Please fill in all required delivery address fields');
       return;
     }
@@ -178,8 +167,8 @@ export default function CheckoutPage() {
     setIsProcessing(true);
 
     try {
-      // Prepare order data with checkout items
       const orderData = {
+        userId: isAuthenticated ? user?.id : null,
         salesBy: 'E-Commerce Order',
         date: new Date().toISOString().split('T')[0],
         customer: {
@@ -215,7 +204,6 @@ export default function CheckoutPage() {
         },
       };
 
-      // Submit order to API
       const response = await fetch('/api/social-orders', {
         method: 'POST',
         headers: {
@@ -227,13 +215,8 @@ export default function CheckoutPage() {
       const result = await response.json();
 
       if (response.ok && result.success) {
-        // Remove only checkout items from cart
         checkoutItems.forEach(item => removeFromCart(item.id));
-        
-        // Clear checkout selection
         localStorage.removeItem('checkout-selected-items');
-        
-        // Redirect to success page
         router.push(`/e-commerce/order-success?orderId=${result.order.id}`);
       } else {
         throw new Error(result.error || 'Failed to place order');
@@ -249,6 +232,7 @@ export default function CheckoutPage() {
   if (checkoutItems.length === 0) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <Navigation />
         <div className="text-center">
           <ShoppingBag size={64} className="mx-auto text-gray-400 mb-4" />
           <h2 className="text-2xl font-bold text-gray-900 mb-2">No items selected for checkout</h2>
@@ -265,11 +249,38 @@ export default function CheckoutPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 py-8">
-        <Navigation />
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen bg-gray-50">
+      <Navigation />
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Login Prompt Banner - Only show if not authenticated */}
+        {!isAuthenticated && showLoginPrompt && (
+          <div className="mb-6 bg-blue-600 text-white rounded-lg p-4 flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <User size={24} />
+              <div>
+                <p className="font-semibold">Returning customer?</p>
+                <p className="text-sm text-blue-100">Click here to login for faster checkout</p>
+              </div>
+            </div>
+            <div className="flex gap-2">
+              <button
+                onClick={handleLoginRedirect}
+                className="bg-white text-blue-600 px-6 py-2 rounded font-semibold hover:bg-blue-50 transition-colors"
+              >
+                Login
+              </button>
+              <button
+                onClick={() => setShowLoginPrompt(false)}
+                className="p-2 hover:bg-blue-700 rounded transition-colors"
+              >
+                <X size={20} />
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* Progress Steps */}
-        <div className="mb-8 mt-8">
+        <div className="mb-8">
           <div className="flex items-center justify-center">
             <div className="flex items-center">
               <div className={`flex items-center justify-center w-10 h-10 rounded-full ${currentStep >= 1 ? 'bg-red-700 text-white' : 'bg-gray-300 text-gray-600'}`}>
@@ -280,7 +291,7 @@ export default function CheckoutPage() {
             
             <div className={`w-24 h-1 mx-4 ${currentStep >= 2 ? 'bg-red-700' : 'bg-gray-300'}`} />
             
-            <div className="flex items-center" >
+            <div className="flex items-center">
               <div className={`flex items-center justify-center w-10 h-10 rounded-full ${currentStep >= 2 ? 'bg-red-700 text-white' : 'bg-gray-300 text-gray-600'}`}>
                 {currentStep > 2 ? <Check size={20} /> : '2'}
               </div>
@@ -299,9 +310,9 @@ export default function CheckoutPage() {
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Left Column - Forms */}
+          {/* Forms Section - Left Column */}
           <div className="lg:col-span-2 space-y-6">
-            {/* Customer Information */}
+            {/* Customer Information Step */}
             {currentStep === 1 && (
               <div className="bg-white rounded-lg shadow p-6">
                 <h2 className="text-xl font-bold text-gray-900 mb-6 flex items-center gap-2">
@@ -354,7 +365,8 @@ export default function CheckoutPage() {
 
                 <button
                   onClick={() => setCurrentStep(2)}
-                  className="w-full mt-6 bg-red-700 text-white py-3 rounded-lg font-semibold hover:bg-red-800 transition-colors"
+                  disabled={!customer.name || !customer.phone}
+                  className="w-full mt-6 bg-red-700 text-white py-3 rounded-lg font-semibold hover:bg-red-800 transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed"
                 >
                   Continue to Delivery
                 </button>
@@ -411,39 +423,19 @@ export default function CheckoutPage() {
 
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Upazilla <span className="text-red-600">*</span>
-                    </label>
-                    <select
-                      value={deliveryAddress.city}
-                      onChange={(e) => setDeliveryAddress({ ...deliveryAddress, city: e.target.value })}
-                      disabled={!deliveryAddress.district}
-                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-700 focus:border-transparent outline-none disabled:opacity-50 disabled:cursor-not-allowed"
-                      required
-                    >
-                      <option value="">Select Upazilla</option>
-                      {upazillas.map((u) => (
-                        <option key={u.id} value={u.name}>
-                          {u.name}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Zone <span className="text-red-600">*</span>
+                      City <span className="text-red-600">*</span>
                     </label>
                     <input
                       type="text"
-                      value={deliveryAddress.zone}
-                      onChange={(e) => setDeliveryAddress({ ...deliveryAddress, zone: e.target.value })}
+                      value={deliveryAddress.city}
+                      onChange={(e) => setDeliveryAddress({ ...deliveryAddress, city: e.target.value })}
                       className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-700 focus:border-transparent outline-none"
-                      placeholder="Enter zone"
+                      placeholder="Enter city"
                       required
                     />
                   </div>
 
-                  <div className="md:col-span-2">
+                  <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
                       Area (Optional)
                     </label>
@@ -491,7 +483,8 @@ export default function CheckoutPage() {
                   </button>
                   <button
                     onClick={() => setCurrentStep(3)}
-                    className="flex-1 bg-red-700 text-white py-3 rounded-lg font-semibold hover:bg-red-800 transition-colors"
+                    disabled={!deliveryAddress.division || !deliveryAddress.district || !deliveryAddress.city || !deliveryAddress.address}
+                    className="flex-1 bg-red-700 text-white py-3 rounded-lg font-semibold hover:bg-red-800 transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed"
                   >
                     Continue to Payment
                   </button>
@@ -549,7 +542,7 @@ export default function CheckoutPage() {
                   <button
                     onClick={handleSubmitOrder}
                     disabled={isProcessing}
-                    className="flex-1 bg-red-700 text-white py-3 rounded-lg font-semibold hover:bg-red-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
+                    className="flex-1 bg-red-700 text-white py-3 rounded-lg font-semibold hover:bg-red-800 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
                   >
                     {isProcessing ? 'Processing...' : 'Place Order'}
                   </button>
@@ -558,7 +551,7 @@ export default function CheckoutPage() {
             )}
           </div>
 
-          {/* Right Column - Order Summary */}
+          {/* Order Summary - Right Column */}
           <div className="lg:col-span-1">
             <div className="bg-white rounded-lg shadow p-6 sticky top-4">
               <div className="flex items-center justify-between mb-4">
@@ -571,12 +564,13 @@ export default function CheckoutPage() {
                   <div key={item.id} className="relative border border-gray-200 rounded-lg p-3">
                     <button
                       onClick={() => removeFromCheckout(item.id)}
-                      className="absolute -top-2 -right-2 p-1 bg-red-500 text-white rounded-full shadow-md hover:bg-red-600 transition-colors"
+                      className="absolute top-2 right-2 p-1 text-gray-400 hover:text-red-600 transition-colors"
+                      title="Remove item"
                     >
-                      <X size={14} />
+                      <Trash2 size={16} />
                     </button>
                     
-                    <div className="flex gap-3 mb-3">
+                    <div className="flex gap-3 mb-3 pr-6">
                       <img src={item.image} alt={item.name} className="w-16 h-16 object-cover rounded" />
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-medium text-gray-900 line-clamp-2">{item.name}</p>
