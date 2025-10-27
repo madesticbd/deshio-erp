@@ -1,9 +1,53 @@
 [
   {
-    "id": "sale-1761227755717",
+    "id": "sale-1761574492851",
     "salesBy": "System Administrator",
     "outletId": "1761224712010",
-    "date": "2025-10-23",
+    "date": "2025-10-27",
+    "customer": {
+      "name": "Mriittka",
+      "mobile": "01818316964",
+      "address": "International Affairs Division ,Paramanu Bhaban ,Bangladesh Atomic Energy Commission,"
+    },
+    "items": [
+      {
+        "id": 1761574476445,
+        "productId": 1761226524323,
+        "productName": "Pearl necklace - Variation 1",
+        "size": "",
+        "qty": 1,
+        "price": 500,
+        "discount": 50,
+        "amount": 450,
+        "isDefective": false,
+        "defectId": null,
+        "barcode": null
+      }
+    ],
+    "amounts": {
+      "subtotal": 450,
+      "totalDiscount": 50,
+      "vat": 22.5,
+      "vatRate": 5,
+      "transportCost": 0,
+      "total": 472.5
+    },
+    "payments": {
+      "cash": 400,
+      "card": 0,
+      "bkash": 0,
+      "nagad": 0,
+      "transactionFee": 0,
+      "totalPaid": 400,
+      "due": 72.5
+    },
+    "createdAt": "2025-10-27T14:14:52.851Z"
+  },
+  {
+    "id": "sale-1761574614806",
+    "salesBy": "System Administrator",
+    "outletId": "1761224712010",
+    "date": "2025-10-27",
     "customer": {
       "name": "Rumy Parvez",
       "mobile": "01818316964",
@@ -11,124 +55,9 @@
     },
     "items": [
       {
-        "id": 1761398454294.8103,
-        "productId": 1761226524325,
-        "productName": "Pearl necklace - Variation 2",
-        "size": "1",
-        "qty": 1,
-        "price": 500,
-        "discount": 0,
-        "amount": 500,
-        "barcodes": [
-          "BATCH1761226610600-03"
-        ]
-      }
-    ],
-    "amounts": {
-      "subtotal": 500,
-      "totalDiscount": 0,
-      "vat": 25,
-      "vatRate": 5,
-      "transportCost": 0,
-      "total": 525
-    },
-    "payments": {
-      "cash": 3000,
-      "card": 0,
-      "bkash": 0,
-      "nagad": 0,
-      "transactionFee": 0,
-      "totalPaid": 3000,
-      "due": -2475
-    },
-    "createdAt": "2025-10-23T13:55:55.717Z",
-    "exchangeHistory": [
-      {
-        "date": "2025-10-25T13:20:54.295Z",
-        "removedProducts": [
-          {
-            "productId": 1761227731325,
-            "quantity": 1
-          }
-        ],
-        "replacementProducts": [
-          {
-            "id": 1761226524325,
-            "batchId": 1761226610600,
-            "name": "Pearl necklace - Variation 2",
-            "price": 500,
-            "quantity": 1,
-            "amount": 500,
-            "size": "1"
-          }
-        ],
-        "originalTotal": 3150,
-        "newTotal": 525,
-        "difference": -2625,
-        "note": "Refund to customer"
-      }
-    ],
-    "updatedAt": "2025-10-25T13:20:54.295Z"
-  },
-  {
-    "id": "sale-1761402839889",
-    "salesBy": "System Administrator",
-    "outletId": "1761224712010",
-    "date": "2025-10-25",
-    "customer": {
-      "name": "Nafisa ",
-      "mobile": "01818316964",
-      "address": "International Affairs Division ,Paramanu Bhaban ,Bangladesh Atomic Energy Commission,"
-    },
-    "items": [
-      {
-        "id": 1761402831092,
-        "productId": 1761225380902,
-        "productName": "Jamdani - Variation 3",
-        "size": "",
-        "qty": 1,
-        "price": 3000,
-        "discount": 0,
-        "amount": 3000,
-        "isDefective": false,
-        "defectId": null,
-        "barcode": null
-      }
-    ],
-    "amounts": {
-      "subtotal": 3000,
-      "totalDiscount": 0,
-      "vat": 150,
-      "vatRate": 5,
-      "transportCost": 0,
-      "total": 3150
-    },
-    "payments": {
-      "cash": 3150,
-      "card": 0,
-      "bkash": 0,
-      "nagad": 0,
-      "transactionFee": 0,
-      "totalPaid": 3150,
-      "due": 0
-    },
-    "createdAt": "2025-10-25T14:33:59.889Z"
-  },
-  {
-    "id": "sale-1761404166550",
-    "salesBy": "System Administrator",
-    "outletId": "1761224712010",
-    "date": "2025-10-25",
-    "customer": {
-      "name": "Oishee",
-      "mobile": "01818316964",
-      "address": "International Affairs Division ,Paramanu Bhaban ,Bangladesh Atomic Energy Commission,"
-    },
-    "items": [
-      {
-        "id": 1761404157822,
-        "productId": 1761226524325,
-        "productName": "Pearl necklace - Variation 2",
+        "id": 1761574607726,
+        "productId": 1761226524323,
+        "productName": "Pearl necklace - Variation 1",
         "size": "",
         "qty": 1,
         "price": 500,
@@ -148,14 +77,14 @@
       "total": 525
     },
     "payments": {
-      "cash": 525,
+      "cash": 200,
       "card": 0,
       "bkash": 0,
       "nagad": 0,
       "transactionFee": 0,
-      "totalPaid": 525,
-      "due": 0
+      "totalPaid": 200,
+      "due": 325
     },
-    "createdAt": "2025-10-25T14:56:06.550Z"
+    "createdAt": "2025-10-27T14:16:54.806Z"
   }
 ]

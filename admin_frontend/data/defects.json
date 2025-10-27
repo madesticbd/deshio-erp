@@ -1,1 +1,19 @@
-[]
+[
+  {
+    "id": "defect-1761571067048",
+    "barcode": "BATCH1761570329495-03",
+    "productId": 1761225380899,
+    "productName": "Jamdani - Variation 1",
+    "status": "pending",
+    "store": "1761224712010",
+    "addedBy": "Admin",
+    "addedAt": "2025-10-27T13:17:47.048Z",
+    "originalOrderId": "1761570971955",
+    "customerPhone": "01818316964",
+    "costPrice": 700,
+    "originalSellingPrice": 900,
+    "sellingPrice": null,
+    "returnReason": "sfd",
+    "image": "/uploads/defect-1761571067041.png"
+  }
+]
