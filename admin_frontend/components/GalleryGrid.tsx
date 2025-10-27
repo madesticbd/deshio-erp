@@ -170,7 +170,7 @@ export default function GalleryGrid({ loading, error, products, onImageClick }: 
                 </h3>
                 <div className="flex items-center justify-between text-sm">
                   <span className="text-gray-900 dark:text-white font-medium">
-                    ${product.sellingPrice}
+                    ৳{product.sellingPrice}
                   </span>
                   <span className="text-gray-600 dark:text-gray-400 text-xs">
                     Stock: {product.stockCount}

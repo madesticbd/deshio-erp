@@ -1,168 +1,55 @@
 [
   {
-    "id": 1761570479184,
+    "id": 1761581624068,
     "salesBy": "System Administrator",
     "date": "06-Oct-2025",
     "customer": {
-      "name": "Oishee",
-      "email": "tasneem.nishat.4953@gmail.com",
-      "phone": "01818316964",
-      "socialId": "dsfs"
-    },
-    "deliveryAddress": {
-      "division": "Dhaka",
-      "district": "Munshiganj",
-      "city": "Sreenagar",
-      "zone": "122",
-      "area": "",
-      "address": "International Affairs Division ,Paramanu Bhaban ,Bangladesh Atomic Energy Commission,",
-      "postalCode": "1212"
-    },
-    "products": [],
-    "subtotal": 0,
-    "amounts": {
-      "subtotal": 0,
-      "totalDiscount": 0,
-      "vat": 0,
-      "vatRate": 5,
-      "transportCost": 0,
-      "total": 0
-    },
-    "payments": {
-      "sslCommerz": 800,
-      "advance": 0,
-      "transactionId": "",
-      "totalPaid": 800,
-      "due": 0
-    },
-    "createdAt": "2025-10-27T13:07:59.192Z",
-    "returnHistory": [
-      {
-        "date": "2025-10-27",
-        "time": "19:13",
-        "timestamp": "2025-10-27T13:13:25.329Z",
-        "returnedProducts": [
-          {
-            "productId": 1761570458623,
-            "productName": "Jamdani - Variation 1",
-            "quantity": 1,
-            "price": 900,
-            "amount": 900
-          }
-        ],
-        "originalTotal": 945,
-        "newTotal": 0,
-        "refundAmount": 945,
-        "refundToCustomer": 800,
-        "note": "Refund ৳800 to customer"
-      }
-    ],
-    "updatedAt": "2025-10-27T13:13:25.329Z"
-  },
-  {
-    "id": 1761570971955,
-    "salesBy": "System Administrator",
-    "date": "06-Oct-2025",
-    "customer": {
-      "name": "Adrita",
-      "email": "tasneem.nishat.4953@gmail.com",
-      "phone": "01818316964",
-      "socialId": "xvc"
+      "name": "Preownti",
+      "email": "preownti@gmail.com",
+      "phone": "01745191988",
+      "socialId": "Nishat Preownti"
     },
     "deliveryAddress": {
       "division": "Rajshahi",
-      "district": "Bogura",
-      "city": "Dhunot",
-      "zone": "sd",
+      "district": "Rajshahi",
+      "city": "Mohonpur",
+      "zone": "Mohonpur",
       "area": "",
-      "address": "International Affairs Division ,Paramanu Bhaban ,Bangladesh Atomic Energy Commission,",
-      "postalCode": "1212"
+      "address": "",
+      "postalCode": ""
     },
     "products": [
       {
-        "id": 1761570958053,
-        "productId": 1761225380899,
-        "batchId": 1761570329495,
-        "productName": "Jamdani - Variation 1",
+        "id": 1761581619306,
+        "productId": 1761581478031,
+        "batchId": 1761581506527,
+        "productName": "Katha Stich",
         "size": "1",
         "qty": 1,
-        "price": 900,
+        "price": 1300,
         "discount": 0,
-        "amount": 900,
+        "amount": 1300,
         "barcodes": [
-          "BATCH1761570329495-03"
+          "BATCH1761581506527-01"
         ]
       }
     ],
-    "subtotal": 900,
+    "subtotal": 1300,
     "amounts": {
-      "subtotal": 900,
+      "subtotal": 1300,
       "totalDiscount": 0,
-      "vat": 45,
+      "vat": 65,
       "vatRate": 5,
       "transportCost": 0,
-      "total": 945
+      "total": 1365
     },
     "payments": {
-      "sslCommerz": 700,
+      "sslCommerz": 0,
       "advance": 0,
       "transactionId": "",
-      "totalPaid": 700,
-      "due": 245
+      "totalPaid": 0,
+      "due": 1365
     },
-    "createdAt": "2025-10-27T13:16:11.959Z"
-  },
-  {
-    "id": 1761574204803,
-    "salesBy": "System Administrator",
-    "date": "06-Oct-2025",
-    "customer": {
-      "name": "Sneha",
-      "email": "tasneem.nishat.4953@gmail.com",
-      "phone": "01818316964",
-      "socialId": "asd"
-    },
-    "deliveryAddress": {
-      "division": "Rajshahi",
-      "district": "Bogura",
-      "city": "Dhunot",
-      "zone": "ds",
-      "area": "",
-      "address": "International Affairs Division ,Paramanu Bhaban ,Bangladesh Atomic Energy Commission,",
-      "postalCode": "1212"
-    },
-    "products": [
-      {
-        "id": 1761574195917,
-        "productId": 1761225380899,
-        "batchId": 1761570329495,
-        "productName": "Jamdani - Variation 1",
-        "size": "1",
-        "qty": 1,
-        "price": 900,
-        "discount": 0,
-        "amount": 900,
-        "barcodes": [
-          "BATCH1761570329495-04"
-        ]
-      }
-    ],
-    "subtotal": 900,
-    "amounts": {
-      "subtotal": 900,
-      "totalDiscount": 0,
-      "vat": 45,
-      "vatRate": 5,
-      "transportCost": 0,
-      "total": 945
-    },
-    "payments": {
-      "sslCommerz": 200,
-      "advance": 0,
-      "transactionId": "",
-      "totalPaid": 200,
-      "due": 745
-    },
-    "createdAt": "2025-10-27T14:10:04.810Z"
+    "createdAt": "2025-10-27T16:13:44.073Z"
   }
 ]

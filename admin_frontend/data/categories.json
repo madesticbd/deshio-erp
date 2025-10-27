@@ -1,36 +1,10 @@
 [
   {
     "title": "Sharee",
-    "description": "",
+    "description": "Sharee",
     "slug": "sharee",
-    "image": "/uploads/1761224782509-Sharee Catagory.webp",
-    "subcategories": [
-      {
-        "title": "Jamdani",
-        "description": "",
-        "slug": "jamdani",
-        "image": "/uploads/1761224875535-jamdani product.webp",
-        "subcategories": [],
-        "id": "3"
-      }
-    ],
+    "image": "/uploads/1761575064106-0146a3b4c4d686615d1c2dbe34f42d9e.webp",
+    "subcategories": [],
     "id": "1"
-  },
-  {
-    "title": "Jewellery",
-    "description": "",
-    "slug": "jewellery",
-    "image": "/uploads/1761224805671-jwel.jpg",
-    "subcategories": [
-      {
-        "title": "necklace",
-        "description": "",
-        "slug": "necklace",
-        "image": "/uploads/1761224997348-necklace.jpg",
-        "subcategories": [],
-        "id": "4"
-      }
-    ],
-    "id": "2"
   }
 ]

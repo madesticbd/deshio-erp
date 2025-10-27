@@ -324,6 +324,6 @@ export default function AmountDetailsPage() {
           </main>
         </div>
       </div>
-    </div>
-  );
+    </div>
+  );
 }
