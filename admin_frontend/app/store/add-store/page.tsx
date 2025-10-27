@@ -20,7 +20,8 @@ export default function AddStorePage() {
     storeName: '',
     address: '',
     pathaoKey: '',
-    type: 'store'
+    type: 'store',
+     isOnline: false,
   });
 
   // Load store data when editing
@@ -37,6 +38,7 @@ export default function AddStorePage() {
               address: store.location,
               pathaoKey: store.pathao_key,
               type: store.type?.toLowerCase() || 'store',
+              isOnline: store.isOnline || false,
             });
           }
         });
@@ -165,6 +167,35 @@ export default function AddStorePage() {
                       )}
                     </div>
                   </div>
+                  {/* Online Status */}
+<div>
+  <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1.5">
+    Online Status
+  </label>
+  <div className="flex items-center gap-4">
+    <label className="flex items-center gap-2 text-sm text-gray-900 dark:text-white">
+      <input
+        type="radio"
+        name="isOnline"
+        checked={formData.isOnline === true}
+        onChange={() => setFormData(prev => ({ ...prev, isOnline: true }))}
+        className="text-gray-900 focus:ring-gray-900 dark:focus:ring-gray-500"
+      />
+      Online
+    </label>
+    <label className="flex items-center gap-2 text-sm text-gray-900 dark:text-white">
+      <input
+        type="radio"
+        name="isOnline"
+        checked={formData.isOnline === false}
+        onChange={() => setFormData(prev => ({ ...prev, isOnline: false }))}
+        className="text-gray-900 focus:ring-gray-900 dark:focus:ring-gray-500"
+      />
+      Offline
+    </label>
+  </div>
+</div>
+
 
                   {/* Form Actions */}
                   <div className="flex items-center gap-3 pt-3 border-t border-gray-200 dark:border-gray-700">

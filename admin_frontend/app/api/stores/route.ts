@@ -31,6 +31,7 @@ const normalizeStoreData = (store: any) => {
     revenueChange: store.revenueChange || 1500, 
     products: store.products || 70, 
     orders: store.orders || 20, 
+    isOnline: store.isOnline ?? false,
   };
 };
 
@@ -92,6 +93,7 @@ export async function PUT(request: Request) {
         revenueChange: updatedStore.revenueChange ?? stores[index].revenueChange,
         products: updatedStore.products ?? stores[index].products,
         orders: updatedStore.orders ?? stores[index].orders,
+        isOnline: updatedStore.isOnline ?? stores[index].isOnline,
       };
 
       writeStoresToFile(stores);
