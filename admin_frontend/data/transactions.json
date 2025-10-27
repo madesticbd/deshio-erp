@@ -1,0 +1,52 @@
+{
+  "categories": [
+    {
+      "id": "cat-1761404214342",
+      "name": "Rent",
+      "type": "expense",
+      "createdAt": "2025-10-25T14:56:54.342Z"
+    }
+  ],
+  "transactions": [
+    {
+      "id": "txn-sale-sale-1761404166550",
+      "name": "Sale: Pearl necklace - Variation 2",
+      "description": "POS Sale to Oishee",
+      "type": "income",
+      "amount": 525,
+      "category": "POS Sales",
+      "date": "2025-10-25T14:56:06.550Z",
+      "comment": "Items: 1, Cash: ৳525, Card: ৳0, Bkash: ৳0, Nagad: ৳0, Due: ৳0",
+      "createdAt": "2025-10-25T14:56:06.556Z",
+      "source": "sale",
+      "referenceId": "sale-1761404166550"
+    },
+    {
+      "id": "txn-1761404275839",
+      "name": "Office Rent",
+      "description": "Monthly rents",
+      "type": "expense",
+      "amount": 1000,
+      "category": "Rent",
+      "date": "2025-10-25",
+      "comment": "",
+      "receiptImage": "/uploads/receipts/receipt-1761404275835.png",
+      "createdAt": "2025-10-25T14:57:55.839Z",
+      "source": "manual",
+      "referenceId": ""
+    },
+    {
+      "id": "txn-order-1761404718503",
+      "name": "Order: Jamdani - Variation 3",
+      "description": "Social Order from Customer",
+      "type": "income",
+      "amount": 3150,
+      "category": "Online Orders",
+      "date": "2025-10-25T15:05:18.510Z",
+      "comment": "Platform: Social Media, Products: 1, Cash: ৳0, Bkash: ৳0, Due: ৳150",
+      "createdAt": "2025-10-25T15:05:18.514Z",
+      "source": "order",
+      "referenceId": "1761404718503"
+    }
+  ]
+}

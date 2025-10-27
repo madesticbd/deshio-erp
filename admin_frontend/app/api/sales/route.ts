@@ -1,12 +1,15 @@
+// app/api/sales/route.ts - FIXED VERSION
+// This version properly creates transaction entries
 import { NextResponse } from 'next/server';
 import fs from 'fs';
 import path from 'path';
+import { triggerAccountingUpdate } from '@/lib/accounting-helper';
+import { createSaleTransaction, removeTransaction } from '@/lib/transaction-helper';
 
-// File path for the sales.json file
 const salesFilePath = path.resolve('data', 'sales.json');
 const defectsFilePath = path.resolve('data', 'defects.json');
 
-// Helper function to read sales from the JSON file
+// Helper: Read sales
 const readSalesFromFile = () => {
   if (fs.existsSync(salesFilePath)) {
     const fileData = fs.readFileSync(salesFilePath, 'utf8');
@@ -15,9 +18,8 @@ const readSalesFromFile = () => {
   return [];
 };
 
-// Helper function to write sales to the JSON file
+// Helper: Write sales
 const writeSalesToFile = (sales: any[]) => {
-  // Ensure data directory exists
   const dataDir = path.resolve('data');
   if (!fs.existsSync(dataDir)) {
     fs.mkdirSync(dataDir, { recursive: true });
@@ -25,7 +27,7 @@ const writeSalesToFile = (sales: any[]) => {
   fs.writeFileSync(salesFilePath, JSON.stringify(sales, null, 2), 'utf8');
 };
 
-// Helper function to read defects
+// Helper: Read defects
 const readDefectsFromFile = () => {
   if (fs.existsSync(defectsFilePath)) {
     const fileData = fs.readFileSync(defectsFilePath, 'utf8');
@@ -34,7 +36,7 @@ const readDefectsFromFile = () => {
   return [];
 };
 
-// Helper function to write defects
+// Helper: Write defects
 const writeDefectsToFile = (defects: any[]) => {
   const dataDir = path.resolve('data');
   if (!fs.existsSync(dataDir)) {
@@ -43,7 +45,7 @@ const writeDefectsToFile = (defects: any[]) => {
   fs.writeFileSync(defectsFilePath, JSON.stringify(defects, null, 2), 'utf8');
 };
 
-// Helper function to update defect status
+// Helper: Update defect status
 const updateDefectStatus = (defectId: string, sellingPrice: number) => {
   try {
     const defects = readDefectsFromFile();
@@ -59,14 +61,14 @@ const updateDefectStatus = (defectId: string, sellingPrice: number) => {
       };
       
       writeDefectsToFile(defects);
-      console.log(`✅ Updated defect ${defectId} to sold with price ${sellingPrice}`);
+      console.log(` Updated defect ${defectId} to sold with price ${sellingPrice}`);
     }
   } catch (error) {
     console.error('Error updating defect status:', error);
   }
 };
 
-// Handle GET request to retrieve all sales
+// GET - Retrieve all sales
 export async function GET() {
   try {
     const sales = readSalesFromFile();
@@ -77,7 +79,7 @@ export async function GET() {
   }
 }
 
-// Handle POST request to add new sale
+// POST - Add new sale
 export async function POST(request: Request) {
   try {
     const newSale = await request.json();
@@ -90,33 +92,54 @@ export async function POST(request: Request) {
       createdAt: new Date().toISOString(),
     };
     
+    console.log(' Creating sale:', saleWithMetadata.id);
+    console.log(' Sale data:', JSON.stringify(saleWithMetadata, null, 2));
+    
     // Update defect status for any defective items
     if (newSale.items && Array.isArray(newSale.items)) {
       newSale.items.forEach((item: any) => {
         if (item.isDefective && item.defectId) {
-          console.log(`🔄 Processing defective item: ${item.defectId} with price ${item.price}`);
+          console.log(`Processing defective item: ${item.defectId} with price ${item.price}`);
           updateDefectStatus(item.defectId, item.price);
         }
       });
     }
     
+    // Save sale
     sales.push(saleWithMetadata);
     writeSalesToFile(sales);
+    console.log(` Sale saved to file: ${saleWithMetadata.id}`);
     
-    console.log(`✅ Sale created: ${saleWithMetadata.id}`);
+    // Create transaction entry
+    try {
+      console.log('Creating transaction entry...');
+      createSaleTransaction(saleWithMetadata);
+      console.log('Transaction entry created successfully');
+    } catch (txError) {
+      console.error(' Error creating transaction entry:', txError);
+    }
+    
+    // Trigger accounting update
+    try {
+      triggerAccountingUpdate();
+    } catch (accError) {
+      console.error(' Error triggering accounting update:', accError);
+    }
     
     return NextResponse.json(saleWithMetadata, { status: 201 });
   } catch (error) {
-    console.error('Error adding sale:', error);
+    console.error(' Error adding sale:', error);
     return NextResponse.json({ error: 'Failed to add sale' }, { status: 500 });
   }
 }
 
-// Handle DELETE request to remove a sale
+// DELETE - Remove a sale
 export async function DELETE(request: Request) {
   try {
     const { id } = await request.json();
     let sales = readSalesFromFile();
+    
+    console.log('Deleting sale:', id);
     
     // Find the sale to check for defective items
     const saleToDelete = sales.find((s: any) => s.id === id);
@@ -145,8 +168,27 @@ export async function DELETE(request: Request) {
     
     sales = sales.filter((s: any) => s.id !== id);
     writeSalesToFile(sales);
+    console.log(` Sale removed from file: ${id}`);
+    
+    // Remove transaction entry
+    try {
+      console.log(' Removing transaction entry...');
+      removeTransaction('sale', id);
+      console.log('Transaction entry removed successfully');
+    } catch (txError) {
+      console.error(' Error removing transaction entry:', txError);
+    }
+    
+    // Trigger accounting update
+    try {
+      triggerAccountingUpdate();
+    } catch (accError) {
+      console.error('⚠️ Error triggering accounting update:', accError);
+    }
+    
     return NextResponse.json({ success: true });
   } catch (error) {
+    console.error(' Error deleting sale:', error);
     return NextResponse.json({ error: 'Failed to delete sale' }, { status: 500 });
   }
 }

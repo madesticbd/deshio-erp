@@ -1,8 +1,10 @@
+// app/api/orders/route.ts - FIXED VERSION
 import { NextResponse } from 'next/server';
 import fs from 'fs';
 import path from 'path';
+import { triggerAccountingUpdate } from '@/lib/accounting-helper';
+import { createOrderTransaction, removeTransaction } from '@/lib/transaction-helper';
 
-// ✅ Path to the JSON files
 const ordersFilePath = path.resolve('data', 'orders.json');
 const inventoryFilePath = path.resolve('data', 'inventory.json');
 const defectsFilePath = path.resolve('data', 'defects.json');
@@ -13,9 +15,8 @@ const readOrdersFromFile = () => {
     if (fs.existsSync(ordersFilePath)) {
       const fileData = fs.readFileSync(ordersFilePath, 'utf8');
       return JSON.parse(fileData);
-    } else {
-      return [];
     }
+    return [];
   } catch (error) {
     console.error('❌ Error reading orders file:', error);
     return [];
@@ -28,9 +29,8 @@ const readInventoryFromFile = () => {
     if (fs.existsSync(inventoryFilePath)) {
       const fileData = fs.readFileSync(inventoryFilePath, 'utf8');
       return JSON.parse(fileData);
-    } else {
-      return [];
     }
+    return [];
   } catch (error) {
     console.error('❌ Error reading inventory file:', error);
     return [];
@@ -43,9 +43,8 @@ const readDefectsFromFile = () => {
     if (fs.existsSync(defectsFilePath)) {
       const fileData = fs.readFileSync(defectsFilePath, 'utf8');
       return JSON.parse(fileData);
-    } else {
-      return [];
     }
+    return [];
   } catch (error) {
     console.error('❌ Error reading defects file:', error);
     return [];
@@ -160,7 +159,7 @@ export async function GET() {
   }
 }
 
-// POST — Save a new order with barcode allocation
+// POST — Save a new order with barcode allocation and transaction entry
 export async function POST(request: Request) {
   try {
     const newOrder = await request.json();
@@ -168,6 +167,9 @@ export async function POST(request: Request) {
 
     // Generate order ID
     const orderId = Date.now();
+
+    console.log('📝 Creating order:', orderId);
+    console.log('📊 Order data:', JSON.stringify(newOrder, null, 2));
 
     // Process each product and allocate barcodes
     const productsWithBarcodes = [];
@@ -224,8 +226,23 @@ export async function POST(request: Request) {
 
     existingOrders.push(orderWithMeta);
     writeOrdersToFile(existingOrders);
+    console.log(`✅ Order saved to file: ${orderId}`);
 
-    console.log(`✅ Order ${orderId} created with ${productsWithBarcodes.length} products`);
+    // ✅ CREATE ORDER TRANSACTION (Fixed - using createOrderTransaction)
+    try {
+      console.log('💰 Creating order transaction entry...');
+      createOrderTransaction(orderWithMeta);
+      console.log('✅ Order transaction entry created successfully');
+    } catch (txError) {
+      console.error('❌ Error creating order transaction entry:', txError);
+    }
+
+    // Trigger accounting update
+    try {
+      triggerAccountingUpdate();
+    } catch (accError) {
+      console.error('⚠️ Error triggering accounting update:', accError);
+    }
 
     return NextResponse.json({
       success: true,
@@ -243,6 +260,8 @@ export async function DELETE(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
     const id = searchParams.get('id');
+
+    console.log('🗑️ Deleting order:', id);
 
     if (!id) {
       return NextResponse.json({ error: 'Missing order ID' }, { status: 400 });
@@ -306,6 +325,23 @@ export async function DELETE(request: Request) {
     // Remove order
     const updatedOrders = orders.filter((order: any) => String(order.id) !== String(id));
     writeOrdersToFile(updatedOrders);
+    console.log(`✅ Order removed from file: ${id}`);
+
+    // ✅ REMOVE ORDER TRANSACTION (Fixed)
+    try {
+      console.log('💰 Removing order transaction entry...');
+      removeTransaction('order', id);
+      console.log('✅ Order transaction entry removed successfully');
+    } catch (txError) {
+      console.error('❌ Error removing order transaction entry:', txError);
+    }
+
+    // Trigger accounting update
+    try {
+      triggerAccountingUpdate();
+    } catch (accError) {
+      console.error('⚠️ Error triggering accounting update:', accError);
+    }
 
     return NextResponse.json({ 
       success: true, 
@@ -323,22 +359,22 @@ export async function PUT(request: Request) {
     const { searchParams } = new URL(request.url);
     const id = searchParams.get('id');
 
-    console.log('PUT request received for order ID:', id);
+    console.log('🔄 PUT request received for order ID:', id);
 
     if (!id) {
       return NextResponse.json({ error: 'Missing order ID' }, { status: 400 });
     }
 
     const updatedOrderData = await request.json();
-    console.log('Updated order data:', updatedOrderData);
+    console.log('📊 Updated order data:', updatedOrderData);
     
     const orders = readOrdersFromFile();
-    console.log('Current orders count:', orders.length);
+    console.log('📚 Current orders count:', orders.length);
     
     const orderIndex = orders.findIndex((order: any) => String(order.id) === String(id));
     
     if (orderIndex === -1) {
-      console.log('Order not found with ID:', id);
+      console.log('❌ Order not found with ID:', id);
       return NextResponse.json({ error: 'Order not found' }, { status: 404 });
     }
 
@@ -378,10 +414,27 @@ export async function PUT(request: Request) {
       updatedAt: new Date().toISOString(),
     };
 
-    console.log('Updated order with preserved barcodes:', orders[orderIndex]);
+    console.log('✅ Updated order with preserved barcodes');
 
     writeOrdersToFile(orders);
-    console.log('Order saved to file');
+    console.log('✅ Order saved to file');
+
+    // ✅ UPDATE ORDER TRANSACTION (Fixed)
+    try {
+      console.log('💰 Updating order transaction entry...');
+      removeTransaction('order', id);
+      createOrderTransaction(orders[orderIndex]);
+      console.log('✅ Order transaction entry updated successfully');
+    } catch (txError) {
+      console.error('❌ Error updating order transaction entry:', txError);
+    }
+
+    // Trigger accounting update
+    try {
+      triggerAccountingUpdate();
+    } catch (accError) {
+      console.error('⚠️ Error triggering accounting update:', accError);
+    }
 
     return NextResponse.json({
       success: true,

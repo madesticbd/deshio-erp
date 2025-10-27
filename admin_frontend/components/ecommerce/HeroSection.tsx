@@ -37,7 +37,7 @@ export default function HeroSection() {
           <div className="relative">
             <div className="aspect-[3/4] rounded-3xl overflow-hidden shadow-2xl ring-1 ring-gray-200/50">
               <img
-                src="/uploads/1761017877218-f20af5905f3fe7df81ff340d55473c5c.jpg"
+                src="/e-commerce-hero.jpg"
                 alt="Featured Collection"
                 className="w-full h-full object-cover hover:scale-105 transition-transform duration-500"
               />

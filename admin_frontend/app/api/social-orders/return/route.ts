@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 import fs from 'fs';
 import path from 'path';
+import { triggerAccountingUpdate } from '@/lib/accounting-helper';
+import { createOrderReturnTransaction } from '@/lib/transaction-helper';
 
 const ordersFilePath = path.resolve('data', 'orders.json');
 const inventoryFilePath = path.resolve('data', 'inventory.json');
@@ -176,6 +178,12 @@ export async function POST(request: Request) {
     // Step 5: Write updates to both orders and inventory files
     writeOrdersToFile(orders);
     writeInventoryToFile(inventory);
+      createOrderReturnTransaction(orderId, {
+      returnedProducts,
+      refundToCustomer: refundToCustomer,
+      timestamp: new Date().toISOString()
+    });
+    triggerAccountingUpdate();
 
     return NextResponse.json({
       success: true,

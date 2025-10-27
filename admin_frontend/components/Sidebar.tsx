@@ -55,8 +55,11 @@ export default function Sidebar({ isOpen, setIsOpen }: SidebarProps) {
     { icon: ShoppingCart, label: 'Social commerce', href: '/social-commerce', roles: ['super_admin', 'social_commerce_manager'] },
     { icon: Package, label: 'Orders', href: '/orders', roles: ['super_admin', 'social_commerce_manager'] },
     { icon: ClipboardList, label: 'Purchase History', href: '/purchase-history', roles: ['super_admin', 'store_manager'] },
-    { icon: CreditCard, label: 'Transaction', href: '/transaction', roles: ['super_admin'] },
-    { icon: AlertTriangle, label: 'Defect Panel', href: '/defects', roles: ['super_admin', 'store_manager']},
+    { icon: AlertTriangle, label: 'Defect panel', href: '/defects', roles: ['super_admin'] },
+     { icon: CreditCard, label: 'Transaction', href: '/transaction', roles: ['super_admin'] },
+    { icon: CreditCard, label: 'Accounting', href: '/accounting', roles: ['super_admin'] },
+   
+  
   ];
 
   // Filter menu items based on user role

@@ -1,180 +1,108 @@
 [
   {
-    "id": 1761336981057,
-    "salesBy": "E-Commerce Order",
-    "date": "2025-10-24",
+    "id": 1761228070622,
+    "salesBy": "System Administrator",
+    "date": "06-Oct-2025",
     "customer": {
-      "name": "Adrita Ahsan",
-      "email": "adrita06@gmail.com",
-      "phone": "01745191964"
+      "name": "Nishat Tasneem",
+      "email": "tasneem.nishat.4953@gmail.com",
+      "phone": "01818316964",
+      "socialId": ""
     },
     "deliveryAddress": {
-      "division": "Dhaka",
-      "district": "Dhaka",
-      "city": "",
-      "zone": "Dhaka",
-      "area": "Kallyanpur",
-      "address": "Flat no. B2",
-      "postalCode": "1207"
+      "division": "Rajshahi",
+      "district": "Bogura",
+      "city": "Dhunot",
+      "zone": "sds",
+      "area": "",
+      "address": "International Affairs Division ,Paramanu Bhaban ,Bangladesh Atomic Energy Commission,",
+      "postalCode": "1212"
     },
     "products": [
       {
-        "productId": 1761287820536,
-        "productName": "Katha Stich",
-        "size": "N/A",
+        "id": 1761228034396,
+        "productId": 1761226524325,
+        "batchId": 1761226610600,
+        "productName": "Pearl necklace - Variation 2",
+        "size": "1",
         "qty": 1,
-        "price": 5000,
+        "price": 500,
         "discount": 0,
-        "amount": 5000,
+        "amount": 500,
         "barcodes": [
-          "BATCH1761335605648-01"
-        ]
-      },
-      {
-        "productId": 1761284271565,
-        "productName": "Toshor Silk-Red",
-        "size": "N/A",
-        "qty": 1,
-        "price": 1300,
-        "discount": 0,
-        "amount": 1300,
-        "barcodes": [
-          "BATCH1761335622190-01"
+          "BATCH1761226610600-02"
         ]
       }
     ],
-    "subtotal": 6300,
+    "subtotal": 500,
     "amounts": {
-      "subtotal": 6300,
+      "subtotal": 500,
       "totalDiscount": 0,
-      "vat": 0,
-      "vatRate": 0,
+      "vat": 25,
+      "vatRate": 5,
       "transportCost": 0,
-      "total": 6300
+      "total": 525
     },
     "payments": {
-      "sslCommerz": 0,
+      "sslCommerz": 525,
       "advance": 0,
       "transactionId": "",
-      "totalPaid": 0,
-      "due": 6300
+      "totalPaid": 525,
+      "due": 0
     },
-    "createdAt": "2025-10-24T20:16:21.066Z"
+    "createdAt": "2025-10-23T14:01:10.625Z"
   },
   {
-    "id": 1761375257234,
-    "userId": "1761340110643",
-    "salesBy": "E-Commerce Order",
-    "date": "2025-10-25",
+    "id": 1761404718503,
+    "salesBy": "System Administrator",
+    "date": "06-Oct-2025",
     "customer": {
-      "name": "adrita_ahsan",
-      "email": "adritaahsan06@gmail.com",
-      "phone": "01745191964"
+      "name": "Sneha",
+      "email": "tasneem.nishat.4953@gmail.com",
+      "phone": "01818316964",
+      "socialId": ""
     },
     "deliveryAddress": {
-      "division": "Dhaka",
-      "district": "Dhaka",
-      "city": "Dhaka",
+      "division": "Rajshahi",
+      "district": "Rajshahi",
+      "city": "Godagari",
       "zone": "",
-      "area": "Kallyanpur",
-      "address": "House#18/3, Flat#B2, Mainroad, Kallyanpur, Dhaka",
-      "postalCode": "1207"
+      "area": "",
+      "address": "International Affairs Division ,Paramanu Bhaban ,Bangladesh Atomic Energy Commission,",
+      "postalCode": "1212"
     },
     "products": [
       {
-        "productId": 1761287820536,
-        "productName": "Katha Stich",
-        "size": "N/A",
+        "id": 1761404705665,
+        "productId": 1761225380902,
+        "batchId": 1761226587481,
+        "productName": "Jamdani - Variation 3",
+        "size": "1",
         "qty": 1,
-        "price": 5000,
+        "price": 3000,
         "discount": 0,
-        "amount": 5000,
+        "amount": 3000,
         "barcodes": [
-          "BATCH1761335605648-02"
+          "BATCH1761226587481-03"
         ]
       }
     ],
-    "subtotal": 5000,
+    "subtotal": 3000,
     "amounts": {
-      "subtotal": 5000,
+      "subtotal": 3000,
       "totalDiscount": 0,
-      "vat": 0,
-      "vatRate": 0,
+      "vat": 150,
+      "vatRate": 5,
       "transportCost": 0,
-      "total": 5000
+      "total": 3150
     },
     "payments": {
-      "sslCommerz": 0,
+      "sslCommerz": 3000,
       "advance": 0,
       "transactionId": "",
-      "totalPaid": 0,
-      "due": 5000
+      "totalPaid": 3000,
+      "due": 150
     },
-    "createdAt": "2025-10-25T06:54:17.239Z"
-  },
-  {
-    "id": 1761541893762,
-    "userId": null,
-    "salesBy": "E-Commerce Order",
-    "date": "2025-10-27",
-    "customer": {
-      "name": "Adrita Ahsan",
-      "email": "adritaahsan06@gmail.com",
-      "phone": "01745191964"
-    },
-    "deliveryAddress": {
-      "division": "Dhaka",
-      "district": "Dhaka",
-      "city": "Dhaka",
-      "zone": "",
-      "area": "Kallyanpur",
-      "address": "House#18/3",
-      "postalCode": "1207"
-    },
-    "products": [
-      {
-        "productId": 1761284271565,
-        "productName": "Toshor Silk-Red",
-        "size": "N/A",
-        "qty": 3,
-        "price": 1300,
-        "discount": 0,
-        "amount": 3900,
-        "barcodes": [
-          "BATCH1761335622190-02",
-          "BATCH1761335622190-03",
-          "BATCH1761335622190-04"
-        ]
-      },
-      {
-        "productId": 1761287820536,
-        "productName": "Katha Stich",
-        "size": "N/A",
-        "qty": 1,
-        "price": 5000,
-        "discount": 0,
-        "amount": 5000,
-        "barcodes": [
-          "BATCH1761335605648-03"
-        ]
-      }
-    ],
-    "subtotal": 8900,
-    "amounts": {
-      "subtotal": 8900,
-      "totalDiscount": 0,
-      "vat": 0,
-      "vatRate": 0,
-      "transportCost": 0,
-      "total": 8900
-    },
-    "payments": {
-      "sslCommerz": 0,
-      "advance": 0,
-      "transactionId": "",
-      "totalPaid": 0,
-      "due": 8900
-    },
-    "createdAt": "2025-10-27T05:11:33.765Z"
+    "createdAt": "2025-10-25T15:05:18.510Z"
   }
 ]
