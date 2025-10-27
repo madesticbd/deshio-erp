@@ -6,18 +6,22 @@ import { ShoppingCart, Heart, Share2, Minus, Plus, ChevronLeft, ChevronRight, Ch
 import { useCart } from '@/app/e-commerce/CartContext';
 import Navigation from '@/components/ecommerce/Navigation';
 import CartSidebar from '@/components/ecommerce/cart/CartSidebar';
+import { useAuth } from '@/app/e-commerce/AuthContext';
 
 interface Product {
   id: string | number;
   name: string;
   attributes: {
     mainImage?: string;
+    groupMainImage?: string;
+    variationImages?: string[];
     category?: string;
     subcategory?: string;
     subSubcategory?: string;
+    categoryPath?: string[];
     Price?: string;
-    Color?: string;
-    Size?: string;
+    color?: string;
+    size?: string;
     Description?: string;
     Usage?: string;
     Image?: string[];
@@ -52,10 +56,8 @@ export default function ProductDetailPage() {
   const router = useRouter();
   const productId = params?.id as string;
   
-  // 🔥 CART CONTEXT
   const { addToCart } = useCart();
   
-  // 🔥 CART SIDEBAR STATE
   const [cartSidebarOpen, setCartSidebarOpen] = useState(false);
   
   const [product, setProduct] = useState<Product | null>(null);
@@ -63,29 +65,43 @@ export default function ProductDetailPage() {
   const [selectedVariation, setSelectedVariation] = useState<ProductVariation | null>(null);
   const [loading, setLoading] = useState(true);
   const [quantity, setQuantity] = useState(1);
-  const [isAdding, setIsAdding] = useState(false); // 🔥 ADD TO CART LOADING
+  const [isAdding, setIsAdding] = useState(false);
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
   const [availableStock, setAvailableStock] = useState(0);
   const [categoryPath, setCategoryPath] = useState<string[]>([]);
   const [categoryName, setCategoryName] = useState<string>('');
+  const { user, isAuthenticated } = useAuth();
 
+  // Get base product name (remove color/size suffix)
   const getBaseName = (name: string): string => {
-    return name.replace(/\s*-\s*Variation\s+\d+$/i, '').trim();
+    const parts = name.split('-');
+    return parts.length > 1 ? parts[0].trim() : name;
   };
 
+  // Get all images (prioritize variationImages for variations)
   const getAllImages = (product: Product): string[] => {
     const images: string[] = [];
 
-    if (product.attributes.Image && Array.isArray(product.attributes.Image) && product.attributes.Image.length > 0) {
-      images.push(...product.attributes.Image);
-      if (product.attributes.mainImage) {
-        images.push(product.attributes.mainImage);
-      }
-    } else if (product.attributes.mainImage) {
+    // For variation products, prioritize variationImages
+    if (product.attributes.variationImages && Array.isArray(product.attributes.variationImages)) {
+      images.push(...product.attributes.variationImages);
+    }
+
+    // Add mainImage if not already included
+    if (product.attributes.mainImage && !images.includes(product.attributes.mainImage)) {
       images.push(product.attributes.mainImage);
     }
 
-    return images;
+    // Add other Image array if exists
+    if (product.attributes.Image && Array.isArray(product.attributes.Image)) {
+      product.attributes.Image.forEach(img => {
+        if (!images.includes(img)) {
+          images.push(img);
+        }
+      });
+    }
+
+    return images.length > 0 ? images : ['/placeholder-image.jpg'];
   };
 
   const findCategoryPath = (categories: Category[], targetId: string, path: string[] = []): string[] | null => {
@@ -102,7 +118,6 @@ export default function ProductDetailPage() {
     return null;
   };
 
-  // 🔥 ADD TO CART FUNCTION
   const handleAddToCart = async () => {
     if (!selectedVariation || availableStock === 0) return;
 
@@ -110,23 +125,20 @@ export default function ProductDetailPage() {
 
     const cartItem = {
       id: selectedVariation.id,
-      name: getBaseName(selectedVariation.name),
+      name: selectedVariation.name,
       image: selectedVariation.images[0] || '',
       price: selectedVariation.price,
       sku: selectedVariation.id.toString(),
       quantity: quantity,
-      // 🔥 EXTRA INFO FOR BETTER UX
-      color: selectedVariation.attributes.Color || '',
-      size: selectedVariation.attributes.Size || '',
+      color: selectedVariation.attributes.color || '',
+      size: selectedVariation.attributes.size || '',
     };
 
-    // ✅ FIXED: Pass quantity parameter
     addToCart(cartItem, quantity);
 
-    // 🔥 AUTO-OPEN CART AFTER ANIMATION
     setTimeout(() => {
       setIsAdding(false);
-      setCartSidebarOpen(true); // ← OPENS CART SIDEBAR!
+      setCartSidebarOpen(true);
     }, 1200);
   };
 
@@ -151,7 +163,22 @@ export default function ProductDetailPage() {
 
         setProduct(foundProduct);
 
-        if (foundProduct.attributes.category) {
+        // Handle category path
+        if (foundProduct.attributes.categoryPath && Array.isArray(foundProduct.attributes.categoryPath)) {
+          const pathNames: string[] = [];
+          let current: Category[] = categories;
+          
+          for (const id of foundProduct.attributes.categoryPath) {
+            const cat = current.find(c => c.id === id);
+            if (cat) {
+              pathNames.push(cat.title);
+              current = cat.subcategories || [];
+            }
+          }
+          
+          setCategoryPath(pathNames);
+          setCategoryName(pathNames[pathNames.length - 1] || '');
+        } else if (foundProduct.attributes.category) {
           const path = findCategoryPath(categories, foundProduct.attributes.category);
           if (path) {
             setCategoryPath(path);
@@ -159,12 +186,15 @@ export default function ProductDetailPage() {
           }
         }
 
-        const baseName = getBaseName(foundProduct.name);
-        const relatedProducts = allProducts.filter(p => 
-          getBaseName(p.name) === baseName
-        );
+        // Check if this is a variation product
+        const groupKey = foundProduct.attributes.groupMainImage;
+        
+        if (groupKey) {
+          // Find all products with the same groupMainImage
+          const relatedProducts = allProducts.filter(p => 
+            p.attributes.groupMainImage === groupKey
+          );
 
-        if (relatedProducts.length > 1) {
           const variationsWithInventory = relatedProducts.map(p => {
             const productInventory = inventory.filter(
               item => item.productId === p.id || item.productId === Number(p.id)
@@ -186,6 +216,17 @@ export default function ProductDetailPage() {
             };
           });
 
+          // Sort variations by color and size
+          variationsWithInventory.sort((a, b) => {
+            const aColor = a.attributes.color || '';
+            const bColor = b.attributes.color || '';
+            const aSize = a.attributes.size || '';
+            const bSize = b.attributes.size || '';
+            
+            if (aColor !== bColor) return aColor.localeCompare(bColor);
+            return aSize.localeCompare(bSize);
+          });
+
           setVariations(variationsWithInventory);
           
           const currentVariation = variationsWithInventory.find(v => v.id.toString() === productId);
@@ -197,6 +238,7 @@ export default function ProductDetailPage() {
             setAvailableStock(variationsWithInventory[0].available);
           }
         } else {
+          // Standalone product - no variations
           const productInventory = inventory.filter(
             item => item.productId === foundProduct.id || item.productId === Number(foundProduct.id)
           );
@@ -238,6 +280,8 @@ export default function ProductDetailPage() {
     setAvailableStock(variation.available);
     setSelectedImageIndex(0);
     setQuantity(1);
+    // Update URL to reflect selected variation
+    router.push(`/e-commerce/product/${variation.id}`);
   };
 
   const handleQuantityChange = (delta: number) => {
@@ -294,19 +338,20 @@ export default function ProductDetailPage() {
   }
 
   const baseName = getBaseName(product.name);
-  const currentImages = selectedVariation.images.length > 0 
-    ? selectedVariation.images 
-    : ['/placeholder-image.jpg'];
+  const currentImages = selectedVariation.images;
 
   const nonVariationAttributes = Object.entries(selectedVariation.attributes)
-    .filter(([key]) => !['mainImage', 'Image', 'category', 'subcategory', 'subSubcategory', 'Price', 'Color', 'Size'].includes(key))
+    .filter(([key]) => ![
+      'mainImage', 'groupMainImage', 'variationImages', 'Image', 
+      'category', 'subcategory', 'subSubcategory', 'categoryPath',
+      'Price', 'color', 'size'
+    ].includes(key))
     .filter(([, value]) => value && value !== '');
 
   return (
     <div className="min-h-screen bg-white relative">
       <Navigation />
       
-      {/* 🔥 RIGHT-SIDE CART SIDEBAR */}
       <CartSidebar 
         isOpen={cartSidebarOpen} 
         onClose={() => setCartSidebarOpen(false)} 
@@ -424,53 +469,18 @@ export default function ProductDetailPage() {
 
             {variations.length > 1 && (
               <div className="space-y-4">
-                {variations.some(v => v.attributes.Size) && (
-                  <div>
-                    <label className="block text-sm font-semibold text-gray-900 mb-3">
-                      Size:
-                      <span className="ml-2 font-normal text-gray-600">
-                        {selectedVariation.attributes.Size}
-                      </span>
-                    </label>
-                    <div className="flex gap-2">
-                      {Array.from(new Set(variations.map(v => v.attributes.Size).filter(Boolean))).map(size => {
-                        const variation = variations.find(v => v.attributes.Size === size);
-                        const isSelected = selectedVariation.attributes.Size === size;
-                        const isAvailable = variation && variation.available > 0;
-                        
-                        return (
-                          <button
-                            key={size}
-                            onClick={() => variation && handleVariationChange(variation)}
-                            disabled={!isAvailable}
-                            className={`px-6 py-3 border-2 rounded-lg font-semibold transition-all min-w-[60px] ${
-                              isSelected
-                                ? 'border-red-700 bg-red-50 text-red-700'
-                                : isAvailable
-                                ? 'border-gray-300 hover:border-gray-400 text-gray-700'
-                                : 'border-gray-200 text-gray-400 cursor-not-allowed line-through'
-                            }`}
-                          >
-                            {size}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-                )}
-
-                {variations.some(v => v.attributes.Color) && (
+                {variations.some(v => v.attributes.color) && (
                   <div>
                     <label className="block text-sm font-semibold text-gray-900 mb-3">
                       Color:
                       <span className="ml-2 font-normal text-gray-600">
-                        {selectedVariation.attributes.Color}
+                        {selectedVariation.attributes.color}
                       </span>
                     </label>
-                    <div className="flex gap-3">
-                      {Array.from(new Set(variations.map(v => v.attributes.Color).filter(Boolean))).map(color => {
-                        const variation = variations.find(v => v.attributes.Color === color);
-                        const isSelected = selectedVariation.attributes.Color === color;
+                    <div className="flex flex-wrap gap-3">
+                      {Array.from(new Set(variations.map(v => v.attributes.color).filter(Boolean))).map(color => {
+                        const variation = variations.find(v => v.attributes.color === color);
+                        const isSelected = selectedVariation.attributes.color === color;
                         const isAvailable = variation && variation.available > 0;
                         
                         return (
@@ -499,10 +509,45 @@ export default function ProductDetailPage() {
                     </div>
                   </div>
                 )}
+
+                {variations.some(v => v.attributes.size) && (
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-900 mb-3">
+                      Size:
+                      <span className="ml-2 font-normal text-gray-600">
+                        {selectedVariation.attributes.size}
+                      </span>
+                    </label>
+                    <div className="flex flex-wrap gap-2">
+                      {Array.from(new Set(variations.map(v => v.attributes.size).filter(Boolean))).map(size => {
+                        const variation = variations.find(v => v.attributes.size === size);
+                        const isSelected = selectedVariation.attributes.size === size;
+                        const isAvailable = variation && variation.available > 0;
+                        
+                        return (
+                          <button
+                            key={size}
+                            onClick={() => variation && handleVariationChange(variation)}
+                            disabled={!isAvailable}
+                            className={`px-6 py-3 border-2 rounded-lg font-semibold transition-all min-w-[60px] ${
+                              isSelected
+                                ? 'border-red-700 bg-red-50 text-red-700'
+                                : isAvailable
+                                ? 'border-gray-300 hover:border-gray-400 text-gray-700'
+                                : 'border-gray-200 text-gray-400 cursor-not-allowed line-through'
+                            }`}
+                          >
+                            {size}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 
-            {/* 🔥 QUANTITY & ADD TO CART */}
+            {/* Quantity & Add to Cart */}
             <div className="space-y-4">
               <div className="flex items-center gap-4">
                 <label className="text-sm font-semibold text-gray-900">Quantity:</label>

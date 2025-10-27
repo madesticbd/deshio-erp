@@ -3,7 +3,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Navigation from '@/components/ecommerce/Navigation';
-import CategoryHero from '@/components/ecommerce/category/CategoryHero';
 import Breadcrumb from '@/components/ecommerce/category/Breadcrumb';
 import CategorySidebar from '@/components/ecommerce/category/CategorySidebar';
 import ProductsToolbar from '@/components/ecommerce/category/ProductsToolbar';
@@ -23,51 +22,77 @@ export default function CategoryProductsPage() {
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set());
   const [viewMode, setViewMode] = useState<'grid-3' | 'grid-4' | 'grid-5'>('grid-4');
 
-  // Extract base product name (removes " - Variation X" suffix)
+  // Extract base product name (removes color/size suffix)
   const getBaseName = (name: string): string => {
-    return name.replace(/\s*-\s*Variation\s+\d+$/i, '').trim();
+    // Remove color/size suffix like "Product-Blue-XL" -> "Product"
+    const parts = name.split('-');
+    return parts.length > 1 ? parts[0].trim() : name;
   };
 
-  // Check if a product has variations based on name pattern
-  const hasVariations = (name: string): boolean => {
-    return /\s*-\s*Variation\s+\d+$/i.test(name);
+  // Check if a product is a variation (has groupMainImage)
+  const isVariation = (product: any): boolean => {
+    return !!(product.attributes?.groupMainImage && 
+              (product.attributes?.color || product.attributes?.size || product.attributes?.variationImages));
   };
 
-  // Group products by base name
+  // Group products by groupMainImage or standalone
   const groupProductsByVariations = (productsWithInventory: any[]): any[] => {
     const grouped = new Map<string, any>();
+    const standalone: any[] = [];
 
     productsWithInventory.forEach(product => {
-      const baseName = getBaseName(product.name);
-      const baseId = baseName.toLowerCase().replace(/\s+/g, '-');
+      const groupKey = product.attributes?.groupMainImage;
+      
+      if (groupKey && isVariation(product)) {
+        // This is a variation product - group by groupMainImage
+        if (!grouped.has(groupKey)) {
+          const baseName = getBaseName(product.name);
+          grouped.set(groupKey, {
+            baseId: groupKey,
+            baseName,
+            image: groupKey, // Use groupMainImage as the main image
+            priceRange: product.price,
+            totalAvailable: 0,
+            variations: [],
+            isVariationGroup: true
+          });
+        }
 
-      if (!grouped.has(baseId)) {
-        grouped.set(baseId, {
-          baseId,
-          baseName,
+        const group = grouped.get(groupKey)!;
+        group.variations.push({
+          id: product.id,
+          name: product.name,
+          attributes: product.attributes || {},
+          price: product.price,
+          available: product.available,
+          image: product.image
+        });
+        group.totalAvailable += product.available;
+      } else {
+        // Standalone product - no grouping
+        standalone.push({
+          baseId: `standalone-${product.id}`,
+          baseName: product.name,
           image: product.image,
           priceRange: product.price,
-          totalAvailable: 0,
-          variations: []
+          totalAvailable: product.available,
+          variations: [{
+            id: product.id,
+            name: product.name,
+            attributes: product.attributes || {},
+            price: product.price,
+            available: product.available,
+            image: product.image
+          }],
+          isVariationGroup: false
         });
       }
-
-      const group = grouped.get(baseId)!;
-      group.variations.push({
-        id: product.id,
-        name: product.name,
-        attributes: product.attributes || {},
-        price: product.price,
-        available: product.available,
-        image: product.image
-      });
-      group.totalAvailable += product.available;
     });
 
     // Calculate price range for each group
     grouped.forEach(group => {
       if (group.variations.length > 1) {
-        const prices = group.variations.map((v: any) => parseFloat(v.price));
+        const prices = group.variations.map((v: any) => parseFloat(v.price) || 0);
         const minPrice = Math.min(...prices);
         const maxPrice = Math.max(...prices);
         if (minPrice === maxPrice) {
@@ -80,7 +105,7 @@ export default function CategoryProductsPage() {
       }
     });
 
-    return Array.from(grouped.values());
+    return [...Array.from(grouped.values()), ...standalone];
   };
 
   const getAllDescendantIds = (category: any): string[] => {
@@ -95,6 +120,13 @@ export default function CategoryProductsPage() {
 
   const getCategoryPathFromProduct = (product: any): string[] => {
     const attrs = product.attributes;
+    
+    // Check for categoryPath array first
+    if (attrs.categoryPath && Array.isArray(attrs.categoryPath)) {
+      return attrs.categoryPath.filter((id: any) => id && id !== '');
+    }
+    
+    // Fallback to old format
     const path: string[] = [];
     
     if (attrs.category) path.push(String(attrs.category));
@@ -223,10 +255,16 @@ export default function CategoryProductsPage() {
 
   const sortedProducts = [...products].sort((a, b) => {
     switch (sortBy) {
-      case 'price-low':
-        return parseFloat(a.priceRange.split('-')[0]) - parseFloat(b.priceRange.split('-')[0]);
-      case 'price-high':
-        return parseFloat(b.priceRange.split('-')[0]) - parseFloat(a.priceRange.split('-')[0]);
+      case 'price-low': {
+        const aPrice = parseFloat(String(a.priceRange).split('-')[0]) || 0;
+        const bPrice = parseFloat(String(b.priceRange).split('-')[0]) || 0;
+        return aPrice - bPrice;
+      }
+      case 'price-high': {
+        const aPrice = parseFloat(String(a.priceRange).split('-')[0]) || 0;
+        const bPrice = parseFloat(String(b.priceRange).split('-')[0]) || 0;
+        return bPrice - aPrice;
+      }
       case 'name':
         return a.baseName.localeCompare(b.baseName);
       default:
@@ -237,6 +275,7 @@ export default function CategoryProductsPage() {
   if (loading) {
     return (
       <div className="min-h-screen bg-white">
+        <Navigation />
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20">
           <div className="text-center">
             <p className="text-gray-600">Loading products...</p>
@@ -249,6 +288,7 @@ export default function CategoryProductsPage() {
   if (!categoryInfo) {
     return (
       <div className="min-h-screen bg-white">
+        <Navigation />
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20">
           <div className="text-center">
             <h1 className="text-2xl font-bold text-gray-900 mb-4">Category Not Found</h1>
@@ -260,16 +300,9 @@ export default function CategoryProductsPage() {
   }
 
   return (
-   
-
     <div className="min-h-screen bg-white">
       <Navigation />
-      <CategoryHero 
-        title={categoryInfo.title}
-        description={categoryInfo.description}
-        image={categoryInfo.image}
-      />
-
+      
       <Breadcrumb 
         breadcrumb={categoryInfo.breadcrumb}
         title={categoryInfo.title}

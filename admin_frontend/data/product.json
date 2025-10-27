@@ -53,5 +53,15 @@
       "Description": "artificial pearls",
       "color": "Blue"
     }
+  },
+  {
+    "id": 1761287820536,
+    "name": "Katha Stich",
+    "attributes": {
+      "mainImage": "/uploads/1761287815249-0146a3b4c4d686615d1c2dbe34f42d9e.webp",
+      "category": "1",
+      "subcategory": "",
+      "Color": "Pink"
+    }
   }
 ]

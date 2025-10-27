@@ -23,10 +23,6 @@ interface Product {
   name: string;
   image?: string;
   attributes: Record<string, any>;
-  variations?: Array<{
-    id: string | number;
-    attributes: Record<string, any>;
-  }>;
 }
 
 interface Category {
@@ -105,22 +101,6 @@ export default function ProductPage() {
     return path.filter(id => id && id !== '');
   };
 
-  // Helper function to find category by path
-  const findCategoryByPath = (path: string[]): Category | null => {
-    if (path.length === 0) return null;
-    
-    let current: Category[] = categories;
-    let found: Category | null = null;
-    
-    for (const id of path) {
-      found = current.find(c => String(c.id) === String(id)) || null;
-      if (!found) return null;
-      current = found.subcategories || [];
-    }
-    
-    return found;
-  };
-
   // Helper function to get full category display name
   const getCategoryDisplayName = (product: Product): string => {
     const path = getCategoryPathFromProduct(product);
@@ -137,17 +117,15 @@ export default function ProductPage() {
         names.push(cat.title || cat.name || String(cat.id));
         current = cat.subcategories || [];
       } else {
-        // Category not found - might be a data issue
-        console.warn(`Category with id "${id}" not found at level ${i}`, { path, currentCategories: current });
         names.push(`Unknown (${id})`);
         break;
       }
     }
     
-    return names.length > 0 ? names.join(' > ') : 'Uncategorized';
+    return names.length > 0 ? names.join(' / ') : 'Uncategorized';
   };
 
-  // Filtered products
+  // Filtered products (just filter, don't group yet)
   const filteredProducts = useMemo(() => {
     const q = searchQuery.toLowerCase().trim();
     return products.filter((p) => {
@@ -157,7 +135,7 @@ export default function ProductPage() {
     });
   }, [products, searchQuery, categories]);
 
-  // Pagination
+  // Pagination on filtered products
   const totalPages = Math.max(1, Math.ceil(filteredProducts.length / itemsPerPage));
   const paginated = filteredProducts.slice(
     (currentPage - 1) * itemsPerPage,
@@ -194,11 +172,12 @@ export default function ProductPage() {
     variation: { id: string | number; attributes: Record<string, any> }
   ) => {
     if (selectMode && redirectPath) {
-      const variationIndex = product.variations?.findIndex(v => v.id === variation.id) ?? -1;
-      const variationNumber = variationIndex !== -1 ? variationIndex + 1 : 1;
-      const variationName = `${product.name} - Variation ${variationNumber}`;
-      const url = `${redirectPath}?productId=${variation.id}&productName=${encodeURIComponent(variationName)}&parentProductId=${product.id}`;
-      router.push(url);
+      // Find the actual product by variation id
+      const variationProduct = products.find(p => String(p.id) === String(variation.id));
+      if (variationProduct) {
+        const url = `${redirectPath}?productId=${variation.id}&productName=${encodeURIComponent(variationProduct.name)}`;
+        router.push(url);
+      }
     }
   };
 

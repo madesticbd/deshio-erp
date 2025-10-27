@@ -20,6 +20,7 @@ interface VariationsModalProps {
   mainImage: string | null;
   onClose: () => void;
   onSelectVariation?: (product: Product, variation: { id: string | number; attributes: Record<string, any> }) => void;
+  groupedProducts?: Product[];
 }
 
 export default function VariationsModal({
@@ -27,6 +28,7 @@ export default function VariationsModal({
   mainImage,
   onClose,
   onSelectVariation,
+  groupedProducts = [],
 }: VariationsModalProps) {
   const [quantities, setQuantities] = useState<Record<string | number, number>>({});
 
@@ -38,8 +40,29 @@ export default function VariationsModal({
     setQuantities(initial);
   }, [product.variations]);
 
-  const isImageKey = (key: string) =>
-    key.toLowerCase().includes('image') || key.toLowerCase().includes('img');
+  // Helper to get variation image
+  const getVariationImage = (attributes: Record<string, any>): string => {
+    // Priority: mainImage -> first variationImage -> groupMainImage -> fallback
+    if (attributes.mainImage) return attributes.mainImage;
+    if (attributes.variationImages && Array.isArray(attributes.variationImages) && attributes.variationImages.length > 0) {
+      return attributes.variationImages[0];
+    }
+    if (attributes.groupMainImage) return attributes.groupMainImage;
+    return mainImage || ERROR_IMG_SRC;
+  };
+
+  // Helper to get variation label
+  const getVariationLabel = (attributes: Record<string, any>): string => {
+    const parts: string[] = [];
+    if (attributes.color) parts.push(attributes.color);
+    if (attributes.size) parts.push(attributes.size);
+    return parts.length > 0 ? parts.join(' - ') : 'Default';
+  };
+
+  // Helper to view product details
+  const handleImageClick = (variationId: string | number) => {
+    window.open(`/product/view?id=${variationId}`, '_blank');
+  };
 
   if (!product.variations || product.variations.length === 0) {
     return (
@@ -61,7 +84,7 @@ export default function VariationsModal({
           </p>
           <button
             onClick={onClose}
-            className="w-full px-4 py-2 bg-gray-900 text-white rounded-lg hover:bg-gray-800 transition-colors"
+            className="w-full px-4 py-2 bg-gray-900 dark:bg-white text-white dark:text-gray-900 rounded-lg hover:bg-gray-800 dark:hover:bg-gray-100 transition-colors"
           >
             Close
           </button>
@@ -70,20 +93,22 @@ export default function VariationsModal({
     );
   }
 
-  // Get attribute keys from first variation (excluding images)
-  const attributeKeys = Object.keys(product.variations[0].attributes).filter(
-    (key) => !isImageKey(key)
-  );
+  // Check which columns to display
+  const hasColor = product.variations.some(v => v.attributes.color);
+  const hasSize = product.variations.some(v => v.attributes.size);
 
   return (
     <div className="fixed inset-0 bg-black/20 dark:bg-black/40 flex items-center justify-center z-50 p-4">
-      <div className="bg-white dark:bg-gray-800 rounded-lg max-w-3xl w-full max-h-[70vh] overflow-hidden flex flex-col shadow-xl">
+      <div className="bg-white dark:bg-gray-800 rounded-lg max-w-3xl w-full max-h-[80vh] overflow-hidden flex flex-col shadow-xl">
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700">
           <div>
             <h2 className="text-xl font-bold text-gray-900 dark:text-white">
               Variations for {product.name}
             </h2>
+            <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+              {product.variations.length} variation{product.variations.length !== 1 ? 's' : ''} available
+            </p>
           </div>
           <button
             onClick={onClose}
@@ -99,57 +124,91 @@ export default function VariationsModal({
             <table className="w-full">
               <thead>
                 <tr className="border-b border-gray-200 dark:border-gray-700">
-                  <th className="text-left py-2 px-4 text-sm font-medium text-gray-700 dark:text-gray-300">
+                  <th className="text-left py-3 px-4 text-sm font-medium text-gray-700 dark:text-gray-300">
                     Image
                   </th>
-                  {attributeKeys.map((key) => (
-                    <th
-                      key={key}
-                      className="text-left py-2 px-4 text-sm font-medium text-gray-700 dark:text-gray-300 capitalize"
-                    >
-                      {key.replace(/_/g, ' ')}
+                  {hasColor && (
+                    <th className="text-left py-3 px-4 text-sm font-medium text-gray-700 dark:text-gray-300">
+                      Color
                     </th>
-                  ))}
+                  )}
+                  {hasSize && (
+                    <th className="text-left py-3 px-4 text-sm font-medium text-gray-700 dark:text-gray-300">
+                      Size
+                    </th>
+                  )}
                   {onSelectVariation && (
-                    <th className="text-left py-2 px-4 text-sm font-medium text-gray-700 dark:text-gray-300">
+                    <th className="text-left py-3 px-4 text-sm font-medium text-gray-700 dark:text-gray-300">
                       Action
                     </th>
                   )}
                 </tr>
               </thead>
               <tbody>
-                {product.variations.map((variation) => (
-                  <tr
-                    key={variation.id}
-                    className="border-b border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/30"
-                  >
-                    <td className="py-2 px-4">
-                      <ImageWithFallback
-                        src={mainImage || ERROR_IMG_SRC}
-                        alt={product.name}
-                        className="w-16 h-16 rounded-lg object-cover border border-gray-200 dark:border-gray-600"
-                      />
-                    </td>
-                    {attributeKeys.map((key) => (
-                      <td
-                        key={key}
-                        className="py-2 px-4 text-sm text-gray-900 dark:text-white"
-                      >
-                        {String(variation.attributes[key] || '-')}
-                      </td>
-                    ))}
-                    {onSelectVariation && (
-                      <td className="py-2 px-4">
+                {product.variations.map((variation, index) => {
+                  const variationImage = getVariationImage(variation.attributes);
+                  const color = variation.attributes.color || '-';
+                  const size = variation.attributes.size || '-';
+                  
+                  return (
+                    <tr
+                      key={variation.id}
+                      className="border-b border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors"
+                    >
+                      <td className="py-3 px-4">
                         <button
-                          onClick={() => onSelectVariation(product, variation)}
-                          className="px-3 py-1.5 text-sm bg-gray-900 hover:bg-gray-800 text-white rounded-lg transition-colors whitespace-nowrap"
+                          onClick={() => handleImageClick(variation.id)}
+                          className="relative group cursor-pointer"
+                          title="Click to view product details"
                         >
-                          Select
+                          <ImageWithFallback
+                            src={variationImage}
+                            alt={`${product.name} - ${color} - ${size}`}
+                            className="w-20 h-20 rounded-lg object-cover border border-gray-200 dark:border-gray-600 transition-transform group-hover:scale-105"
+                          />
+                          <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 rounded-lg transition-colors flex items-center justify-center">
+                            <span className="opacity-0 group-hover:opacity-100 text-white text-xs font-medium bg-black/50 px-2 py-1 rounded transition-opacity">
+                              View
+                            </span>
+                          </div>
                         </button>
                       </td>
-                    )}
-                  </tr>
-                ))}
+                      {hasColor && (
+                        <td className="py-3 px-4">
+                          <div className="flex items-center gap-2">
+                            {color !== '-' && (
+                              <div 
+                                className="w-6 h-6 rounded border border-gray-300 dark:border-gray-600"
+                                style={{ backgroundColor: color.toLowerCase() }}
+                                title={color}
+                              />
+                            )}
+                            <span className="text-sm font-medium text-gray-900 dark:text-white">
+                              {color}
+                            </span>
+                          </div>
+                        </td>
+                      )}
+                      {hasSize && (
+                        <td className="py-3 px-4">
+                          <span className="text-sm font-medium text-gray-900 dark:text-white">
+                            {size}
+                          </span>
+                        </td>
+                      )}
+                      {onSelectVariation && (
+                        <td className="py-3 px-4">
+                          <button
+                            onClick={() => onSelectVariation(product, variation)}
+                            className="px-3 py-1.5 text-sm bg-gray-900 hover:bg-gray-800 dark:bg-white dark:text-gray-900 dark:hover:bg-gray-100 text-white rounded-lg transition-colors whitespace-nowrap"
+                          >
+                            Select
+                          </button>
+                        </td>
+                      )}
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
@@ -159,7 +218,7 @@ export default function VariationsModal({
         <div className="p-6 border-t border-gray-200 dark:border-gray-700">
           <button
             onClick={onClose}
-            className="w-full px-4 py-2 bg-gray-900 text-white rounded-lg hover:bg-gray-800 transition-colors"
+            className="w-full px-4 py-2 bg-gray-900 dark:bg-white text-white dark:text-gray-900 rounded-lg hover:bg-gray-800 dark:hover:bg-gray-100 transition-colors"
           >
             Close
           </button>
