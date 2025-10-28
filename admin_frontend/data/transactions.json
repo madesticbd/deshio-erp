@@ -151,6 +151,45 @@
       "createdAt": "2025-10-27T18:57:29.497Z",
       "source": "manual",
       "referenceId": ""
+    },
+    {
+      "id": "txn-batch-1761627972292",
+      "name": "Inventory Purchase - Batch BATCH1761627972292",
+      "description": "Purchased 5 units @ ৳1000 each",
+      "type": "expense",
+      "amount": 5000,
+      "category": "Inventory Purchase",
+      "date": "2025-10-28T05:06:12.296Z",
+      "comment": "Expected Revenue: ৳6000, Expected Profit: ৳1000",
+      "createdAt": "2025-10-28T05:06:12.296Z",
+      "source": "batch",
+      "referenceId": "1761627972292"
+    },
+    {
+      "id": "txn-exchange-order-1761591326143-1761629150941",
+      "name": "Order Exchange - Additional Payment",
+      "description": "Exchange adjustment for Order #1761591326143",
+      "type": "income",
+      "amount": 1260,
+      "category": "Online Orders",
+      "date": "2025-10-28T05:25:50.939Z",
+      "comment": "Removed: Item (1). Added: Shotoronji-Red (1)",
+      "createdAt": "2025-10-28T05:25:50.941Z",
+      "source": "exchange",
+      "referenceId": "order-1761591326143"
+    },
+    {
+      "id": "txn-order-1761629380139",
+      "name": "Order: Jhumka",
+      "description": "Social Order from Customer",
+      "type": "income",
+      "amount": 470,
+      "category": "Online Orders",
+      "date": "2025-10-28T05:29:40.146Z",
+      "comment": "Platform: Social Media, Products: 1, Cash: ৳0, Bkash: ৳0, Due: ৳170",
+      "createdAt": "2025-10-28T05:29:40.150Z",
+      "source": "order",
+      "referenceId": "1761629380139"
     }
   ]
 }
