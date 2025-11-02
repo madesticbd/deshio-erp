@@ -1,6 +1,7 @@
 // components/orders/OrderDetailsModal.tsx
 
-import { X, User, MapPin, Package, CreditCard, Edit2 } from 'lucide-react';
+import { useState } from 'react';
+import { X, User, MapPin, Package, CreditCard, Edit2, Printer, Truck, FileText } from 'lucide-react';
 import { Order } from '@/types/order';
 
 interface OrderDetailsModalProps {
@@ -10,6 +11,52 @@ interface OrderDetailsModalProps {
 }
 
 export default function OrderDetailsModal({ order, onClose, onEdit }: OrderDetailsModalProps) {
+  const [isPrinting, setIsPrinting] = useState(false);
+  const [isSendingToPathao, setIsSendingToPathao] = useState(false);
+  const [showReceiptModal, setShowReceiptModal] = useState(false);
+
+  const handlePrintReceipt = async () => {
+    setIsPrinting(true);
+    try {
+      const response = await fetch('/api/social-orders/generate-reciept', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(order),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to generate PDF');
+      }
+
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `receipt-order-${order.id}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+    } catch (error) {
+      console.error('Error generating PDF:', error);
+      alert('Failed to generate PDF. Please try again.');
+    } finally {
+      setIsPrinting(false);
+    }
+  };
+
+  const handleSendToPathao = () => {
+    setIsSendingToPathao(true);
+    
+    // Simulate sending to Pathao
+    setTimeout(() => {
+      alert(`Successfully sent Order #${order.id} to Pathao!`);
+      setIsSendingToPathao(false);
+    }, 1500);
+  };
+
   return (
     <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
       <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto border border-gray-200 dark:border-gray-800">
@@ -20,6 +67,23 @@ export default function OrderDetailsModal({ order, onClose, onEdit }: OrderDetai
             <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">Order #{order.id}</p>
           </div>
           <div className="flex items-center gap-2">
+           
+            <button
+              onClick={handlePrintReceipt}
+              disabled={isPrinting}
+              className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <Printer className="w-4 h-4" />
+              {isPrinting ? 'Generating...' : 'Download Receipt'}
+            </button>
+            <button
+              onClick={handleSendToPathao}
+              disabled={isSendingToPathao}
+              className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <Truck className="w-4 h-4" />
+              {isSendingToPathao ? 'Sending...' : 'Send to Pathao'}
+            </button>
             {onEdit && (
               <button
                 onClick={() => {
@@ -213,6 +277,165 @@ export default function OrderDetailsModal({ order, onClose, onEdit }: OrderDetai
           </div>
         </div>
       </div>
+
+      {/* Receipt Preview Modal */}
+      {showReceiptModal && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[60] flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+            {/* Receipt Header */}
+            <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between rounded-t-2xl z-10">
+              <h3 className="text-xl font-semibold text-gray-900">Receipt Preview</h3>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={handlePrintReceipt}
+                  disabled={isPrinting}
+                  className="flex items-center gap-2 px-4 py-2 bg-black hover:bg-gray-900 text-white rounded-lg transition-colors disabled:opacity-50"
+                >
+                  <Printer className="w-4 h-4" />
+                  {isPrinting ? 'Generating...' : 'Download PDF'}
+                </button>
+                <button
+                  onClick={() => setShowReceiptModal(false)}
+                  className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                >
+                  <X className="w-6 h-6 text-gray-600" />
+                </button>
+              </div>
+            </div>
+
+            {/* Receipt Content */}
+            <div className="p-12 bg-white">
+              {/* Letterhead */}
+              <div className="text-center mb-12 pb-8 border-b-4 border-double border-black">
+                <h1 className="text-5xl font-light tracking-[0.5em] uppercase mb-2">RECEIPT</h1>
+                <p className="text-xs tracking-[0.2em] uppercase text-gray-600 mb-6">Order Confirmation</p>
+                <div className="flex justify-between text-sm">
+                  <span className="font-semibold tracking-wider">ORDER #{order.id}</span>
+                  <span className="text-gray-600">{order.date}</span>
+                </div>
+              </div>
+
+              {/* Two Column Layout */}
+              <div className="grid grid-cols-2 gap-12 mb-8">
+                {/* Customer Details */}
+                <div>
+                  <h3 className="text-xs font-bold tracking-[0.15em] uppercase mb-4">Customer Details</h3>
+                  <div className="space-y-2 text-sm">
+                    <div className="flex">
+                      <span className="w-24 text-gray-600 font-medium">Name</span>
+                      <span className="text-black">{order.customer.name}</span>
+                    </div>
+                    <div className="flex">
+                      <span className="w-24 text-gray-600 font-medium">Email</span>
+                      <span className="text-black">{order.customer.email}</span>
+                    </div>
+                    <div className="flex">
+                      <span className="w-24 text-gray-600 font-medium">Phone</span>
+                      <span className="text-black">{order.customer.phone}</span>
+                    </div>
+                    <div className="flex">
+                      <span className="w-24 text-gray-600 font-medium">Sales By</span>
+                      <span className="text-black">{order.salesBy}</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Delivery Address */}
+                <div>
+                  <h3 className="text-xs font-bold tracking-[0.15em] uppercase mb-4">Delivery Address</h3>
+                  <div className="text-sm leading-relaxed text-black">
+                    <p>{order.deliveryAddress.address}</p>
+                    {order.deliveryAddress.area && <p>{order.deliveryAddress.area}, {order.deliveryAddress.zone}</p>}
+                    {!order.deliveryAddress.area && <p>{order.deliveryAddress.zone}</p>}
+                    <p>{order.deliveryAddress.city}, {order.deliveryAddress.district}</p>
+                    <p>{order.deliveryAddress.division} - {order.deliveryAddress.postalCode}</p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="h-px bg-gray-300 my-8"></div>
+
+              {/* Products Table */}
+              <div>
+                <h3 className="text-xs font-bold tracking-[0.15em] uppercase mb-4">Order Items</h3>
+                <table className="w-full">
+                  <thead className="border-b-2 border-black">
+                    <tr>
+                      <th className="text-left py-3 text-[10px] font-bold tracking-[0.1em] uppercase">Product Description</th>
+                      <th className="text-left py-3 text-[10px] font-bold tracking-[0.1em] uppercase">Size</th>
+                      <th className="text-left py-3 text-[10px] font-bold tracking-[0.1em] uppercase">Qty</th>
+                      <th className="text-left py-3 text-[10px] font-bold tracking-[0.1em] uppercase">Unit Price</th>
+                      <th className="text-right py-3 text-[10px] font-bold tracking-[0.1em] uppercase">Amount</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {order.products.map((product, idx) => (
+                      <tr key={idx} className="border-b border-gray-200">
+                        <td className="py-4 text-sm font-medium">{product.productName}</td>
+                        <td className="py-4 text-sm">{product.size}</td>
+                        <td className="py-4 text-sm">{product.qty}</td>
+                        <td className="py-4 text-sm">৳{product.price.toLocaleString()}</td>
+                        <td className="py-4 text-sm text-right">৳{product.amount.toLocaleString()}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Calculations */}
+              <div className="mt-10 ml-auto max-w-sm">
+                <div className="space-y-2 text-sm">
+                  <div className="flex justify-between py-2">
+                    <span className="text-gray-600 font-medium">Subtotal</span>
+                    <span className="text-black">৳{(order.amounts?.subtotal || order.subtotal).toLocaleString()}</span>
+                  </div>
+                  {order.amounts && order.amounts.totalDiscount > 0 && (
+                    <div className="flex justify-between py-2">
+                      <span className="text-gray-600 font-medium">Discount</span>
+                      <span className="text-black">-৳{order.amounts.totalDiscount.toLocaleString()}</span>
+                    </div>
+                  )}
+                  {order.amounts && (
+                    <div className="flex justify-between py-2">
+                      <span className="text-gray-600 font-medium">VAT ({order.amounts.vatRate}%)</span>
+                      <span className="text-black">৳{order.amounts.vat.toLocaleString()}</span>
+                    </div>
+                  )}
+                  {order.amounts && order.amounts.transportCost > 0 && (
+                    <div className="flex justify-between py-2">
+                      <span className="text-gray-600 font-medium">Transport Cost</span>
+                      <span className="text-black">৳{order.amounts.transportCost.toLocaleString()}</span>
+                    </div>
+                  )}
+                  
+                  <div className="flex justify-between py-3 border-t-2 border-black mt-4 pt-4">
+                    <span className="text-black font-bold text-base">Total Amount</span>
+                    <span className="text-black font-bold text-base">৳{(order.amounts?.total || order.subtotal).toLocaleString()}</span>
+                  </div>
+
+                  <div className="flex justify-between py-3 bg-gray-100 -mx-3 px-3 mt-4">
+                    <span className="text-gray-700 font-medium">Amount Paid</span>
+                    <span className="text-black font-medium">৳{order.payments.totalPaid.toLocaleString()}</span>
+                  </div>
+
+                  {order.payments.due > 0 && (
+                    <div className="flex justify-between py-3 bg-black text-white -mx-3 px-3">
+                      <span className="font-bold">Balance Due</span>
+                      <span className="font-bold">৳{order.payments.due.toLocaleString()}</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Footer */}
+              <div className="mt-16 pt-8 border-t border-gray-200 text-center">
+                <p className="text-xs text-gray-500 tracking-wider mb-2">THANK YOU FOR YOUR BUSINESS</p>
+                <p className="text-xs text-gray-400 tracking-wider">This is a computer-generated document</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

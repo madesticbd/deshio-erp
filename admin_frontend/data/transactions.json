@@ -190,6 +190,45 @@
       "createdAt": "2025-10-28T05:29:40.150Z",
       "source": "order",
       "referenceId": "1761629380139"
+    },
+    {
+      "id": "txn-sale-sale-1762069945479",
+      "name": "Sale: Shotoronji-Red",
+      "description": "POS Sale to Rumy Parvez",
+      "type": "income",
+      "amount": 1575,
+      "category": "POS Sales",
+      "date": "2025-11-02T07:52:26.023Z",
+      "comment": "Items: 1, Cash: ৳0, Card: ৳100, Bkash: ৳0, Nagad: ৳0, Due: ৳1475",
+      "createdAt": "2025-11-02T07:52:26.027Z",
+      "source": "sale",
+      "referenceId": "sale-1762069945479"
+    },
+    {
+      "id": "txn-sale-sale-1762070311946",
+      "name": "Sale: Shotoronji-Red",
+      "description": "POS Sale to Rumy Parvez",
+      "type": "income",
+      "amount": 1575,
+      "category": "POS Sales",
+      "date": "2025-11-02T07:58:32.305Z",
+      "comment": "Items: 1, Cash: ৳300, Card: ৳100, Bkash: ৳200, Nagad: ৳0, Due: ৳975",
+      "createdAt": "2025-11-02T07:58:32.308Z",
+      "source": "sale",
+      "referenceId": "sale-1762070311946"
+    },
+    {
+      "id": "txn-sale-sale-1762070526704",
+      "name": "Sale: Toshor Silk Sharee",
+      "description": "POS Sale to Rumy Parvez",
+      "type": "income",
+      "amount": 2120,
+      "category": "POS Sales",
+      "date": "2025-11-02T08:02:07.084Z",
+      "comment": "Items: 1, Cash: ৳600, Card: ৳200, Bkash: ৳0, Nagad: ৳0, Due: ৳1320",
+      "createdAt": "2025-11-02T08:02:07.088Z",
+      "source": "sale",
+      "referenceId": "sale-1762070526704"
     }
   ]
 }

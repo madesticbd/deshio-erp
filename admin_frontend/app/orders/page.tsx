@@ -12,6 +12,7 @@ import EditOrderModal from '@/components/orders/EditOrderModal';
 import ExchangeProductModal from '@/components/orders/ExchangeProductModal';
 import ReturnProductModal from '@/components/orders/ReturnProductModal';
 import { Order } from '@/types/order';
+import { Truck } from 'lucide-react';
 
 export default function OrdersDashboard() {
   const [darkMode, setDarkMode] = useState(false);
@@ -28,6 +29,8 @@ export default function OrdersDashboard() {
   const [activeMenu, setActiveMenu] = useState<number | null>(null);
   const [userRole, setUserRole] = useState<string>('');
   const [userName, setUserName] = useState<string>('');
+  const [selectedOrders, setSelectedOrders] = useState<Set<number>>(new Set());
+  const [isSendingBulk, setIsSendingBulk] = useState(false);
 
   // Get user info from localStorage
   useEffect(() => {
@@ -243,6 +246,40 @@ export default function OrdersDashboard() {
     }
   };
 
+  const handleToggleSelectAll = () => {
+    if (selectedOrders.size === filteredOrders.length) {
+      setSelectedOrders(new Set());
+    } else {
+      setSelectedOrders(new Set(filteredOrders.map(o => o.id)));
+    }
+  };
+
+  const handleToggleSelect = (orderId: number) => {
+    const newSelected = new Set(selectedOrders);
+    if (newSelected.has(orderId)) {
+      newSelected.delete(orderId);
+    } else {
+      newSelected.add(orderId);
+    }
+    setSelectedOrders(newSelected);
+  };
+
+  const handleBulkSendToPathao = async () => {
+    if (selectedOrders.size === 0) {
+      alert('Please select at least one order to send to Pathao.');
+      return;
+    }
+
+    setIsSendingBulk(true);
+    
+    // Simulate processing
+    setTimeout(() => {
+      alert(`Successfully sent ${selectedOrders.size} order(s) to Pathao!`);
+      setSelectedOrders(new Set());
+      setIsSendingBulk(false);
+    }, 1500);
+  };
+
   const totalRevenue = orders.reduce((sum, order) => sum + (order.amounts?.total || order.subtotal), 0);
   const paidOrders = orders.filter(o => o.payments.due === 0).length;
   const pendingOrders = orders.filter(o => o.payments.due > 0).length;
@@ -285,6 +322,23 @@ export default function OrdersDashboard() {
                 setStatusFilter={setStatusFilter}
               />
 
+              {/* Bulk Actions Bar */}
+              {selectedOrders.size > 0 && (
+                <div className="mb-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg px-4 py-3 flex items-center justify-between">
+                  <span className="text-sm font-medium text-blue-900 dark:text-blue-100">
+                    {selectedOrders.size} order(s) selected
+                  </span>
+                  <button
+                    onClick={handleBulkSendToPathao}
+                    disabled={isSendingBulk}
+                    className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <Truck className="w-4 h-4" />
+                    {isSendingBulk ? 'Sending...' : 'Send to Pathao'}
+                  </button>
+                </div>
+              )}
+
               <OrdersTable
                 filteredOrders={filteredOrders}
                 totalOrders={orders.length}
@@ -295,6 +349,9 @@ export default function OrdersDashboard() {
                 onExchangeOrder={handleExchangeOrder}
                 onReturnOrder={handleReturnOrder}
                 onCancelOrder={handleCancelOrder}
+                selectedOrders={selectedOrders}
+                onToggleSelect={handleToggleSelect}
+                onToggleSelectAll={handleToggleSelectAll}
               />
             </div>
           </main>
