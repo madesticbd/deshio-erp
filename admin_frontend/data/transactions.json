@@ -229,6 +229,32 @@
       "createdAt": "2025-11-02T08:02:07.088Z",
       "source": "sale",
       "referenceId": "sale-1762070526704"
+    },
+    {
+      "id": "txn-exchange-order-1761591326143-1762078428653",
+      "name": "Order Exchange - Refund",
+      "description": "Exchange adjustment for Order #1761591326143",
+      "type": "expense",
+      "amount": 315,
+      "category": "Online Orders",
+      "date": "2025-11-02T10:13:48.652Z",
+      "comment": "Removed: Item (1). Added: Shotoronji-Black (1)",
+      "createdAt": "2025-11-02T10:13:48.653Z",
+      "source": "exchange",
+      "referenceId": "order-1761591326143"
+    },
+    {
+      "id": "txn-exchange-order-1761591326143-1762078956258",
+      "name": "Order Exchange - Additional Payment",
+      "description": "Exchange adjustment for Order #1761591326143",
+      "type": "income",
+      "amount": 315,
+      "category": "Online Orders",
+      "date": "2025-11-02T10:22:36.257Z",
+      "comment": "Removed: Item (1). Added: Shotoronji-Red (1)",
+      "createdAt": "2025-11-02T10:22:36.258Z",
+      "source": "exchange",
+      "referenceId": "order-1761591326143"
     }
   ]
 }

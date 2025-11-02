@@ -126,7 +126,7 @@
     },
     "products": [
       {
-        "id": 1761629150934.7625,
+        "id": 1762078956253.342,
         "productId": 1761589326964,
         "productName": "Shotoronji-Red",
         "size": "1",
@@ -180,9 +180,57 @@
         "newTotal": 1575,
         "difference": 1260,
         "note": "Customer owes additional payment"
+      },
+      {
+        "date": "2025-11-02T10:13:48.649Z",
+        "removedProducts": [
+          {
+            "productId": 1761629150934.7625,
+            "quantity": 1
+          }
+        ],
+        "replacementProducts": [
+          {
+            "id": 1761589326965,
+            "batchId": 1761627972292,
+            "name": "Shotoronji-Black",
+            "price": 1200,
+            "quantity": 1,
+            "amount": 1200,
+            "size": "1"
+          }
+        ],
+        "originalTotal": 1575,
+        "newTotal": 1260,
+        "difference": -315,
+        "note": "Refund to customer"
+      },
+      {
+        "date": "2025-11-02T10:22:36.253Z",
+        "removedProducts": [
+          {
+            "productId": 1762078428649.741,
+            "quantity": 1
+          }
+        ],
+        "replacementProducts": [
+          {
+            "id": 1761589326964,
+            "batchId": 1761589571631,
+            "name": "Shotoronji-Red",
+            "price": 1500,
+            "quantity": 1,
+            "amount": 1500,
+            "size": "1"
+          }
+        ],
+        "originalTotal": 1260,
+        "newTotal": 1575,
+        "difference": 315,
+        "note": "Customer owes additional payment"
       }
     ],
-    "updatedAt": "2025-10-28T05:25:50.934Z"
+    "updatedAt": "2025-11-02T10:22:36.253Z"
   },
   {
     "id": 1761629380139,
