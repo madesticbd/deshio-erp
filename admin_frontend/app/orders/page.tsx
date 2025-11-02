@@ -1,4 +1,4 @@
-// app/orders/page.tsx
+// app/orders/page.tsx - Updated with Bulk Print & Pathao
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -12,7 +12,8 @@ import EditOrderModal from '@/components/orders/EditOrderModal';
 import ExchangeProductModal from '@/components/orders/ExchangeProductModal';
 import ReturnProductModal from '@/components/orders/ReturnProductModal';
 import { Order } from '@/types/order';
-import { Truck } from 'lucide-react';
+import { Truck, Printer, Settings, CheckCircle, XCircle } from 'lucide-react';
+import { checkQZStatus, printBulkReceipts, getPrinters } from '@/lib/qz-tray';
 
 export default function OrdersDashboard() {
   const [darkMode, setDarkMode] = useState(false);
@@ -31,6 +32,18 @@ export default function OrdersDashboard() {
   const [userName, setUserName] = useState<string>('');
   const [selectedOrders, setSelectedOrders] = useState<Set<number>>(new Set());
   const [isSendingBulk, setIsSendingBulk] = useState(false);
+  const [isPrintingBulk, setIsPrintingBulk] = useState(false);
+  const [qzConnected, setQzConnected] = useState(false);
+  const [printers, setPrinters] = useState<string[]>([]);
+  const [selectedPrinter, setSelectedPrinter] = useState<string>('');
+  const [showPrinterSelect, setShowPrinterSelect] = useState(false);
+  const [bulkPrintProgress, setBulkPrintProgress] = useState<{
+    show: boolean;
+    current: number;
+    total: number;
+    success: number;
+    failed: number;
+  }>({ show: false, current: 0, total: 0, success: 0, failed: 0 });
 
   // Get user info from localStorage
   useEffect(() => {
@@ -38,7 +51,41 @@ export default function OrdersDashboard() {
     const name = localStorage.getItem('userName') || '';
     setUserRole(role);
     setUserName(name);
+    
+    // Check printer status after a short delay to ensure QZ is loaded
+    const timer = setTimeout(() => {
+      checkPrinterStatus();
+    }, 1000);
+    
+    return () => clearTimeout(timer);
   }, []);
+
+  const checkPrinterStatus = async () => {
+    try {
+      const status = await checkQZStatus();
+      setQzConnected(status.connected);
+      
+      if (status.connected) {
+        const printerList = await getPrinters();
+        setPrinters(printerList);
+        
+        const savedPrinter = localStorage.getItem('defaultPrinter');
+        if (savedPrinter && printerList.includes(savedPrinter)) {
+          setSelectedPrinter(savedPrinter);
+        } else if (printerList.length > 0) {
+          setSelectedPrinter(printerList[0]);
+        }
+      }
+    } catch (error) {
+      console.error('Failed to check printer status:', error);
+    }
+  };
+
+  const handlePrinterSelect = (printer: string) => {
+    setSelectedPrinter(printer);
+    localStorage.setItem('defaultPrinter', printer);
+    setShowPrinterSelect(false);
+  };
 
   // Get today's date in DD-MM-YYYY format
   const getTodayDate = () => {
@@ -58,22 +105,18 @@ export default function OrdersDashboard() {
       const response = await fetch('/api/social-orders');
       if (response.ok) {
         const data = await response.json();
-        // Ensure all orders have proper dates
         const ordersWithDates = data.map((order: Order) => ({
           ...order,
           date: order.date || getTodayDate()
         }));
         
-        // Filter orders based on user role
         const role = localStorage.getItem('userRole') || '';
         const name = localStorage.getItem('userName') || '';
         
         let filteredData = ordersWithDates;
         if (role === 'social_commerce_manager') {
-          // Social commerce managers only see their own orders
           filteredData = ordersWithDates.filter((order: Order) => order.salesBy === name);
         }
-        // Super admin and store managers see all orders
         
         setOrders(filteredData);
         setFilteredOrders(filteredData);
@@ -90,16 +133,13 @@ export default function OrdersDashboard() {
         date: order.date || getTodayDate()
       }));
       
-      // Filter orders based on user role
       const role = localStorage.getItem('userRole') || '';
       const name = localStorage.getItem('userName') || '';
       
       let filteredData = ordersWithDates;
       if (role === 'social_commerce_manager') {
-        // Social commerce managers only see their own orders
         filteredData = ordersWithDates.filter((order: Order) => order.salesBy === name);
       }
-      // Super admin and store managers see all orders
       
       setOrders(filteredData);
       setFilteredOrders(filteredData);
@@ -111,7 +151,6 @@ export default function OrdersDashboard() {
   useEffect(() => {
     let filtered = orders;
 
-    // Search filter
     if (search.trim()) {
       filtered = filtered.filter((o) =>
         o.id.toString().includes(search.trim()) ||
@@ -120,23 +159,18 @@ export default function OrdersDashboard() {
       );
     }
 
-    // Date filter - handle both DD-MM-YYYY and YYYY-MM-DD formats
     if (dateFilter.trim()) {
       filtered = filtered.filter((o) => {
         const orderDate = o.date;
-        
-        // If dateFilter is in YYYY-MM-DD format (from input), convert to DD-MM-YYYY
         let filterDateFormatted = dateFilter;
         if (dateFilter.includes('-') && dateFilter.split('-')[0].length === 4) {
           const [year, month, day] = dateFilter.split('-');
           filterDateFormatted = `${day}-${month}-${year}`;
         }
-        
         return orderDate === filterDateFormatted;
       });
     }
 
-    // Status filter
     if (statusFilter !== 'All Status') {
       filtered = filtered.filter((o) =>
         statusFilter === 'Paid' ? o.payments.due === 0 : o.payments.due > 0
@@ -197,7 +231,6 @@ export default function OrdersDashboard() {
     try {
       console.log('Processing exchange:', exchangeData);
       await loadOrders();
-      // Success message already shown in the modal
     } catch (error) {
       console.error('Error processing exchange:', error);
       throw error;
@@ -270,14 +303,86 @@ export default function OrdersDashboard() {
       return;
     }
 
+    if (!confirm(`Send ${selectedOrders.size} order(s) to Pathao?`)) {
+      return;
+    }
+
     setIsSendingBulk(true);
     
-    // Simulate processing
+    // Simulate API call to Pathao
     setTimeout(() => {
       alert(`Successfully sent ${selectedOrders.size} order(s) to Pathao!`);
       setSelectedOrders(new Set());
       setIsSendingBulk(false);
-    }, 1500);
+    }, 2000);
+  };
+
+  const handleBulkPrintReceipts = async () => {
+    if (selectedOrders.size === 0) {
+      alert('Please select at least one order to print.');
+      return;
+    }
+
+    if (!qzConnected) {
+      alert('QZ Tray is not connected. Please start QZ Tray and refresh the page.');
+      return;
+    }
+
+    if (!selectedPrinter) {
+      setShowPrinterSelect(true);
+      alert('Please select a printer first.');
+      return;
+    }
+
+    if (!confirm(`Print receipts for ${selectedOrders.size} order(s)?`)) {
+      return;
+    }
+
+    setIsPrintingBulk(true);
+    setBulkPrintProgress({
+      show: true,
+      current: 0,
+      total: selectedOrders.size,
+      success: 0,
+      failed: 0
+    });
+
+    try {
+      const selectedOrdersList = orders.filter(o => selectedOrders.has(o.id));
+      
+      let successCount = 0;
+      let failedCount = 0;
+      let currentIndex = 0;
+
+      for (const order of selectedOrdersList) {
+        currentIndex++;
+        setBulkPrintProgress(prev => ({ ...prev, current: currentIndex }));
+        
+        try {
+          await printBulkReceipts([order], selectedPrinter);
+          successCount++;
+          setBulkPrintProgress(prev => ({ ...prev, success: successCount }));
+        } catch (error) {
+          failedCount++;
+          setBulkPrintProgress(prev => ({ ...prev, failed: failedCount }));
+          console.error(`Failed to print order #${order.id}:`, error);
+        }
+        
+        // Small delay between prints
+        await new Promise(resolve => setTimeout(resolve, 800));
+      }
+
+      alert(`Bulk print completed!\nSuccess: ${successCount}\nFailed: ${failedCount}`);
+      setSelectedOrders(new Set());
+    } catch (error) {
+      console.error('Bulk print error:', error);
+      alert('Failed to complete bulk print operation.');
+    } finally {
+      setIsPrintingBulk(false);
+      setTimeout(() => {
+        setBulkPrintProgress({ show: false, current: 0, total: 0, success: 0, failed: 0 });
+      }, 2000);
+    }
   };
 
   const totalRevenue = orders.reduce((sum, order) => sum + (order.amounts?.total || order.subtotal), 0);
@@ -294,13 +399,61 @@ export default function OrdersDashboard() {
           <main className="flex-1 overflow-auto bg-gray-100 dark:bg-black">
             <div className="px-4 md:px-8 pt-6 pb-4">
               <div className="max-w-7xl mx-auto">
-                <div className="mb-6">
-                  <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">Orders Dashboard</h1>
-                  <p className="text-gray-600 dark:text-gray-400">
-                    {userRole === 'social_commerce_manager' 
-                      ? 'Overview of your orders and sales' 
-                      : 'Overview of all orders and sales'}
-                  </p>
+                <div className="mb-6 flex items-center justify-between">
+                  <div>
+                    <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">Orders Dashboard</h1>
+                    <p className="text-gray-600 dark:text-gray-400">
+                      {userRole === 'social_commerce_manager' 
+                        ? 'Overview of your orders and sales' 
+                        : 'Overview of all orders and sales'}
+                    </p>
+                  </div>
+                  
+                  {/* Printer Status */}
+                  <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-2 px-4 py-2 bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-800">
+                      <div className={`w-2 h-2 rounded-full ${qzConnected ? 'bg-green-500' : 'bg-red-500'}`}></div>
+                      <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                        {qzConnected ? 'Printer Connected' : 'Printer Offline'}
+                      </span>
+                    </div>
+                    
+                    {qzConnected && (
+                      <div className="relative">
+                        <button
+                          onClick={() => setShowPrinterSelect(!showPrinterSelect)}
+                          className="flex items-center gap-2 px-4 py-2 bg-white dark:bg-gray-900 hover:bg-gray-50 dark:hover:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-800 transition-colors"
+                        >
+                          <Settings className="w-4 h-4 text-gray-600 dark:text-gray-400" />
+                          <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                            {selectedPrinter || 'Select Printer'}
+                          </span>
+                        </button>
+                        
+                        {showPrinterSelect && (
+                          <div className="absolute right-0 top-full mt-2 bg-white dark:bg-gray-800 rounded-lg shadow-xl border border-gray-200 dark:border-gray-700 py-2 w-72 z-50">
+                            <div className="px-4 py-2 border-b border-gray-200 dark:border-gray-700">
+                              <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase">Available Printers</p>
+                            </div>
+                            {printers.map((printer) => (
+                              <button
+                                key={printer}
+                                onClick={() => handlePrinterSelect(printer)}
+                                className={`w-full px-4 py-2.5 text-left text-sm hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors ${
+                                  selectedPrinter === printer ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 font-medium' : 'text-gray-700 dark:text-gray-300'
+                                }`}
+                              >
+                                {printer}
+                                {selectedPrinter === printer && (
+                                  <CheckCircle className="w-4 h-4 inline ml-2" />
+                                )}
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
                 </div>
 
                 <StatsCards 
@@ -324,18 +477,68 @@ export default function OrdersDashboard() {
 
               {/* Bulk Actions Bar */}
               {selectedOrders.size > 0 && (
-                <div className="mb-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg px-4 py-3 flex items-center justify-between">
-                  <span className="text-sm font-medium text-blue-900 dark:text-blue-100">
-                    {selectedOrders.size} order(s) selected
-                  </span>
-                  <button
-                    onClick={handleBulkSendToPathao}
-                    disabled={isSendingBulk}
-                    className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    <Truck className="w-4 h-4" />
-                    {isSendingBulk ? 'Sending...' : 'Send to Pathao'}
-                  </button>
+                <div className="mb-4 bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-900/20 dark:to-purple-900/20 border border-blue-200 dark:border-blue-800 rounded-xl px-6 py-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-4">
+                      <div className="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center">
+                        <span className="text-white font-bold">{selectedOrders.size}</span>
+                      </div>
+                      <div>
+                        <p className="text-sm font-bold text-gray-900 dark:text-white">
+                          {selectedOrders.size} order(s) selected
+                        </p>
+                        <p className="text-xs text-gray-600 dark:text-gray-400">
+                          Ready for bulk operations
+                        </p>
+                      </div>
+                    </div>
+                    
+                    <div className="flex items-center gap-3">
+                      <button
+                        onClick={handleBulkPrintReceipts}
+                        disabled={isPrintingBulk || !qzConnected}
+                        className="flex items-center gap-2 px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-medium"
+                      >
+                        <Printer className="w-4 h-4" />
+                        {isPrintingBulk ? 'Printing...' : 'Print All Receipts'}
+                      </button>
+                      <button
+                        onClick={handleBulkSendToPathao}
+                        disabled={isSendingBulk}
+                        className="flex items-center gap-2 px-5 py-2.5 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-medium"
+                      >
+                        <Truck className="w-4 h-4" />
+                        {isSendingBulk ? 'Sending...' : 'Send to Pathao'}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Bulk Print Progress */}
+              {bulkPrintProgress.show && (
+                <div className="mb-4 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl px-6 py-4">
+                  <div className="flex items-center justify-between mb-3">
+                    <p className="text-sm font-semibold text-gray-900 dark:text-white">
+                      Printing Receipts... ({bulkPrintProgress.current}/{bulkPrintProgress.total})
+                    </p>
+                    <div className="flex items-center gap-4">
+                      <div className="flex items-center gap-2">
+                        <CheckCircle className="w-4 h-4 text-green-600" />
+                        <span className="text-sm font-medium text-green-600">{bulkPrintProgress.success}</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <XCircle className="w-4 h-4 text-red-600" />
+                        <span className="text-sm font-medium text-red-600">{bulkPrintProgress.failed}</span>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+                    <div
+                      className="bg-blue-600 h-2 rounded-full transition-all duration-300"
+                      style={{ width: `${(bulkPrintProgress.current / bulkPrintProgress.total) * 100}%` }}
+                    ></div>
+                  </div>
                 </div>
               )}
 
@@ -394,6 +597,13 @@ export default function OrdersDashboard() {
         <div
           className="fixed inset-0 z-10"
           onClick={() => setActiveMenu(null)}
+        />
+      )}
+
+      {showPrinterSelect && (
+        <div
+          className="fixed inset-0 z-40"
+          onClick={() => setShowPrinterSelect(false)}
         />
       )}
     </div>
