@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { ChevronDown, X, CheckCircle2, AlertCircle, Package, Calculator, Download } from 'lucide-react';
+import { ChevronDown, X, CheckCircle2, AlertCircle, Package, Calculator, UserPlus, Users, Download } from 'lucide-react';
 import Header from '@/components/Header';
 import Sidebar from '@/components/Sidebar';
 import jsPDF from 'jspdf';
@@ -10,6 +10,15 @@ interface Store {
   id: number;
   name: string;
   location: string;
+}
+
+interface Employee {
+  id: string;
+  name: string;
+  email: string;
+  phone: string;
+  role: string;
+  joinDate: string;
 }
 
 interface CartItem {
@@ -97,6 +106,12 @@ export default function POSPage() {
   const [userStoreId, setUserStoreId] = useState<string>('');
   const [userName, setUserName] = useState<string>('');
 
+  // Employee management
+  const [employees, setEmployees] = useState<Employee[]>([]);
+  const [selectedEmployee, setSelectedEmployee] = useState('');
+  const [showAddEmployeeModal, setShowAddEmployeeModal] = useState(false);
+  const [newEmployee, setNewEmployee] = useState({ name: '', email: '', phone: '', role: '' });
+
   const [customerName, setCustomerName] = useState('');
   const [mobileNo, setMobileNo] = useState('');
   const [address, setAddress] = useState('');
@@ -171,6 +186,45 @@ export default function POSPage() {
     setTimeout(() => setToasts(prev => prev.filter(toast => toast.id !== id)), 5000);
   };
 
+  const fetchEmployees = async () => {
+    try {
+      const response = await fetch('/api/employees');
+      const data = await response.json();
+      setEmployees(data);
+    } catch (error) {
+      console.error('Error fetching employees:', error);
+    }
+  };
+
+  const handleAddEmployee = async () => {
+    if (!newEmployee.name || !newEmployee.email || !newEmployee.phone || !newEmployee.role) {
+      showToast('Please fill all employee fields', 'error');
+      return;
+    }
+
+    try {
+      const response = await fetch('/api/employees', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(newEmployee),
+      });
+
+      if (response.ok) {
+        const savedEmployee = await response.json();
+        setEmployees([...employees, savedEmployee]);
+        setSelectedEmployee(savedEmployee.id);
+        setNewEmployee({ name: '', email: '', phone: '', role: '' });
+        setShowAddEmployeeModal(false);
+        showToast('Employee added successfully!', 'success');
+      } else {
+        showToast('Failed to add employee', 'error');
+      }
+    } catch (error) {
+      console.error('Error adding employee:', error);
+      showToast('Error adding employee', 'error');
+    }
+  };
+
   useEffect(() => {
     const defectData = sessionStorage.getItem('defectItem');
     if (defectData) {
@@ -204,6 +258,7 @@ export default function POSPage() {
     fetchProducts();
     fetchInventory();
     loadDailyCashSummary();
+    fetchEmployees();
   }, []);
 
   const fetchOutlets = async (role: string, storeId: string) => {
@@ -692,16 +747,22 @@ const downloadCashCountPDF = () => {
       showToast('Please add products to cart', 'error');
       return;
     }
+    if (!selectedEmployee) {
+      showToast('Please select an employee', 'error');
+      return;
+    }
 
-    // FIX: Always use cashFromNotes if it has value, regardless of showNoteCounter state
     const finalCash = cashFromNotes > 0 ? cashFromNotes : cashPaid;
     const finalTotalPaid = finalCash + cardPaid + bkashPaid + nagadPaid;
     const finalDue = total - finalTotalPaid + transactionFee;
 
     const now = new Date().toISOString();
+    const selectedEmp = employees.find(emp => emp.id === selectedEmployee);
+    
     const saleData = {
       id: `sale-${Date.now()}`,
-      salesBy: userName || 'Admin',
+      salesBy: selectedEmp ? selectedEmp.name : (userName || 'Admin'),
+      employeeId: selectedEmployee,
       outletId: selectedOutlet,
       date: date,
       customer: { name: customerName, mobile: mobileNo, address: address },
@@ -835,10 +896,43 @@ const downloadCashCountPDF = () => {
                 )}
               </div>
               <div className="grid grid-cols-3 gap-4 mb-6">
+              <h1 className="text-2xl font-semibold text-gray-900 dark:text-white mb-6">Point of Sale</h1>
+              
+              {/* Top Section with Employee */}
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Sales By</label>
                   <input type="text" value={userRole === 'store_manager' ? userName : 'Admin'} readOnly className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-white" />
                 </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    Employee <span className="text-red-500">*</span>
+                  </label>
+                  <select 
+                    value={selectedEmployee} 
+                    onChange={(e) => {
+                      if (e.target.value === 'add_new') {
+                        setShowAddEmployeeModal(true);
+                        setSelectedEmployee('');
+                      } else {
+                        setSelectedEmployee(e.target.value);
+                      }
+                    }} 
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white [&_option[value='add_new']]:bg-gradient-to-r [&_option[value='add_new']]:from-gray-50 [&_option[value='add_new']]:to-gray-100 [&_option[value='add_new']]:dark:from-gray-800 [&_option[value='add_new']]:dark:to-gray-700 [&_option[value='add_new']]:font-semibold [&_option[value='add_new']]:text-gray-700 [&_option[value='add_new']]:dark:text-gray-300"
+                  >
+                    <option value="">Select Employee</option>
+                    {employees.map((emp) => (
+                      <option key={emp.id} value={emp.id}>
+                        {emp.name} - {emp.role}
+                      </option>
+                    ))}
+                    <option value="add_new">
+                      + Add New Employee
+                    </option>
+                  </select>
+                </div>
+
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Outlet <span className="text-red-500">*</span></label>
                   <select value={selectedOutlet} onChange={(e) => setSelectedOutlet(e.target.value)} className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white">
@@ -846,11 +940,13 @@ const downloadCashCountPDF = () => {
                     {outlets.map((outlet) => (<option key={outlet.id} value={outlet.id}>{outlet.name} - {outlet.location}</option>))}
                   </select>
                 </div>
+                
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Date <span className="text-red-500">*</span></label>
                   <input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white" />
                 </div>
               </div>
+
               <div className="grid grid-cols-3 gap-6">
                 <div className="col-span-2 space-y-6">
                   <div className={`bg-white dark:bg-gray-800 rounded-lg border ${defectiveProduct ? 'border-orange-300 dark:border-orange-700 shadow-lg' : 'border-gray-200 dark:border-gray-700'}`}>
@@ -1070,7 +1166,6 @@ const downloadCashCountPDF = () => {
                             value={cashFromNotes > 0 ? cashFromNotes : cashPaid} 
                             onChange={(e) => {
                               setCashPaid(Number(e.target.value));
-                              // Reset note counts when manually entering cash
                               setNote1000(0);
                               setNote500(0);
                               setNote200(0);
@@ -1192,9 +1287,112 @@ const downloadCashCountPDF = () => {
                 </div>
               </div>
             </div>
+            </div>
           </main>
         </div>
       </div>
+
+      {/* Add Employee Modal */}
+      {showAddEmployeeModal && (
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl max-w-md w-full border border-gray-200 dark:border-gray-800">
+            <div className="px-6 py-5 border-b border-gray-200 dark:border-gray-800 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-blue-100 dark:bg-blue-900/30 rounded-lg flex items-center justify-center">
+                  <Users className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+                </div>
+                <h2 className="text-xl font-bold text-gray-900 dark:text-white">Add New Employee</h2>
+              </div>
+              <button
+                onClick={() => {
+                  setShowAddEmployeeModal(false);
+                  setNewEmployee({ name: '', email: '', phone: '', role: '' });
+                }}
+                className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
+              >
+                <X className="w-5 h-5 text-gray-600 dark:text-gray-400" />
+              </button>
+            </div>
+            
+            <div className="p-6 space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Full Name <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  value={newEmployee.name}
+                  onChange={(e) => setNewEmployee({ ...newEmployee, name: e.target.value })}
+                  placeholder="Enter employee name"
+                  className="w-full px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Email <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="email"
+                  value={newEmployee.email}
+                  onChange={(e) => setNewEmployee({ ...newEmployee, email: e.target.value })}
+                  placeholder="employee@example.com"
+                  className="w-full px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Phone <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="tel"
+                  value={newEmployee.phone}
+                  onChange={(e) => setNewEmployee({ ...newEmployee, phone: e.target.value })}
+                  placeholder="017XXXXXXXX"
+                  className="w-full px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Role <span className="text-red-500">*</span>
+                </label>
+                <select
+                  value={newEmployee.role}
+                  onChange={(e) => setNewEmployee({ ...newEmployee, role: e.target.value })}
+                  className="w-full px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                >
+                  <option value="">Select Role</option>
+                  <option value="Sales Executive">Sales Executive</option>
+                  <option value="Sales Associate">Sales Associate</option>
+                  <option value="Store Assistant">Store Assistant</option>
+                  <option value="Cashier">Cashier</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="px-6 py-4 bg-gray-50 dark:bg-gray-800 rounded-b-2xl flex gap-3">
+              <button
+                onClick={() => {
+                  setShowAddEmployeeModal(false);
+                  setNewEmployee({ name: '', email: '', phone: '', role: '' });
+                }}
+                className="flex-1 px-4 py-2.5 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors font-medium"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleAddEmployee}
+                className="flex-1 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors font-medium flex items-center justify-center gap-2"
+              >
+                <UserPlus className="w-4 h-4" />
+                Add Employee
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

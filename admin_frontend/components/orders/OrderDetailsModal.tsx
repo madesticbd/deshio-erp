@@ -1,7 +1,7 @@
-// components/orders/OrderDetailsModal.tsx - Updated with QZ Tray
+
 
 import { useState, useEffect } from 'react';
-import { X, User, MapPin, Package, CreditCard, Edit2, Printer, Truck, Settings } from 'lucide-react';
+import { X, User, MapPin, Package, CreditCard, Edit2, Printer, Truck, Settings, Store as StoreIcon } from 'lucide-react';
 import { Order } from '@/types/order';
 import { connectQZ, printReceipt, getPrinters, checkQZStatus } from '@/lib/qz-tray';
 
@@ -160,8 +160,6 @@ export default function OrderDetailsModal({ order, onClose, onEdit }: OrderDetai
               <div className="absolute inset-0 rounded-lg bg-white/5 opacity-0 group-hover:opacity-100 transition-opacity"></div>
             </button>
 
-         
-
             {/* Pathao Button */}
             <button
               onClick={handleSendToPathao}
@@ -300,6 +298,34 @@ export default function OrderDetailsModal({ order, onClose, onEdit }: OrderDetai
                 );
               })}
             </div>
+
+            {/* Store Info - Placed After Products */}
+            {order.store && (
+              <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
+                <div className="flex items-start gap-3">
+                  <div className="w-8 h-8 bg-gray-200 dark:bg-gray-700 rounded-lg flex items-center justify-center flex-shrink-0">
+                    <StoreIcon className="w-4 h-4 text-gray-600 dark:text-gray-400" />
+                  </div>
+                  <div className="flex-1">
+                    <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase mb-2">Store Information</p>
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                      <div>
+                        <p className="text-xs text-gray-500 dark:text-gray-500 mb-0.5">Store</p>
+                        <p className="text-sm font-medium text-gray-900 dark:text-white">{order.store.name}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-gray-500 dark:text-gray-500 mb-0.5">Location</p>
+                        <p className="text-sm font-medium text-gray-900 dark:text-white">{order.store.location}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-gray-500 dark:text-gray-500 mb-0.5">Type</p>
+                        <p className="text-sm font-medium text-gray-900 dark:text-white">{order.store.type}</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Payment Summary */}
@@ -372,7 +398,6 @@ export default function OrderDetailsModal({ order, onClose, onEdit }: OrderDetai
       {showReceiptPreview && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[60] flex items-center justify-center p-4">
           <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-            {/* Preview Header */}
             <div className="sticky top-0 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 px-6 py-4 flex items-center justify-between rounded-t-2xl z-10">
               <h3 className="text-xl font-semibold text-gray-900 dark:text-white">Receipt Preview</h3>
               <div className="flex items-center gap-2">
@@ -393,10 +418,8 @@ export default function OrderDetailsModal({ order, onClose, onEdit }: OrderDetai
               </div>
             </div>
 
-            {/* Receipt Content - Simulated Thermal Printer Output */}
             <div className="p-8 bg-white dark:bg-gray-950">
               <div className="max-w-sm mx-auto bg-white border border-gray-300 p-6 font-mono text-xs leading-relaxed">
-                {/* Header */}
                 <div className="text-center mb-4">
                   <div className="text-2xl font-bold mb-2">RECEIPT</div>
                   <div className="text-xs mb-4">Order Confirmation</div>
@@ -410,7 +433,18 @@ export default function OrderDetailsModal({ order, onClose, onEdit }: OrderDetai
 
                 <div className="border-t-2 border-black my-3"></div>
 
-                {/* Customer Details */}
+                {/* Store Info in Receipt */}
+                {order.store && (
+                  <>
+                    <div className="mb-3">
+                      <div className="font-bold mb-1">STORE</div>
+                      <div>{order.store.name}</div>
+                      <div className="text-[10px] text-gray-600">{order.store.location}</div>
+                    </div>
+                    <div className="border-t border-gray-400 my-3"></div>
+                  </>
+                )}
+
                 <div className="mb-3">
                   <div className="font-bold mb-1">CUSTOMER DETAILS</div>
                   <div>Name: {order.customer.name}</div>
@@ -418,7 +452,6 @@ export default function OrderDetailsModal({ order, onClose, onEdit }: OrderDetai
                   <div>Sales By: {order.salesBy}</div>
                 </div>
 
-                {/* Delivery Address */}
                 <div className="mb-3">
                   <div className="font-bold mb-1">DELIVERY ADDRESS</div>
                   <div>{order.deliveryAddress.address}</div>
@@ -432,7 +465,6 @@ export default function OrderDetailsModal({ order, onClose, onEdit }: OrderDetai
 
                 <div className="border-t border-gray-400 my-3"></div>
 
-                {/* Products */}
                 <div className="mb-3">
                   <div className="font-bold mb-2">ORDER ITEMS</div>
                   <div className="border-t-2 border-black pt-2 space-y-2">
@@ -463,7 +495,6 @@ export default function OrderDetailsModal({ order, onClose, onEdit }: OrderDetai
 
                 <div className="border-t-2 border-black my-3"></div>
 
-                {/* Calculations */}
                 <div className="space-y-1 mb-3">
                   <div className="flex justify-between">
                     <span>Subtotal:</span>
@@ -493,7 +524,6 @@ export default function OrderDetailsModal({ order, onClose, onEdit }: OrderDetai
                   </div>
                 </div>
 
-                {/* Payments */}
                 <div className="bg-gray-100 -mx-2 px-2 py-2 mb-2">
                   <div className="flex justify-between font-semibold">
                     <span>Amount Paid:</span>
@@ -512,14 +542,12 @@ export default function OrderDetailsModal({ order, onClose, onEdit }: OrderDetai
 
                 <div className="border-t-2 border-black my-3"></div>
 
-                {/* Footer */}
                 <div className="text-center text-xs">
                   <div className="font-semibold mb-1">THANK YOU FOR YOUR BUSINESS</div>
                   <div className="text-gray-500">This is a computer-generated receipt</div>
                 </div>
               </div>
 
-              {/* Preview Info */}
               <div className="mt-4 text-center text-sm text-gray-500 dark:text-gray-400">
                 <p>Preview of thermal printer output (48 characters width)</p>
                 <p className="mt-1">Actual print may vary based on printer model</p>
