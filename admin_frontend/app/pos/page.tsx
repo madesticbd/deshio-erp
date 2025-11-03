@@ -328,7 +328,7 @@ export default function POSPage() {
     updateSummary(notes, returnNotes, cashFromNotes, returnCashFromNotes, netCash);
   };
 
-  const downloadCashCountPDF = () => {
+const downloadCashCountPDF = () => {
     const today = new Date().toISOString().split('T')[0];
     const outletData = outlets.find(o => o.id.toString() === selectedOutlet);
 
@@ -363,16 +363,17 @@ export default function POSPage() {
     doc.text(`Generated: ${new Date().toLocaleString()}`, 20, 50);
 
     doc.setFontSize(14);
-    doc.text(`Total Change Returned: Tk${summaryData.totalReturned.toFixed(2)}`, 20, 70);
-    doc.text(`Net Cash Collected: Tk${summaryData.netCash.toFixed(2)}`, 20, 80);
-    doc.text(`Total Transactions: ${summaryData.transactionCount || 0}`, 20, 90);
+    doc.text(`Total Cash Received: Tk${summaryData.totalReceived.toFixed(2)}`, 20, 70);
+    doc.text(`Total Change Returned: Tk${summaryData.totalReturned.toFixed(2)}`, 20, 80);
+    doc.text(`Net Cash Collected: Tk${summaryData.netCash.toFixed(2)}`, 20, 90);
+    doc.text(`Total Transactions: ${summaryData.transactionCount || 0}`, 20, 100);
 
     doc.setFontSize(12);
-    doc.text('Cash Received - Note Breakdown', 20, 110);
+    doc.text('Cash Received - Note Breakdown', 20, 120);
 
     // Define column widths
     const colWidths = [40, 40, 60];
-    let yPos = 120;
+    let yPos = 130;
     // Draw header row
     doc.setLineWidth(0.2);
     doc.rect(20, yPos - 5, colWidths[0], 10); // Denom
@@ -404,6 +405,12 @@ export default function POSPage() {
     doc.text('Total Received:', 25, yPos + 2);
     doc.text(`Tk${summaryData.totalReceived.toFixed(2)}`, 105, yPos + 2);
     yPos += 20;
+
+    // Check if we need a new page
+    if (yPos > 250) {
+      doc.addPage();
+      yPos = 20;
+    }
 
     doc.text('Change Returned - Note Breakdown', 20, yPos);
     yPos += 10;
@@ -437,6 +444,12 @@ export default function POSPage() {
     doc.text(`Tk${summaryData.totalReturned.toFixed(2)}`, 105, yPos + 2);
     yPos += 20;
 
+    // Check if we need a new page
+    if (yPos > 230) {
+      doc.addPage();
+      yPos = 20;
+    }
+
     // Net Cash in Drawer
     doc.text('Net Cash in Drawer - Note Breakdown', 20, yPos);
     yPos += 10;
@@ -464,6 +477,12 @@ export default function POSPage() {
         doc.text(`Tk${netAmount.toFixed(2)}`, 105, yPos + 2);
         netTotal += netAmount;
         yPos += 10;
+        
+        // Check if we need a new page
+        if (yPos > 270) {
+          doc.addPage();
+          yPos = 20;
+        }
       }
     });
     // Total row for net
