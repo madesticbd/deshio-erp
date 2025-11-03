@@ -5,6 +5,14 @@ import { useRouter } from 'next/navigation';
 import Header from '@/components/Header';
 import Sidebar from '@/components/Sidebar';
 
+interface Store {
+  id: string;
+  name: string;
+  location: string;
+  type: string;
+  isOnline: boolean;
+}
+
 export default function AmountDetailsPage() {
   const router = useRouter();
   const [darkMode, setDarkMode] = useState(false);
@@ -18,6 +26,11 @@ export default function AmountDetailsPage() {
   const [sslCommerzPaid, setSslCommerzPaid] = useState('0');
   const [advancePaid, setAdvancePaid] = useState('0');
   const [transactionId, setTransactionId] = useState('');
+  
+  // Store selection
+  const [stores, setStores] = useState<Store[]>([]);
+  const [selectedStore, setSelectedStore] = useState('');
+  const [isLoadingStores, setIsLoadingStores] = useState(true);
 
   const getTodayDate = () => {
     const today = new Date();
@@ -26,6 +39,29 @@ export default function AmountDetailsPage() {
     const year = today.getFullYear();
     return `${day}-${month}-${year}`;
   };
+
+  // Load stores from API
+  useEffect(() => {
+    const fetchStores = async () => {
+      try {
+        const response = await fetch('/api/stores');
+        if (response.ok) {
+          const data = await response.json();
+          setStores(data);
+          // Set first store as default if available
+          if (data.length > 0) {
+            setSelectedStore(data[0].id);
+          }
+        }
+      } catch (error) {
+        console.error('Error loading stores:', error);
+      } finally {
+        setIsLoadingStores(false);
+      }
+    };
+
+    fetchStores();
+  }, []);
 
   useEffect(() => {
     const storedOrder = sessionStorage.getItem('pendingOrder');
@@ -56,11 +92,23 @@ export default function AmountDetailsPage() {
   const dueAmount = Math.max(0, total - totalPaid);
   const returnAmount = Math.max(0, totalPaid - total);
 
+  // Get selected store details
+  const getSelectedStoreDetails = () => {
+    return stores.find(store => store.id === selectedStore);
+  };
+
   const handlePlaceOrder = async () => {
+    if (!selectedStore) {
+      alert('Please select a store before placing the order.');
+      return;
+    }
+
     setIsProcessing(true);
 
     try {
-      // Create the complete order data with all payment details
+      const selectedStoreDetails = getSelectedStoreDetails();
+
+      // Create the complete order data with all payment details and store info
       const completeOrderData = {
         ...orderData,
         date: orderData.date || getTodayDate(),
@@ -78,6 +126,12 @@ export default function AmountDetailsPage() {
           transactionId,
           totalPaid,
           due: dueAmount
+        },
+        store: {
+          id: selectedStore,
+          name: selectedStoreDetails?.name || '',
+          location: selectedStoreDetails?.location || '',
+          type: selectedStoreDetails?.type || ''
         }
       };
 
@@ -280,6 +334,43 @@ export default function AmountDetailsPage() {
                           className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 disabled:opacity-50"
                         />
                       </div>
+
+                      {/* Store Selection Dropdown */}
+                      <div className="mt-3">
+                        <label className="block text-xs text-gray-500 dark:text-gray-500 mb-1">
+                          Select Store <span className="text-red-500">*</span>
+                        </label>
+                        {isLoadingStores ? (
+                          <div className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded bg-gray-50 dark:bg-gray-700 text-gray-500 dark:text-gray-400">
+                            Loading stores...
+                          </div>
+                        ) : stores.length === 0 ? (
+                          <div className="w-full px-3 py-2 text-sm border border-red-300 dark:border-red-600 rounded bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400">
+                            No stores available. Please add a store first.
+                          </div>
+                        ) : (
+                          <select
+                            value={selectedStore}
+                            onChange={(e) => setSelectedStore(e.target.value)}
+                            disabled={isProcessing}
+                            className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white disabled:opacity-50 focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+                          >
+                            <option value="">-- Select a Store --</option>
+                            {stores.map((store) => (
+                              <option key={store.id} value={store.id}>
+                                {store.name} - {store.location} ({store.type})
+                              </option>
+                            ))}
+                          </select>
+                        )}
+                        {selectedStore && (
+                          <div className="mt-2 p-2 bg-teal-50 dark:bg-teal-900/20 rounded border border-teal-200 dark:border-teal-800">
+                            <p className="text-xs text-teal-700 dark:text-teal-300">
+                              ✓ Selected: <span className="font-medium">{getSelectedStoreDetails()?.name}</span>
+                            </p>
+                          </div>
+                        )}
+                      </div>
                     </div>
 
                     <div className="flex justify-between text-sm">
@@ -304,7 +395,7 @@ export default function AmountDetailsPage() {
                       </button>
                       <button
                         onClick={handlePlaceOrder}
-                        disabled={isProcessing}
+                        disabled={isProcessing || !selectedStore}
                         className="px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white text-sm font-medium rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                       >
                         {isProcessing ? (
@@ -324,6 +415,6 @@ export default function AmountDetailsPage() {
           </main>
         </div>
       </div>
-    </div>
-  );
+    </div>
+  );
 }

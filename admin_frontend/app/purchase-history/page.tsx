@@ -332,6 +332,13 @@ export default function PurchaseHistoryPage() {
                                 </span>
                               </div>
                               <div>
+                              <span className="text-gray-600 dark:text-gray-400">Sales By: </span>
+                              <span className="text-gray-900 dark:text-white font-medium">
+                                {sale.salesBy || 'N/A'}
+                              </span>
+                            </div>
+
+                              <div>
                                 <span className="text-gray-600 dark:text-gray-400">Outlet: </span>
                                 <span className="text-gray-900 dark:text-white">
                                   {getOutletName(sale.outletId)}
@@ -353,6 +360,7 @@ export default function PurchaseHistoryPage() {
                                 ৳{sale.amounts.total.toFixed(2)}
                               </div>
                             </div>
+                            
                             
       {/* Three Dots Menu */}
       <div className="relative">

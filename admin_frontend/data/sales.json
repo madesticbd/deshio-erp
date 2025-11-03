@@ -330,5 +330,54 @@
     "createdAt": "2025-11-02T08:02:07.084Z",
     "updatedAt": "2025-11-02T08:02:06.704Z",
     "exchangeHistory": []
+  },
+  {
+    "id": "sale-1762152675780",
+    "salesBy": "Nafisa Tasnim",
+    "employeeId": "emp-1762152637316",
+    "outletId": "1761588414664",
+    "date": "2025-11-03",
+    "customer": {
+      "name": "Nilu",
+      "mobile": "01818316964",
+      "address": "International Affairs Division ,Paramanu Bhaban ,Bangladesh Atomic Energy Commission,"
+    },
+    "items": [
+      {
+        "id": 1762152663727.4878,
+        "productId": 1761589326965,
+        "productName": "Shotoronji-Black",
+        "size": "",
+        "qty": 1,
+        "price": 1200,
+        "discount": 0,
+        "amount": 1200,
+        "isDefective": false,
+        "defectId": null,
+        "barcodes": [
+          "BATCH1761627972292-02"
+        ]
+      }
+    ],
+    "amounts": {
+      "subtotal": 1200,
+      "totalDiscount": 0,
+      "vat": 60,
+      "vatRate": 5,
+      "transportCost": 0,
+      "total": 1260
+    },
+    "payments": {
+      "cash": 1200,
+      "card": 60,
+      "bkash": 0,
+      "nagad": 0,
+      "transactionFee": 0,
+      "totalPaid": 1260,
+      "due": 0
+    },
+    "createdAt": "2025-11-03T06:51:16.532Z",
+    "updatedAt": "2025-11-03T06:51:15.780Z",
+    "exchangeHistory": []
   }
 ]

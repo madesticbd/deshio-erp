@@ -1,4 +1,4 @@
-// app/api/orders/route.ts - FIXED VERSION
+// app/api/social-orders/route.ts - Updated with Store Support
 import { NextResponse } from 'next/server';
 import fs from 'fs';
 import path from 'path';
@@ -159,7 +159,7 @@ export async function GET() {
   }
 }
 
-// POST — Save a new order with barcode allocation and transaction entry
+// POST — Save a new order with barcode allocation, store info, and transaction entry
 export async function POST(request: Request) {
   try {
     const newOrder = await request.json();
@@ -170,6 +170,16 @@ export async function POST(request: Request) {
 
     console.log('📝 Creating order:', orderId);
     console.log('📊 Order data:', JSON.stringify(newOrder, null, 2));
+
+    // Validate store information
+    if (!newOrder.store || !newOrder.store.id) {
+      console.error('❌ Store information is missing');
+      return NextResponse.json({ 
+        error: 'Store information is required' 
+      }, { status: 400 });
+    }
+
+    console.log('🏪 Store info:', newOrder.store);
 
     // Process each product and allocate barcodes
     const productsWithBarcodes = [];
@@ -216,19 +226,25 @@ export async function POST(request: Request) {
       }
     }
 
-    // Create order with metadata and barcodes
+    // Create order with metadata, barcodes, and store information
     const orderWithMeta = {
       id: orderId,
       ...newOrder,
       products: productsWithBarcodes,
+      store: {
+        id: newOrder.store.id,
+        name: newOrder.store.name,
+        location: newOrder.store.location,
+        type: newOrder.store.type
+      },
       createdAt: new Date().toISOString(),
     };
 
     existingOrders.push(orderWithMeta);
     writeOrdersToFile(existingOrders);
-    console.log(`✅ Order saved to file: ${orderId}`);
+    console.log(`✅ Order saved to file with store: ${newOrder.store.name}`);
 
-    // ✅ CREATE ORDER TRANSACTION (Fixed - using createOrderTransaction)
+    // ✅ CREATE ORDER TRANSACTION
     try {
       console.log('💰 Creating order transaction entry...');
       createOrderTransaction(orderWithMeta);
@@ -327,7 +343,7 @@ export async function DELETE(request: Request) {
     writeOrdersToFile(updatedOrders);
     console.log(`✅ Order removed from file: ${id}`);
 
-    // ✅ REMOVE ORDER TRANSACTION (Fixed)
+    // ✅ REMOVE ORDER TRANSACTION
     try {
       console.log('💰 Removing order transaction entry...');
       removeTransaction('order', id);
@@ -353,7 +369,7 @@ export async function DELETE(request: Request) {
   }
 }
 
-// PUT — Update an existing order
+// PUT — Update an existing order (preserving store info)
 export async function PUT(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
@@ -404,22 +420,29 @@ export async function PUT(request: Request) {
       });
     }
 
-    // Update the order with preserved barcodes
+    // Preserve store information if not provided in update
+    const storeInfo = updatedOrderData.store || existingOrder.store;
+
+    // Update the order with preserved barcodes and store info
     orders[orderIndex] = {
       ...existingOrder,
       ...updatedOrderData,
       products: mergedProducts,
+      store: storeInfo, // Ensure store info is preserved
       id: existingOrder.id,
       createdAt: existingOrder.createdAt,
       updatedAt: new Date().toISOString(),
     };
 
-    console.log('✅ Updated order with preserved barcodes');
+    console.log('✅ Updated order with preserved barcodes and store info');
+    if (storeInfo) {
+      console.log('🏪 Store preserved:', storeInfo.name);
+    }
 
     writeOrdersToFile(orders);
     console.log('✅ Order saved to file');
 
-    // ✅ UPDATE ORDER TRANSACTION (Fixed)
+    // ✅ UPDATE ORDER TRANSACTION
     try {
       console.log('💰 Updating order transaction entry...');
       removeTransaction('order', id);

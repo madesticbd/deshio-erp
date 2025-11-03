@@ -1,4 +1,4 @@
-// app/orders/page.tsx - Updated with Bulk Print & Pathao
+// app/orders/page.tsx - Fixed QZ Connection on Print Only
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -51,13 +51,6 @@ export default function OrdersDashboard() {
     const name = localStorage.getItem('userName') || '';
     setUserRole(role);
     setUserName(name);
-    
-    // Check printer status after a short delay to ensure QZ is loaded
-    const timer = setTimeout(() => {
-      checkPrinterStatus();
-    }, 1000);
-    
-    return () => clearTimeout(timer);
   }, []);
 
   const checkPrinterStatus = async () => {
@@ -78,6 +71,7 @@ export default function OrdersDashboard() {
       }
     } catch (error) {
       console.error('Failed to check printer status:', error);
+      throw error;
     }
   };
 
@@ -105,10 +99,10 @@ export default function OrdersDashboard() {
       const response = await fetch('/api/social-orders');
       if (response.ok) {
         const data = await response.json();
-        const ordersWithDates = data.map((order: Order) => ({
+        const ordersWithDates = data.map((order: any) => ({
           ...order,
           date: order.date || getTodayDate()
-        }));
+        })) as Order[];
         
         const role = localStorage.getItem('userRole') || '';
         const name = localStorage.getItem('userName') || '';
@@ -128,10 +122,10 @@ export default function OrdersDashboard() {
     
     try {
       const data = (await import('@/data/orders.json')).default;
-      const ordersWithDates = data.map((order: Order) => ({
+      const ordersWithDates = data.map((order: any) => ({
         ...order,
         date: order.date || getTodayDate()
-      }));
+      })) as Order[];
       
       const role = localStorage.getItem('userRole') || '';
       const name = localStorage.getItem('userName') || '';
@@ -323,8 +317,25 @@ export default function OrdersDashboard() {
       return;
     }
 
-    if (!qzConnected) {
-      alert('QZ Tray is not connected. Please start QZ Tray and refresh the page.');
+    // Check QZ connection first when user clicks print
+    try {
+      console.log('Checking QZ status...');
+      await checkPrinterStatus();
+      console.log('QZ Connected:', qzConnected);
+      
+      // Give state time to update
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
+    } catch (error) {
+      console.error('QZ Check Error:', error);
+      alert('Failed to connect to QZ Tray. Please ensure QZ Tray is running and try again.');
+      return;
+    }
+
+    // Check again after state update
+    const status = await checkQZStatus();
+    if (!status.connected) {
+      alert('QZ Tray is not connected. Please start QZ Tray and try again.');
       return;
     }
 
@@ -409,49 +420,51 @@ export default function OrdersDashboard() {
                     </p>
                   </div>
                   
-                  {/* Printer Status */}
+                  {/* Printer Status - Only show when connected */}
                   <div className="flex items-center gap-3">
-                    <div className="flex items-center gap-2 px-4 py-2 bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-800">
-                      <div className={`w-2 h-2 rounded-full ${qzConnected ? 'bg-green-500' : 'bg-red-500'}`}></div>
-                      <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                        {qzConnected ? 'Printer Connected' : 'Printer Offline'}
-                      </span>
-                    </div>
-                    
                     {qzConnected && (
-                      <div className="relative">
-                        <button
-                          onClick={() => setShowPrinterSelect(!showPrinterSelect)}
-                          className="flex items-center gap-2 px-4 py-2 bg-white dark:bg-gray-900 hover:bg-gray-50 dark:hover:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-800 transition-colors"
-                        >
-                          <Settings className="w-4 h-4 text-gray-600 dark:text-gray-400" />
+                      <>
+                        <div className="flex items-center gap-2 px-4 py-2 bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-800">
+                          <div className="w-2 h-2 rounded-full bg-green-500"></div>
                           <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                            {selectedPrinter || 'Select Printer'}
+                            Printer Connected
                           </span>
-                        </button>
+                        </div>
                         
-                        {showPrinterSelect && (
-                          <div className="absolute right-0 top-full mt-2 bg-white dark:bg-gray-800 rounded-lg shadow-xl border border-gray-200 dark:border-gray-700 py-2 w-72 z-50">
-                            <div className="px-4 py-2 border-b border-gray-200 dark:border-gray-700">
-                              <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase">Available Printers</p>
+                        <div className="relative">
+                          <button
+                            onClick={() => setShowPrinterSelect(!showPrinterSelect)}
+                            className="flex items-center gap-2 px-4 py-2 bg-white dark:bg-gray-900 hover:bg-gray-50 dark:hover:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-800 transition-colors"
+                          >
+                            <Settings className="w-4 h-4 text-gray-600 dark:text-gray-400" />
+                            <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                              {selectedPrinter || 'Select Printer'}
+                            </span>
+                          </button>
+                          
+                          {showPrinterSelect && (
+                            <div className="absolute right-0 top-full mt-2 bg-white dark:bg-gray-800 rounded-lg shadow-xl border border-gray-200 dark:border-gray-700 py-2 w-72 z-50">
+                              <div className="px-4 py-2 border-b border-gray-200 dark:border-gray-700">
+                                <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase">Available Printers</p>
+                              </div>
+                              {printers.map((printer) => (
+                                <button
+                                  key={printer}
+                                  onClick={() => handlePrinterSelect(printer)}
+                                  className={`w-full px-4 py-2.5 text-left text-sm hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors ${
+                                    selectedPrinter === printer ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 font-medium' : 'text-gray-700 dark:text-gray-300'
+                                  }`}
+                                >
+                                  {printer}
+                                  {selectedPrinter === printer && (
+                                    <CheckCircle className="w-4 h-4 inline ml-2" />
+                                  )}
+                                </button>
+                              ))}
                             </div>
-                            {printers.map((printer) => (
-                              <button
-                                key={printer}
-                                onClick={() => handlePrinterSelect(printer)}
-                                className={`w-full px-4 py-2.5 text-left text-sm hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors ${
-                                  selectedPrinter === printer ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 font-medium' : 'text-gray-700 dark:text-gray-300'
-                                }`}
-                              >
-                                {printer}
-                                {selectedPrinter === printer && (
-                                  <CheckCircle className="w-4 h-4 inline ml-2" />
-                                )}
-                              </button>
-                            ))}
-                          </div>
-                        )}
-                      </div>
+                          )}
+                        </div>
+                      </>
                     )}
                   </div>
                 </div>
@@ -496,7 +509,7 @@ export default function OrdersDashboard() {
                     <div className="flex items-center gap-3">
                       <button
                         onClick={handleBulkPrintReceipts}
-                        disabled={isPrintingBulk || !qzConnected}
+                        disabled={isPrintingBulk}
                         className="flex items-center gap-2 px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-medium"
                       >
                         <Printer className="w-4 h-4" />

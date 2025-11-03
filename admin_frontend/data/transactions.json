@@ -255,6 +255,58 @@
       "createdAt": "2025-11-02T10:22:36.258Z",
       "source": "exchange",
       "referenceId": "order-1761591326143"
+    },
+    {
+      "id": "txn-order-1762147403637",
+      "name": "Order: Shotoronji-Red",
+      "description": "Social Order from Customer",
+      "type": "income",
+      "amount": 1575,
+      "category": "Online Orders",
+      "date": "2025-11-03T05:23:23.643Z",
+      "comment": "Platform: Social Media, Products: 1, Cash: ৳0, Bkash: ৳0, Due: ৳1575",
+      "createdAt": "2025-11-03T05:23:23.650Z",
+      "source": "order",
+      "referenceId": "1762147403637"
+    },
+    {
+      "id": "txn-order-1762149848691",
+      "name": "Order: Jhumka",
+      "description": "Social Order from Customer",
+      "type": "income",
+      "amount": 315,
+      "category": "Online Orders",
+      "date": "2025-11-03T06:04:08.698Z",
+      "comment": "Platform: Social Media, Products: 1, Cash: ৳0, Bkash: ৳0, Due: ৳315",
+      "createdAt": "2025-11-03T06:04:08.704Z",
+      "source": "order",
+      "referenceId": "1762149848691"
+    },
+    {
+      "id": "txn-order-1762150540672",
+      "name": "Order: Shotoronji-Black",
+      "description": "Social Order from Customer",
+      "type": "income",
+      "amount": 1260,
+      "category": "Online Orders",
+      "date": "2025-11-03T06:15:40.684Z",
+      "comment": "Platform: Social Media, Products: 1, Cash: ৳0, Bkash: ৳0, Due: ৳260",
+      "createdAt": "2025-11-03T06:15:40.691Z",
+      "source": "order",
+      "referenceId": "1762150540672"
+    },
+    {
+      "id": "txn-sale-sale-1762152675780",
+      "name": "Sale: Shotoronji-Black",
+      "description": "POS Sale to Nilu",
+      "type": "income",
+      "amount": 1260,
+      "category": "POS Sales",
+      "date": "2025-11-03T06:51:16.532Z",
+      "comment": "Items: 1, Cash: ৳1200, Card: ৳60, Bkash: ৳0, Nagad: ৳0, Due: ৳0",
+      "createdAt": "2025-11-03T06:51:16.538Z",
+      "source": "sale",
+      "referenceId": "sale-1762152675780"
     }
   ]
 }
