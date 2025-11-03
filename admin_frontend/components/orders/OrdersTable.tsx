@@ -13,6 +13,9 @@ interface OrdersTableProps {
   onExchangeOrder: (order: Order) => void;
   onReturnOrder: (order: Order) => void;
   onCancelOrder: (orderId: number) => void;
+  selectedOrders?: Set<number>;
+  onToggleSelect?: (orderId: number) => void;
+  onToggleSelectAll?: () => void;
 }
 
 export default function OrdersTable({
@@ -24,13 +27,24 @@ export default function OrdersTable({
   onEditOrder,
   onExchangeOrder,
   onReturnOrder,
-  onCancelOrder
+  onCancelOrder,
+  selectedOrders,
+  onToggleSelect,
+  onToggleSelectAll,
 }: OrdersTableProps) {
+  const allSelected = selectedOrders && filteredOrders.length > 0 && selectedOrders.size === filteredOrders.length;
+  const someSelected = selectedOrders && selectedOrders.size > 0 && selectedOrders.size < filteredOrders.length;
+
   return (
     <div className="bg-white dark:bg-gray-900 rounded-xl overflow-hidden border border-gray-200 dark:border-gray-800 shadow-sm">
       <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-800 flex items-center justify-between">
         <p className="text-sm font-medium text-gray-700 dark:text-gray-300">
           Showing {filteredOrders.length} of {totalOrders} orders
+          {selectedOrders && selectedOrders.size > 0 && (
+            <span className="ml-2 text-blue-600 dark:text-blue-400">
+              ({selectedOrders.size} selected)
+            </span>
+          )}
         </p>
         <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
       </div>
@@ -48,6 +62,21 @@ export default function OrdersTable({
             <table className="w-full">
               <thead className="bg-gray-50 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-800">
                 <tr>
+                  {onToggleSelectAll && (
+                    <th className="px-6 py-3 text-left">
+                      <input
+                        type="checkbox"
+                        checked={allSelected || false}
+                        ref={(input) => {
+                          if (input) {
+                            input.indeterminate = someSelected || false;
+                          }
+                        }}
+                        onChange={onToggleSelectAll}
+                        className="w-4 h-4 text-blue-600 bg-gray-100 dark:bg-gray-700 border-gray-300 dark:border-gray-600 rounded focus:ring-blue-500 focus:ring-2 cursor-pointer"
+                      />
+                    </th>
+                  )}
                   <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider">Order No</th>
                   <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider">Customer</th>
                   <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider">Date</th>
@@ -59,6 +88,16 @@ export default function OrdersTable({
               <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
                 {filteredOrders.map((order, index) => (
                   <tr key={order.id} className="hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
+                    {onToggleSelect && selectedOrders && (
+                      <td className="px-6 py-4">
+                        <input
+                          type="checkbox"
+                          checked={selectedOrders.has(order.id)}
+                          onChange={() => onToggleSelect(order.id)}
+                          className="w-4 h-4 text-blue-600 bg-gray-100 dark:bg-gray-700 border-gray-300 dark:border-gray-600 rounded focus:ring-blue-500 focus:ring-2 cursor-pointer"
+                        />
+                      </td>
+                    )}
                     <td className="px-6 py-4">
                       <span className="text-sm font-bold text-gray-900 dark:text-white">#{order.id}</span>
                     </td>
@@ -151,6 +190,14 @@ export default function OrdersTable({
               <div key={order.id} className="p-4 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
                 <div className="flex items-start justify-between mb-3">
                   <div className="flex items-center gap-3">
+                    {onToggleSelect && selectedOrders && (
+                      <input
+                        type="checkbox"
+                        checked={selectedOrders.has(order.id)}
+                        onChange={() => onToggleSelect(order.id)}
+                        className="w-4 h-4 text-blue-600 bg-gray-100 dark:bg-gray-700 border-gray-300 dark:border-gray-600 rounded focus:ring-blue-500 focus:ring-2 cursor-pointer mt-1"
+                      />
+                    )}
                     <div className="w-10 h-10 bg-gray-200 dark:bg-gray-700 rounded-lg flex items-center justify-center text-gray-700 dark:text-gray-300 font-semibold">
                       {order.customer.name.charAt(0).toUpperCase()}
                     </div>

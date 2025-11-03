@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { ChevronDown, X, CheckCircle2, AlertCircle, Package } from 'lucide-react';
+import { ChevronDown, X, CheckCircle2, AlertCircle, Package, Calculator } from 'lucide-react';
 import Header from '@/components/Header';
 import Sidebar from '@/components/Sidebar';
 
@@ -22,8 +22,8 @@ interface CartItem {
   amount: number;
   isDefective?: boolean;
   defectId?: string;
-  barcode?: string; // For defective items
-  barcodes?: string[]; // For non-defective items
+  barcode?: string;
+  barcodes?: string[];
 }
 
 interface Product {
@@ -94,6 +94,18 @@ export default function POSPage() {
   const [bkashPaid, setBkashPaid] = useState(0);
   const [nagadPaid, setNagadPaid] = useState(0);
   const [transactionFee, setTransactionFee] = useState(0);
+
+  const [note1000, setNote1000] = useState(0);
+  const [note500, setNote500] = useState(0);
+  const [note200, setNote200] = useState(0);
+  const [note100, setNote100] = useState(0);
+  const [note50, setNote50] = useState(0);
+  const [note20, setNote20] = useState(0);
+  const [note10, setNote10] = useState(0);
+  const [note5, setNote5] = useState(0);
+  const [note2, setNote2] = useState(0);
+  const [note1, setNote1] = useState(0);
+  const [showNoteCounter, setShowNoteCounter] = useState(false);
 
   const showToast = (message: string, type: 'success' | 'error') => {
     const id = Date.now();
@@ -230,7 +242,7 @@ export default function POSPage() {
       return;
     }
     const newItem: CartItem = {
-      id: Date.now() + Math.random(), // Match the decimal ID format
+      id: Date.now() + Math.random(),
       productId: defectiveProduct.productId,
       productName: defectiveProduct.productName,
       size: '',
@@ -240,7 +252,7 @@ export default function POSPage() {
       amount: sellingPrice,
       isDefective: true,
       defectId: defectiveProduct.id,
-      barcode: defectiveProduct.barcode // Single barcode for defective items
+      barcode: defectiveProduct.barcode
     };
     setCart([...cart, newItem]);
     showToast('Defective product added to cart', 'success');
@@ -279,7 +291,6 @@ export default function POSPage() {
       return;
     }
 
-    // Fetch available inventory items for the selected product and outlet
     const availableItems = inventory.filter(
       inv => inv.productId === selectedProductId &&
              inv.location === selectedOutletData.name &&
@@ -295,16 +306,16 @@ export default function POSPage() {
     const discountValue = discountPercent > 0 ? (baseAmount * discountPercent) / 100 : discountAmount;
 
     const newItem: CartItem = {
-      id: Date.now() + Math.random(), // Match the decimal ID format
+      id: Date.now() + Math.random(),
       productId: selectedProductId,
       productName: product,
-      size: '', // Size can be set based on additional input if needed
+      size: '',
       qty: quantity,
       price: sellingPrice,
       discount: discountValue,
       amount: baseAmount - discountValue,
       isDefective: false,
-      barcodes: availableItems.map(item => item.barcode) // Array of barcodes for non-defective items
+      barcodes: availableItems.map(item => item.barcode)
     };
     setCart([...cart, newItem]);
     setProduct('');
@@ -324,8 +335,17 @@ export default function POSPage() {
   const totalDiscount = cart.reduce((sum, item) => sum + item.discount, 0);
   const vat = (subtotal * vatRate) / 100;
   const total = subtotal + vat + transportCost;
-  const totalPaid = cashPaid + cardPaid + bkashPaid + nagadPaid;
-  const due = total - totalPaid - transactionFee;
+  
+  const cashFromNotes = (note1000 * 1000) + (note500 * 500) + (note200 * 200) + 
+                     (note100 * 100) + (note50 * 50) + (note20 * 20) + 
+                     (note10 * 10) + (note5 * 5) + (note2 * 2) + (note1 * 1);
+
+// Use consistent calculation for both display and sale data
+const effectiveCash = cashFromNotes > 0 ? cashFromNotes : cashPaid;
+const totalPaid = effectiveCash + cardPaid + bkashPaid + nagadPaid;
+const due = total - totalPaid + transactionFee;
+
+
 
   const updateInventoryStatus = async (productId: number, quantity: number, barcodes: string[]) => {
     try {
@@ -351,75 +371,110 @@ export default function POSPage() {
     }
   };
 
-  const handleSell = async () => {
-    if (!selectedOutlet) {
-      showToast('Please select an outlet', 'error');
-      return;
-    }
-    if (cart.length === 0) {
-      showToast('Please add products to cart', 'error');
-      return;
-    }
-    const now = new Date().toISOString();
-    const saleData = {
-      id: `sale-${Date.now()}`, // Dynamic sale ID
-      salesBy: userName || 'Admin',
-      outletId: selectedOutlet,
-      date: date,
-      customer: { name: customerName, mobile: mobileNo, address: address },
-      items: cart.map(item => ({
-        id: item.id,
-        productId: item.productId,
-        productName: item.productName,
-        size: item.size,
-        qty: item.qty,
-        price: item.price,
-        discount: item.discount,
-        amount: item.amount,
-        isDefective: item.isDefective || false,
-        defectId: item.defectId || null,
-        ...(item.isDefective ? { barcode: item.barcode } : { barcodes: item.barcodes }) // Conditional barcode/barcodes
-      })),
-      amounts: { subtotal, totalDiscount, vat, vatRate, transportCost, total },
-      payments: { cash: cashPaid, card: cardPaid, bkash: bkashPaid, nagad: nagadPaid, transactionFee, totalPaid, due },
-      createdAt: now,
-      updatedAt: now,
-      exchangeHistory: [] // Initialize as empty array
-    };
-    try {
-      const response = await fetch('/api/sales', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(saleData),
-      });
-      if (response.ok) {
-        for (const item of cart) {
-          if (!item.isDefective) {
-            await updateInventoryStatus(item.productId, item.qty, item.barcodes || []);
-          }
-        }
-        showToast('Sale completed successfully!', 'success');
-        setCart([]);
-        setCustomerName('');
-        setMobileNo('');
-        setAddress('');
-        setCashPaid(0);
-        setCardPaid(0);
-        setBkashPaid(0);
-        setNagadPaid(0);
-        setTransactionFee(0);
-        setTransportCost(0);
-        await fetchInventory();
-      } else {
-        showToast('Failed to complete sale', 'error');
-      }
-    } catch (error) {
-      console.error('Error saving sale:', error);
-      showToast('Error saving sale', 'error');
-    }
+const handleSell = async () => {
+  if (!selectedOutlet) {
+    showToast('Please select an outlet', 'error');
+    return;
+  }
+  if (cart.length === 0) {
+    showToast('Please add products to cart', 'error');
+    return;
+  }
+
+ 
+  
+  // FIX: Always use cashFromNotes if it has value, regardless of showNoteCounter state
+  const finalCash = cashFromNotes > 0 ? cashFromNotes : cashPaid;
+  const finalTotalPaid = finalCash + cardPaid + bkashPaid + nagadPaid;
+  const finalDue = total - finalTotalPaid + transactionFee;
+
+
+  const now = new Date().toISOString();
+  const saleData = {
+    id: `sale-${Date.now()}`,
+    salesBy: userName || 'Admin',
+    outletId: selectedOutlet,
+    date: date,
+    customer: { name: customerName, mobile: mobileNo, address: address },
+    items: cart.map(item => ({
+      id: item.id,
+      productId: item.productId,
+      productName: item.productName,
+      size: item.size,
+      qty: item.qty,
+      price: item.price,
+      discount: item.discount,
+      amount: item.amount,
+      isDefective: item.isDefective || false,
+      defectId: item.defectId || null,
+      ...(item.isDefective ? { barcode: item.barcode } : { barcodes: item.barcodes })
+    })),
+    amounts: { subtotal, totalDiscount, vat, vatRate, transportCost, total },
+    payments: { 
+      cash: finalCash, 
+      card: cardPaid, 
+      bkash: bkashPaid, 
+      nagad: nagadPaid, 
+      transactionFee, 
+      totalPaid: finalTotalPaid, 
+      due: finalDue 
+    },
+    createdAt: now,
+    updatedAt: now,
+    exchangeHistory: []
   };
 
-  // Rest of the component (UI rendering) remains unchanged
+
+  try {
+    const response = await fetch('/api/sales', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(saleData),
+    });
+    
+    if (response.ok) {
+      const responseData = await response.json();
+
+      
+      for (const item of cart) {
+        if (!item.isDefective) {
+          await updateInventoryStatus(item.productId, item.qty, item.barcodes || []);
+        }
+      }
+      showToast('Sale completed successfully!', 'success');
+      setCart([]);
+      setCustomerName('');
+      setMobileNo('');
+      setAddress('');
+      setCashPaid(0);
+      setCardPaid(0);
+      setBkashPaid(0);
+      setNagadPaid(0);
+      setTransactionFee(0);
+      setTransportCost(0);
+      setNote1000(0);
+      setNote500(0);
+      setNote200(0);
+      setNote100(0);
+      setNote50(0);
+      setNote20(0);
+      setNote10(0);
+      setNote5(0);
+      setNote2(0);
+      setNote1(0);
+      setShowNoteCounter(false);
+      await fetchInventory();
+    } else {
+      const errorData = await response.json();
+      console.error('API Error:', errorData);
+      showToast('Failed to complete sale', 'error');
+    }
+  } catch (error) {
+    console.error('Error saving sale:', error);
+    showToast('Error saving sale', 'error');
+  }
+};
+
   return (
     <div className={darkMode ? 'dark' : ''}>
       <div className="flex h-screen bg-gray-50 dark:bg-gray-900">
@@ -582,68 +637,146 @@ export default function POSPage() {
                   <div className="p-4 space-y-4">
                     <div className="flex justify-between text-sm">
                       <span className="text-gray-700 dark:text-gray-300">Sub Total</span>
-                      <span className="text-gray-900 dark:text-white">{subtotal.toFixed(2)}</span>
+                      <span className="text-gray-900 dark:text-white font-medium">৳{subtotal.toFixed(2)}</span>
                     </div>
                     <div className="flex justify-between text-sm">
                       <span className="text-gray-700 dark:text-gray-300">Total Discount</span>
-                      <span className="text-gray-900 dark:text-white">{totalDiscount.toFixed(2)}</span>
+                      <span className="text-gray-900 dark:text-white font-medium">৳{totalDiscount.toFixed(2)}</span>
                     </div>
                     <div className="grid grid-cols-2 gap-2">
                       <div>
                         <label className="block text-xs text-gray-700 dark:text-gray-300 mb-1">Vat</label>
-                        <input type="number" value={vat.toFixed(2)} readOnly className="w-full px-2 py-1 border border-gray-300 dark:border-gray-600 rounded bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-white text-sm" />
+                        <input type="number" value={vat.toFixed(2)} readOnly className="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-white text-sm" />
                       </div>
                       <div>
                         <label className="block text-xs text-gray-700 dark:text-gray-300 mb-1">Vat Rate %</label>
-                        <input type="number" value={vatRate} onChange={(e) => setVatRate(Number(e.target.value))} className="w-full px-2 py-1 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm" />
+                        <input type="number" value={vatRate} onChange={(e) => setVatRate(Number(e.target.value))} className="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm" />
                       </div>
                     </div>
                     <div>
                       <label className="block text-xs text-gray-700 dark:text-gray-300 mb-1">Transport Cost</label>
-                      <input type="number" value={transportCost} onChange={(e) => setTransportCost(Number(e.target.value))} className="w-full px-2 py-1 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm" />
+                      <input type="number" value={transportCost} onChange={(e) => setTransportCost(Number(e.target.value))} className="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm" />
                     </div>
                     <div className="pt-2 border-t border-gray-200 dark:border-gray-700">
-                      <div className="flex justify-between text-sm mb-2">
-                        <span className="font-medium text-gray-900 dark:text-white">Total</span>
-                        <span className="font-medium text-gray-900 dark:text-white">{total.toFixed(2)}</span>
-                      </div>
-                      <div className="flex justify-between text-sm">
-                        <span className="text-gray-700 dark:text-gray-300">Return</span>
-                        <span className="text-gray-900 dark:text-white">0.00</span>
+                      <div className="flex justify-between text-base mb-2">
+                        <span className="font-semibold text-gray-900 dark:text-white">Total</span>
+                        <span className="font-semibold text-gray-900 dark:text-white">৳{total.toFixed(2)}</span>
                       </div>
                     </div>
+                    
+                    <div className="space-y-3 pt-2 border-t border-gray-200 dark:border-gray-700">
+                      <div className="flex items-center justify-between">
+                        <label className="text-xs font-medium text-gray-700 dark:text-gray-300">Cash Payment</label>
+                        <button
+                          onClick={() => setShowNoteCounter(!showNoteCounter)}
+                          className="flex items-center gap-1 px-2 py-1 text-xs bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 rounded hover:bg-blue-100 dark:hover:bg-blue-900/30"
+                        >
+                          <Calculator className="w-3 h-3" />
+                          {showNoteCounter ? 'Hide' : 'Count Notes'}
+                        </button>
+                      </div>
+                      
+                      {showNoteCounter ? (
+                        <div className="bg-blue-50 dark:bg-blue-900/10 border border-blue-200 dark:border-blue-800 rounded-lg p-3 space-y-2">
+                          <div className="grid grid-cols-3 gap-2">
+                            <div>
+                              <label className="block text-xs text-gray-700 dark:text-gray-300 mb-1">৳1000 ×</label>
+                              <input type="number" min="0" value={note1000} onChange={(e) => setNote1000(Number(e.target.value))} className="w-full px-2 py-1 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm" />
+                            </div>
+                            <div>
+                              <label className="block text-xs text-gray-700 dark:text-gray-300 mb-1">৳500 ×</label>
+                              <input type="number" min="0" value={note500} onChange={(e) => setNote500(Number(e.target.value))} className="w-full px-2 py-1 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm" />
+                            </div>
+                            <div>
+                              <label className="block text-xs text-gray-700 dark:text-gray-300 mb-1">৳200 ×</label>
+                              <input type="number" min="0" value={note200} onChange={(e) => setNote200(Number(e.target.value))} className="w-full px-2 py-1 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm" />
+                            </div>
+                            <div>
+                              <label className="block text-xs text-gray-700 dark:text-gray-300 mb-1">৳100 ×</label>
+                              <input type="number" min="0" value={note100} onChange={(e) => setNote100(Number(e.target.value))} className="w-full px-2 py-1 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm" />
+                            </div>
+                            <div>
+                              <label className="block text-xs text-gray-700 dark:text-gray-300 mb-1">৳50 ×</label>
+                              <input type="number" min="0" value={note50} onChange={(e) => setNote50(Number(e.target.value))} className="w-full px-2 py-1 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm" />
+                            </div>
+                            <div>
+                              <label className="block text-xs text-gray-700 dark:text-gray-300 mb-1">৳20 ×</label>
+                              <input type="number" min="0" value={note20} onChange={(e) => setNote20(Number(e.target.value))} className="w-full px-2 py-1 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm" />
+                            </div>
+                            <div>
+                              <label className="block text-xs text-gray-700 dark:text-gray-300 mb-1">৳10 ×</label>
+                              <input type="number" min="0" value={note10} onChange={(e) => setNote10(Number(e.target.value))} className="w-full px-2 py-1 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm" />
+                            </div>
+                            <div>
+                              <label className="block text-xs text-gray-700 dark:text-gray-300 mb-1">৳5 ×</label>
+                              <input type="number" min="0" value={note5} onChange={(e) => setNote5(Number(e.target.value))} className="w-full px-2 py-1 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm" />
+                            </div>
+                            <div>
+                              <label className="block text-xs text-gray-700 dark:text-gray-300 mb-1">৳2 ×</label>
+                              <input type="number" min="0" value={note2} onChange={(e) => setNote2(Number(e.target.value))} className="w-full px-2 py-1 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm" />
+                            </div>
+                          </div>
+                          <div className="flex justify-between items-center pt-2 border-t border-blue-200 dark:border-blue-800">
+                            <span className="text-xs font-medium text-gray-700 dark:text-gray-300">Total Cash:</span>
+                            <span className="text-sm font-bold text-blue-600 dark:text-blue-400">৳{cashFromNotes.toFixed(2)}</span>
+                          </div>
+                        </div>
+                      ) : (
+                        <div>
+                          <label className="block text-xs text-gray-700 dark:text-gray-300 mb-1">Cash Paid</label>
+                          <input 
+                            type="number" 
+                            value={cashFromNotes > 0 ? cashFromNotes : cashPaid} 
+                            onChange={(e) => {
+                              setCashPaid(Number(e.target.value));
+                              // Reset note counts when manually entering cash
+                              setNote1000(0);
+                              setNote500(0);
+                              setNote200(0);
+                              setNote100(0);
+                              setNote50(0);
+                              setNote20(0);
+                              setNote10(0);
+                              setNote5(0);
+                              setNote2(0);
+                              setNote1(0);
+                            }} 
+                            className="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm" 
+                          />
+                        </div>
+                      )}
+                    </div>
+
                     <div className="grid grid-cols-2 gap-2">
                       <div>
-                        <label className="block text-xs text-gray-700 dark:text-gray-300 mb-1">Cash Paid</label>
-                        <input type="number" value={cashPaid} onChange={(e) => setCashPaid(Number(e.target.value))} className="w-full px-2 py-1 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm" />
-                      </div>
-                      <div>
                         <label className="block text-xs text-gray-700 dark:text-gray-300 mb-1">Card Paid</label>
-                        <input type="number" value={cardPaid} onChange={(e) => setCardPaid(Number(e.target.value))} className="w-full px-2 py-1 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm" />
+                        <input type="number" value={cardPaid} onChange={(e) => setCardPaid(Number(e.target.value))} className="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm" />
                       </div>
                       <div>
                         <label className="block text-xs text-gray-700 dark:text-gray-300 mb-1">Bkash Paid</label>
-                        <input type="number" value={bkashPaid} onChange={(e) => setBkashPaid(Number(e.target.value))} className="w-full px-2 py-1 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm" />
+                        <input type="number" value={bkashPaid} onChange={(e) => setBkashPaid(Number(e.target.value))} className="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm" />
                       </div>
                       <div>
                         <label className="block text-xs text-gray-700 dark:text-gray-300 mb-1">Nagad Paid</label>
-                        <input type="number" value={nagadPaid} onChange={(e) => setNagadPaid(Number(e.target.value))} className="w-full px-2 py-1 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm" />
+                        <input type="number" value={nagadPaid} onChange={(e) => setNagadPaid(Number(e.target.value))} className="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm" />
+                      </div>
+                      <div>
+                        <label className="block text-xs text-gray-700 dark:text-gray-300 mb-1">Transaction Fee</label>
+                        <input type="number" value={transactionFee} onChange={(e) => setTransactionFee(Number(e.target.value))} className="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm" />
                       </div>
                     </div>
-                    <div>
-                      <div className="flex justify-between mb-1">
-                        <label className="block text-xs text-gray-700 dark:text-gray-300">Transaction Fee</label>
-                        <span className="text-xs text-gray-500 dark:text-gray-400">Tk</span>
+                    
+                    <div className="pt-3 border-t border-gray-200 dark:border-gray-700">
+                      <div className="flex justify-between text-sm mb-1">
+                        <span className="text-gray-700 dark:text-gray-300">Total Paid</span>
+                        <span className="text-gray-900 dark:text-white font-medium">৳{totalPaid.toFixed(2)}</span>
                       </div>
-                      <input type="number" value={transactionFee} onChange={(e) => setTransactionFee(Number(e.target.value))} className="w-full px-2 py-1 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm" />
-                    </div>
-                    <div className="pt-2 border-t border-gray-200 dark:border-gray-700">
-                      <div className="flex justify-between text-sm">
-                        <span className="text-gray-700 dark:text-gray-300">Due</span>
-                        <span className="text-gray-900 dark:text-white font-medium">{due.toFixed(2)}</span>
+                      <div className="flex justify-between text-base">
+                        <span className="font-semibold text-gray-900 dark:text-white">Due</span>
+                        <span className={`font-bold ${due > 0 ? 'text-red-600 dark:text-red-400' : 'text-green-600 dark:text-green-400'}`}>৳{due.toFixed(2)}</span>
                       </div>
                     </div>
-                    <button onClick={handleSell} className="w-full py-2 bg-gray-900 hover:bg-gray-800 dark:bg-white dark:hover:bg-gray-100 text-white dark:text-gray-900 rounded-md text-sm font-medium">Sell</button>
+                    <button onClick={handleSell} className="w-full py-2.5 bg-gray-900 hover:bg-gray-800 dark:bg-white dark:hover:bg-gray-100 text-white dark:text-gray-900 rounded-md text-sm font-semibold transition-colors">Complete Sale</button>
                   </div>
                 </div>
               </div>

@@ -36,5 +36,22 @@
     "image": "/uploads/defect-1761590750774.jpg",
     "soldAt": "2025-10-27T18:49:59.468Z",
     "updatedAt": "2025-10-27T18:49:59.468Z"
+  },
+  {
+    "id": "defect-1761628880509",
+    "barcode": "BATCH1761589535098-01",
+    "productId": 1761589031972,
+    "productName": "Toshor Silk Sharee",
+    "status": "pending",
+    "store": "1761588414664",
+    "addedBy": "Admin",
+    "addedAt": "2025-10-28T05:21:20.510Z",
+    "originalOrderId": "sale-1761590413128",
+    "customerPhone": "01818316964",
+    "costPrice": 1500,
+    "originalSellingPrice": 2000,
+    "sellingPrice": null,
+    "returnReason": "defected",
+    "image": "/uploads/defect-1761628880502.jpg"
   }
 ]

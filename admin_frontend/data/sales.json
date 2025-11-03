@@ -186,5 +186,149 @@
     "createdAt": "2025-10-27T18:51:06.801Z",
     "updatedAt": "2025-10-27T18:51:06.472Z",
     "exchangeHistory": []
+  },
+  {
+    "id": "sale-1762069945479",
+    "salesBy": "System Administrator",
+    "outletId": "1761588384818",
+    "date": "2025-11-02",
+    "customer": {
+      "name": "Rumy Parvez",
+      "mobile": "01818316964",
+      "address": "International Affairs Division ,Paramanu Bhaban ,Bangladesh Atomic Energy Commission,"
+    },
+    "items": [
+      {
+        "id": 1762069870710.8481,
+        "productId": 1761589326964,
+        "productName": "Shotoronji-Red",
+        "size": "",
+        "qty": 1,
+        "price": 1500,
+        "discount": 0,
+        "amount": 1500,
+        "isDefective": false,
+        "defectId": null,
+        "barcodes": [
+          "BATCH1761589571631-03"
+        ]
+      }
+    ],
+    "amounts": {
+      "subtotal": 1500,
+      "totalDiscount": 0,
+      "vat": 75,
+      "vatRate": 5,
+      "transportCost": 0,
+      "total": 1575
+    },
+    "payments": {
+      "cash": 0,
+      "card": 100,
+      "bkash": 0,
+      "nagad": 0,
+      "transactionFee": 0,
+      "totalPaid": 100,
+      "due": 1475
+    },
+    "createdAt": "2025-11-02T07:52:26.023Z",
+    "updatedAt": "2025-11-02T07:52:25.479Z",
+    "exchangeHistory": []
+  },
+  {
+    "id": "sale-1762070311946",
+    "salesBy": "System Administrator",
+    "outletId": "1761588384818",
+    "date": "2025-11-02",
+    "customer": {
+      "name": "Rumy Parvez",
+      "mobile": "01818316964",
+      "address": "International Affairs Division ,Paramanu Bhaban ,Bangladesh Atomic Energy Commission,"
+    },
+    "items": [
+      {
+        "id": 1762070282724.3909,
+        "productId": 1761589326964,
+        "productName": "Shotoronji-Red",
+        "size": "",
+        "qty": 1,
+        "price": 1500,
+        "discount": 0,
+        "amount": 1500,
+        "isDefective": false,
+        "defectId": null,
+        "barcodes": [
+          "BATCH1761589571631-04"
+        ]
+      }
+    ],
+    "amounts": {
+      "subtotal": 1500,
+      "totalDiscount": 0,
+      "vat": 75,
+      "vatRate": 5,
+      "transportCost": 0,
+      "total": 1575
+    },
+    "payments": {
+      "cash": 300,
+      "card": 100,
+      "bkash": 200,
+      "nagad": 0,
+      "transactionFee": 0,
+      "totalPaid": 600,
+      "due": 975
+    },
+    "createdAt": "2025-11-02T07:58:32.305Z",
+    "updatedAt": "2025-11-02T07:58:31.945Z",
+    "exchangeHistory": []
+  },
+  {
+    "id": "sale-1762070526704",
+    "salesBy": "System Administrator",
+    "outletId": "1761588414664",
+    "date": "2025-11-02",
+    "customer": {
+      "name": "Rumy Parvez",
+      "mobile": "01818316964",
+      "address": "International Affairs Division ,Paramanu Bhaban ,Bangladesh Atomic Energy Commission,"
+    },
+    "items": [
+      {
+        "id": 1762070492449.0461,
+        "productId": 1761589031972,
+        "productName": "Toshor Silk Sharee",
+        "size": "",
+        "qty": 1,
+        "price": 2000,
+        "discount": 0,
+        "amount": 2000,
+        "isDefective": false,
+        "defectId": null,
+        "barcodes": [
+          "BATCH1761589535098-04"
+        ]
+      }
+    ],
+    "amounts": {
+      "subtotal": 2000,
+      "totalDiscount": 0,
+      "vat": 100,
+      "vatRate": 5,
+      "transportCost": 20,
+      "total": 2120
+    },
+    "payments": {
+      "cash": 600,
+      "card": 200,
+      "bkash": 0,
+      "nagad": 0,
+      "transactionFee": 0,
+      "totalPaid": 800,
+      "due": 1320
+    },
+    "createdAt": "2025-11-02T08:02:07.084Z",
+    "updatedAt": "2025-11-02T08:02:06.704Z",
+    "exchangeHistory": []
   }
 ]
