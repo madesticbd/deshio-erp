@@ -1,9 +1,10 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { ChevronDown, X, CheckCircle2, AlertCircle, Package, Calculator } from 'lucide-react';
+import { ChevronDown, X, CheckCircle2, AlertCircle, Package, Calculator, Download } from 'lucide-react';
 import Header from '@/components/Header';
 import Sidebar from '@/components/Sidebar';
+import jsPDF from 'jspdf';
 
 interface Store {
   id: number;
@@ -60,6 +61,28 @@ interface DefectItem {
   store?: string;
 }
 
+interface NoteCounts {
+  note1000: number;
+  note500: number;
+  note200: number;
+  note100: number;
+  note50: number;
+  note20: number;
+  note10: number;
+  note5: number;
+  note2: number;
+  note1: number;
+}
+
+interface DailyCashSummary {
+  receivedNotes: NoteCounts;
+  returnedNotes: NoteCounts;
+  totalReceived: number;
+  totalReturned: number;
+  netCash: number;
+  transactionCount: number;
+}
+
 export default function POSPage() {
   const [darkMode, setDarkMode] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -107,6 +130,41 @@ export default function POSPage() {
   const [note1, setNote1] = useState(0);
   const [showNoteCounter, setShowNoteCounter] = useState(false);
 
+  // Return change notes
+  const [returnNote1000, setReturnNote1000] = useState(0);
+  const [returnNote500, setReturnNote500] = useState(0);
+  const [returnNote200, setReturnNote200] = useState(0);
+  const [returnNote100, setReturnNote100] = useState(0);
+  const [returnNote50, setReturnNote50] = useState(0);
+  const [returnNote20, setReturnNote20] = useState(0);
+  const [returnNote10, setReturnNote10] = useState(0);
+  const [returnNote5, setReturnNote5] = useState(0);
+  const [returnNote2, setReturnNote2] = useState(0);
+  const [returnNote1, setReturnNote1] = useState(0);
+  const [showReturnCounter, setShowReturnCounter] = useState(false);
+
+  const emptyNotes: NoteCounts = {
+    note1000: 0,
+    note500: 0,
+    note200: 0,
+    note100: 0,
+    note50: 0,
+    note20: 0,
+    note10: 0,
+    note5: 0,
+    note2: 0,
+    note1: 0
+  };
+
+  const [dailyCashSummary, setDailyCashSummary] = useState<DailyCashSummary>({
+    receivedNotes: { ...emptyNotes },
+    returnedNotes: { ...emptyNotes },
+    totalReceived: 0,
+    totalReturned: 0,
+    netCash: 0,
+    transactionCount: 0
+  });
+
   const showToast = (message: string, type: 'success' | 'error') => {
     const id = Date.now();
     setToasts(prev => [...prev, { id, message, type }]);
@@ -145,20 +203,24 @@ export default function POSPage() {
     fetchOutlets(role, storeId);
     fetchProducts();
     fetchInventory();
+    loadDailyCashSummary();
   }, []);
 
   const fetchOutlets = async (role: string, storeId: string) => {
     try {
       const response = await fetch('/api/stores');
       const data = await response.json();
+      setOutlets(data);
       if (role === 'store_manager' && storeId) {
         const userStore = data.find((store: Store) => String(store.id) === String(storeId));
-        setOutlets(userStore ? [userStore] : data);
         if (userStore) {
           setSelectedOutlet(String(userStore.id));
         }
-      } else {
-        setOutlets(data);
+      } else if (storeId) {
+        const userStore = data.find((store: Store) => String(store.id) === String(storeId));
+        if (userStore) {
+          setSelectedOutlet(String(userStore.id));
+        }
       }
     } catch (error) {
       console.error('Error fetching outlets:', error);
@@ -183,6 +245,234 @@ export default function POSPage() {
     } catch (error) {
       console.error('Error fetching inventory:', error);
     }
+  };
+
+  const loadDailyCashSummary = () => {
+    const today = new Date().toISOString().split('T')[0];
+    const savedSummary = localStorage.getItem(`cashSummary_${today}`);
+    if (savedSummary) {
+      try {
+        const parsed = JSON.parse(savedSummary);
+        setDailyCashSummary({
+          receivedNotes: { ...emptyNotes, ...parsed.receivedNotes },
+          returnedNotes: { ...emptyNotes, ...parsed.returnedNotes },
+          totalReceived: parsed.totalReceived || 0,
+          totalReturned: parsed.totalReturned || 0,
+          netCash: parsed.netCash || 0,
+          transactionCount: parsed.transactionCount || 0
+        });
+      } catch (error) {
+        console.error('Error loading cash summary:', error);
+      }
+    }
+  };
+
+  const updateSummary = (entryNotes: NoteCounts, entryReturnNotes: NoteCounts | undefined, entryTotal: number, entryReturn: number, entryNet: number) => {
+    const newReceived = { ...dailyCashSummary.receivedNotes };
+    for (let key in entryNotes) {
+      newReceived[key as keyof NoteCounts] += entryNotes[key as keyof NoteCounts];
+    }
+
+    const newReturned = { ...dailyCashSummary.returnedNotes };
+    if (entryReturnNotes) {
+      for (let key in entryReturnNotes) {
+        newReturned[key as keyof NoteCounts] += entryReturnNotes[key as keyof NoteCounts];
+      }
+    }
+
+    const newSummary = {
+      receivedNotes: newReceived,
+      returnedNotes: newReturned,
+      totalReceived: dailyCashSummary.totalReceived + entryTotal,
+      totalReturned: dailyCashSummary.totalReturned + entryReturn,
+      netCash: dailyCashSummary.netCash + entryNet,
+      transactionCount: dailyCashSummary.transactionCount + 1
+    };
+
+    setDailyCashSummary(newSummary);
+    const today = new Date().toISOString().split('T')[0];
+    localStorage.setItem(`cashSummary_${today}`, JSON.stringify(newSummary));
+  };
+
+  const recordCashPayment = () => {
+    if (cashFromNotes <= 0) return;
+
+    const netCash = cashFromNotes - returnCashFromNotes;
+
+    const notes: NoteCounts = {
+      note1000,
+      note500,
+      note200,
+      note100,
+      note50,
+      note20,
+      note10,
+      note5,
+      note2,
+      note1
+    };
+
+    const returnNotes: NoteCounts | undefined = returnCashFromNotes > 0 ? {
+      note1000: returnNote1000,
+      note500: returnNote500,
+      note200: returnNote200,
+      note100: returnNote100,
+      note50: returnNote50,
+      note20: returnNote20,
+      note10: returnNote10,
+      note5: returnNote5,
+      note2: returnNote2,
+      note1: returnNote1
+    } : undefined;
+
+    updateSummary(notes, returnNotes, cashFromNotes, returnCashFromNotes, netCash);
+  };
+
+  const downloadCashCountPDF = () => {
+    const today = new Date().toISOString().split('T')[0];
+    const outletData = outlets.find(o => o.id.toString() === selectedOutlet);
+
+    // Fetch from localStorage to simulate "fetch data from json file"
+    const savedSummary = localStorage.getItem(`cashSummary_${today}`);
+    let summaryData = dailyCashSummary;
+    if (savedSummary) {
+      try {
+        const parsed = JSON.parse(savedSummary);
+        summaryData = {
+          receivedNotes: { ...emptyNotes, ...parsed.receivedNotes },
+          returnedNotes: { ...emptyNotes, ...parsed.returnedNotes },
+          totalReceived: parsed.totalReceived || 0,
+          totalReturned: parsed.totalReturned || 0,
+          netCash: parsed.netCash || 0,
+          transactionCount: parsed.transactionCount || 0
+        };
+      } catch (error) {
+        console.error('Error parsing saved summary:', error);
+        showToast('Error loading cash summary for PDF', 'error');
+        return;
+      }
+    }
+
+    const doc = new jsPDF();
+    doc.setFontSize(16);
+    const year = new Date().getFullYear();
+    doc.text(`Deshio Daily Cash Count Report - ${year}`, 20, 20);
+    doc.setFontSize(12);
+    doc.text(`Date: ${today}`, 20, 30);
+    doc.text(`Outlet: ${outletData?.name || 'Unknown'}`, 20, 40);
+    doc.text(`Generated: ${new Date().toLocaleString()}`, 20, 50);
+
+    doc.setFontSize(14);
+    doc.text(`Total Change Returned: Tk${summaryData.totalReturned.toFixed(2)}`, 20, 70);
+    doc.text(`Net Cash Collected: Tk${summaryData.netCash.toFixed(2)}`, 20, 80);
+    doc.text(`Total Transactions: ${summaryData.transactionCount || 0}`, 20, 90);
+
+    doc.setFontSize(12);
+    doc.text('Cash Received - Note Breakdown', 20, 110);
+
+    // Define column widths
+    const colWidths = [40, 40, 60];
+    let yPos = 120;
+    // Draw header row
+    doc.setLineWidth(0.2);
+    doc.rect(20, yPos - 5, colWidths[0], 10); // Denom
+    doc.rect(20 + colWidths[0], yPos - 5, colWidths[1], 10); // Count
+    doc.rect(20 + colWidths[0] + colWidths[1], yPos - 5, colWidths[2], 10); // Total
+    doc.text('Cash Note', 25, yPos + 2);
+    doc.text('Count', 65, yPos + 2);
+    doc.text('Total', 105, yPos + 2);
+    yPos += 10;
+
+    const received = summaryData.receivedNotes;
+    const denominations = [1000, 500, 200, 100, 50, 20, 10, 5, 2, 1];
+    denominations.forEach(denom => {
+      const count = (received as any)[`note${denom}`] || 0;
+      if (count > 0) {
+        const total = count * denom;
+        doc.rect(20, yPos - 5, colWidths[0], 10);
+        doc.rect(20 + colWidths[0], yPos - 5, colWidths[1], 10);
+        doc.rect(20 + colWidths[0] + colWidths[1], yPos - 5, colWidths[2], 10);
+        doc.text(`Tk${denom}`, 25, yPos + 2);
+        doc.text(`${count}`, 65, yPos + 2);
+        doc.text(`Tk${total.toFixed(2)}`, 105, yPos + 2);
+        yPos += 10;
+      }
+    });
+    // Total row for received
+    doc.rect(20, yPos - 5, colWidths[0] + colWidths[1], 10);
+    doc.rect(20 + colWidths[0] + colWidths[1], yPos - 5, colWidths[2], 10);
+    doc.text('Total Received:', 25, yPos + 2);
+    doc.text(`Tk${summaryData.totalReceived.toFixed(2)}`, 105, yPos + 2);
+    yPos += 20;
+
+    doc.text('Change Returned - Note Breakdown', 20, yPos);
+    yPos += 10;
+    // Draw header row for returned
+    doc.rect(20, yPos - 5, colWidths[0], 10);
+    doc.rect(20 + colWidths[0], yPos - 5, colWidths[1], 10);
+    doc.rect(20 + colWidths[0] + colWidths[1], yPos - 5, colWidths[2], 10);
+    doc.text('Cash Note', 25, yPos + 2);
+    doc.text('Count', 65, yPos + 2);
+    doc.text('Total', 105, yPos + 2);
+    yPos += 10;
+
+    const returned = summaryData.returnedNotes;
+    denominations.forEach(denom => {
+      const count = (returned as any)[`note${denom}`] || 0;
+      if (count > 0) {
+        const total = count * denom;
+        doc.rect(20, yPos - 5, colWidths[0], 10);
+        doc.rect(20 + colWidths[0], yPos - 5, colWidths[1], 10);
+        doc.rect(20 + colWidths[0] + colWidths[1], yPos - 5, colWidths[2], 10);
+        doc.text(`Tk${denom}`, 25, yPos + 2);
+        doc.text(`${count}`, 65, yPos + 2);
+        doc.text(`Tk${total.toFixed(2)}`, 105, yPos + 2);
+        yPos += 10;
+      }
+    });
+    // Total row for returned
+    doc.rect(20, yPos - 5, colWidths[0] + colWidths[1], 10);
+    doc.rect(20 + colWidths[0] + colWidths[1], yPos - 5, colWidths[2], 10);
+    doc.text('Total Returned:', 25, yPos + 2);
+    doc.text(`Tk${summaryData.totalReturned.toFixed(2)}`, 105, yPos + 2);
+    yPos += 20;
+
+    // Net Cash in Drawer
+    doc.text('Net Cash in Drawer - Note Breakdown', 20, yPos);
+    yPos += 10;
+    // Draw header row for net
+    doc.rect(20, yPos - 5, colWidths[0], 10);
+    doc.rect(20 + colWidths[0], yPos - 5, colWidths[1], 10);
+    doc.rect(20 + colWidths[0] + colWidths[1], yPos - 5, colWidths[2], 10);
+    doc.text('Cash Note', 25, yPos + 2);
+    doc.text('Net Count', 65, yPos + 2);
+    doc.text('Net Total', 105, yPos + 2);
+    yPos += 10;
+
+    let netTotal = 0;
+    denominations.forEach(denom => {
+      const recCount = (received as any)[`note${denom}`] || 0;
+      const retCount = (returned as any)[`note${denom}`] || 0;
+      const netCount = recCount - retCount;
+      if (netCount !== 0) {
+        const netAmount = netCount * denom;
+        doc.rect(20, yPos - 5, colWidths[0], 10);
+        doc.rect(20 + colWidths[0], yPos - 5, colWidths[1], 10);
+        doc.rect(20 + colWidths[0] + colWidths[1], yPos - 5, colWidths[2], 10);
+        doc.text(`Tk${denom}`, 25, yPos + 2);
+        doc.text(`${netCount}`, 65, yPos + 2);
+        doc.text(`Tk${netAmount.toFixed(2)}`, 105, yPos + 2);
+        netTotal += netAmount;
+        yPos += 10;
+      }
+    });
+    // Total row for net
+    doc.rect(20, yPos - 5, colWidths[0] + colWidths[1], 10);
+    doc.rect(20 + colWidths[0] + colWidths[1], yPos - 5, colWidths[2], 10);
+    doc.text('Total Net Cash:', 25, yPos + 2);
+    doc.text(`Tk${netTotal.toFixed(2)}`, 105, yPos + 2);
+
+    doc.save(`cash_count_${today}.pdf`);
   };
 
   const getAvailableProducts = () => {
@@ -340,12 +630,15 @@ export default function POSPage() {
                      (note100 * 100) + (note50 * 50) + (note20 * 20) + 
                      (note10 * 10) + (note5 * 5) + (note2 * 2) + (note1 * 1);
 
-// Use consistent calculation for both display and sale data
-const effectiveCash = cashFromNotes > 0 ? cashFromNotes : cashPaid;
-const totalPaid = effectiveCash + cardPaid + bkashPaid + nagadPaid;
-const due = total - totalPaid + transactionFee;
+  const returnCashFromNotes = (returnNote1000 * 1000) + (returnNote500 * 500) + (returnNote200 * 200) + 
+                     (returnNote100 * 100) + (returnNote50 * 50) + (returnNote20 * 20) + 
+                     (returnNote10 * 10) + (returnNote5 * 5) + (returnNote2 * 2) + (returnNote1 * 1);
 
-
+  // Use consistent calculation for both display and sale data
+  const effectiveCash = cashFromNotes > 0 ? cashFromNotes : cashPaid;
+  const totalPaid = effectiveCash + cardPaid + bkashPaid + nagadPaid;
+  const due = total - totalPaid + transactionFee;
+  const change = due < 0 ? Math.abs(due) : 0;
 
   const updateInventoryStatus = async (productId: number, quantity: number, barcodes: string[]) => {
     try {
@@ -371,109 +664,127 @@ const due = total - totalPaid + transactionFee;
     }
   };
 
-const handleSell = async () => {
-  if (!selectedOutlet) {
-    showToast('Please select an outlet', 'error');
-    return;
-  }
-  if (cart.length === 0) {
-    showToast('Please add products to cart', 'error');
-    return;
-  }
-
- 
-  
-  // FIX: Always use cashFromNotes if it has value, regardless of showNoteCounter state
-  const finalCash = cashFromNotes > 0 ? cashFromNotes : cashPaid;
-  const finalTotalPaid = finalCash + cardPaid + bkashPaid + nagadPaid;
-  const finalDue = total - finalTotalPaid + transactionFee;
-
-
-  const now = new Date().toISOString();
-  const saleData = {
-    id: `sale-${Date.now()}`,
-    salesBy: userName || 'Admin',
-    outletId: selectedOutlet,
-    date: date,
-    customer: { name: customerName, mobile: mobileNo, address: address },
-    items: cart.map(item => ({
-      id: item.id,
-      productId: item.productId,
-      productName: item.productName,
-      size: item.size,
-      qty: item.qty,
-      price: item.price,
-      discount: item.discount,
-      amount: item.amount,
-      isDefective: item.isDefective || false,
-      defectId: item.defectId || null,
-      ...(item.isDefective ? { barcode: item.barcode } : { barcodes: item.barcodes })
-    })),
-    amounts: { subtotal, totalDiscount, vat, vatRate, transportCost, total },
-    payments: { 
-      cash: finalCash, 
-      card: cardPaid, 
-      bkash: bkashPaid, 
-      nagad: nagadPaid, 
-      transactionFee, 
-      totalPaid: finalTotalPaid, 
-      due: finalDue 
-    },
-    createdAt: now,
-    updatedAt: now,
-    exchangeHistory: []
-  };
-
-
-  try {
-    const response = await fetch('/api/sales', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(saleData),
-    });
-    
-    if (response.ok) {
-      const responseData = await response.json();
-
-      
-      for (const item of cart) {
-        if (!item.isDefective) {
-          await updateInventoryStatus(item.productId, item.qty, item.barcodes || []);
-        }
-      }
-      showToast('Sale completed successfully!', 'success');
-      setCart([]);
-      setCustomerName('');
-      setMobileNo('');
-      setAddress('');
-      setCashPaid(0);
-      setCardPaid(0);
-      setBkashPaid(0);
-      setNagadPaid(0);
-      setTransactionFee(0);
-      setTransportCost(0);
-      setNote1000(0);
-      setNote500(0);
-      setNote200(0);
-      setNote100(0);
-      setNote50(0);
-      setNote20(0);
-      setNote10(0);
-      setNote5(0);
-      setNote2(0);
-      setNote1(0);
-      setShowNoteCounter(false);
-      await fetchInventory();
-    } else {
-      const errorData = await response.json();
-      console.error('API Error:', errorData);
-      showToast('Failed to complete sale', 'error');
+  const handleSell = async () => {
+    if (!selectedOutlet) {
+      showToast('Please select an outlet', 'error');
+      return;
     }
-  } catch (error) {
-    console.error('Error saving sale:', error);
-    showToast('Error saving sale', 'error');
-  }
-};
+    if (cart.length === 0) {
+      showToast('Please add products to cart', 'error');
+      return;
+    }
+
+    // FIX: Always use cashFromNotes if it has value, regardless of showNoteCounter state
+    const finalCash = cashFromNotes > 0 ? cashFromNotes : cashPaid;
+    const finalTotalPaid = finalCash + cardPaid + bkashPaid + nagadPaid;
+    const finalDue = total - finalTotalPaid + transactionFee;
+
+    const now = new Date().toISOString();
+    const saleData = {
+      id: `sale-${Date.now()}`,
+      salesBy: userName || 'Admin',
+      outletId: selectedOutlet,
+      date: date,
+      customer: { name: customerName, mobile: mobileNo, address: address },
+      items: cart.map(item => ({
+        id: item.id,
+        productId: item.productId,
+        productName: item.productName,
+        size: item.size,
+        qty: item.qty,
+        price: item.price,
+        discount: item.discount,
+        amount: item.amount,
+        isDefective: item.isDefective || false,
+        defectId: item.defectId || null,
+        ...(item.isDefective ? { barcode: item.barcode } : { barcodes: item.barcodes })
+      })),
+      amounts: { subtotal, totalDiscount, vat, vatRate, transportCost, total },
+      payments: { 
+        cash: finalCash, 
+        card: cardPaid, 
+        bkash: bkashPaid, 
+        nagad: nagadPaid, 
+        transactionFee, 
+        totalPaid: finalTotalPaid, 
+        due: finalDue 
+      },
+      createdAt: now,
+      updatedAt: now,
+      exchangeHistory: []
+    };
+
+    try {
+      const response = await fetch('/api/sales', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(saleData),
+      });
+      
+      if (response.ok) {
+        const responseData = await response.json();
+
+        // Save cash count entry if cash payment was made
+        if (finalCash > 0 && cashFromNotes > 0) {
+          recordCashPayment();
+        } else {
+          setDailyCashSummary(prev => {
+            const newSummary = {...prev, transactionCount: (prev.transactionCount || 0) + 1};
+            const today = new Date().toISOString().split('T')[0];
+            localStorage.setItem(`cashSummary_${today}`, JSON.stringify(newSummary));
+            return newSummary;
+          });
+        }
+        
+        for (const item of cart) {
+          if (!item.isDefective) {
+            await updateInventoryStatus(item.productId, item.qty, item.barcodes || []);
+          }
+        }
+        showToast('Sale completed successfully!', 'success');
+        setCart([]);
+        setCustomerName('');
+        setMobileNo('');
+        setAddress('');
+        setCashPaid(0);
+        setCardPaid(0);
+        setBkashPaid(0);
+        setNagadPaid(0);
+        setTransactionFee(0);
+        setTransportCost(0);
+        setNote1000(0);
+        setNote500(0);
+        setNote200(0);
+        setNote100(0);
+        setNote50(0);
+        setNote20(0);
+        setNote10(0);
+        setNote5(0);
+        setNote2(0);
+        setNote1(0);
+        setShowNoteCounter(false);
+        setReturnNote1000(0);
+        setReturnNote500(0);
+        setReturnNote200(0);
+        setReturnNote100(0);
+        setReturnNote50(0);
+        setReturnNote20(0);
+        setReturnNote10(0);
+        setReturnNote5(0);
+        setReturnNote2(0);
+        setReturnNote1(0);
+        setShowReturnCounter(false);
+        await fetchInventory();
+      } else {
+        const errorData = await response.json();
+        console.error('API Error:', errorData);
+        showToast('Failed to complete sale', 'error');
+      }
+    } catch (error) {
+      console.error('Error saving sale:', error);
+      showToast('Error saving sale', 'error');
+    }
+  };
 
   return (
     <div className={darkMode ? 'dark' : ''}>
@@ -492,7 +803,18 @@ const handleSell = async () => {
               ))}
             </div>
             <div className="max-w-7xl mx-auto">
-              <h1 className="text-2xl font-semibold text-gray-900 dark:text-white mb-6">Point of Sale</h1>
+              <div className="flex items-center justify-between mb-6">
+                <h1 className="text-2xl font-semibold text-gray-900 dark:text-white">Point of Sale</h1>
+                {dailyCashSummary.totalReceived > 0 && (
+                  <button
+                    onClick={downloadCashCountPDF}
+                    className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-md text-sm font-medium transition-colors"
+                  >
+                    <Download className="w-4 h-4" />
+                    Download Daily Cash PDF
+                  </button>
+                )}
+              </div>
               <div className="grid grid-cols-3 gap-4 mb-6">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Sales By</label>
@@ -771,6 +1093,76 @@ const handleSell = async () => {
                         <span className="text-gray-700 dark:text-gray-300">Total Paid</span>
                         <span className="text-gray-900 dark:text-white font-medium">৳{totalPaid.toFixed(2)}</span>
                       </div>
+                      {change > 0 && (
+                        <div className="mb-3 p-3 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-700 rounded-md">
+                          <div className="flex justify-between items-center mb-2">
+                            <span className="text-sm font-semibold text-yellow-900 dark:text-yellow-200">Change to Return</span>
+                            <span className="text-lg font-bold text-yellow-700 dark:text-yellow-400">৳{change.toFixed(2)}</span>
+                          </div>
+                          <button
+                            onClick={() => setShowReturnCounter(!showReturnCounter)}
+                            className="w-full flex items-center justify-center gap-1 px-2 py-1.5 text-xs bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400 rounded hover:bg-yellow-200 dark:hover:bg-yellow-900/50"
+                          >
+                            <Calculator className="w-3 h-3" />
+                            {showReturnCounter ? 'Hide' : 'Count Return Notes'}
+                          </button>
+                          {showReturnCounter && (
+                            <div className="mt-2 bg-white dark:bg-gray-800 border border-yellow-300 dark:border-yellow-700 rounded-lg p-3 space-y-2">
+                              <div className="grid grid-cols-3 gap-2">
+                                <div>
+                                  <label className="block text-xs text-gray-700 dark:text-gray-300 mb-1">৳1000 ×</label>
+                                  <input type="number" min="0" value={returnNote1000} onChange={(e) => setReturnNote1000(Number(e.target.value))} className="w-full px-2 py-1 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm" />
+                                </div>
+                                <div>
+                                  <label className="block text-xs text-gray-700 dark:text-gray-300 mb-1">৳500 ×</label>
+                                  <input type="number" min="0" value={returnNote500} onChange={(e) => setReturnNote500(Number(e.target.value))} className="w-full px-2 py-1 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm" />
+                                </div>
+                                <div>
+                                  <label className="block text-xs text-gray-700 dark:text-gray-300 mb-1">৳200 ×</label>
+                                  <input type="number" min="0" value={returnNote200} onChange={(e) => setReturnNote200(Number(e.target.value))} className="w-full px-2 py-1 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm" />
+                                </div>
+                                <div>
+                                  <label className="block text-xs text-gray-700 dark:text-gray-300 mb-1">৳100 ×</label>
+                                  <input type="number" min="0" value={returnNote100} onChange={(e) => setReturnNote100(Number(e.target.value))} className="w-full px-2 py-1 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm" />
+                                </div>
+                                <div>
+                                  <label className="block text-xs text-gray-700 dark:text-gray-300 mb-1">৳50 ×</label>
+                                  <input type="number" min="0" value={returnNote50} onChange={(e) => setReturnNote50(Number(e.target.value))} className="w-full px-2 py-1 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm" />
+                                </div>
+                                <div>
+                                  <label className="block text-xs text-gray-700 dark:text-gray-300 mb-1">৳20 ×</label>
+                                  <input type="number" min="0" value={returnNote20} onChange={(e) => setReturnNote20(Number(e.target.value))} className="w-full px-2 py-1 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm" />
+                                </div>
+                                <div>
+                                  <label className="block text-xs text-gray-700 dark:text-gray-300 mb-1">৳10 ×</label>
+                                  <input type="number" min="0" value={returnNote10} onChange={(e) => setReturnNote10(Number(e.target.value))} className="w-full px-2 py-1 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm" />
+                                </div>
+                                <div>
+                                  <label className="block text-xs text-gray-700 dark:text-gray-300 mb-1">৳5 ×</label>
+                                  <input type="number" min="0" value={returnNote5} onChange={(e) => setReturnNote5(Number(e.target.value))} className="w-full px-2 py-1 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm" />
+                                </div>
+                                <div>
+                                  <label className="block text-xs text-gray-700 dark:text-gray-300 mb-1">৳2 ×</label>
+                                  <input type="number" min="0" value={returnNote2} onChange={(e) => setReturnNote2(Number(e.target.value))} className="w-full px-2 py-1 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm" />
+                                </div>
+                                <div>
+                                  <label className="block text-xs text-gray-700 dark:text-gray-300 mb-1">৳1 ×</label>
+                                  <input type="number" min="0" value={returnNote1} onChange={(e) => setReturnNote1(Number(e.target.value))} className="w-full px-2 py-1 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm" />
+                                </div>
+                              </div>
+                              <div className="flex justify-between items-center pt-2 border-t border-yellow-200 dark:border-yellow-800">
+                                <span className="text-xs font-medium text-gray-700 dark:text-gray-300">Total Return:</span>
+                                <span className="text-sm font-bold text-yellow-600 dark:text-yellow-400">৳{returnCashFromNotes.toFixed(2)}</span>
+                              </div>
+                              {returnCashFromNotes !== change && (
+                                <div className="text-xs text-red-600 dark:text-red-400 text-center">
+                                  ⚠ Return amount should equal change: ৳{change.toFixed(2)}
+                                </div>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      )}
                       <div className="flex justify-between text-base">
                         <span className="font-semibold text-gray-900 dark:text-white">Due</span>
                         <span className={`font-bold ${due > 0 ? 'text-red-600 dark:text-red-400' : 'text-green-600 dark:text-green-400'}`}>৳{due.toFixed(2)}</span>

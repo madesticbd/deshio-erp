@@ -34,5 +34,14 @@
     "admitted": "yes",
     "id": 1761627972292,
     "baseCode": "BATCH1761627972292"
+  },
+  {
+    "productId": 1761589031972,
+    "costPrice": 1400,
+    "sellingPrice": 1500,
+    "quantity": 10,
+    "admitted": "yes",
+    "id": 1762155650082,
+    "baseCode": "BATCH1762155650082"
   }
 ]
