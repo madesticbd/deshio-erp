@@ -294,6 +294,19 @@
       "createdAt": "2025-11-03T06:15:40.691Z",
       "source": "order",
       "referenceId": "1762150540672"
+    },
+    {
+      "id": "txn-sale-sale-1762152675780",
+      "name": "Sale: Shotoronji-Black",
+      "description": "POS Sale to Nilu",
+      "type": "income",
+      "amount": 1260,
+      "category": "POS Sales",
+      "date": "2025-11-03T06:51:16.532Z",
+      "comment": "Items: 1, Cash: ৳1200, Card: ৳60, Bkash: ৳0, Nagad: ৳0, Due: ৳0",
+      "createdAt": "2025-11-03T06:51:16.538Z",
+      "source": "sale",
+      "referenceId": "sale-1762152675780"
     }
   ]
 }
