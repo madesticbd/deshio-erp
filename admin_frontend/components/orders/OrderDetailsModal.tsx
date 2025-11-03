@@ -18,6 +18,7 @@ export default function OrderDetailsModal({ order, onClose, onEdit }: OrderDetai
   const [printers, setPrinters] = useState<string[]>([]);
   const [selectedPrinter, setSelectedPrinter] = useState<string>('');
   const [showPrinterSelect, setShowPrinterSelect] = useState(false);
+  const [showReceiptPreview, setShowReceiptPreview] = useState(false);
 
   useEffect(() => {
     checkQZConnection();
@@ -69,6 +70,15 @@ export default function OrderDetailsModal({ order, onClose, onEdit }: OrderDetai
     }
   };
 
+  const handlePreviewReceipt = () => {
+    setShowReceiptPreview(true);
+  };
+
+  const handlePrintFromPreview = async () => {
+    setShowReceiptPreview(false);
+    await handlePrintReceipt();
+  };
+
   const handlePrinterSelect = (printer: string) => {
     setSelectedPrinter(printer);
     localStorage.setItem('defaultPrinter', printer);
@@ -94,26 +104,28 @@ export default function OrderDetailsModal({ order, onClose, onEdit }: OrderDetai
             <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Order Details</h2>
             <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">Order #{order.id}</p>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-3">
             {/* QZ Status Indicator */}
-            <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-gray-200 dark:border-gray-700">
-              <div className={`w-2 h-2 rounded-full ${qzStatus.connected ? 'bg-green-500' : 'bg-red-500'}`}></div>
+            <div className="flex items-center gap-2 px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800">
+              <div className={`w-2 h-2 rounded-full ${qzStatus.connected ? 'bg-green-500 animate-pulse' : 'bg-red-500'}`}></div>
               <span className="text-xs font-medium text-gray-600 dark:text-gray-400">
-                {qzStatus.connected ? 'Printer Ready' : 'Printer Offline'}
+                {qzStatus.connected ? 'Ready' : 'Offline'}
               </span>
             </div>
 
             {/* Printer Settings */}
             {qzStatus.connected && (
-              <button
-                onClick={() => setShowPrinterSelect(!showPrinterSelect)}
-                className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors relative"
-                title="Select Printer"
-              >
-                <Settings className="w-5 h-5 text-gray-600 dark:text-gray-400" />
+              <div className="relative">
+                <button
+                  onClick={() => setShowPrinterSelect(!showPrinterSelect)}
+                  className="p-2.5 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-all hover:scale-105 active:scale-95"
+                  title="Select Printer"
+                >
+                  <Settings className="w-5 h-5 text-gray-600 dark:text-gray-400" />
+                </button>
                 
                 {showPrinterSelect && (
-                  <div className="absolute right-0 top-full mt-2 bg-white dark:bg-gray-800 rounded-lg shadow-xl border border-gray-200 dark:border-gray-700 py-2 w-64 z-50">
+                  <div className="absolute right-0 top-full mt-2 bg-white dark:bg-gray-800 rounded-xl shadow-2xl border border-gray-200 dark:border-gray-700 py-2 w-64 z-50 animate-in fade-in slide-in-from-top-2 duration-200">
                     <div className="px-4 py-2 border-b border-gray-200 dark:border-gray-700">
                       <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase">Select Printer</p>
                     </div>
@@ -121,54 +133,73 @@ export default function OrderDetailsModal({ order, onClose, onEdit }: OrderDetai
                       <button
                         key={printer}
                         onClick={() => handlePrinterSelect(printer)}
-                        className={`w-full px-4 py-2 text-left text-sm hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors ${
+                        className={`w-full px-4 py-2.5 text-left text-sm hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors ${
                           selectedPrinter === printer ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 font-medium' : 'text-gray-700 dark:text-gray-300'
                         }`}
                       >
                         {printer}
                         {selectedPrinter === printer && (
-                          <span className="ml-2 text-xs">(Selected)</span>
+                          <span className="ml-2 text-xs">✓</span>
                         )}
                       </button>
                     ))}
                   </div>
                 )}
-              </button>
+              </div>
             )}
            
+            {/* Preview Button */}
             <button
-              onClick={handlePrintReceipt}
-              disabled={isPrinting || !qzStatus.connected}
-              className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              onClick={handlePreviewReceipt}
+              className="group relative px-4 py-2.5 bg-gradient-to-br from-gray-900 to-black hover:from-black hover:to-gray-900 text-white rounded-lg transition-all hover:shadow-lg hover:shadow-black/30 active:scale-95 font-medium"
             >
+              <span className="flex items-center gap-2">
               <Printer className="w-4 h-4" />
-              {isPrinting ? 'Printing...' : 'Print Receipt'}
+              <span className="hidden sm:inline">Preview</span>
+              </span>
+              <div className="absolute inset-0 rounded-lg bg-white/5 opacity-0 group-hover:opacity-100 transition-opacity"></div>
             </button>
+
+         
+
+            {/* Pathao Button */}
             <button
               onClick={handleSendToPathao}
               disabled={isSendingToPathao}
-              className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="group relative px-4 py-2.5 bg-gradient-to-br from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white rounded-lg transition-all hover:shadow-lg hover:shadow-green-500/30 disabled:opacity-50 disabled:cursor-not-allowed active:scale-95 font-medium"
             >
-              <Truck className="w-4 h-4" />
-              {isSendingToPathao ? 'Sending...' : 'Send to Pathao'}
+              <span className="flex items-center gap-2">
+                <Truck className="w-4 h-4" />
+                <span className="hidden sm:inline">{isSendingToPathao ? 'Sending...' : 'Pathao'}</span>
+              </span>
+              {!isSendingToPathao && (
+                <div className="absolute inset-0 rounded-lg bg-white/20 opacity-0 group-hover:opacity-100 transition-opacity"></div>
+              )}
             </button>
+
+            {/* Edit Button */}
             {onEdit && (
               <button
                 onClick={() => {
                   onClose();
                   onEdit(order);
                 }}
-                className="flex items-center gap-2 px-4 py-2 bg-black hover:bg-gray-900 text-white rounded-lg transition-colors"
+                className="group relative px-4 py-2.5 bg-gradient-to-br from-gray-700 to-gray-800 hover:from-gray-800 hover:to-gray-900 text-white rounded-lg transition-all hover:shadow-lg hover:shadow-gray-500/20 active:scale-95 font-medium"
               >
-                <Edit2 className="w-4 h-4" />
-                Edit Order
+                <span className="flex items-center gap-2">
+                  <Edit2 className="w-4 h-4" />
+                  <span className="hidden sm:inline">Edit</span>
+                </span>
+                <div className="absolute inset-0 rounded-lg bg-white/20 opacity-0 group-hover:opacity-100 transition-opacity"></div>
               </button>
             )}
+
+            {/* Close Button */}
             <button
               onClick={onClose}
-              className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
+              className="p-2.5 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-all hover:scale-105 active:scale-95 group"
             >
-              <X className="w-6 h-6 text-gray-600 dark:text-gray-400" />
+              <X className="w-5 h-5 text-gray-600 dark:text-gray-400 group-hover:text-red-600 dark:group-hover:text-red-400 transition-colors" />
             </button>
           </div>
         </div>
@@ -335,6 +366,167 @@ export default function OrderDetailsModal({ order, onClose, onEdit }: OrderDetai
           className="fixed inset-0 z-40"
           onClick={() => setShowPrinterSelect(false)}
         />
+      )}
+
+      {/* Receipt Preview Modal */}
+      {showReceiptPreview && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[60] flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            {/* Preview Header */}
+            <div className="sticky top-0 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 px-6 py-4 flex items-center justify-between rounded-t-2xl z-10">
+              <h3 className="text-xl font-semibold text-gray-900 dark:text-white">Receipt Preview</h3>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={handlePrintFromPreview}
+                  disabled={isPrinting || !qzStatus.connected}
+                  className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <Printer className="w-4 h-4" />
+                  {isPrinting ? 'Printing...' : 'Print Now'}
+                </button>
+                <button
+                  onClick={() => setShowReceiptPreview(false)}
+                  className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
+                >
+                  <X className="w-6 h-6 text-gray-600 dark:text-gray-400" />
+                </button>
+              </div>
+            </div>
+
+            {/* Receipt Content - Simulated Thermal Printer Output */}
+            <div className="p-8 bg-white dark:bg-gray-950">
+              <div className="max-w-sm mx-auto bg-white border border-gray-300 p-6 font-mono text-xs leading-relaxed">
+                {/* Header */}
+                <div className="text-center mb-4">
+                  <div className="text-2xl font-bold mb-2">RECEIPT</div>
+                  <div className="text-xs mb-4">Order Confirmation</div>
+                  <div className="border-t-2 border-double border-black pt-2">
+                    <div className="flex justify-between font-semibold">
+                      <span>ORDER #{order.id}</span>
+                      <span>{order.date}</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="border-t-2 border-black my-3"></div>
+
+                {/* Customer Details */}
+                <div className="mb-3">
+                  <div className="font-bold mb-1">CUSTOMER DETAILS</div>
+                  <div>Name: {order.customer.name}</div>
+                  <div>Phone: {order.customer.phone}</div>
+                  <div>Sales By: {order.salesBy}</div>
+                </div>
+
+                {/* Delivery Address */}
+                <div className="mb-3">
+                  <div className="font-bold mb-1">DELIVERY ADDRESS</div>
+                  <div>{order.deliveryAddress.address}</div>
+                  {order.deliveryAddress.area && (
+                    <div>{order.deliveryAddress.area}, {order.deliveryAddress.zone}</div>
+                  )}
+                  {!order.deliveryAddress.area && <div>{order.deliveryAddress.zone}</div>}
+                  <div>{order.deliveryAddress.city}, {order.deliveryAddress.district}</div>
+                  <div>{order.deliveryAddress.division} - {order.deliveryAddress.postalCode}</div>
+                </div>
+
+                <div className="border-t border-gray-400 my-3"></div>
+
+                {/* Products */}
+                <div className="mb-3">
+                  <div className="font-bold mb-2">ORDER ITEMS</div>
+                  <div className="border-t-2 border-black pt-2 space-y-2">
+                    {order.products.map((product, idx) => {
+                      const productWithBarcodes = product as any;
+                      const barcodes = productWithBarcodes.barcodes || [];
+                      return (
+                        <div key={idx} className="pb-2">
+                          <div className="font-semibold">
+                            {product.productName.length > 40
+                              ? product.productName.substring(0, 37) + '...'
+                              : product.productName}
+                          </div>
+                          <div className="flex justify-between">
+                            <span>  {product.size} x{product.qty} @ Tk{product.price}</span>
+                            <span>Tk{product.amount.toLocaleString()}</span>
+                          </div>
+                          {barcodes.length > 0 && (
+                            <div className="text-[10px] text-gray-600">
+                              Barcodes: {barcodes.slice(0, 3).join(', ')}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                <div className="border-t-2 border-black my-3"></div>
+
+                {/* Calculations */}
+                <div className="space-y-1 mb-3">
+                  <div className="flex justify-between">
+                    <span>Subtotal:</span>
+                    <span>Tk{(order.amounts?.subtotal || order.subtotal).toLocaleString()}</span>
+                  </div>
+                  {order.amounts && order.amounts.totalDiscount > 0 && (
+                    <div className="flex justify-between text-green-700">
+                      <span>Discount:</span>
+                      <span>-Tk{order.amounts.totalDiscount.toLocaleString()}</span>
+                    </div>
+                  )}
+                  {order.amounts && (
+                    <div className="flex justify-between">
+                      <span>VAT ({order.amounts.vatRate}%):</span>
+                      <span>Tk{order.amounts.vat.toLocaleString()}</span>
+                    </div>
+                  )}
+                  {order.amounts && order.amounts.transportCost > 0 && (
+                    <div className="flex justify-between">
+                      <span>Transport:</span>
+                      <span>Tk{order.amounts.transportCost.toLocaleString()}</span>
+                    </div>
+                  )}
+                  <div className="border-t border-gray-400 pt-1 mt-2 flex justify-between font-bold text-base">
+                    <span>TOTAL:</span>
+                    <span>Tk{(order.amounts?.total || order.subtotal).toLocaleString()}</span>
+                  </div>
+                </div>
+
+                {/* Payments */}
+                <div className="bg-gray-100 -mx-2 px-2 py-2 mb-2">
+                  <div className="flex justify-between font-semibold">
+                    <span>Amount Paid:</span>
+                    <span>Tk{order.payments.totalPaid.toLocaleString()}</span>
+                  </div>
+                </div>
+
+                {order.payments.due > 0 && (
+                  <div className="bg-black text-white -mx-2 px-2 py-2 mb-3">
+                    <div className="flex justify-between font-bold">
+                      <span>DUE AMOUNT:</span>
+                      <span>Tk{order.payments.due.toLocaleString()}</span>
+                    </div>
+                  </div>
+                )}
+
+                <div className="border-t-2 border-black my-3"></div>
+
+                {/* Footer */}
+                <div className="text-center text-xs">
+                  <div className="font-semibold mb-1">THANK YOU FOR YOUR BUSINESS</div>
+                  <div className="text-gray-500">This is a computer-generated receipt</div>
+                </div>
+              </div>
+
+              {/* Preview Info */}
+              <div className="mt-4 text-center text-sm text-gray-500 dark:text-gray-400">
+                <p>Preview of thermal printer output (48 characters width)</p>
+                <p className="mt-1">Actual print may vary based on printer model</p>
+              </div>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

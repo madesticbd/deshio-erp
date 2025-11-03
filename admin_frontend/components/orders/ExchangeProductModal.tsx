@@ -19,11 +19,11 @@ export default function ExchangeProductModal({ order, onClose, onExchange }: Exc
   const [replacementProducts, setReplacementProducts] = useState<any[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
 
-  // Payment states
-  const [cashPaid, setCashPaid] = useState(0);
-  const [cardPaid, setCardPaid] = useState(0);
-  const [bkashPaid, setBkashPaid] = useState(0);
-  const [nagadPaid, setNagadPaid] = useState(0);
+  // Payment/Refund states
+  const [cashAmount, setCashAmount] = useState(0);
+  const [cardAmount, setCardAmount] = useState(0);
+  const [bkashAmount, setBkashAmount] = useState(0);
+  const [nagadAmount, setNagadAmount] = useState(0);
   const [transactionFee, setTransactionFee] = useState(0);
   const [showNoteCounter, setShowNoteCounter] = useState(false);
 
@@ -39,7 +39,6 @@ export default function ExchangeProductModal({ order, onClose, onExchange }: Exc
   const [note2, setNote2] = useState(0);
   const [note1, setNote1] = useState(0);
 
-  // Fetch products and inventory
   useEffect(() => {
     const fetchProducts = async () => {
       try {
@@ -302,14 +301,16 @@ export default function ExchangeProductModal({ order, onClose, onExchange }: Exc
 
   const totals = calculateTotals();
 
-  // Calculate cash from notes
   const cashFromNotes = (note1000 * 1000) + (note500 * 500) + (note200 * 200) + 
                         (note100 * 100) + (note50 * 50) + (note20 * 20) + 
                         (note10 * 10) + (note5 * 5) + (note2 * 2) + (note1 * 1);
 
-  const effectiveCash = cashFromNotes > 0 ? cashFromNotes : cashPaid;
-  const totalPaymentReceived = effectiveCash + cardPaid + bkashPaid + nagadPaid;
-  const remainingBalance = totals.difference > 0 ? totals.difference - totalPaymentReceived + transactionFee : 0;
+  const effectiveCash = cashFromNotes > 0 ? cashFromNotes : cashAmount;
+  const totalAmount = effectiveCash + cardAmount + bkashAmount + nagadAmount;
+  
+  const remainingBalance = totals.difference > 0 
+    ? Math.max(0, totals.difference - totalAmount + transactionFee)
+    : Math.max(0, Math.abs(totals.difference) - totalAmount);
 
   const handleProcessExchange = async () => {
     if (selectedProducts.length === 0) {
@@ -332,67 +333,52 @@ export default function ExchangeProductModal({ order, onClose, onExchange }: Exc
       return;
     }
 
-    // Allow partial payment - just confirm the due amount
-    if (totals.difference > 0 && remainingBalance > 0) {
-      const confirmMsg = `Customer owes ৳${totals.difference.toLocaleString()}.\nPaid: ৳${totalPaymentReceived.toLocaleString()}\nRemaining Due: ৳${remainingBalance.toLocaleString()}\n\nProceed with exchange?`;
-      if (!confirm(confirmMsg)) return;
+    let confirmMsg = 'Process exchange?\n\n';
+    if (totals.difference > 0) {
+      confirmMsg += `Customer owes: ৳${totals.difference.toLocaleString()}\n`;
+      confirmMsg += `Received: ৳${totalAmount.toLocaleString()}\n`;
+      if (remainingBalance > 0) {
+        confirmMsg += `Remaining Due: ৳${remainingBalance.toLocaleString()}`;
+      } else {
+        confirmMsg += `✓ Fully paid`;
+      }
+    } else if (totals.difference < 0) {
+      const refundRequired = Math.abs(totals.difference);
+      confirmMsg += `Refund Required: ৳${refundRequired.toLocaleString()}\n`;
+      confirmMsg += `Refunded: ৳${totalAmount.toLocaleString()}\n`;
+      if (remainingBalance > 0) {
+        confirmMsg += `Remaining: ৳${remainingBalance.toLocaleString()}`;
+      } else {
+        confirmMsg += `✓ Fully refunded`;
+      }
+    } else {
+      confirmMsg += 'No payment difference.';
     }
+
+    if (!confirm(confirmMsg)) return;
 
     setIsProcessing(true);
     try {
-      const response = await fetch('/api/social-orders/exchange', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
+      await onExchange({
+        orderId: order.id,
+        removedProducts: selectedProducts.map(id => ({
+          productId: id,
+          quantity: removedQuantities[id]
+        })),
+        replacementProducts: replacementProducts,
+        paymentRefund: {
+          type: totals.difference > 0 ? 'payment' : totals.difference < 0 ? 'refund' : 'none',
+          cash: effectiveCash,
+          card: cardAmount,
+          bkash: bkashAmount,
+          nagad: nagadAmount,
+          transactionFee: transactionFee,
+          total: totalAmount
         },
-        body: JSON.stringify({
-          orderId: order.id,
-          removedProducts: selectedProducts.map(id => ({
-            productId: id,
-            quantity: removedQuantities[id]
-          })),
-          replacementProducts: replacementProducts.map(p => ({
-            id: p.id,
-            batchId: p.batchId,
-            name: p.name,
-            price: p.price,
-            quantity: p.quantity,
-            amount: p.amount,
-            size: p.size
-          })),
-          payments: {
-            cash: effectiveCash,
-            card: cardPaid,
-            bkash: bkashPaid,
-            nagad: nagadPaid,
-            transactionFee: transactionFee,
-            totalPaid: totalPaymentReceived
-          }
-        }),
+        difference: totals.difference
       });
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to process exchange');
-      }
-
-      const result = await response.json();
-      await onExchange(result);
-
-      let message = 'Exchange successful!';
-      if (result.difference > 0) {
-        const paid = result.payments?.totalPaid || 0;
-        const remaining = result.difference - paid + (result.payments?.transactionFee || 0);
-        if (remaining > 0) {
-          message += ` Customer still has ৳${remaining.toLocaleString()} due.`;
-        } else {
-          message += ` Customer paid ৳${paid.toLocaleString()}.`;
-        }
-      } else if (result.difference < 0) {
-        message += ` Refund ৳${Math.abs(result.difference).toLocaleString()} to customer.`;
-      }
-
-      alert(message);
+      alert('Exchange processed successfully!');
       onClose();
     } catch (error: any) {
       console.error('Exchange failed:', error);
@@ -405,7 +391,6 @@ export default function ExchangeProductModal({ order, onClose, onExchange }: Exc
   return (
     <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
       <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl max-w-6xl w-full max-h-[90vh] overflow-y-auto border border-gray-200 dark:border-gray-800">
-        {/* Header */}
         <div className="sticky top-0 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800 px-6 py-5 flex items-center justify-between rounded-t-2xl z-10">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 bg-blue-100 dark:bg-blue-900/20 rounded-lg flex items-center justify-center">
@@ -416,24 +401,19 @@ export default function ExchangeProductModal({ order, onClose, onExchange }: Exc
               <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">Select items to exchange</p>
             </div>
           </div>
-          <button
-            onClick={onClose}
-            className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
-          >
+          <button onClick={onClose} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors">
             <X className="w-6 h-6 text-gray-600 dark:text-gray-400" />
           </button>
         </div>
 
         <div className="p-6">
           <div className="grid grid-cols-3 gap-6">
-            {/* Left Column - Product Selection */}
             <div className="col-span-2 space-y-6">
-              {/* Select Items to Exchange */}
               <div className="bg-gray-50 dark:bg-gray-800 rounded-xl p-5 border border-gray-200 dark:border-gray-700">
                 <h3 className="font-semibold text-gray-900 dark:text-white text-lg mb-4">Select Items to Exchange</h3>
                 
                 <div className="space-y-3">
-                  {order.products.map((product: any) => (
+                  {order.products && order.products.map((product: any) => (
                     <div key={product.id} className="bg-white dark:bg-gray-900 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
                       <div className="flex items-start gap-3">
                         <input
@@ -484,7 +464,6 @@ export default function ExchangeProductModal({ order, onClose, onExchange }: Exc
                 </div>
               </div>
 
-              {/* Search Replacement */}
               {selectedProducts.length > 0 && (
                 <div className="bg-gray-50 dark:bg-gray-800 rounded-xl p-5 border border-gray-200 dark:border-gray-700">
                   <h3 className="font-semibold text-gray-900 dark:text-white text-lg mb-4">Search Replacement</h3>
@@ -578,7 +557,6 @@ export default function ExchangeProductModal({ order, onClose, onExchange }: Exc
                             <input
                               type="number"
                               min="1"
-                              max={getAvailableInventory(selectedReplacement.id, selectedReplacement.batchId)}
                               value={replacementQuantity}
                               onChange={(e) => setReplacementQuantity(e.target.value)}
                               className="flex-1 px-4 py-2 text-center border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 outline-none text-lg font-semibold"
@@ -587,10 +565,7 @@ export default function ExchangeProductModal({ order, onClose, onExchange }: Exc
                               type="button"
                               onClick={() => {
                                 const qty = parseInt(replacementQuantity) || 1;
-                                const available = getAvailableInventory(selectedReplacement.id, selectedReplacement.batchId);
-                                if (qty < available) {
-                                  setReplacementQuantity(String(qty + 1));
-                                }
+                                setReplacementQuantity(String(qty + 1));
                               }}
                               className="w-10 h-10 flex items-center justify-center border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors text-lg font-bold"
                             >
@@ -659,9 +634,7 @@ export default function ExchangeProductModal({ order, onClose, onExchange }: Exc
               )}
             </div>
 
-            {/* Right Column - Summary & Payment */}
             <div className="space-y-4">
-              {/* Summary */}
               <div className="bg-gray-50 dark:bg-gray-800 rounded-xl p-5 border border-gray-200 dark:border-gray-700">
                 <div className="flex items-center justify-between mb-4">
                   <h3 className="font-semibold text-gray-900 dark:text-white text-lg">Summary</h3>
@@ -714,11 +687,10 @@ export default function ExchangeProductModal({ order, onClose, onExchange }: Exc
                 </div>
               </div>
 
-              {/* Payment Details - Only show if customer needs to pay */}
               {totals.difference > 0 && (
                 <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700">
                   <div className="px-4 py-3 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
-                    <h3 className="text-sm font-medium text-gray-900 dark:text-white">Payment Details</h3>
+                    <h3 className="text-sm font-medium text-gray-900 dark:text-white">Collect Payment</h3>
                     <ChevronDown className="w-4 h-4 text-gray-500" />
                   </div>
                   
@@ -738,42 +710,28 @@ export default function ExchangeProductModal({ order, onClose, onExchange }: Exc
                       {showNoteCounter ? (
                         <div className="bg-blue-50 dark:bg-blue-900/10 border border-blue-200 dark:border-blue-800 rounded-lg p-3 space-y-2">
                           <div className="grid grid-cols-3 gap-2">
-                            <div>
-                              <label className="block text-xs text-gray-700 dark:text-gray-300 mb-1">৳1000 ×</label>
-                              <input type="number" min="0" value={note1000} onChange={(e) => setNote1000(Number(e.target.value))} className="w-full px-2 py-1 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm" />
-                            </div>
-                            <div>
-                              <label className="block text-xs text-gray-700 dark:text-gray-300 mb-1">৳500 ×</label>
-                              <input type="number" min="0" value={note500} onChange={(e) => setNote500(Number(e.target.value))} className="w-full px-2 py-1 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm" />
-                            </div>
-                            <div>
-                              <label className="block text-xs text-gray-700 dark:text-gray-300 mb-1">৳200 ×</label>
-                              <input type="number" min="0" value={note200} onChange={(e) => setNote200(Number(e.target.value))} className="w-full px-2 py-1 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm" />
-                            </div>
-                            <div>
-                              <label className="block text-xs text-gray-700 dark:text-gray-300 mb-1">৳100 ×</label>
-                              <input type="number" min="0" value={note100} onChange={(e) => setNote100(Number(e.target.value))} className="w-full px-2 py-1 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm" />
-                            </div>
-                            <div>
-                              <label className="block text-xs text-gray-700 dark:text-gray-300 mb-1">৳50 ×</label>
-                              <input type="number" min="0" value={note50} onChange={(e) => setNote50(Number(e.target.value))} className="w-full px-2 py-1 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm" />
-                            </div>
-                            <div>
-                              <label className="block text-xs text-gray-700 dark:text-gray-300 mb-1">৳20 ×</label>
-                              <input type="number" min="0" value={note20} onChange={(e) => setNote20(Number(e.target.value))} className="w-full px-2 py-1 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm" />
-                            </div>
-                            <div>
-                              <label className="block text-xs text-gray-700 dark:text-gray-300 mb-1">৳10 ×</label>
-                              <input type="number" min="0" value={note10} onChange={(e) => setNote10(Number(e.target.value))} className="w-full px-2 py-1 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm" />
-                            </div>
-                            <div>
-                              <label className="block text-xs text-gray-700 dark:text-gray-300 mb-1">৳5 ×</label>
-                              <input type="number" min="0" value={note5} onChange={(e) => setNote5(Number(e.target.value))} className="w-full px-2 py-1 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm" />
-                            </div>
-                            <div>
-                              <label className="block text-xs text-gray-700 dark:text-gray-300 mb-1">৳2 ×</label>
-                              <input type="number" min="0" value={note2} onChange={(e) => setNote2(Number(e.target.value))} className="w-full px-2 py-1 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm" />
-                            </div>
+                            {[
+                              { value: 1000, state: note1000, setState: setNote1000 },
+                              { value: 500, state: note500, setState: setNote500 },
+                              { value: 200, state: note200, setState: setNote200 },
+                              { value: 100, state: note100, setState: setNote100 },
+                              { value: 50, state: note50, setState: setNote50 },
+                              { value: 20, state: note20, setState: setNote20 },
+                              { value: 10, state: note10, setState: setNote10 },
+                              { value: 5, state: note5, setState: setNote5 },
+                              { value: 2, state: note2, setState: setNote2 }
+                            ].map((note) => (
+                              <div key={note.value}>
+                                <label className="block text-xs text-gray-700 dark:text-gray-300 mb-1">৳{note.value} ×</label>
+                                <input 
+                                  type="number" 
+                                  min="0" 
+                                  value={note.state} 
+                                  onChange={(e) => note.setState(Number(e.target.value))} 
+                                  className="w-full px-2 py-1 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm" 
+                                />
+                              </div>
+                            ))}
                           </div>
                           <div className="flex justify-between items-center pt-2 border-t border-blue-200 dark:border-blue-800">
                             <span className="text-xs font-medium text-gray-700 dark:text-gray-300">Total Cash:</span>
@@ -785,19 +743,11 @@ export default function ExchangeProductModal({ order, onClose, onExchange }: Exc
                           <label className="block text-xs text-gray-700 dark:text-gray-300 mb-1">Cash Paid</label>
                           <input 
                             type="number" 
-                            value={cashFromNotes > 0 ? cashFromNotes : cashPaid} 
+                            value={cashFromNotes > 0 ? cashFromNotes : cashAmount} 
                             onChange={(e) => {
-                              setCashPaid(Number(e.target.value));
-                              setNote1000(0);
-                              setNote500(0);
-                              setNote200(0);
-                              setNote100(0);
-                              setNote50(0);
-                              setNote20(0);
-                              setNote10(0);
-                              setNote5(0);
-                              setNote2(0);
-                              setNote1(0);
+                              setCashAmount(Number(e.target.value));
+                              setNote1000(0); setNote500(0); setNote200(0); setNote100(0);
+                              setNote50(0); setNote20(0); setNote10(0); setNote5(0); setNote2(0); setNote1(0);
                             }} 
                             className="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm" 
                           />
@@ -807,19 +757,19 @@ export default function ExchangeProductModal({ order, onClose, onExchange }: Exc
 
                     <div className="grid grid-cols-2 gap-2">
                       <div>
-                        <label className="block text-xs text-gray-700 dark:text-gray-300 mb-1">Card Paid</label>
-                        <input type="number" value={cardPaid} onChange={(e) => setCardPaid(Number(e.target.value))} className="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm" />
+                        <label className="block text-xs text-gray-700 dark:text-gray-300 mb-1">Card</label>
+                        <input type="number" value={cardAmount} onChange={(e) => setCardAmount(Number(e.target.value))} className="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm" />
                       </div>
                       <div>
-                        <label className="block text-xs text-gray-700 dark:text-gray-300 mb-1">Bkash Paid</label>
-                        <input type="number" value={bkashPaid} onChange={(e) => setBkashPaid(Number(e.target.value))} className="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm" />
+                        <label className="block text-xs text-gray-700 dark:text-gray-300 mb-1">Bkash</label>
+                        <input type="number" value={bkashAmount} onChange={(e) => setBkashAmount(Number(e.target.value))} className="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm" />
                       </div>
                       <div>
-                        <label className="block text-xs text-gray-700 dark:text-gray-300 mb-1">Nagad Paid</label>
-                        <input type="number" value={nagadPaid} onChange={(e) => setNagadPaid(Number(e.target.value))} className="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm" />
+                        <label className="block text-xs text-gray-700 dark:text-gray-300 mb-1">Nagad</label>
+                        <input type="number" value={nagadAmount} onChange={(e) => setNagadAmount(Number(e.target.value))} className="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm" />
                       </div>
                       <div>
-                        <label className="block text-xs text-gray-700 dark:text-gray-300 mb-1">Transaction Fee</label>
+                        <label className="block text-xs text-gray-700 dark:text-gray-300 mb-1">Fee</label>
                         <input type="number" value={transactionFee} onChange={(e) => setTransactionFee(Number(e.target.value))} className="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm" />
                       </div>
                     </div>
@@ -827,50 +777,139 @@ export default function ExchangeProductModal({ order, onClose, onExchange }: Exc
                     <div className="pt-3 border-t border-gray-200 dark:border-gray-700">
                       <div className="flex justify-between text-sm mb-1">
                         <span className="text-gray-700 dark:text-gray-300">Total Received</span>
-                        <span className="text-gray-900 dark:text-white font-medium">৳{totalPaymentReceived.toLocaleString()}</span>
+                        <span className="text-gray-900 dark:text-white font-medium">৳{totalAmount.toLocaleString()}</span>
                       </div>
                       <div className="flex justify-between text-sm mb-1">
                         <span className="text-gray-700 dark:text-gray-300">Amount Due</span>
                         <span className="text-gray-900 dark:text-white font-medium">৳{totals.difference.toLocaleString()}</span>
                       </div>
                       <div className="flex justify-between text-base">
-                        <span className="font-semibold text-gray-900 dark:text-white">Remaining Balance</span>
+                        <span className="font-semibold text-gray-900 dark:text-white">Remaining</span>
                         <span className={`font-bold ${remainingBalance > 0 ? 'text-orange-600 dark:text-orange-400' : 'text-green-600 dark:text-green-400'}`}>
                           ৳{remainingBalance.toFixed(2)}
                         </span>
                       </div>
                       {remainingBalance > 0 && (
-                        <p className="text-xs text-orange-600 dark:text-orange-400 mt-1">Customer can pay later</p>
-                      )}
-                      {remainingBalance === 0 && totalPaymentReceived > 0 && (
-                        <p className="text-xs text-green-600 dark:text-green-400 mt-1">✓ Fully paid</p>
+                        <p className="text-xs text-orange-600 dark:text-orange-400 mt-1">Can pay later</p>
                       )}
                     </div>
                   </div>
                 </div>
               )}
 
-              {/* Refund Notice - Show if customer gets refund */}
               {totals.difference < 0 && (
-                <div className="bg-green-50 dark:bg-green-900/20 border-2 border-green-500 dark:border-green-600 rounded-lg p-4">
-                  <div className="flex items-center gap-2 mb-2">
-                    <div className="w-8 h-8 bg-green-500 rounded-full flex items-center justify-center">
-                      <span className="text-white text-lg">৳</span>
-                    </div>
-                    <div>
-                      <p className="font-semibold text-green-900 dark:text-green-300">Refund to Customer</p>
-                      <p className="text-xs text-green-700 dark:text-green-400">Process refund through preferred method</p>
-                    </div>
+                <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700">
+                  <div className="px-4 py-3 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
+                    <h3 className="text-sm font-medium text-gray-900 dark:text-white">Process Refund</h3>
+                    <ChevronDown className="w-4 h-4 text-gray-500" />
                   </div>
-                  <div className="mt-3 p-3 bg-white dark:bg-green-900/30 rounded-lg">
-                    <p className="text-2xl font-bold text-green-600 dark:text-green-400 text-center">
-                      ৳{Math.abs(totals.difference).toLocaleString()}
-                    </p>
+                  
+                  <div className="p-4 space-y-3">
+                    <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-3 mb-3">
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm font-semibold text-green-900 dark:text-green-300">Total Refund:</span>
+                        <span className="text-xl font-bold text-green-600 dark:text-green-400">৳{Math.abs(totals.difference).toLocaleString()}</span>
+                      </div>
+                    </div>
+
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between">
+                        <label className="text-xs font-medium text-gray-700 dark:text-gray-300">Cash Refund</label>
+                        <button
+                          onClick={() => setShowNoteCounter(!showNoteCounter)}
+                          className="flex items-center gap-1 px-2 py-1 text-xs bg-green-50 dark:bg-green-900/20 text-green-600 dark:text-green-400 rounded hover:bg-green-100 dark:hover:bg-green-900/30"
+                        >
+                          <Calculator className="w-3 h-3" />
+                          {showNoteCounter ? 'Hide' : 'Count Notes'}
+                        </button>
+                      </div>
+                      
+                      {showNoteCounter ? (
+                        <div className="bg-green-50 dark:bg-green-900/10 border border-green-200 dark:border-green-800 rounded-lg p-3 space-y-2">
+                          <div className="grid grid-cols-3 gap-2">
+                            {[
+                              { value: 1000, state: note1000, setState: setNote1000 },
+                              { value: 500, state: note500, setState: setNote500 },
+                              { value: 200, state: note200, setState: setNote200 },
+                              { value: 100, state: note100, setState: setNote100 },
+                              { value: 50, state: note50, setState: setNote50 },
+                              { value: 20, state: note20, setState: setNote20 },
+                              { value: 10, state: note10, setState: setNote10 },
+                              { value: 5, state: note5, setState: setNote5 },
+                              { value: 2, state: note2, setState: setNote2 }
+                            ].map((note) => (
+                              <div key={note.value}>
+                                <label className="block text-xs text-gray-700 dark:text-gray-300 mb-1">৳{note.value} ×</label>
+                                <input 
+                                  type="number" 
+                                  min="0" 
+                                  value={note.state} 
+                                  onChange={(e) => note.setState(Number(e.target.value))} 
+                                  className="w-full px-2 py-1 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm" 
+                                />
+                              </div>
+                            ))}
+                          </div>
+                          <div className="flex justify-between items-center pt-2 border-t border-green-200 dark:border-green-800">
+                            <span className="text-xs font-medium text-gray-700 dark:text-gray-300">Total Cash:</span>
+                            <span className="text-sm font-bold text-green-600 dark:text-green-400">৳{cashFromNotes.toLocaleString()}</span>
+                          </div>
+                        </div>
+                      ) : (
+                        <div>
+                          <label className="block text-xs text-gray-700 dark:text-gray-300 mb-1">Cash Refund</label>
+                          <input 
+                            type="number" 
+                            value={cashFromNotes > 0 ? cashFromNotes : cashAmount} 
+                            onChange={(e) => {
+                              setCashAmount(Number(e.target.value));
+                              setNote1000(0); setNote500(0); setNote200(0); setNote100(0);
+                              setNote50(0); setNote20(0); setNote10(0); setNote5(0); setNote2(0); setNote1(0);
+                            }} 
+                            className="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm" 
+                          />
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <label className="block text-xs text-gray-700 dark:text-gray-300 mb-1">Card</label>
+                        <input type="number" value={cardAmount} onChange={(e) => setCardAmount(Number(e.target.value))} className="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm" />
+                      </div>
+                      <div>
+                        <label className="block text-xs text-gray-700 dark:text-gray-300 mb-1">Bkash</label>
+                        <input type="number" value={bkashAmount} onChange={(e) => setBkashAmount(Number(e.target.value))} className="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm" />
+                      </div>
+                      <div className="col-span-2">
+                        <label className="block text-xs text-gray-700 dark:text-gray-300 mb-1">Nagad</label>
+                        <input type="number" value={nagadAmount} onChange={(e) => setNagadAmount(Number(e.target.value))} className="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm" />
+                      </div>
+                    </div>
+                    
+                    <div className="pt-3 border-t border-gray-200 dark:border-gray-700">
+                      <div className="flex justify-between text-sm mb-1">
+                        <span className="text-gray-700 dark:text-gray-300">Total Refunded</span>
+                        <span className="text-gray-900 dark:text-white font-medium">৳{totalAmount.toLocaleString()}</span>
+                      </div>
+                      <div className="flex justify-between text-sm mb-1">
+                        <span className="text-gray-700 dark:text-gray-300">Refund Required</span>
+                        <span className="text-gray-900 dark:text-white font-medium">৳{Math.abs(totals.difference).toLocaleString()}</span>
+                      </div>
+                      <div className="flex justify-between text-base">
+                        <span className="font-semibold text-gray-900 dark:text-white">Remaining</span>
+                        <span className={`font-bold ${remainingBalance > 0 ? 'text-orange-600 dark:text-orange-400' : 'text-green-600 dark:text-green-400'}`}>
+                          ৳{remainingBalance.toFixed(2)}
+                        </span>
+                      </div>
+                      {remainingBalance > 0 && (
+                        <p className="text-xs text-orange-600 dark:text-orange-400 mt-1">Can refund later</p>
+                      )}
+                    </div>
                   </div>
                 </div>
               )}
 
-              {/* Action Button */}
               <button
                 type="button"
                 onClick={handleProcessExchange}
