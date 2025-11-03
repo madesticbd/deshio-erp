@@ -49,12 +49,12 @@
     "costPrice": 1200,
     "sellingPrice": 1500,
     "location": "Banasree",
-    "status": "sold",
+    "status": "defective",
     "admittedAt": "2025-10-27T15:51:53.603Z",
     "id": 1761580314018,
     "createdAt": "2025-10-27T15:51:54.018Z",
     "soldAt": "2025-10-27T16:09:04.947Z",
-    "updatedAt": "2025-10-27T16:09:05.306Z"
+    "updatedAt": "2025-10-27T18:52:21.845Z"
   },
   {
     "productId": 1761575188439,
@@ -92,10 +92,11 @@
     "costPrice": 1200,
     "sellingPrice": 1300,
     "location": "Banasree",
-    "status": "available",
+    "status": "defective",
     "admittedAt": "2025-10-27T16:12:18.384Z",
     "id": 1761581538744,
-    "createdAt": "2025-10-27T16:12:18.744Z"
+    "createdAt": "2025-10-27T16:12:18.744Z",
+    "updatedAt": "2025-11-02T06:39:12.017Z"
   },
   {
     "productId": 1761581478031,
@@ -104,10 +105,11 @@
     "costPrice": 1200,
     "sellingPrice": 1300,
     "location": "Banasree",
-    "status": "available",
+    "status": "defective",
     "admittedAt": "2025-10-27T16:12:20.487Z",
     "id": 1761581540823,
-    "createdAt": "2025-10-27T16:12:20.823Z"
+    "createdAt": "2025-10-27T16:12:20.823Z",
+    "updatedAt": "2025-11-02T06:45:17.750Z"
   },
   {
     "productId": 1761581478031,
@@ -132,5 +134,131 @@
     "admittedAt": "2025-10-27T16:12:24.375Z",
     "id": 1761581544724,
     "createdAt": "2025-10-27T16:12:24.725Z"
+  },
+  {
+    "productId": 1761575188439,
+    "batchId": 1761985886658,
+    "barcode": "BATCH1761985886658-01",
+    "costPrice": 1200,
+    "sellingPrice": 1500,
+    "location": "Banasree",
+    "status": "sold",
+    "admittedAt": "2025-11-01T08:31:58.952Z",
+    "id": 1761985919574,
+    "createdAt": "2025-11-01T08:31:59.574Z",
+    "orderId": 1762067665050,
+    "soldAt": "2025-11-02T07:14:25.056Z",
+    "updatedAt": "2025-11-02T07:14:25.056Z"
+  },
+  {
+    "productId": 1761575188439,
+    "batchId": 1761985886658,
+    "barcode": "BATCH1761985886658-02",
+    "costPrice": 1200,
+    "sellingPrice": 1500,
+    "location": "Banasree",
+    "status": "sold",
+    "admittedAt": "2025-11-01T08:32:01.856Z",
+    "id": 1761985922511,
+    "createdAt": "2025-11-01T08:32:02.511Z",
+    "orderId": 1762147845950,
+    "soldAt": "2025-11-03T05:30:45.970Z",
+    "updatedAt": "2025-11-03T05:30:45.970Z"
+  },
+  {
+    "productId": 1761575188439,
+    "batchId": 1761985886658,
+    "barcode": "BATCH1761985886658-03",
+    "costPrice": 1200,
+    "sellingPrice": 1500,
+    "location": "Banasree",
+    "status": "available",
+    "admittedAt": "2025-11-01T08:32:04.891Z",
+    "id": 1761985925538,
+    "createdAt": "2025-11-01T08:32:05.538Z"
+  },
+  {
+    "productId": 1761575188439,
+    "batchId": 1761985886658,
+    "barcode": "BATCH1761985886658-04",
+    "costPrice": 1200,
+    "sellingPrice": 1500,
+    "location": "Banasree",
+    "status": "available",
+    "admittedAt": "2025-11-01T08:32:08.491Z",
+    "id": 1761985929121,
+    "createdAt": "2025-11-01T08:32:09.121Z"
+  },
+  {
+    "productId": 1761575188439,
+    "batchId": 1761985886658,
+    "barcode": "BATCH1761985886658-05",
+    "costPrice": 1200,
+    "sellingPrice": 1500,
+    "location": "Banasree",
+    "status": "available",
+    "admittedAt": "2025-11-01T08:32:11.456Z",
+    "id": 1761985932112,
+    "createdAt": "2025-11-01T08:32:12.112Z"
+  },
+  {
+    "productId": 1761575188441,
+    "batchId": 1761985903776,
+    "barcode": "BATCH1761985903776-01",
+    "costPrice": 1200,
+    "sellingPrice": 1500,
+    "location": "Banasree",
+    "status": "available",
+    "admittedAt": "2025-11-01T08:32:43.373Z",
+    "id": 1761985964006,
+    "createdAt": "2025-11-01T08:32:44.006Z"
+  },
+  {
+    "productId": 1761575188441,
+    "batchId": 1761985903776,
+    "barcode": "BATCH1761985903776-02",
+    "costPrice": 1200,
+    "sellingPrice": 1500,
+    "location": "Banasree",
+    "status": "available",
+    "admittedAt": "2025-11-01T08:32:46.183Z",
+    "id": 1761985966795,
+    "createdAt": "2025-11-01T08:32:46.795Z"
+  },
+  {
+    "productId": 1761575188441,
+    "batchId": 1761985903776,
+    "barcode": "BATCH1761985903776-03",
+    "costPrice": 1200,
+    "sellingPrice": 1500,
+    "location": "Banasree",
+    "status": "available",
+    "admittedAt": "2025-11-01T08:32:48.788Z",
+    "id": 1761985969368,
+    "createdAt": "2025-11-01T08:32:49.368Z"
+  },
+  {
+    "productId": 1761575188441,
+    "batchId": 1761985903776,
+    "barcode": "BATCH1761985903776-04",
+    "costPrice": 1200,
+    "sellingPrice": 1500,
+    "location": "Banasree",
+    "status": "available",
+    "admittedAt": "2025-11-01T08:32:51.398Z",
+    "id": 1761985972026,
+    "createdAt": "2025-11-01T08:32:52.026Z"
+  },
+  {
+    "productId": 1761575188441,
+    "batchId": 1761985903776,
+    "barcode": "BATCH1761985903776-05",
+    "costPrice": 1200,
+    "sellingPrice": 1500,
+    "location": "Banasree",
+    "status": "available",
+    "admittedAt": "2025-11-01T08:32:54.254Z",
+    "id": 1761985974817,
+    "createdAt": "2025-11-01T08:32:54.817Z"
   }
 ]

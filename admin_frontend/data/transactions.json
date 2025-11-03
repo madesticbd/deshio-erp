@@ -104,6 +104,71 @@
       "createdAt": "2025-10-27T16:43:52.235Z",
       "source": "sale",
       "referenceId": "sale-1761583431782"
+    },
+    {
+      "id": "txn-batch-1761985886658",
+      "name": "Inventory Purchase - Batch BATCH1761985886658",
+      "description": "Purchased 5 units @ ৳1200 each",
+      "type": "expense",
+      "amount": 6000,
+      "category": "Inventory Purchase",
+      "date": "2025-11-01T08:31:26.664Z",
+      "comment": "Expected Revenue: ৳7500, Expected Profit: ৳1500",
+      "createdAt": "2025-11-01T08:31:26.664Z",
+      "source": "batch",
+      "referenceId": "1761985886658"
+    },
+    {
+      "id": "txn-batch-1761985903776",
+      "name": "Inventory Purchase - Batch BATCH1761985903776",
+      "description": "Purchased 5 units @ ৳1200 each",
+      "type": "expense",
+      "amount": 6000,
+      "category": "Inventory Purchase",
+      "date": "2025-11-01T08:31:43.780Z",
+      "comment": "Expected Revenue: ৳7500, Expected Profit: ৳1500",
+      "createdAt": "2025-11-01T08:31:43.780Z",
+      "source": "batch",
+      "referenceId": "1761985903776"
+    },
+    {
+      "id": "txn-sale-sale-1762065720168",
+      "name": "Sale: Katha Stich",
+      "description": "POS Sale to Adrita Ahsan",
+      "type": "income",
+      "amount": 1260,
+      "category": "POS Sales",
+      "date": "2025-11-02T06:42:00.549Z",
+      "comment": "Items: 1, Cash: ৳0, Card: ৳0, Bkash: ৳0, Nagad: ৳0, Due: ৳1260",
+      "createdAt": "2025-11-02T06:42:00.559Z",
+      "source": "sale",
+      "referenceId": "sale-1762065720168"
+    },
+    {
+      "id": "txn-order-1762067665050",
+      "name": "Order: Toshor-Purple",
+      "description": "Social Order from Customer",
+      "type": "income",
+      "amount": 1575,
+      "category": "Online Orders",
+      "date": "2025-11-02T07:14:25.057Z",
+      "comment": "Platform: Social Media, Products: 1, Cash: ৳0, Bkash: ৳0, Due: ৳1575",
+      "createdAt": "2025-11-02T07:14:25.060Z",
+      "source": "order",
+      "referenceId": "1762067665050"
+    },
+    {
+      "id": "txn-order-1762147845950",
+      "name": "Order: Toshor-Purple",
+      "description": "Social Order from Customer",
+      "type": "income",
+      "amount": 1575,
+      "category": "Online Orders",
+      "date": "2025-11-03T05:30:45.979Z",
+      "comment": "Platform: Social Media, Products: 1, Cash: ৳0, Bkash: ৳0, Due: ৳1575",
+      "createdAt": "2025-11-03T05:30:45.986Z",
+      "source": "order",
+      "referenceId": "1762147845950"
     }
   ]
 }

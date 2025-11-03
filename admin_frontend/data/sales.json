@@ -242,5 +242,51 @@
     "createdAt": "2025-10-27T16:43:52.205Z",
     "updatedAt": "2025-10-27T16:43:51.782Z",
     "exchangeHistory": []
+  },
+  {
+    "id": "sale-1762065720168",
+    "salesBy": "System Administrator",
+    "outletId": "1761224737580",
+    "date": "2025-11-02",
+    "customer": {
+      "name": "Adrita Ahsan",
+      "mobile": "01745191964",
+      "address": "Kallyanpur"
+    },
+    "items": [
+      {
+        "id": 1762065714957.56,
+        "productId": 1761581478031,
+        "productName": "Katha Stich",
+        "size": "",
+        "qty": 1,
+        "price": 1200,
+        "discount": 0,
+        "amount": 1200,
+        "isDefective": true,
+        "defectId": "defect-1762065552018",
+        "barcode": "BATCH1761581506527-02"
+      }
+    ],
+    "amounts": {
+      "subtotal": 1200,
+      "totalDiscount": 0,
+      "vat": 60,
+      "vatRate": 5,
+      "transportCost": 0,
+      "total": 1260
+    },
+    "payments": {
+      "cash": 0,
+      "card": 0,
+      "bkash": 0,
+      "nagad": 0,
+      "transactionFee": 0,
+      "totalPaid": 0,
+      "due": 1260
+    },
+    "createdAt": "2025-11-02T06:42:00.549Z",
+    "updatedAt": "2025-11-02T06:42:00.168Z",
+    "exchangeHistory": []
   }
 ]

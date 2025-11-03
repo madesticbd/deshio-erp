@@ -7,6 +7,7 @@ import { useCart } from '@/app/e-commerce/CartContext';
 import Navigation from '@/components/ecommerce/Navigation';
 import CartSidebar from '@/components/ecommerce/cart/CartSidebar';
 import { useAuth } from '@/app/e-commerce/AuthContext';
+import { wishlistUtils } from '@/lib/wishlistUtils';
 
 interface Product {
   id: string | number;
@@ -70,7 +71,20 @@ export default function ProductDetailPage() {
   const [availableStock, setAvailableStock] = useState(0);
   const [categoryPath, setCategoryPath] = useState<string[]>([]);
   const [categoryName, setCategoryName] = useState<string>('');
+  const [isInWishlist, setIsInWishlist] = useState(false);
   const { user, isAuthenticated } = useAuth();
+
+  // Listen for wishlist updates
+  useEffect(() => {
+    const updateWishlistStatus = () => {
+      if (selectedVariation) {
+        setIsInWishlist(wishlistUtils.isInWishlist(selectedVariation.id));
+      }
+    };
+    updateWishlistStatus();
+    window.addEventListener('wishlist-updated', updateWishlistStatus);
+    return () => window.removeEventListener('wishlist-updated', updateWishlistStatus);
+  }, [selectedVariation]);
 
   // Get base product name (remove color/size suffix)
   const getBaseName = (name: string): string => {
@@ -116,6 +130,22 @@ export default function ProductDetailPage() {
       }
     }
     return null;
+  };
+
+  const handleToggleWishlist = () => {
+    if (!selectedVariation) return;
+
+    if (isInWishlist) {
+      wishlistUtils.remove(selectedVariation.id);
+    } else {
+      wishlistUtils.add({
+        id: selectedVariation.id,
+        name: selectedVariation.name,
+        image: selectedVariation.images[0] || '',
+        price: parseFloat(selectedVariation.price),
+        sku: selectedVariation.id.toString(),
+      });
+    }
   };
 
   const handleAddToCart = async () => {
@@ -598,8 +628,18 @@ export default function ProductDetailPage() {
                     </>
                   )}
                 </button>
-                <button className="p-4 border-2 border-gray-300 rounded-lg hover:border-red-700 hover:text-red-700 transition-colors">
-                  <Heart size={24} />
+                <button 
+                  onClick={handleToggleWishlist}
+                  className={`p-4 border-2 rounded-lg transition-all ${
+                    isInWishlist
+                      ? 'border-red-700 bg-red-50 text-red-700'
+                      : 'border-gray-300 hover:border-red-700 hover:text-red-700'
+                  }`}
+                >
+                  <Heart 
+                    size={24} 
+                    className={isInWishlist ? 'fill-current' : ''} 
+                  />
                 </button>
                 <button className="p-4 border-2 border-gray-300 rounded-lg hover:border-blue-600 hover:text-blue-600 transition-colors">
                   <Share2 size={24} />

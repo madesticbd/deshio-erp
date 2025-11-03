@@ -51,5 +51,109 @@
       "due": 1365
     },
     "createdAt": "2025-10-27T16:13:44.073Z"
+  },
+  {
+    "id": 1762067665050,
+    "salesBy": "System Administrator",
+    "date": "06-Oct-2025",
+    "isInternational": true,
+    "customer": {
+      "name": "Adrita Ahsan",
+      "email": "adritaahsan06@gmail.com",
+      "phone": "01745191964",
+      "socialId": "Adrita Ahsan"
+    },
+    "deliveryAddress": {
+      "country": "USA",
+      "state": "Texas",
+      "city": "Houston",
+      "address": "N/A",
+      "postalCode": "N/A"
+    },
+    "products": [
+      {
+        "id": 1762067644471,
+        "productId": 1761575188439,
+        "batchId": 1761985886658,
+        "productName": "Toshor-Purple",
+        "size": "1",
+        "qty": 1,
+        "price": 1500,
+        "discount": 0,
+        "amount": 1500,
+        "barcodes": [
+          "BATCH1761985886658-01"
+        ]
+      }
+    ],
+    "subtotal": 1500,
+    "amounts": {
+      "subtotal": 1500,
+      "totalDiscount": 0,
+      "vat": 75,
+      "vatRate": 5,
+      "transportCost": 0,
+      "total": 1575
+    },
+    "payments": {
+      "sslCommerz": 0,
+      "advance": 0,
+      "transactionId": "",
+      "totalPaid": 0,
+      "due": 1575
+    },
+    "createdAt": "2025-11-02T07:14:25.057Z"
+  },
+  {
+    "id": 1762147845950,
+    "salesBy": "System Administrator",
+    "date": "06-Oct-2025",
+    "isInternational": true,
+    "customer": {
+      "name": "Adrita Ahsan",
+      "email": "adrita@gmail.com",
+      "phone": "01745191964",
+      "socialId": "Adrita Ahsan"
+    },
+    "deliveryAddress": {
+      "country": "USA",
+      "state": "Texas",
+      "city": "Houstone",
+      "address": "",
+      "postalCode": ""
+    },
+    "products": [
+      {
+        "id": 1762147836993,
+        "productId": 1761575188439,
+        "batchId": 1761985886658,
+        "productName": "Toshor-Purple",
+        "size": "1",
+        "qty": 1,
+        "price": 1500,
+        "discount": 0,
+        "amount": 1500,
+        "barcodes": [
+          "BATCH1761985886658-02"
+        ]
+      }
+    ],
+    "subtotal": 1500,
+    "amounts": {
+      "subtotal": 1500,
+      "totalDiscount": 0,
+      "vat": 75,
+      "vatRate": 5,
+      "transportCost": 0,
+      "total": 1575
+    },
+    "payments": {
+      "sslCommerz": 0,
+      "advance": 0,
+      "transactionId": "",
+      "totalPaid": 0,
+      "due": 1575
+    },
+    "createdAt": "2025-11-03T05:30:45.979Z"
   }
 ]
