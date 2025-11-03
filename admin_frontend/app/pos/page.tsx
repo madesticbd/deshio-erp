@@ -884,8 +884,12 @@ const downloadCashCountPDF = () => {
             </div>
             <div className="max-w-7xl mx-auto">
               <div className="flex items-center justify-between mb-6">
-                <h1 className="text-2xl font-semibold text-gray-900 dark:text-white">Point of Sale</h1>
-                {dailyCashSummary.totalReceived > 0 && (
+                
+                
+              
+              
+              <h1 className="text-2xl font-semibold text-gray-900 dark:text-white mb-6">Point of Sale</h1>
+              {dailyCashSummary.totalReceived > 0 && (
                   <button
                     onClick={downloadCashCountPDF}
                     className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-md text-sm font-medium transition-colors"
@@ -894,9 +898,7 @@ const downloadCashCountPDF = () => {
                     Download Daily Cash PDF
                   </button>
                 )}
-              </div>
-              <div className="grid grid-cols-3 gap-4 mb-6">
-              <h1 className="text-2xl font-semibold text-gray-900 dark:text-white mb-6">Point of Sale</h1>
+              </div>  
               
               {/* Top Section with Employee */}
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
@@ -932,6 +934,7 @@ const downloadCashCountPDF = () => {
                     </option>
                   </select>
                 </div>
+              
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Outlet <span className="text-red-500">*</span></label>
@@ -946,6 +949,7 @@ const downloadCashCountPDF = () => {
                   <input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white" />
                 </div>
               </div>
+            </div>
 
               <div className="grid grid-cols-3 gap-6">
                 <div className="col-span-2 space-y-6">
@@ -1286,8 +1290,6 @@ const downloadCashCountPDF = () => {
                   </div>
                 </div>
               </div>
-            </div>
-            </div>
           </main>
         </div>
       </div>
