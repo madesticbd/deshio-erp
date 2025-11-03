@@ -1,159 +1,289 @@
 [
   {
-    "id": 1761581624068,
+    "id": 1761590468510,
     "salesBy": "System Administrator",
     "date": "06-Oct-2025",
     "customer": {
-      "name": "Preownti",
-      "email": "preownti@gmail.com",
-      "phone": "01745191988",
-      "socialId": "Nishat Preownti"
+      "name": "Oishee",
+      "email": "tasneem.nishat.4953@gmail.com",
+      "phone": "01818316964",
+      "socialId": "OIshee"
+    },
+    "deliveryAddress": {
+      "division": "Khulna",
+      "district": "Meherpur",
+      "city": "Meherpur Sadar",
+      "zone": "",
+      "area": "",
+      "address": "International Affairs Division ,Paramanu Bhaban ,Bangladesh Atomic Energy Commission,",
+      "postalCode": "1212"
+    },
+    "products": [
+      {
+        "id": 1761590450188,
+        "productId": 1761589031972,
+        "batchId": 1761589535098,
+        "productName": "Toshor Silk Sharee",
+        "size": "1",
+        "qty": 1,
+        "price": 2000,
+        "discount": 0,
+        "amount": 2000,
+        "barcodes": [
+          "BATCH1761589535098-02"
+        ]
+      }
+    ],
+    "subtotal": 2000,
+    "amounts": {
+      "subtotal": 2000,
+      "totalDiscount": 0,
+      "vat": 100,
+      "vatRate": 5,
+      "transportCost": 0,
+      "total": 2100
+    },
+    "payments": {
+      "sslCommerz": 2100,
+      "advance": 0,
+      "transactionId": "",
+      "totalPaid": 2100,
+      "due": 0
+    },
+    "createdAt": "2025-10-27T18:41:08.513Z"
+  },
+  {
+    "id": 1761591142036,
+    "salesBy": "System Administrator",
+    "date": "06-Oct-2025",
+    "customer": {
+      "name": "Sanjana",
+      "email": "tasneem.nishat.4953@gmail.com",
+      "phone": "01818316964",
+      "socialId": ""
+    },
+    "deliveryAddress": {
+      "division": "Khulna",
+      "district": "Satkhira",
+      "city": "Satkhira Sadar",
+      "zone": "",
+      "area": "",
+      "address": "International Affairs Division ,Paramanu Bhaban ,Bangladesh Atomic Energy Commission,",
+      "postalCode": "1212"
+    },
+    "products": [
+      {
+        "id": 1761591136945,
+        "productId": 1761589031972,
+        "batchId": 1761589535098,
+        "productName": "Toshor Silk Sharee",
+        "size": "1",
+        "qty": 1,
+        "price": 2000,
+        "discount": 0,
+        "amount": 2000,
+        "barcodes": [
+          "BATCH1761589535098-03"
+        ]
+      }
+    ],
+    "subtotal": 2000,
+    "amounts": {
+      "subtotal": 2000,
+      "totalDiscount": 0,
+      "vat": 100,
+      "vatRate": 5,
+      "transportCost": 0,
+      "total": 2100
+    },
+    "payments": {
+      "sslCommerz": 0,
+      "advance": 0,
+      "transactionId": "",
+      "totalPaid": 0,
+      "due": 2100
+    },
+    "createdAt": "2025-10-27T18:52:22.039Z"
+  },
+  {
+    "id": 1761591326143,
+    "salesBy": "System Administrator",
+    "date": "06-Oct-2025",
+    "customer": {
+      "name": "Adrita",
+      "email": "tasneem.nishat.4953@gmail.com",
+      "phone": "01818316964",
+      "socialId": "Adrita"
+    },
+    "deliveryAddress": {
+      "division": "Barisal",
+      "district": "Jhalakathi",
+      "city": "Kathalia",
+      "zone": "",
+      "area": "",
+      "address": "International Affairs Division ,Paramanu Bhaban ,Bangladesh Atomic Energy Commission,",
+      "postalCode": "1212"
+    },
+    "products": [
+      {
+        "id": 1762078956253.342,
+        "productId": 1761589326964,
+        "productName": "Shotoronji-Red",
+        "size": "1",
+        "qty": 1,
+        "price": 1500,
+        "discount": 0,
+        "amount": 1500,
+        "barcodes": [
+          "BATCH1761589571631-02"
+        ]
+      }
+    ],
+    "subtotal": 1500,
+    "amounts": {
+      "subtotal": 1500,
+      "totalDiscount": 0,
+      "vat": 75,
+      "vatRate": 5,
+      "transportCost": 0,
+      "total": 1575
+    },
+    "payments": {
+      "sslCommerz": 0,
+      "advance": 0,
+      "transactionId": "",
+      "totalPaid": 0,
+      "due": 1575
+    },
+    "createdAt": "2025-10-27T18:55:26.146Z",
+    "exchangeHistory": [
+      {
+        "date": "2025-10-28T05:25:50.934Z",
+        "removedProducts": [
+          {
+            "productId": 1761591322112,
+            "quantity": 1
+          }
+        ],
+        "replacementProducts": [
+          {
+            "id": 1761589326964,
+            "batchId": 1761589571631,
+            "name": "Shotoronji-Red",
+            "price": 1500,
+            "quantity": 1,
+            "amount": 1500,
+            "size": "1"
+          }
+        ],
+        "originalTotal": 315,
+        "newTotal": 1575,
+        "difference": 1260,
+        "note": "Customer owes additional payment"
+      },
+      {
+        "date": "2025-11-02T10:13:48.649Z",
+        "removedProducts": [
+          {
+            "productId": 1761629150934.7625,
+            "quantity": 1
+          }
+        ],
+        "replacementProducts": [
+          {
+            "id": 1761589326965,
+            "batchId": 1761627972292,
+            "name": "Shotoronji-Black",
+            "price": 1200,
+            "quantity": 1,
+            "amount": 1200,
+            "size": "1"
+          }
+        ],
+        "originalTotal": 1575,
+        "newTotal": 1260,
+        "difference": -315,
+        "note": "Refund to customer"
+      },
+      {
+        "date": "2025-11-02T10:22:36.253Z",
+        "removedProducts": [
+          {
+            "productId": 1762078428649.741,
+            "quantity": 1
+          }
+        ],
+        "replacementProducts": [
+          {
+            "id": 1761589326964,
+            "batchId": 1761589571631,
+            "name": "Shotoronji-Red",
+            "price": 1500,
+            "quantity": 1,
+            "amount": 1500,
+            "size": "1"
+          }
+        ],
+        "originalTotal": 1260,
+        "newTotal": 1575,
+        "difference": 315,
+        "note": "Customer owes additional payment"
+      }
+    ],
+    "updatedAt": "2025-11-02T10:22:36.253Z"
+  },
+  {
+    "id": 1761629380139,
+    "salesBy": "System Administrator",
+    "date": "06-Oct-2025",
+    "customer": {
+      "name": "Oishee",
+      "email": "tasneem.nishat.4953@gmail.com",
+      "phone": "01818316964",
+      "socialId": ""
     },
     "deliveryAddress": {
       "division": "Rajshahi",
-      "district": "Rajshahi",
-      "city": "Mohonpur",
-      "zone": "Mohonpur",
+      "district": "Patuakhali",
+      "city": "Patuakhali Sadar",
+      "zone": "",
       "area": "",
-      "address": "",
-      "postalCode": ""
+      "address": "International Affairs Division ,Paramanu Bhaban ,Bangladesh Atomic Energy Commission,",
+      "postalCode": "1211"
     },
     "products": [
       {
-        "id": 1761581619306,
-        "productId": 1761581478031,
-        "batchId": 1761581506527,
-        "productName": "Katha Stich",
+        "id": 1761629340397,
+        "productId": 1761589495801,
+        "batchId": 1761589593751,
+        "productName": "Jhumka",
         "size": "1",
-        "qty": 1,
-        "price": 1300,
-        "discount": 0,
-        "amount": 1300,
+        "qty": 2,
+        "price": 300,
+        "discount": 200,
+        "amount": 400,
         "barcodes": [
-          "BATCH1761581506527-01"
+          "BATCH1761589593751-01",
+          "BATCH1761589593751-02"
         ]
       }
     ],
-    "subtotal": 1300,
+    "subtotal": 400,
     "amounts": {
-      "subtotal": 1300,
-      "totalDiscount": 0,
-      "vat": 65,
+      "subtotal": 400,
+      "totalDiscount": 200,
+      "vat": 20,
       "vatRate": 5,
-      "transportCost": 0,
-      "total": 1365
+      "transportCost": 50,
+      "total": 470
     },
     "payments": {
-      "sslCommerz": 0,
+      "sslCommerz": 300,
       "advance": 0,
       "transactionId": "",
-      "totalPaid": 0,
-      "due": 1365
+      "totalPaid": 300,
+      "due": 170
     },
-    "createdAt": "2025-10-27T16:13:44.073Z"
-  },
-  {
-    "id": 1762067665050,
-    "salesBy": "System Administrator",
-    "date": "06-Oct-2025",
-    "isInternational": true,
-    "customer": {
-      "name": "Adrita Ahsan",
-      "email": "adritaahsan06@gmail.com",
-      "phone": "01745191964",
-      "socialId": "Adrita Ahsan"
-    },
-    "deliveryAddress": {
-      "country": "USA",
-      "state": "Texas",
-      "city": "Houston",
-      "address": "N/A",
-      "postalCode": "N/A"
-    },
-    "products": [
-      {
-        "id": 1762067644471,
-        "productId": 1761575188439,
-        "batchId": 1761985886658,
-        "productName": "Toshor-Purple",
-        "size": "1",
-        "qty": 1,
-        "price": 1500,
-        "discount": 0,
-        "amount": 1500,
-        "barcodes": [
-          "BATCH1761985886658-01"
-        ]
-      }
-    ],
-    "subtotal": 1500,
-    "amounts": {
-      "subtotal": 1500,
-      "totalDiscount": 0,
-      "vat": 75,
-      "vatRate": 5,
-      "transportCost": 0,
-      "total": 1575
-    },
-    "payments": {
-      "sslCommerz": 0,
-      "advance": 0,
-      "transactionId": "",
-      "totalPaid": 0,
-      "due": 1575
-    },
-    "createdAt": "2025-11-02T07:14:25.057Z"
-  },
-  {
-    "id": 1762147845950,
-    "salesBy": "System Administrator",
-    "date": "06-Oct-2025",
-    "isInternational": true,
-    "customer": {
-      "name": "Adrita Ahsan",
-      "email": "adrita@gmail.com",
-      "phone": "01745191964",
-      "socialId": "Adrita Ahsan"
-    },
-    "deliveryAddress": {
-      "country": "USA",
-      "state": "Texas",
-      "city": "Houstone",
-      "address": "",
-      "postalCode": ""
-    },
-    "products": [
-      {
-        "id": 1762147836993,
-        "productId": 1761575188439,
-        "batchId": 1761985886658,
-        "productName": "Toshor-Purple",
-        "size": "1",
-        "qty": 1,
-        "price": 1500,
-        "discount": 0,
-        "amount": 1500,
-        "barcodes": [
-          "BATCH1761985886658-02"
-        ]
-      }
-    ],
-    "subtotal": 1500,
-    "amounts": {
-      "subtotal": 1500,
-      "totalDiscount": 0,
-      "vat": 75,
-      "vatRate": 5,
-      "transportCost": 0,
-      "total": 1575
-    },
-    "payments": {
-      "sslCommerz": 0,
-      "advance": 0,
-      "transactionId": "",
-      "totalPaid": 0,
-      "due": 1575
-    },
-    "createdAt": "2025-11-03T05:30:45.979Z"
+    "createdAt": "2025-10-28T05:29:40.146Z"
   }
 ]

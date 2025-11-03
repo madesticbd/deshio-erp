@@ -1,38 +1,38 @@
 [
   {
-    "productId": 1761575188439,
-    "costPrice": 1200,
+    "productId": 1761589031972,
+    "costPrice": 1500,
+    "sellingPrice": 2000,
+    "quantity": 7,
+    "admitted": "yes",
+    "id": 1761589535098,
+    "baseCode": "BATCH1761589535098"
+  },
+  {
+    "productId": 1761589326964,
+    "costPrice": 900,
     "sellingPrice": 1500,
     "quantity": 5,
     "admitted": "yes",
-    "id": 1761580295386,
-    "baseCode": "BATCH1761580295386"
+    "id": 1761589571631,
+    "baseCode": "BATCH1761589571631"
   },
   {
-    "productId": 1761581478031,
-    "costPrice": 1200,
-    "sellingPrice": 1300,
+    "productId": 1761589495801,
+    "costPrice": 200,
+    "sellingPrice": 300,
     "quantity": 5,
     "admitted": "yes",
-    "id": 1761581506527,
-    "baseCode": "BATCH1761581506527"
+    "id": 1761589593751,
+    "baseCode": "BATCH1761589593751"
   },
   {
-    "productId": 1761575188439,
-    "costPrice": 1200,
-    "sellingPrice": 1500,
+    "productId": 1761589326965,
+    "costPrice": 1000,
+    "sellingPrice": 1200,
     "quantity": 5,
     "admitted": "yes",
-    "id": 1761985886658,
-    "baseCode": "BATCH1761985886658"
-  },
-  {
-    "productId": 1761575188441,
-    "costPrice": 1200,
-    "sellingPrice": 1500,
-    "quantity": 5,
-    "admitted": "yes",
-    "id": 1761985903776,
-    "baseCode": "BATCH1761985903776"
+    "id": 1761627972292,
+    "baseCode": "BATCH1761627972292"
   }
 ]
