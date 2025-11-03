@@ -64,11 +64,12 @@
     "costPrice": 1500,
     "sellingPrice": 2000,
     "location": "Uttara",
-    "status": "available",
+    "status": "sold",
     "admittedAt": "2025-10-27T18:32:27.064Z",
     "id": 1761589617197,
     "createdAt": "2025-10-27T18:28:15.360Z",
-    "updatedAt": "2025-10-27T18:32:27.446Z"
+    "updatedAt": "2025-11-03T06:41:23.609Z",
+    "soldAt": "2025-11-03T06:41:23.224Z"
   },
   {
     "productId": 1761589031972,
@@ -77,11 +78,12 @@
     "costPrice": 1500,
     "sellingPrice": 2000,
     "location": "Uttara",
-    "status": "available",
+    "status": "sold",
     "admittedAt": "2025-10-27T18:32:29.704Z",
     "id": 1761589620831,
     "createdAt": "2025-10-27T18:28:15.360Z",
-    "updatedAt": "2025-10-27T18:32:30.089Z"
+    "updatedAt": "2025-11-03T06:52:49.409Z",
+    "soldAt": "2025-11-03T06:52:49.038Z"
   },
   {
     "productId": 1761589031972,
@@ -220,11 +222,12 @@
     "costPrice": 200,
     "sellingPrice": 300,
     "location": "Uttara",
-    "status": "available",
+    "status": "sold",
     "admittedAt": "2025-10-27T18:32:51.896Z",
     "id": 1761589660672,
     "createdAt": "2025-10-27T18:28:15.360Z",
-    "updatedAt": "2025-10-27T18:32:52.262Z"
+    "updatedAt": "2025-11-03T06:45:26.663Z",
+    "soldAt": "2025-11-03T06:45:26.284Z"
   },
   {
     "productId": 1761589495801,
@@ -233,11 +236,12 @@
     "costPrice": 200,
     "sellingPrice": 300,
     "location": "Uttara",
-    "status": "available",
+    "status": "sold",
     "admittedAt": "2025-10-27T18:32:54.673Z",
     "id": 1761589662718,
     "createdAt": "2025-10-27T18:28:15.360Z",
-    "updatedAt": "2025-10-27T18:32:55.069Z"
+    "updatedAt": "2025-11-03T07:35:11.257Z",
+    "soldAt": "2025-11-03T07:35:10.858Z"
   },
   {
     "productId": 1761589326965,
@@ -275,11 +279,12 @@
     "costPrice": 1000,
     "sellingPrice": 1200,
     "location": "Uttara",
-    "status": "available",
+    "status": "sold",
     "admittedAt": "2025-10-28T05:13:01.735Z",
     "id": 1761628289331,
     "createdAt": "2025-10-28T05:11:58.172Z",
-    "updatedAt": "2025-10-28T05:13:02.253Z"
+    "updatedAt": "2025-11-03T07:03:26.171Z",
+    "soldAt": "2025-11-03T07:03:25.758Z"
   },
   {
     "productId": 1761589326965,
@@ -288,11 +293,12 @@
     "costPrice": 1000,
     "sellingPrice": 1200,
     "location": "Uttara",
-    "status": "available",
+    "status": "sold",
     "admittedAt": "2025-10-28T05:13:04.994Z",
     "id": 1761628292092,
     "createdAt": "2025-10-28T05:11:58.172Z",
-    "updatedAt": "2025-10-28T05:13:05.495Z"
+    "updatedAt": "2025-11-03T08:10:00.333Z",
+    "soldAt": "2025-11-03T08:09:59.971Z"
   },
   {
     "productId": 1761589326965,
@@ -301,10 +307,197 @@
     "costPrice": 1000,
     "sellingPrice": 1200,
     "location": "Uttara",
-    "status": "available",
+    "status": "sold",
     "admittedAt": "2025-10-28T05:13:08.255Z",
     "id": 1761628294561,
     "createdAt": "2025-10-28T05:11:58.172Z",
-    "updatedAt": "2025-10-28T05:13:08.788Z"
+    "updatedAt": "2025-11-03T08:56:32.089Z",
+    "soldAt": "2025-11-03T08:56:31.658Z"
+  },
+  {
+    "productId": 1761589031972,
+    "batchId": 1762155650082,
+    "barcode": "BATCH1762155650082-01",
+    "costPrice": 1400,
+    "sellingPrice": 1500,
+    "location": "Mohammapur",
+    "status": "sold",
+    "admittedAt": "2025-11-03T07:41:05.661Z",
+    "id": 1762155665981,
+    "createdAt": "2025-11-03T07:41:05.981Z",
+    "soldAt": "2025-11-03T07:45:00.624Z",
+    "updatedAt": "2025-11-03T07:45:00.970Z"
+  },
+  {
+    "productId": 1761589031972,
+    "batchId": 1762155650082,
+    "barcode": "BATCH1762155650082-02",
+    "costPrice": 1400,
+    "sellingPrice": 1500,
+    "location": "Mohammapur",
+    "status": "sold",
+    "admittedAt": "2025-11-03T07:41:07.479Z",
+    "id": 1762155667839,
+    "createdAt": "2025-11-03T07:41:07.839Z",
+    "soldAt": "2025-11-03T08:05:58.297Z",
+    "updatedAt": "2025-11-03T08:05:58.655Z"
+  },
+  {
+    "productId": 1761589031972,
+    "batchId": 1762155650082,
+    "barcode": "BATCH1762155650082-03",
+    "costPrice": 1400,
+    "sellingPrice": 1500,
+    "location": "Mohammapur",
+    "status": "sold",
+    "admittedAt": "2025-11-03T07:41:09.006Z",
+    "id": 1762155669323,
+    "createdAt": "2025-11-03T07:41:09.323Z",
+    "soldAt": "2025-11-03T12:45:44.716Z",
+    "updatedAt": "2025-11-03T12:45:45.301Z"
+  },
+  {
+    "productId": 1761589031972,
+    "batchId": 1762155650082,
+    "barcode": "BATCH1762155650082-04",
+    "costPrice": 1400,
+    "sellingPrice": 1500,
+    "location": "Mohammapur",
+    "status": "available",
+    "admittedAt": "2025-11-03T07:41:10.757Z",
+    "id": 1762155671192,
+    "createdAt": "2025-11-03T07:41:11.192Z"
+  },
+  {
+    "productId": 1761589031972,
+    "batchId": 1762155650082,
+    "barcode": "BATCH1762155650082-04",
+    "costPrice": 1400,
+    "sellingPrice": 1500,
+    "location": "Mohammapur",
+    "status": "available",
+    "admittedAt": "2025-11-03T07:41:11.185Z",
+    "id": 1762155671745,
+    "createdAt": "2025-11-03T07:41:11.745Z"
+  },
+  {
+    "productId": 1761589031972,
+    "batchId": 1762155650082,
+    "barcode": "BATCH1762155650082-04",
+    "costPrice": 1400,
+    "sellingPrice": 1500,
+    "location": "Mohammapur",
+    "status": "available",
+    "admittedAt": "2025-11-03T07:41:11.760Z",
+    "id": 1762155672412,
+    "createdAt": "2025-11-03T07:41:12.412Z"
+  },
+  {
+    "productId": 1761589031972,
+    "batchId": 1762155650082,
+    "barcode": "BATCH1762155650082-05",
+    "costPrice": 1400,
+    "sellingPrice": 1500,
+    "location": "Mohammapur",
+    "status": "available",
+    "admittedAt": "2025-11-03T07:41:12.429Z",
+    "id": 1762155673078,
+    "createdAt": "2025-11-03T07:41:13.078Z"
+  },
+  {
+    "productId": 1761589031972,
+    "batchId": 1762155650082,
+    "barcode": "BATCH1762155650082-05",
+    "costPrice": 1400,
+    "sellingPrice": 1500,
+    "location": "Mohammapur",
+    "status": "available",
+    "admittedAt": "2025-11-03T07:41:13.119Z",
+    "id": 1762155673874,
+    "createdAt": "2025-11-03T07:41:13.874Z"
+  },
+  {
+    "productId": 1761589031972,
+    "batchId": 1762155650082,
+    "barcode": "BATCH1762155650082-05",
+    "costPrice": 1400,
+    "sellingPrice": 1500,
+    "location": "Mohammapur",
+    "status": "available",
+    "admittedAt": "2025-11-03T07:41:13.851Z",
+    "id": 1762155674373,
+    "createdAt": "2025-11-03T07:41:14.373Z"
+  },
+  {
+    "productId": 1761589031972,
+    "batchId": 1762155650082,
+    "barcode": "BATCH1762155650082-05",
+    "costPrice": 1400,
+    "sellingPrice": 1500,
+    "location": "Mohammapur",
+    "status": "available",
+    "admittedAt": "2025-11-03T07:41:14.366Z",
+    "id": 1762155674761,
+    "createdAt": "2025-11-03T07:41:14.761Z"
+  },
+  {
+    "productId": 1761589031972,
+    "batchId": 1762155650082,
+    "barcode": "BATCH1762155650082-06",
+    "costPrice": 1400,
+    "sellingPrice": 1500,
+    "location": "Mohammapur",
+    "status": "available",
+    "admittedAt": "2025-11-03T07:41:19.811Z",
+    "id": 1762155680118,
+    "createdAt": "2025-11-03T07:41:20.118Z"
+  },
+  {
+    "productId": 1761589031972,
+    "batchId": 1762155650082,
+    "barcode": "BATCH1762155650082-07",
+    "costPrice": 1400,
+    "sellingPrice": 1500,
+    "location": "Mohammapur",
+    "status": "available",
+    "admittedAt": "2025-11-03T07:41:21.323Z",
+    "id": 1762155681655,
+    "createdAt": "2025-11-03T07:41:21.655Z"
+  },
+  {
+    "productId": 1761589031972,
+    "batchId": 1762155650082,
+    "barcode": "BATCH1762155650082-08",
+    "costPrice": 1400,
+    "sellingPrice": 1500,
+    "location": "Mohammapur",
+    "status": "available",
+    "admittedAt": "2025-11-03T07:41:22.886Z",
+    "id": 1762155683191,
+    "createdAt": "2025-11-03T07:41:23.191Z"
+  },
+  {
+    "productId": 1761589031972,
+    "batchId": 1762155650082,
+    "barcode": "BATCH1762155650082-09",
+    "costPrice": 1400,
+    "sellingPrice": 1500,
+    "location": "Mohammapur",
+    "status": "available",
+    "admittedAt": "2025-11-03T07:41:23.974Z",
+    "id": 1762155684309,
+    "createdAt": "2025-11-03T07:41:24.309Z"
+  },
+  {
+    "productId": 1761589031972,
+    "batchId": 1762155650082,
+    "barcode": "BATCH1762155650082-10",
+    "costPrice": 1400,
+    "sellingPrice": 1500,
+    "location": "Mohammapur",
+    "status": "available",
+    "admittedAt": "2025-11-03T07:41:25.695Z",
+    "id": 1762155686013,
+    "createdAt": "2025-11-03T07:41:26.013Z"
   }
 ]

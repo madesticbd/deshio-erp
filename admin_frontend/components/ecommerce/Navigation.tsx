@@ -5,6 +5,7 @@ import { useCart } from '@/app/e-commerce/CartContext';
 import { useAuth } from '@/app/e-commerce/AuthContext';
 import CartSidebar from '@/components/ecommerce/cart/CartSidebar';
 import { useRouter } from 'next/navigation';
+import { wishlistUtils } from '@/lib/wishlistUtils';
 
 export default function Navigation() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -13,6 +14,7 @@ export default function Navigation() {
   const [categories, setCategories] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [expandedCategories, setExpandedCategories] = useState(new Set());
+  const [wishlistCount, setWishlistCount] = useState(0);
   
   const { getCartCount } = useCart();
   const { user, isAuthenticated } = useAuth();
@@ -29,6 +31,16 @@ export default function Navigation() {
       document.body.style.overflow = 'auto';
     };
   }, [cartSidebarOpen]);
+
+  // Listen for wishlist updates
+  useEffect(() => {
+    const updateCount = () => {
+      setWishlistCount(wishlistUtils.getCount());
+    };
+    updateCount();
+    window.addEventListener('wishlist-updated', updateCount);
+    return () => window.removeEventListener('wishlist-updated', updateCount);
+  }, []);
 
   // Fetch categories
   useEffect(() => {
@@ -196,11 +208,17 @@ export default function Navigation() {
                 )}
               </button>
 
-              <button className="p-2 hover:bg-gray-100 rounded-full transition-colors relative">
+              {/* Wishlist Icon */}
+              <button 
+                onClick={() => router.push('/e-commerce/wishlist')}
+                className="p-2 hover:bg-gray-100 rounded-full transition-colors relative"
+              >
                 <Heart size={20} className="text-gray-700" />
-                <span className="absolute -top-1 -right-1 bg-gray-900 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center font-semibold">
-                  3
-                </span>
+                {wishlistCount > 0 && (
+                  <span className="absolute -top-1 -right-1 bg-gray-900 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center font-semibold">
+                    {wishlistCount}
+                  </span>
+                )}
               </button>
 
               <button
@@ -255,6 +273,22 @@ export default function Navigation() {
                   Contact
                 </button>
                 
+                {/* Mobile Wishlist */}
+                <button
+                  onClick={() => {
+                    router.push('/e-commerce/wishlist');
+                    setMobileMenuOpen(false);
+                  }}
+                  className="text-gray-700 hover:text-red-600 transition-colors py-2 text-left border-t pt-4 flex items-center justify-between"
+                >
+                  <span>Wishlist</span>
+                  {wishlistCount > 0 && (
+                    <span className="bg-red-600 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center font-semibold">
+                      {wishlistCount}
+                    </span>
+                  )}
+                </button>
+                
                 {/* Mobile User Menu */}
                 {isAuthenticated ? (
                   <button
@@ -262,7 +296,7 @@ export default function Navigation() {
                       router.push('/e-commerce/my-account');
                       setMobileMenuOpen(false);
                     }}
-                    className="text-red-700 hover:text-red-600 font-medium transition-colors py-2 text-left border-t pt-4"
+                    className="text-red-700 hover:text-red-600 font-medium transition-colors py-2 text-left"
                   >
                     My Account ({user?.username})
                   </button>
@@ -272,7 +306,7 @@ export default function Navigation() {
                       router.push('/e-commerce/login');
                       setMobileMenuOpen(false);
                     }}
-                    className="text-red-700 hover:text-red-600 font-medium transition-colors py-2 text-left border-t pt-4"
+                    className="text-red-700 hover:text-red-600 font-medium transition-colors py-2 text-left"
                   >
                     Login / Register
                   </button>

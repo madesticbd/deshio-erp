@@ -307,6 +307,19 @@
       "createdAt": "2025-11-03T06:51:16.538Z",
       "source": "sale",
       "referenceId": "sale-1762152675780"
+    },
+    {
+      "id": "txn-sale-sale-1762173944036",
+      "name": "Sale: Toshor Silk Sharee",
+      "description": "POS Sale to Adrita Ahsan",
+      "type": "income",
+      "amount": 1575,
+      "category": "POS Sales",
+      "date": "2025-11-03T12:45:44.669Z",
+      "comment": "Items: 1, Cash: ৳2000, Card: ৳0, Bkash: ৳0, Nagad: ৳0, Due: ৳-425",
+      "createdAt": "2025-11-03T12:45:44.691Z",
+      "source": "sale",
+      "referenceId": "sale-1762173944036"
     }
   ]
 }

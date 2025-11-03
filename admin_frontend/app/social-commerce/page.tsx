@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Search, X, Package } from 'lucide-react';
+import { Search, X, Package, Globe } from 'lucide-react';
 import Header from '@/components/Header';
 import Sidebar from '@/components/Sidebar';
 import { useRouter } from 'next/navigation';
@@ -43,13 +43,25 @@ export default function SocialCommercePage() {
   const [userEmail, setUserEmail] = useState('');
   const [userPhone, setUserPhone] = useState('');
   const [socialId, setSocialId] = useState('');
+  
+  // International flag
+  const [isInternational, setIsInternational] = useState(false);
+  
+  // Bangladesh address fields
   const [division, setDivision] = useState('');
   const [district, setDistrict] = useState('');
   const [city, setCity] = useState('');
   const [zone, setZone] = useState('');
   const [area, setArea] = useState('');
-  const [deliveryAddress, setDeliveryAddress] = useState('');
   const [postalCode, setPostalCode] = useState('');
+  
+  // International address fields
+  const [country, setCountry] = useState('');
+  const [state, setState] = useState('');
+  const [internationalCity, setInternationalCity] = useState('');
+  const [internationalPostalCode, setInternationalPostalCode] = useState('');
+  
+  const [deliveryAddress, setDeliveryAddress] = useState('');
 
   const [divisions, setDivisions] = useState<any[]>([]);
   const [districts, setDistricts] = useState<any[]>([]);
@@ -185,6 +197,8 @@ export default function SocialCommercePage() {
   }, []);
   
   useEffect(() => {
+    if (isInternational) return;
+    
     const fetchDivisions = async () => {
       try {
         const res = await fetch('https://bdapi.vercel.app/api/v.1/division');
@@ -195,10 +209,10 @@ export default function SocialCommercePage() {
       }
     };
     fetchDivisions();
-  }, []);
+  }, [isInternational]);
   
   useEffect(() => {
-    if (!division) return;
+    if (!division || isInternational) return;
 
     const selectedDivision = divisions.find((d) => d.name === division);
     if (!selectedDivision) return;
@@ -215,10 +229,10 @@ export default function SocialCommercePage() {
     };
 
     fetchDistricts();
-  }, [division, divisions]);
+  }, [division, divisions, isInternational]);
   
   useEffect(() => {
-    if (!district) return;
+    if (!district || isInternational) return;
 
     const selectedDistrict = districts.find((d) => d.name === district);
     if (!selectedDistrict) return;
@@ -234,7 +248,7 @@ export default function SocialCommercePage() {
     };
 
     fetchUpazillas();
-  }, [district, districts]);
+  }, [district, districts, isInternational]);
 
   const getAvailableInventory = (productId: number | string, batchId?: number | string) => {
     return inventory.filter(item => {
@@ -440,17 +454,37 @@ export default function SocialCommercePage() {
       return;
     }
     
+    // Validate address based on type
+    if (isInternational) {
+      if (!country || !internationalCity) {
+        alert('Please fill in international delivery address (Country and City are required)');
+        return;
+      }
+    } else {
+      if (!division || !district || !city) {
+        alert('Please fill in delivery address (Division, District, and Upazilla are required)');
+        return;
+      }
+    }
+    
     try {
       const orderData = {
         salesBy,
         date,
+        isInternational,
         customer: {
           name: userName,
           email: userEmail,
           phone: userPhone,
           socialId: socialId
         },
-        deliveryAddress: {
+        deliveryAddress: isInternational ? {
+          country,
+          state,
+          city: internationalCity,
+          address: deliveryAddress,
+          postalCode: internationalPostalCode
+        } : {
           division,
           district,
           city,
@@ -504,8 +538,6 @@ export default function SocialCommercePage() {
                 </div>
               </div>
 
-
-
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6">
                 <div className="space-y-4 md:space-y-6">
                   <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4 md:p-5">
@@ -558,107 +590,191 @@ export default function SocialCommercePage() {
                   </div>
 
                   <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4 md:p-5">
-                    <h3 className="text-sm font-medium text-gray-900 dark:text-white mb-4">Delivery Address</h3>
+                    <div className="flex items-center justify-between mb-4">
+                      <h3 className="text-sm font-medium text-gray-900 dark:text-white">Delivery Address</h3>
+                      <button
+                        onClick={() => {
+                          setIsInternational(!isInternational);
+                          // Clear all address fields when switching
+                          setDivision('');
+                          setDistrict('');
+                          setCity('');
+                          setZone('');
+                          setArea('');
+                          setPostalCode('');
+                          setCountry('');
+                          setState('');
+                          setInternationalCity('');
+                          setInternationalPostalCode('');
+                          setDeliveryAddress('');
+                        }}
+                        className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                          isInternational
+                            ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 border border-blue-300 dark:border-blue-700'
+                            : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 border border-gray-300 dark:border-gray-600'
+                        }`}
+                      >
+                        <Globe className="w-4 h-4" />
+                        {isInternational ? 'International' : 'Domestic'}
+                      </button>
+                    </div>
                     
-                    <div className="space-y-3">
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {isInternational ? (
+                      /* International Address Fields */
+                      <div className="space-y-3">
                         <div>
-                          <label className="block text-xs text-gray-700 dark:text-gray-300 mb-1">Division*</label>
-                          <select
-                            value={division}
-                            onChange={(e) => setDivision(e.target.value)}
-                            className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                          >
-                            <option value="">Select Division</option>
-                            {divisions.map((d) => (
-                              <option key={d.id} value={d.name}>
-                                {d.name}
-                              </option>
-                            ))}
-                          </select>
-                        </div>
-
-                        <div>
-                          <label className="block text-xs text-gray-700 dark:text-gray-300 mb-1">District*</label>
-                          <select
-                            value={district}
-                            onChange={(e) => setDistrict(e.target.value)}
-                            disabled={!division}
-                            className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white disabled:opacity-50"
-                          >
-                            <option value="">Select District</option>
-                            {districts.map((d) => (
-                              <option key={d.id} value={d.name}>
-                                {d.name}
-                              </option>
-                            ))}
-                          </select>
-                        </div>
-                      </div>
-
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                        <div>
-                          <label className="block text-xs text-gray-700 dark:text-gray-300 mb-1">Upazilla*</label>
-                          <select
-                            value={city}
-                            onChange={(e) => setCity(e.target.value)}
-                            disabled={!district}
-                            className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white disabled:opacity-50"
-                          >
-                            <option value="">Select Upazilla</option>
-                            {upazillas.map((u) => (
-                              <option key={u.id} value={u.name}>
-                                {u.name}
-                              </option>
-                            ))}
-                          </select>
-                        </div>
-
-                        <div>
-                          <label className="block text-xs text-gray-700 dark:text-gray-300 mb-1">Zone*</label>
+                          <label className="block text-xs text-gray-700 dark:text-gray-300 mb-1">Country*</label>
                           <input
                             type="text"
-                            placeholder="Search Zone..."
-                            value={zone}
-                            onChange={(e) => setZone(e.target.value)}
+                            placeholder="Enter Country"
+                            value={country}
+                            onChange={(e) => setCountry(e.target.value)}
+                            className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs text-gray-700 dark:text-gray-300 mb-1">State/Province</label>
+                          <input
+                            type="text"
+                            placeholder="Enter State or Province"
+                            value={state}
+                            onChange={(e) => setState(e.target.value)}
+                            className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs text-gray-700 dark:text-gray-300 mb-1">City*</label>
+                          <input
+                            type="text"
+                            placeholder="Enter City"
+                            value={internationalCity}
+                            onChange={(e) => setInternationalCity(e.target.value)}
+                            className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs text-gray-700 dark:text-gray-300 mb-1">Postal/ZIP Code</label>
+                          <input
+                            type="text"
+                            placeholder="Enter Postal/ZIP Code"
+                            value={internationalPostalCode}
+                            onChange={(e) => setInternationalPostalCode(e.target.value)}
+                            className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs text-gray-700 dark:text-gray-300 mb-1">Street Address*</label>
+                          <textarea
+                            placeholder="Full Delivery Address"
+                            value={deliveryAddress}
+                            onChange={(e) => setDeliveryAddress(e.target.value)}
+                            rows={3}
                             className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400"
                           />
                         </div>
                       </div>
+                    ) : (
+                      /* Bangladesh Address Fields */
+                      <div className="space-y-3">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                          <div>
+                            <label className="block text-xs text-gray-700 dark:text-gray-300 mb-1">Division*</label>
+                            <select
+                              value={division}
+                              onChange={(e) => setDivision(e.target.value)}
+                              className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                            >
+                              <option value="">Select Division</option>
+                              {divisions.map((d) => (
+                                <option key={d.id} value={d.name}>
+                                  {d.name}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
 
-                      <div>
-                        <label className="block text-xs text-gray-700 dark:text-gray-300 mb-1">Area (Optional)</label>
-                        <input
-                          type="text"
-                          placeholder="Search Area..."
-                          value={area}
-                          onChange={(e) => setArea(e.target.value)}
-                          className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400"
-                        />
-                      </div>
+                          <div>
+                            <label className="block text-xs text-gray-700 dark:text-gray-300 mb-1">District*</label>
+                            <select
+                              value={district}
+                              onChange={(e) => setDistrict(e.target.value)}
+                              disabled={!division}
+                              className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white disabled:opacity-50"
+                            >
+                              <option value="">Select District</option>
+                              {districts.map((d) => (
+                                <option key={d.id} value={d.name}>
+                                  {d.name}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+                        </div>
 
-                      <div>
-                        <label className="block text-xs text-gray-700 dark:text-gray-300 mb-1">Delivery Address</label>
-                        <textarea
-                          placeholder="Delivery Address"
-                          value={deliveryAddress}
-                          onChange={(e) => setDeliveryAddress(e.target.value)}
-                          rows={2}
-                          className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400"
-                        />
-                      </div>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                          <div>
+                            <label className="block text-xs text-gray-700 dark:text-gray-300 mb-1">Upazilla*</label>
+                            <select
+                              value={city}
+                              onChange={(e) => setCity(e.target.value)}
+                              disabled={!district}
+                              className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white disabled:opacity-50"
+                            >
+                              <option value="">Select Upazilla</option>
+                              {upazillas.map((u) => (
+                                <option key={u.id} value={u.name}>
+                                  {u.name}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
 
-                      <div>
-                        <label className="block text-xs text-gray-700 dark:text-gray-300 mb-1">Postal Code</label>
-                        <input
-                          type="text"
-                          placeholder="e.g., 1212"
-                          value={postalCode}
-                          onChange={(e) => setPostalCode(e.target.value)}
-                          className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400"
-                        />
+                          <div>
+                            <label className="block text-xs text-gray-700 dark:text-gray-300 mb-1">Zone*</label>
+                            <input
+                              type="text"
+                              placeholder="Search Zone..."
+                              value={zone}
+                              onChange={(e) => setZone(e.target.value)}
+                              className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400"
+                            />
+                          </div>
+                        </div>
+
+                        <div>
+                          <label className="block text-xs text-gray-700 dark:text-gray-300 mb-1">Area (Optional)</label>
+                          <input
+                            type="text"
+                            placeholder="Search Area..."
+                            value={area}
+                            onChange={(e) => setArea(e.target.value)}
+                            className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-xs text-gray-700 dark:text-gray-300 mb-1">Delivery Address</label>
+                          <textarea
+                            placeholder="Delivery Address"
+                            value={deliveryAddress}
+                            onChange={(e) => setDeliveryAddress(e.target.value)}
+                            rows={2}
+                            className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-xs text-gray-700 dark:text-gray-300 mb-1">Postal Code</label>
+                          <input
+                            type="text"
+                            placeholder="e.g., 1212"
+                            value={postalCode}
+                            onChange={(e) => setPostalCode(e.target.value)}
+                            className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400"
+                          />
+                        </div>
                       </div>
-                    </div>
+                    )}
                   </div>
                 </div>
 
@@ -932,6 +1048,12 @@ export default function SocialCommercePage() {
                           <span className="text-gray-600 dark:text-gray-400">Subtotal:</span>
                           <span className="text-gray-900 dark:text-white font-medium">{subtotal.toFixed(2)} Tk</span>
                         </div>
+                        {isInternational && (
+                          <div className="mb-3 p-2 bg-blue-50 dark:bg-blue-900/20 rounded flex items-center gap-2 text-xs text-blue-700 dark:text-blue-400">
+                            <Globe className="w-4 h-4 flex-shrink-0" />
+                            <span>International shipping rates will apply</span>
+                          </div>
+                        )}
                         <button
                           onClick={handleConfirmOrder}
                           className="w-full px-4 py-2.5 bg-teal-600 hover:bg-teal-700 text-white text-sm font-medium rounded transition-colors"

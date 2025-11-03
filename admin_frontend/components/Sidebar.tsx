@@ -56,8 +56,9 @@ export default function Sidebar({ isOpen, setIsOpen }: SidebarProps) {
     { icon: Package, label: 'Orders', href: '/orders', roles: ['super_admin', 'social_commerce_manager'] },
     { icon: ClipboardList, label: 'Purchase History', href: '/purchase-history', roles: ['super_admin', 'store_manager'] },
     { icon: AlertTriangle, label: 'Defect panel', href: '/defects', roles: ['super_admin', 'store_manager'] },
-     { icon: CreditCard, label: 'Transaction', href: '/transaction', roles: ['super_admin'] },
+    { icon: CreditCard, label: 'Transaction', href: '/transaction', roles: ['super_admin'] },
     { icon: CreditCard, label: 'Accounting', href: '/accounting', roles: ['super_admin'] },
+    { icon: CreditCard, label: 'Vendor Management', href: '/vendor-payment', roles: ['super_admin'] },
    
   
   ];
@@ -84,9 +85,9 @@ export default function Sidebar({ isOpen, setIsOpen }: SidebarProps) {
       )}
 
       <aside
-        className={`fixed top-0 left-0 h-full w-60 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 transform ${
+        className={`fixed top-0 left-0 h-screen w-60 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 transform ${
           isOpen ? 'translate-x-0' : '-translate-x-full'
-        } transition-transform duration-300 ease-in-out z-50 md:translate-x-0 md:static md:h-auto`}
+        } transition-transform duration-300 ease-in-out z-50 md:translate-x-0 md:static md:h-screen`}
       >
         {/* Close button for mobile */}
         <div className="flex justify-end md:hidden p-3">

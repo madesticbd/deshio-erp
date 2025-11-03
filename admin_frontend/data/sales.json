@@ -379,5 +379,54 @@
     "createdAt": "2025-11-03T06:51:16.532Z",
     "updatedAt": "2025-11-03T06:51:15.780Z",
     "exchangeHistory": []
+  },
+  {
+    "id": "sale-1762173944036",
+    "salesBy": "Nafisa Tasnim",
+    "employeeId": "emp-1762152637316",
+    "outletId": "1761588384818",
+    "date": "2025-11-03",
+    "customer": {
+      "name": "Adrita Ahsan",
+      "mobile": "01745191964",
+      "address": ""
+    },
+    "items": [
+      {
+        "id": 1762173887379.0256,
+        "productId": 1761589031972,
+        "productName": "Toshor Silk Sharee",
+        "size": "",
+        "qty": 1,
+        "price": 1500,
+        "discount": 0,
+        "amount": 1500,
+        "isDefective": false,
+        "defectId": null,
+        "barcodes": [
+          "BATCH1762155650082-03"
+        ]
+      }
+    ],
+    "amounts": {
+      "subtotal": 1500,
+      "totalDiscount": 0,
+      "vat": 75,
+      "vatRate": 5,
+      "transportCost": 0,
+      "total": 1575
+    },
+    "payments": {
+      "cash": 2000,
+      "card": 0,
+      "bkash": 0,
+      "nagad": 0,
+      "transactionFee": 0,
+      "totalPaid": 2000,
+      "due": -425
+    },
+    "createdAt": "2025-11-03T12:45:44.669Z",
+    "updatedAt": "2025-11-03T12:45:44.035Z",
+    "exchangeHistory": []
   }
 ]

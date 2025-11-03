@@ -5,6 +5,7 @@ import { ShoppingCart, Heart, Eye } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useCart } from '@/app/e-commerce/CartContext';
 import CartSidebar from './cart/CartSidebar';
+import { wishlistUtils } from '@/lib/wishlistUtils';
 
 interface Product {
   id: string | number;
@@ -44,6 +45,18 @@ export default function BestSellerProducts() {
   const [loading, setLoading] = useState(true);
   const [addingProductId, setAddingProductId] = useState<string | number | null>(null);
   const [isCartOpen, setIsCartOpen] = useState(false);
+  const [wishlistIds, setWishlistIds] = useState<Set<string | number>>(new Set());
+
+  // Listen for wishlist updates
+  useEffect(() => {
+    const updateWishlistIds = () => {
+      const items = wishlistUtils.getAll();
+      setWishlistIds(new Set(items.map(i => i.id)));
+    };
+    updateWishlistIds();
+    window.addEventListener('wishlist-updated', updateWishlistIds);
+    return () => window.removeEventListener('wishlist-updated', updateWishlistIds);
+  }, []);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -130,6 +143,24 @@ export default function BestSellerProducts() {
     router.push(`/e-commerce/product/${productId}`);
   };
 
+  const toggleWishlist = (product: ProductWithStats, e: React.MouseEvent) => {
+    e.stopPropagation();
+    const variation = product.variations[0];
+    const productId = variation.id;
+    
+    if (wishlistIds.has(productId)) {
+      wishlistUtils.remove(productId);
+    } else {
+      wishlistUtils.add({
+        id: productId,
+        name: product.name,
+        image: product.image,
+        price: variation.price,
+        sku: variation.attributes.SKU,
+      });
+    }
+  };
+
   const handleAddToCart = async (product: ProductWithStats, e: React.MouseEvent) => {
     e.stopPropagation();
 
@@ -191,92 +222,106 @@ export default function BestSellerProducts() {
           </div>
 
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
-            {bestSellers.map((product) => (
-              <div
-                key={product.id}
-                className="group bg-white rounded-lg overflow-hidden hover:shadow-xl transition-all duration-300 border border-gray-200"
-                onMouseEnter={() => setHoveredId(product.id)}
-                onMouseLeave={() => setHoveredId(null)}
-              >
-                <div 
-                  onClick={() => navigateToProduct(product.variations[0].id)}
-                  className="relative aspect-square overflow-hidden bg-gray-50 cursor-pointer"
+            {bestSellers.map((product) => {
+              const isInWishlist = wishlistIds.has(product.variations[0].id);
+              
+              return (
+                <div
+                  key={product.id}
+                  className="group bg-white rounded-lg overflow-hidden hover:shadow-xl transition-all duration-300 border border-gray-200"
+                  onMouseEnter={() => setHoveredId(product.id)}
+                  onMouseLeave={() => setHoveredId(null)}
                 >
-                  <img
-                    src={product.image}
-                    alt={product.name}
-                    className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
-                    onError={(e) => {
-                      e.currentTarget.src =
-                        'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="300" height="400"%3E%3Crect fill="%23f3f4f6" width="300" height="400"/%3E%3Ctext x="50%25" y="50%25" text-anchor="middle" dy=".3em" fill="%239ca3af" font-size="16"%3E' +
-                        encodeURIComponent(product.name) +
-                        '%3C/text%3E%3C/svg%3E';
-                    }}
-                  />
-
-                  {product.variations.length > 1 && (
-                    <span className="absolute top-3 left-3 bg-blue-600 text-white px-3 py-1.5 text-xs font-bold rounded-full shadow-lg">
-                      {product.variations.length} VARIANTS
-                    </span>
-                  )}
-
-                  <div
-                    className={`absolute top-2 right-2 flex flex-col gap-2 transition-all duration-300 ${
-                      hoveredId === product.id ? 'opacity-100 translate-x-0' : 'opacity-0 translate-x-4'
-                    }`}
+                  <div 
+                    onClick={() => navigateToProduct(product.variations[0].id)}
+                    className="relative aspect-square overflow-hidden bg-gray-50 cursor-pointer"
                   >
-                    <button className="p-2 bg-white rounded-full shadow-lg hover:bg-red-50 transition-colors">
-                      <Heart size={16} className="text-gray-700" />
-                    </button>
-                    <button 
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        navigateToProduct(product.variations[0].id);
+                    <img
+                      src={product.image}
+                      alt={product.name}
+                      className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
+                      onError={(e) => {
+                        e.currentTarget.src =
+                          'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="300" height="400"%3E%3Crect fill="%23f3f4f6" width="300" height="400"/%3E%3Ctext x="50%25" y="50%25" text-anchor="middle" dy=".3em" fill="%239ca3af" font-size="16"%3E' +
+                          encodeURIComponent(product.name) +
+                          '%3C/text%3E%3C/svg%3E';
                       }}
-                      className="p-2 bg-white rounded-full shadow-lg hover:bg-blue-50 transition-colors"
+                    />
+
+                    {product.variations.length > 1 && (
+                      <span className="absolute top-3 left-3 bg-blue-600 text-white px-3 py-1.5 text-xs font-bold rounded-full shadow-lg">
+                        {product.variations.length} VARIANTS
+                      </span>
+                    )}
+
+                    <div
+                      className={`absolute top-2 right-2 flex flex-col gap-2 transition-all duration-300 ${
+                        hoveredId === product.id ? 'opacity-100 translate-x-0' : 'opacity-0 translate-x-4'
+                      }`}
                     >
-                      <Eye size={16} className="text-gray-700" />
+                      <button 
+                        onClick={(e) => toggleWishlist(product, e)}
+                        className={`p-2 rounded-full shadow-lg transition-all duration-300 ${
+                          isInWishlist 
+                            ? 'bg-red-600 text-white scale-110' 
+                            : 'bg-white hover:bg-red-50'
+                        }`}
+                      >
+                        <Heart 
+                          size={16} 
+                          className={isInWishlist ? 'fill-white' : 'text-gray-700'} 
+                        />
+                      </button>
+                      <button 
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          navigateToProduct(product.variations[0].id);
+                        }}
+                        className="p-2 bg-white rounded-full shadow-lg hover:bg-blue-50 transition-colors"
+                      >
+                        <Eye size={16} className="text-gray-700" />
+                      </button>
+                    </div>
+
+                    <button
+                      onClick={(e) => handleAddToCart(product, e)}
+                      disabled={addingProductId === product.id}
+                      className={`absolute bottom-0 left-0 right-0 bg-red-700 text-white py-3 text-sm font-bold transition-transform duration-300 flex items-center justify-center gap-2 hover:bg-red-800 ${
+                        hoveredId === product.id ? 'translate-y-0' : 'translate-y-full'
+                      } ${addingProductId === product.id ? 'bg-green-600' : ''}`}
+                    >
+                      {addingProductId === product.id ? (
+                        <>✓ ADDED</>
+                      ) : product.variations.length > 1 ? (
+                        'SELECT OPTION'
+                      ) : (
+                        <>
+                          <ShoppingCart size={16} />
+                          ADD TO CART
+                        </>
+                      )}
                     </button>
                   </div>
 
-                  <button
-                    onClick={(e) => handleAddToCart(product, e)}
-                    disabled={addingProductId === product.id}
-                    className={`absolute bottom-0 left-0 right-0 bg-red-700 text-white py-3 text-sm font-bold transition-transform duration-300 flex items-center justify-center gap-2 hover:bg-red-800 ${
-                      hoveredId === product.id ? 'translate-y-0' : 'translate-y-full'
-                    } ${addingProductId === product.id ? 'bg-green-600' : ''}`}
-                  >
-                    {addingProductId === product.id ? (
-                      <>✓ ADDED</>
-                    ) : product.variations.length > 1 ? (
-                      'SELECT OPTION'
-                    ) : (
-                      <>
-                        <ShoppingCart size={16} />
-                        ADD TO CART
-                      </>
+                  <div className="p-4 text-center">
+                    <h3 
+                      onClick={() => navigateToProduct(product.variations[0].id)}
+                      className="text-sm font-semibold text-gray-900 mb-2 line-clamp-2 group-hover:text-red-600 transition-colors cursor-pointer"
+                    >
+                      {product.name}
+                    </h3>
+                    <span className="text-lg font-bold text-red-700">
+                      {product.priceRange?.includes('-')
+                        ? `${product.priceRange}৳`
+                        : `${product.variations[0].price.toLocaleString()}.00৳`}
+                    </span>
+                    {product.variations.length > 1 && (
+                      <p className="text-xs text-gray-500 mt-1">{product.variations.length} variations available</p>
                     )}
-                  </button>
+                  </div>
                 </div>
-
-                <div className="p-4 text-center">
-                  <h3 
-                    onClick={() => navigateToProduct(product.variations[0].id)}
-                    className="text-sm font-semibold text-gray-900 mb-2 line-clamp-2 group-hover:text-red-600 transition-colors cursor-pointer"
-                  >
-                    {product.name}
-                  </h3>
-                  <span className="text-lg font-bold text-red-700">
-                    {product.priceRange?.includes('-')
-                      ? `${product.priceRange}৳`
-                      : `${product.variations[0].price.toLocaleString()}.00৳`} {/* Use variation price for single-variation products */}
-                  </span>
-                  {product.variations.length > 1 && (
-                    <p className="text-xs text-gray-500 mt-1">{product.variations.length} variations available</p>
-                  )}
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       </section>
