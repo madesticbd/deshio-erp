@@ -363,10 +363,13 @@
     "costPrice": 1400,
     "sellingPrice": 1500,
     "location": "Mohammapur",
-    "status": "available",
+    "status": "sold",
     "admittedAt": "2025-11-03T07:41:10.757Z",
     "id": 1762155671192,
-    "createdAt": "2025-11-03T07:41:11.192Z"
+    "createdAt": "2025-11-03T07:41:11.192Z",
+    "orderId": 1762233968990,
+    "soldAt": "2025-11-04T05:26:08.998Z",
+    "updatedAt": "2025-11-04T05:26:08.998Z"
   },
   {
     "productId": 1761589031972,

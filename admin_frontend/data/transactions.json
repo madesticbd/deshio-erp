@@ -320,6 +320,19 @@
       "createdAt": "2025-11-03T12:45:44.691Z",
       "source": "sale",
       "referenceId": "sale-1762173944036"
+    },
+    {
+      "id": "txn-order-1762233968990",
+      "name": "Order: Toshor Silk Sharee",
+      "description": "Social Order from Customer",
+      "type": "income",
+      "amount": 1575,
+      "category": "Online Orders",
+      "date": "2025-11-04T05:26:08.999Z",
+      "comment": "Platform: Social Media, Products: 1, Cash: ৳0, Bkash: ৳0, Due: ৳1575",
+      "createdAt": "2025-11-04T05:26:09.003Z",
+      "source": "order",
+      "referenceId": "1762233968990"
     }
   ]
 }
