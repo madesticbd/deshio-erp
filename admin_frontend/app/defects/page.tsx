@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Search, Barcode, User, Package, Trash2, ShoppingCart, AlertCircle, Store, ChevronDown, ChevronUp, Calendar, DollarSign, MapPin, Phone, FileText, Image as ImageIcon } from 'lucide-react';
+import { Search, Barcode, User, Package, Trash2, ShoppingCart, AlertCircle, Store, ChevronDown, ChevronUp, Calendar, DollarSign, MapPin, Phone, FileText, Image as ImageIcon, TruckIcon } from 'lucide-react';
 import Header from '@/components/Header';
 import Sidebar from '@/components/Sidebar';
 import SellDefectModal from '@/components/SellDefectModal';
@@ -70,10 +70,12 @@ export default function DefectsPage() {
   const [selectedStore, setSelectedStore] = useState<string>('all');
   const [activeTab, setActiveTab] = useState<'identification' | 'returns'>('identification');
   const [expandedDefect, setExpandedDefect] = useState<string | null>(null);
+  const [filterType, setFilterType] = useState<'all' | 'defects' | 'used'>('all');
   
   // Defect Identification
   const [barcodeInput, setBarcodeInput] = useState('');
   const [returnReason, setReturnReason] = useState('');
+  const [isUsedItem, setIsUsedItem] = useState(false);
   const [storeForDefect, setStoreForDefect] = useState('');
   const [scannedProduct, setScannedProduct] = useState<InventoryItem | null>(null);
   const [defectImage, setDefectImage] = useState<File | null>(null);
@@ -96,6 +98,15 @@ export default function DefectsPage() {
   const [selectedDefect, setSelectedDefect] = useState<DefectItem | null>(null);
   const [sellPrice, setSellPrice] = useState('');
   const [sellType, setSellType] = useState<'pos' | 'social'>('pos');
+  
+  // Vendor return
+  const [returnToVendorModalOpen, setReturnToVendorModalOpen] = useState(false);
+  const [returnNotes, setReturnNotes] = useState('');
+  const [selectedDefectsForVendor, setSelectedDefectsForVendor] = useState<string[]>([]);
+  const [vendorName, setVendorName] = useState('');
+  const [vendorContact, setVendorContact] = useState('');
+  const [vendorEmail, setVendorEmail] = useState('');
+  const [expectedReturnDate, setExpectedReturnDate] = useState('');
 
   useEffect(() => {
     fetchStores();
@@ -167,8 +178,13 @@ export default function DefectsPage() {
   };
 
   const handleMarkAsDefective = async () => {
-    if (!barcodeInput.trim() || !returnReason) {
-      alert('Please enter barcode and return reason');
+    if (!barcodeInput.trim()) {
+      alert('Please enter barcode');
+      return;
+    }
+
+    if (!isUsedItem && !returnReason) {
+      alert('Please enter return reason or mark as used');
       return;
     }
 
@@ -187,7 +203,8 @@ export default function DefectsPage() {
     try {
       const formData = new FormData();
       formData.append('barcode', barcodeInput);
-      formData.append('returnReason', returnReason);
+      formData.append('returnReason', isUsedItem ? 'USED_ITEM' : returnReason);
+      formData.append('isUsed', isUsedItem.toString());
       formData.append('store', storeForDefect);
       formData.append('isDefectIdentification', 'true');
       if (defectImage) formData.append('image', defectImage);
@@ -200,9 +217,10 @@ export default function DefectsPage() {
       const data = await response.json();
 
       if (response.ok) {
-        setSuccessMessage('Item marked as defective successfully!');
+        setSuccessMessage(isUsedItem ? 'Item marked as used successfully!' : 'Item marked as defective successfully!');
         setBarcodeInput('');
         setReturnReason('');
+        setIsUsedItem(false);
         setStoreForDefect('');
         setScannedProduct(null);
         setDefectImage(null);
@@ -419,11 +437,86 @@ export default function DefectsPage() {
     }
   };
 
+  const handleReturnToVendor = async () => {
+    if (selectedDefectsForVendor.length === 0) {
+      alert('Please select at least one item to return');
+      return;
+    }
+
+    if (!vendorName.trim()) {
+      alert('Please enter vendor name');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const response = await fetch(`/api/defects/return-to-vendor`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          defectIds: selectedDefectsForVendor,
+          notes: returnNotes,
+          vendorDetails: {
+            name: vendorName,
+            contact: vendorContact,
+            email: vendorEmail,
+            expectedReturnDate: expectedReturnDate
+          }
+        })
+      });
+
+      if (response.ok) {
+        setSuccessMessage(`${selectedDefectsForVendor.length} item(s) marked for return to vendor successfully!`);
+        setReturnToVendorModalOpen(false);
+        setReturnNotes('');
+        setVendorName('');
+        setVendorContact('');
+        setVendorEmail('');
+        setExpectedReturnDate('');
+        setSelectedDefectsForVendor([]);
+        fetchDefects();
+        setTimeout(() => setSuccessMessage(''), 3000);
+      } else {
+        const data = await response.json();
+        alert(data.error || 'Failed to mark for vendor return');
+      }
+    } catch (error) {
+      console.error('Error:', error);
+      alert('Error processing vendor return');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const toggleDefectSelection = (defectId: string) => {
+    setSelectedDefectsForVendor(prev =>
+      prev.includes(defectId)
+        ? prev.filter(id => id !== defectId)
+        : [...prev, defectId]
+    );
+  };
+
+  const toggleSelectAll = () => {
+    if (selectedDefectsForVendor.length === pendingDefects.length) {
+      setSelectedDefectsForVendor([]);
+    } else {
+      setSelectedDefectsForVendor(pendingDefects.map(d => d.id));
+    }
+  };
+
   const toggleDefectDetails = (defectId: string) => {
     setExpandedDefect(expandedDefect === defectId ? null : defectId);
   };
 
-  const pendingDefects = defects.filter(d => d.status === 'pending' || d.status === 'approved');
+  const pendingDefects = defects.filter(d => {
+    const isPending = d.status === 'pending' || d.status === 'approved';
+    if (!isPending) return false;
+    
+    if (filterType === 'all') return true;
+    if (filterType === 'used') return d.returnReason === 'USED_ITEM';
+    if (filterType === 'defects') return d.returnReason !== 'USED_ITEM';
+    return true;
+  });
   const soldDefects = defects.filter(d => d.status === 'sold');
 
   return (
@@ -510,7 +603,7 @@ export default function DefectsPage() {
               </div>
 
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                {/* Left Panel - Form (keeping the existing form code) */}
+                {/* Left Panel - Form */}
                 <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
                   {activeTab === 'identification' ? (
                     <>
@@ -543,18 +636,44 @@ export default function DefectsPage() {
                           )}
                         </div>
 
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                            Return Reason
-                          </label>
-                          <textarea
-                            value={returnReason}
-                            onChange={(e) => setReturnReason(e.target.value)}
-                            placeholder="Enter return reason..."
-                            rows={3}
-                            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                        {/* Used Item Checkbox */}
+                        <div className="flex items-start gap-3 p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 rounded-lg">
+                          <input
+                            type="checkbox"
+                            id="isUsed"
+                            checked={isUsedItem}
+                            onChange={(e) => {
+                              setIsUsedItem(e.target.checked);
+                              if (e.target.checked) {
+                                setReturnReason('');
+                              }
+                            }}
+                            className="mt-0.5 w-4 h-4"
                           />
+                          <label htmlFor="isUsed" className="flex-1 cursor-pointer">
+                            <div className="text-sm font-medium text-blue-900 dark:text-blue-300">
+                              Mark as Used Item
+                            </div>
+                            <div className="text-xs text-blue-700 dark:text-blue-400 mt-0.5">
+                              Check this if the item has been used/opened by customer
+                            </div>
+                          </label>
                         </div>
+
+                        {!isUsedItem && (
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                              Return Reason {!isUsedItem && <span className="text-red-500">*</span>}
+                            </label>
+                            <textarea
+                              value={returnReason}
+                              onChange={(e) => setReturnReason(e.target.value)}
+                              placeholder="Enter return reason..."
+                              rows={3}
+                              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                            />
+                          </div>
+                        )}
 
                         <div>
                           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
@@ -591,7 +710,7 @@ export default function DefectsPage() {
                           disabled={loading}
                           className="w-full py-2 bg-gray-600 hover:bg-gray-700 disabled:bg-gray-400 text-white rounded-md"
                         >
-                          {loading ? 'Processing...' : 'Mark as Defective'}
+                          {loading ? 'Processing...' : (isUsedItem ? 'Mark as Used' : 'Mark as Defective')}
                         </button>
                       </div>
                     </>
@@ -602,7 +721,6 @@ export default function DefectsPage() {
                         Customer Return
                       </h3>
                       
-                      {/* Customer Returns Form - keeping existing code */}
                       <div className="space-y-4">
                         <div>
                           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
@@ -827,13 +945,73 @@ export default function DefectsPage() {
                   {/* Pending Defects */}
                   <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
                     <div className="p-4 border-b border-gray-200 dark:border-gray-700">
-                      <div className="flex items-center justify-between">
-                        <h3 className="font-semibold text-gray-900 dark:text-white">
-                          Defective Items ({pendingDefects.length})
-                        </h3>
-                        <span className="text-sm text-gray-500 dark:text-gray-400">
-                          {selectedStore === 'all' ? 'All stores' : stores.find(s => s.id === selectedStore)?.name}
-                        </span>
+                      <div className="flex items-center justify-between mb-3">
+                        <div className="flex items-center gap-3">
+                          <h3 className="font-semibold text-gray-900 dark:text-white">
+                            Defective Items ({pendingDefects.length})
+                          </h3>
+                          {pendingDefects.length > 0 && (
+                            <label className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400 cursor-pointer">
+                              <input
+                                type="checkbox"
+                                checked={selectedDefectsForVendor.length === pendingDefects.length && pendingDefects.length > 0}
+                                onChange={toggleSelectAll}
+                                className="w-4 h-4"
+                              />
+                              Select All
+                            </label>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={() => setReturnToVendorModalOpen(true)}
+                            disabled={selectedDefectsForVendor.length === 0}
+                            className="px-3 py-1.5 bg-gray-900 hover:bg-gray-700 disabled:bg-gray-300 disabled:text-gray-500 disabled:cursor-not-allowed text-white text-sm rounded-md flex items-center gap-1.5 transition-colors"
+                          >
+                            <TruckIcon className="w-4 h-4" />
+                            {selectedDefectsForVendor.length > 0 
+                              ? `Return ${selectedDefectsForVendor.length} to Vendor`
+                              : 'Return to Vendor'
+                            }
+                          </button>
+                          <span className="text-sm text-gray-500 dark:text-gray-400">
+                            {selectedStore === 'all' ? 'All stores' : stores.find(s => s.id === selectedStore)?.name}
+                          </span>
+                        </div>
+                      </div>
+                      
+                      {/* Filter Buttons */}
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => setFilterType('all')}
+                          className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
+                            filterType === 'all'
+                              ? 'bg-gray-900 text-white dark:bg-gray-100 dark:text-gray-900'
+                              : 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
+                          }`}
+                        >
+                          All 
+                        </button>
+                        <button
+                          onClick={() => setFilterType('defects')}
+                          className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
+                            filterType === 'defects'
+                              ? 'bg-red-600 text-white'
+                              : 'bg-red-100 text-red-700 dark:bg-red-900/20 dark:text-red-400 hover:bg-red-200 dark:hover:bg-red-900/30'
+                          }`}
+                        >
+                          Defects 
+                        </button>
+                        <button
+                          onClick={() => setFilterType('used')}
+                          className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
+                            filterType === 'used'
+                              ? 'bg-blue-600 text-white'
+                              : 'bg-blue-100 text-blue-700 dark:bg-blue-900/20 dark:text-blue-400 hover:bg-blue-200 dark:hover:bg-blue-900/30'
+                          }`}
+                        >
+                          Used 
+                        </button>
                       </div>
                     </div>
 
@@ -849,31 +1027,43 @@ export default function DefectsPage() {
                             {/* Main Row */}
                             <div className="px-4 py-3">
                               <div className="flex items-start justify-between gap-4">
-                                <div className="flex-1 min-w-0">
-                                  <div className="flex items-center gap-2 mb-1">
-                                    <h4 className="font-medium text-gray-900 dark:text-white text-sm truncate">
-                                      {defect.productName}
-                                    </h4>
-                                    {defect.returnReason && (
-                                      <span className="px-2 py-0.5 bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400 text-xs rounded">
-                                        Return
+                                <div className="flex items-start gap-3 flex-1 min-w-0">
+                                  <input
+                                    type="checkbox"
+                                    checked={selectedDefectsForVendor.includes(defect.id)}
+                                    onChange={() => toggleDefectSelection(defect.id)}
+                                    className="mt-1 w-4 h-4 flex-shrink-0"
+                                  />
+                                  <div className="flex-1 min-w-0">
+                                    <div className="flex items-center gap-2 mb-1">
+                                      <h4 className="font-medium text-gray-900 dark:text-white text-sm truncate">
+                                        {defect.productName}
+                                      </h4>
+                                      {defect.returnReason === 'USED_ITEM' ? (
+                                        <span className="px-2 py-0.5 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 text-xs rounded font-medium">
+                                          Used
+                                        </span>
+                                      ) : defect.returnReason ? (
+                                        <span className="px-2 py-0.5 bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400 text-xs rounded">
+                                          Return
+                                        </span>
+                                      ) : null}
+                                    </div>
+                                    
+                                    <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-gray-600 dark:text-gray-400">
+                                      <span className="flex items-center gap-1">
+                                        <Barcode className="w-3 h-3" />
+                                        {defect.barcode}
                                       </span>
-                                    )}
-                                  </div>
-                                  
-                                  <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-gray-600 dark:text-gray-400">
-                                    <span className="flex items-center gap-1">
-                                      <Barcode className="w-3 h-3" />
-                                      {defect.barcode}
-                                    </span>
-                                    <span className="flex items-center gap-1">
-                                      <MapPin className="w-3 h-3" />
-                                      {defect.store || 'N/A'}
-                                    </span>
-                                    <span className="flex items-center gap-1">
-                                      <Calendar className="w-3 h-3" />
-                                      {new Date(defect.addedAt).toLocaleDateString()}
-                                    </span>
+                                      <span className="flex items-center gap-1">
+                                        <MapPin className="w-3 h-3" />
+                                        {defect.store || 'N/A'}
+                                      </span>
+                                      <span className="flex items-center gap-1">
+                                        <Calendar className="w-3 h-3" />
+                                        {new Date(defect.addedAt).toLocaleDateString()}
+                                      </span>
+                                    </div>
                                   </div>
                                 </div>
 
@@ -888,6 +1078,21 @@ export default function DefectsPage() {
                                     ) : (
                                       <ChevronDown className="w-4 h-4 text-gray-600 dark:text-gray-400" />
                                     )}
+                                  </button>
+                                  <button
+                                    onClick={() => {
+                                      setSelectedDefectsForVendor([defect.id]);
+                                      setReturnNotes('');
+                                      setVendorName('');
+                                      setVendorContact('');
+                                      setVendorEmail('');
+                                      setExpectedReturnDate('');
+                                      setReturnToVendorModalOpen(true);
+                                    }}
+                                    className="p-1.5 text-gray-600 hover:bg-gray-50 dark:hover:bg-gray-900/20 rounded transition-colors"
+                                    title="Return to Vendor"
+                                  >
+                                    <TruckIcon className="w-4 h-4" />
                                   </button>
                                   <button
                                     onClick={() => handleSellClick(defect)}
@@ -952,10 +1157,17 @@ export default function DefectsPage() {
                                       <div>
                                         <p className="text-xs text-gray-500 dark:text-gray-400 mb-1 flex items-center gap-1">
                                           <FileText className="w-3 h-3" />
-                                          Return Reason
+                                          {defect.returnReason === 'USED_ITEM' ? 'Item Status' : 'Return Reason'}
                                         </p>
                                         <p className="text-sm text-gray-900 dark:text-white bg-white dark:bg-gray-800 p-2 rounded border border-gray-200 dark:border-gray-600">
-                                          {defect.returnReason}
+                                          {defect.returnReason === 'USED_ITEM' ? (
+                                            <span className="flex items-center gap-1.5">
+                                              <span className="inline-block w-2 h-2 bg-blue-500 rounded-full"></span>
+                                              Used/Opened Item
+                                            </span>
+                                          ) : (
+                                            defect.returnReason
+                                          )}
                                         </p>
                                       </div>
                                     )}
@@ -974,7 +1186,7 @@ export default function DefectsPage() {
 
                                     {defect.originalOrderId && (
                                       <div>
-                                        <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Original Order ID</p>
+                                        <p className="text-xs text-gray-500 dark:text-gray-400 mb-0.5">Original Order ID</p>
                                         <p className="text-sm text-blue-600 dark:text-blue-400 font-medium">
                                           #{defect.originalOrderId}
                                         </p>
@@ -1164,6 +1376,160 @@ export default function DefectsPage() {
           onSell={handleSell}
           loading={loading}
         />
+      )}
+
+      {/* Return to Vendor Modal */}
+      {returnToVendorModalOpen && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-3xl w-full border border-gray-200 dark:border-gray-700 max-h-[90vh] overflow-hidden flex flex-col">
+            <div className="p-6 border-b border-gray-200 dark:border-gray-700">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-gray-100 dark:bg-gray-900/30 rounded-lg">
+                  <TruckIcon className="w-5 h-5 text-gray-600 dark:text-gray-400" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Return to Vendor</h3>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">Mark {selectedDefectsForVendor.length} item(s) for vendor return</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="p-6 space-y-6 overflow-y-auto flex-1">
+              {/* Selected Items */}
+              <div className="space-y-2">
+                <h4 className="text-sm font-semibold text-gray-900 dark:text-white">Selected Items:</h4>
+                <div className="space-y-2 max-h-40 overflow-y-auto">
+                  {defects
+                    .filter(d => selectedDefectsForVendor.includes(d.id))
+                    .map(defect => (
+                      <div key={defect.id} className="p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg border border-gray-200 dark:border-gray-600">
+                        <p className="text-sm font-medium text-gray-900 dark:text-white mb-1">{defect.productName}</p>
+                        <div className="grid grid-cols-2 gap-2 text-xs text-gray-600 dark:text-gray-400">
+                          <div>
+                            <span className="font-medium">Barcode:</span> {defect.barcode}
+                          </div>
+                          <div>
+                            <span className="font-medium">Store:</span> {defect.store || 'N/A'}
+                          </div>
+                        </div>
+                        {defect.returnReason && (
+                          <div className="mt-2 pt-2 border-t border-gray-200 dark:border-gray-600">
+                            <p className="text-xs text-gray-500 dark:text-gray-400">Reason: {defect.returnReason}</p>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                </div>
+              </div>
+
+              {/* Vendor Details Section */}
+              <div className="space-y-4 border-t border-gray-200 dark:border-gray-700 pt-4">
+                <h4 className="text-sm font-semibold text-gray-900 dark:text-white">Vendor Details:</h4>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                      Vendor Name <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={vendorName}
+                      onChange={(e) => setVendorName(e.target.value)}
+                      placeholder="Enter vendor name..."
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                      Contact Number
+                    </label>
+                    <input
+                      type="text"
+                      value={vendorContact}
+                      onChange={(e) => setVendorContact(e.target.value)}
+                      placeholder="Enter contact number..."
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                      Email Address
+                    </label>
+                    <input
+                      type="email"
+                      value={vendorEmail}
+                      onChange={(e) => setVendorEmail(e.target.value)}
+                      placeholder="vendor@example.com"
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                      Expected Return Date
+                    </label>
+                    <input
+                      type="date"
+                      value={expectedReturnDate}
+                      onChange={(e) => setExpectedReturnDate(e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Return Notes */}
+              <div className="border-t border-gray-200 dark:border-gray-700 pt-4">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Return Notes (Optional)
+                </label>
+                <textarea
+                  value={returnNotes}
+                  onChange={(e) => setReturnNotes(e.target.value)}
+                  placeholder="Add notes about the vendor return..."
+                  rows={4}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm"
+                />
+              </div>
+            </div>
+
+            <div className="p-6 pt-0 flex gap-3 border-t border-gray-200 dark:border-gray-700">
+              <button
+                onClick={() => {
+                  setReturnToVendorModalOpen(false);
+                  setReturnNotes('');
+                  setVendorName('');
+                  setVendorContact('');
+                  setVendorEmail('');
+                  setExpectedReturnDate('');
+                }}
+                disabled={loading}
+                className="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-md hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleReturnToVendor}
+                disabled={loading || !vendorName.trim()}
+                className="flex-1 px-4 py-2 bg-gray-600 hover:bg-gray-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white rounded-md transition-colors flex items-center justify-center gap-2"
+              >
+                {loading ? (
+                  <>
+                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                    Processing...
+                  </>
+                ) : (
+                  <>
+                    <TruckIcon className="w-4 h-4" />
+                    Return {selectedDefectsForVendor.length} to Vendor
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
