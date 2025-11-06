@@ -456,5 +456,182 @@
       "type": "warehouse"
     },
     "createdAt": "2025-11-03T06:15:40.684Z"
+  },
+  {
+    "id": 1762155370927,
+    "salesBy": "System Administrator",
+    "date": "06-Oct-2025",
+    "customer": {
+      "name": "Sanjana",
+      "email": "tasneem.nishat.4953@gmail.com",
+      "phone": "01818316964",
+      "socialId": ""
+    },
+    "deliveryAddress": {
+      "division": "Rajshahi",
+      "district": "Bogura",
+      "city": "Gabtali",
+      "zone": "sadasd",
+      "area": "",
+      "address": "International Affairs Division ,Paramanu Bhaban ,Bangladesh Atomic Energy Commission,",
+      "postalCode": "1212"
+    },
+    "products": [
+      {
+        "id": 1762155355261,
+        "productId": 1761589326965,
+        "batchId": 1761627972292,
+        "productName": "Shotoronji-Black",
+        "size": "1",
+        "qty": 1,
+        "price": 1200,
+        "discount": 0,
+        "amount": 1200,
+        "barcodes": [
+          "BATCH1761627972292-04"
+        ]
+      }
+    ],
+    "subtotal": 1200,
+    "amounts": {
+      "subtotal": 1200,
+      "totalDiscount": 0,
+      "vat": 60,
+      "vatRate": 5,
+      "transportCost": 0,
+      "total": 1260
+    },
+    "payments": {
+      "sslCommerz": 1200,
+      "advance": 0,
+      "transactionId": "",
+      "totalPaid": 1200,
+      "due": 60
+    },
+    "store": {
+      "id": "1761588414664",
+      "name": "",
+      "location": "",
+      "type": ""
+    },
+    "createdAt": "2025-11-03T07:36:10.936Z"
+  },
+  {
+    "id": 1762157287093,
+    "salesBy": "System Administrator",
+    "date": "06-Oct-2025",
+    "customer": {
+      "name": "OI",
+      "email": "tasneem.nishat.4953@gmail.com",
+      "phone": "01818316964",
+      "socialId": ""
+    },
+    "deliveryAddress": {
+      "division": "Rajshahi",
+      "district": "Bogura",
+      "city": "Dhunot",
+      "zone": "asdsd",
+      "area": "",
+      "address": "International Affairs Division ,Paramanu Bhaban ,Bangladesh Atomic Energy Commission,",
+      "postalCode": "1212"
+    },
+    "products": [
+      {
+        "id": 1762156913205,
+        "productId": 1761589495801,
+        "batchId": 1761589593751,
+        "productName": "Jhumka",
+        "size": "1",
+        "qty": 1,
+        "price": 300,
+        "discount": 0,
+        "amount": 300,
+        "barcodes": [
+          "BATCH1761589593751-04"
+        ]
+      }
+    ],
+    "subtotal": 300,
+    "amounts": {
+      "subtotal": 300,
+      "totalDiscount": 0,
+      "vat": 15,
+      "vatRate": 5,
+      "transportCost": 0,
+      "total": 315
+    },
+    "payments": {
+      "sslCommerz": 0,
+      "advance": 0,
+      "transactionId": "",
+      "totalPaid": 0,
+      "due": 315
+    },
+    "store": {
+      "id": 1761588384818,
+      "name": "Mohammapur",
+      "location": "Dhaka,Bangladesh",
+      "type": "warehouse"
+    },
+    "createdAt": "2025-11-03T08:08:07.103Z"
+  },
+  {
+    "id": 1762158738079,
+    "salesBy": "System Administrator",
+    "date": "06-Oct-2025",
+    "customer": {
+      "name": "oishee",
+      "email": "tasneem.nishat.4953@gmail.com",
+      "phone": "01818316964",
+      "socialId": ""
+    },
+    "deliveryAddress": {
+      "division": "",
+      "district": "",
+      "city": "",
+      "zone": "",
+      "area": "",
+      "address": "International Affairs Division ,Paramanu Bhaban ,Bangladesh Atomic Energy Commission,",
+      "postalCode": ""
+    },
+    "products": [
+      {
+        "id": 1762157545548,
+        "productId": 1761589326965,
+        "batchId": 1761627972292,
+        "productName": "Shotoronji-Black",
+        "size": "1",
+        "qty": 1,
+        "price": 1200,
+        "discount": 0,
+        "amount": 1200,
+        "barcodes": [
+          "BATCH1761627972292-05"
+        ]
+      }
+    ],
+    "subtotal": 1200,
+    "amounts": {
+      "subtotal": 1200,
+      "totalDiscount": 0,
+      "vat": 60,
+      "vatRate": 5,
+      "transportCost": 0,
+      "total": 1260
+    },
+    "payments": {
+      "sslCommerz": 0,
+      "advance": 0,
+      "transactionId": "",
+      "totalPaid": 0,
+      "due": 1260
+    },
+    "store": {
+      "id": "1761588414664",
+      "name": "No Store Selected",
+      "location": "N/A",
+      "type": "Retail"
+    },
+    "createdAt": "2025-11-03T08:32:18.091Z"
   }
 ]

@@ -247,28 +247,26 @@
     },
     "items": [
       {
-        "id": 1762070282724.3909,
-        "productId": 1761589326964,
-        "productName": "Shotoronji-Red",
-        "size": "",
+        "id": 1762282517854.0273,
+        "productId": 1761589031972,
+        "productName": "Toshor Silk Sharee",
+        "size": "1",
         "qty": 1,
-        "price": 1500,
+        "price": 2000,
         "discount": 0,
-        "amount": 1500,
-        "isDefective": false,
-        "defectId": null,
+        "amount": 2000,
         "barcodes": [
-          "BATCH1761589571631-04"
+          "BATCH1761589535098-05"
         ]
       }
     ],
     "amounts": {
-      "subtotal": 1500,
+      "subtotal": 2000,
       "totalDiscount": 0,
-      "vat": 75,
+      "vat": 100,
       "vatRate": 5,
       "transportCost": 0,
-      "total": 1575
+      "total": 2100
     },
     "payments": {
       "cash": 300,
@@ -277,11 +275,36 @@
       "nagad": 0,
       "transactionFee": 0,
       "totalPaid": 600,
-      "due": 975
+      "due": 1500
     },
     "createdAt": "2025-11-02T07:58:32.305Z",
-    "updatedAt": "2025-11-02T07:58:31.945Z",
-    "exchangeHistory": []
+    "updatedAt": "2025-11-04T18:55:17.854Z",
+    "exchangeHistory": [
+      {
+        "date": "2025-11-04T18:55:17.854Z",
+        "removedProducts": [
+          {
+            "productId": 1762070282724.3909,
+            "quantity": 1
+          }
+        ],
+        "replacementProducts": [
+          {
+            "id": 1761589031972,
+            "batchId": 1761589535098,
+            "name": "Toshor Silk Sharee",
+            "price": 2000,
+            "quantity": 1,
+            "amount": 2000,
+            "size": "1"
+          }
+        ],
+        "originalTotal": 1575,
+        "newTotal": 2100,
+        "difference": 525,
+        "note": "Customer owes additional payment"
+      }
+    ]
   },
   {
     "id": "sale-1762070526704",
@@ -378,6 +401,55 @@
     },
     "createdAt": "2025-11-03T06:51:16.532Z",
     "updatedAt": "2025-11-03T06:51:15.780Z",
+    "exchangeHistory": []
+  },
+  {
+    "id": "sale-1762155327998",
+    "salesBy": "Adrita Ahsan",
+    "employeeId": "emp-1762155292676",
+    "outletId": "1761588414664",
+    "date": "2025-11-03",
+    "customer": {
+      "name": "Raiyan",
+      "mobile": "01818316964",
+      "address": "International Affairs Division ,Paramanu Bhaban ,Bangladesh Atomic Energy Commission,"
+    },
+    "items": [
+      {
+        "id": 1762155318210.1096,
+        "productId": 1761589326965,
+        "productName": "Shotoronji-Black",
+        "size": "",
+        "qty": 1,
+        "price": 1200,
+        "discount": 0,
+        "amount": 1200,
+        "isDefective": false,
+        "defectId": null,
+        "barcodes": [
+          "BATCH1761627972292-03"
+        ]
+      }
+    ],
+    "amounts": {
+      "subtotal": 1200,
+      "totalDiscount": 0,
+      "vat": 60,
+      "vatRate": 5,
+      "transportCost": 0,
+      "total": 1260
+    },
+    "payments": {
+      "cash": 1000,
+      "card": 0,
+      "bkash": 0,
+      "nagad": 0,
+      "transactionFee": 0,
+      "totalPaid": 1000,
+      "due": 260
+    },
+    "createdAt": "2025-11-03T07:35:28.508Z",
+    "updatedAt": "2025-11-03T07:35:27.998Z",
     "exchangeHistory": []
   }
 ]

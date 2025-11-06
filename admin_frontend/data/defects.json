@@ -53,5 +53,22 @@
     "sellingPrice": null,
     "returnReason": "defected",
     "image": "/uploads/defect-1761628880502.jpg"
+  },
+  {
+    "id": "defect-1762282235690",
+    "barcode": "BATCH1761627972292-02",
+    "productId": 1761589326965,
+    "productName": "Shotoronji-Black",
+    "status": "pending",
+    "store": "1761588414664",
+    "addedBy": "Admin",
+    "addedAt": "2025-11-04T18:50:35.690Z",
+    "originalOrderId": "sale-1762152675780",
+    "customerPhone": "01818316964",
+    "costPrice": 1000,
+    "originalSellingPrice": 1200,
+    "sellingPrice": null,
+    "returnReason": "test",
+    "image": null
   }
 ]

@@ -307,6 +307,71 @@
       "createdAt": "2025-11-03T06:51:16.538Z",
       "source": "sale",
       "referenceId": "sale-1762152675780"
+    },
+    {
+      "id": "txn-sale-sale-1762155327998",
+      "name": "Sale: Shotoronji-Black",
+      "description": "POS Sale to Raiyan",
+      "type": "income",
+      "amount": 1260,
+      "category": "POS Sales",
+      "date": "2025-11-03T07:35:28.508Z",
+      "comment": "Items: 1, Cash: ৳1000, Card: ৳0, Bkash: ৳0, Nagad: ৳0, Due: ৳260",
+      "createdAt": "2025-11-03T07:35:28.515Z",
+      "source": "sale",
+      "referenceId": "sale-1762155327998"
+    },
+    {
+      "id": "txn-order-1762155370927",
+      "name": "Order: Shotoronji-Black",
+      "description": "Social Order from Customer",
+      "type": "income",
+      "amount": 1260,
+      "category": "Online Orders",
+      "date": "2025-11-03T07:36:10.936Z",
+      "comment": "Platform: Social Media, Products: 1, Cash: ৳0, Bkash: ৳0, Due: ৳60",
+      "createdAt": "2025-11-03T07:36:10.942Z",
+      "source": "order",
+      "referenceId": "1762155370927"
+    },
+    {
+      "id": "txn-order-1762157287093",
+      "name": "Order: Jhumka",
+      "description": "Social Order from Customer",
+      "type": "income",
+      "amount": 315,
+      "category": "Online Orders",
+      "date": "2025-11-03T08:08:07.103Z",
+      "comment": "Platform: Social Media, Products: 1, Cash: ৳0, Bkash: ৳0, Due: ৳315",
+      "createdAt": "2025-11-03T08:08:07.107Z",
+      "source": "order",
+      "referenceId": "1762157287093"
+    },
+    {
+      "id": "txn-order-1762158738079",
+      "name": "Order: Shotoronji-Black",
+      "description": "Social Order from Customer",
+      "type": "income",
+      "amount": 1260,
+      "category": "Online Orders",
+      "date": "2025-11-03T08:32:18.091Z",
+      "comment": "Platform: Social Media, Products: 1, Cash: ৳0, Bkash: ৳0, Due: ৳1260",
+      "createdAt": "2025-11-03T08:32:18.093Z",
+      "source": "order",
+      "referenceId": "1762158738079"
+    },
+    {
+      "id": "txn-exchange-sale-sale-1762070311946-1762282517858",
+      "name": "Sales Exchange - Additional Payment",
+      "description": "Exchange adjustment for Sale #sale-1762070311946",
+      "type": "income",
+      "amount": 525,
+      "category": "POS Sales",
+      "date": "2025-11-04T18:55:17.856Z",
+      "comment": "Removed: Item (1). Added: Toshor Silk Sharee (1)",
+      "createdAt": "2025-11-04T18:55:17.858Z",
+      "source": "exchange",
+      "referenceId": "sale-sale-1762070311946"
     }
   ]
 }
