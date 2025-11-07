@@ -1,0 +1,71 @@
+[
+  {
+    "id": 1761589031972,
+    "name": "Toshor Silk Sharee",
+    "attributes": {
+      "mainImage": "/uploads/1761588992225-toshor.jpg",
+      "category": "1",
+      "subcategory": "2",
+      "Color": "White",
+      "Description": "sharee from rajshahi"
+    }
+  },
+  {
+    "id": 1761589326964,
+    "name": "Shotoronji-Red",
+    "attributes": {
+      "mainImage": "/uploads/1761589256047-red shoto.jpg",
+      "category": "5",
+      "subcategory": "",
+      "Description": "Washable ",
+      "groupMainImage": "/uploads/1761589118009-shoto1.jpg",
+      "color": "Red",
+      "size": "",
+      "variationImages": [
+        "/uploads/1761589256047-red shoto.jpg"
+      ]
+    }
+  },
+  {
+    "id": 1761589326965,
+    "name": "Shotoronji-Black",
+    "attributes": {
+      "mainImage": "/uploads/1761589319504-black shoto.jpg",
+      "category": "5",
+      "subcategory": "",
+      "Description": "Washable ",
+      "groupMainImage": "/uploads/1761589118009-shoto1.jpg",
+      "color": "Black",
+      "size": "",
+      "variationImages": [
+        "/uploads/1761589319504-black shoto.jpg"
+      ]
+    }
+  },
+  {
+    "id": 1761589495801,
+    "name": "Jhumka",
+    "attributes": {
+      "mainImage": "/uploads/1761589448916-jhmka.webp",
+      "category": "3",
+      "subcategory": "4",
+      "Description": "daily wearable"
+    }
+  },
+  {
+    "id": 1761627848476,
+    "name": "Jute rug-Black",
+    "attributes": {
+      "mainImage": "/uploads/1761627840813-black shoto.jpg",
+      "category": "5",
+      "subcategory": "",
+      "Color": "",
+      "groupMainImage": "/uploads/1761627792093-red shoto.jpg",
+      "color": "Black",
+      "size": "",
+      "variationImages": [
+        "/uploads/1761627840813-black shoto.jpg"
+      ]
+    }
+  }
+]
