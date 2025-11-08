@@ -12,7 +12,7 @@ import EditOrderModal from '@/components/orders/EditOrderModal';
 import ExchangeProductModal from '@/components/orders/ExchangeProductModal';
 import ReturnProductModal from '@/components/orders/ReturnProductModal';
 import { Order } from '@/types/order';
-import { Truck, Printer, Settings, CheckCircle, XCircle } from 'lucide-react';
+import { Truck, Printer, Settings, CheckCircle, XCircle, Plane } from 'lucide-react';
 import { checkQZStatus, printBulkReceipts, getPrinters } from '@/lib/qz-tray';
 
 export default function OrdersDashboard() {
@@ -568,6 +568,7 @@ export default function OrdersDashboard() {
                 selectedOrders={selectedOrders}
                 onToggleSelect={handleToggleSelect}
                 onToggleSelectAll={handleToggleSelectAll}
+                
               />
             </div>
           </main>

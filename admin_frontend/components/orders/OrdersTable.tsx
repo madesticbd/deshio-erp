@@ -1,6 +1,6 @@
 // components/orders/OrdersTable.tsx
 
-import { Package, MoreVertical, Edit2 } from 'lucide-react';
+import { Package, MoreVertical, Edit2,Plane } from 'lucide-react';
 import { Order } from '@/types/order';
 
 interface OrdersTableProps {
@@ -100,6 +100,9 @@ export default function OrdersTable({
                     )}
                     <td className="px-6 py-4">
                       <span className="text-sm font-bold text-gray-900 dark:text-white">#{order.id}</span>
+                      {order.isInternational && (
+                        <Plane className="inline-block w-4 h-4 text-blue-600 ml-1" />
+                      )}
                     </td>
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-3">
@@ -202,7 +205,11 @@ export default function OrdersTable({
                       {order.customer.name.charAt(0).toUpperCase()}
                     </div>
                     <div>
-                      <p className="font-bold text-gray-900 dark:text-white">#{order.id}</p>
+                      <p className="font-bold text-gray-900 dark:text-white">#{order.id}
+                        {order.isInternational && (
+                          <Plane className="inline-block w-4 h-4 text-blue-600 ml-1" />
+                        )}
+                      </p>
                       <p className="text-sm text-gray-600 dark:text-gray-400 mt-0.5">{order.customer.name}</p>
                       <p className="text-xs text-gray-500 dark:text-gray-500 mt-0.5">{order.date}</p>
                     </div>
