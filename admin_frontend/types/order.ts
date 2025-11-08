@@ -69,4 +69,5 @@ export interface Order {
   store?: Store; 
   createdAt?: string;
   updatedAt?: string;
+  isInternational?: boolean;
 }
