@@ -6,49 +6,47 @@ const axiosInstance = axios.create({
     'Content-Type': 'application/json',
     'Accept': 'application/json',
   },
-  // Remove withCredentials for now during testing
-  // withCredentials: true,
 });
 
 // Request interceptor
 axiosInstance.interceptors.request.use(
   (config) => {
-    console.log(' API Request:', config.method?.toUpperCase(), config.url);
-    console.log(' Base URL:', config.baseURL);
-    
-    const token = localStorage.getItem('authToken');
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
+    if (typeof window !== 'undefined') {
+      const token = localStorage.getItem('authToken');
+      if (token) {
+        config.headers.Authorization = `Bearer ${token}`;
+      }
     }
     return config;
   },
   (error) => {
-    console.error(' Request Error:', error);
     return Promise.reject(error);
   }
 );
 
 // Response interceptor
 axiosInstance.interceptors.response.use(
-  (response) => {
-    console.log(' API Response:', response.status, response.config.url);
-    return response;
-  },
+  (response) => response,
   (error) => {
-    console.error(' Response Error:', {
-      message: error.message,
-      url: error.config?.url,
-      baseURL: error.config?.baseURL,
-      fullURL: error.config?.baseURL + error.config?.url,
-      status: error.response?.status,
-      data: error.response?.data,
-    });
-    
-    if (error.response?.status === 401) {
-      localStorage.removeItem('authToken');
-      localStorage.removeItem('userRole');
-      // Don't redirect during development
-      // window.location.href = '/login';
+    // Only run client-side code in the browser
+    if (typeof window !== 'undefined') {
+      // Log error details for debugging
+      if (process.env.NODE_ENV === 'development') {
+        console.error('API Error:', {
+          message: error.message,
+          url: error.config?.url,
+          status: error.response?.status,
+          data: error.response?.data,
+        });
+      }
+      
+      // Handle 401 Unauthorized
+      if (error.response?.status === 401) {
+        localStorage.removeItem('authToken');
+        localStorage.removeItem('userRole');
+        // Optionally redirect to login
+        // window.location.href = '/login';
+      }
     }
     
     return Promise.reject(error);

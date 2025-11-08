@@ -27,33 +27,27 @@ export default function BatchPrinter({ batch, product }: BatchPrinterProps) {
 
   useEffect(() => {
     let attempts = 0;
-    const maxAttempts = 20; // Try for ~2 seconds
+    const maxAttempts = 20;
 
     const checkQZ = () => {
       attempts++;
-      console.log(`Attempt ${attempts}: Checking for QZ Tray...`);
       
       if (typeof window !== "undefined" && (window as any).qz) {
-        console.log("✅ QZ Tray library found!");
-        console.log("QZ object:", (window as any).qz);
+        console.log("✅ QZ Tray library loaded");
         setIsQzLoaded(true);
         return true;
       }
       
-      console.log("❌ QZ Tray not found yet");
       return false;
     };
 
-    // Try immediate check
     if (checkQZ()) return;
 
-    // Set up interval to keep checking
     const interval = setInterval(() => {
       if (checkQZ() || attempts >= maxAttempts) {
         clearInterval(interval);
         if (attempts >= maxAttempts) {
-          console.error("Failed to load QZ Tray after maximum attempts");
-          console.log("Available on window:", Object.keys(window).filter(k => k.toLowerCase().includes('qz')));
+          console.warn("QZ Tray not detected. Install QZ Tray to enable barcode printing.");
         }
       }
     }, 100);
@@ -66,27 +60,22 @@ export default function BatchPrinter({ batch, product }: BatchPrinterProps) {
     (_, i) => `${batch.baseCode}-${String(i + 1).padStart(2, "0")}`
   );
 
-  // Print using QZ Tray
   const handleQZPrint = async (
     selected: string[],
     quantities: Record<string, number>
   ) => {
-    // Check if QZ Tray is loaded
     if (!(window as any).qz) {
-      alert("QZ Tray library not loaded. Please refresh the page.");
+      alert("QZ Tray library not loaded. Please refresh the page or install QZ Tray.");
       return;
     }
 
     try {
-      // Check if QZ Tray is running
       if (!(await (window as any).qz.websocket.isActive())) {
         await (window as any).qz.websocket.connect();
       }
 
-      // Get default printer or specify one
       const config = (window as any).qz.configs.create(null);
 
-      // Create print data with multiple copies based on quantity
       const data: any[] = [];
       selected.forEach((code) => {
         const qty = quantities[code] || 1;
@@ -108,7 +97,7 @@ export default function BatchPrinter({ batch, product }: BatchPrinterProps) {
                 <body>
                   <div class="barcode-container">
                     <div class="product-name">${product?.name || 'Product'}</div>
-                    <div class="price">৳${batch.sellingPrice}</div>
+                    <div class="price">৳${batch.sellingPrice.toLocaleString('en-BD')}</div>
                     <svg id="barcode-${code}-${i}"></svg>
                     <script>
                       JsBarcode("#barcode-${code}-${i}", "${code}", {
@@ -127,13 +116,13 @@ export default function BatchPrinter({ batch, product }: BatchPrinterProps) {
       });
 
       await (window as any).qz.print(config, data);
-      alert("Barcodes sent to printer successfully!");
+      alert(`${data.length} barcode(s) sent to printer successfully!`);
       setIsModalOpen(false);
     } catch (err: any) {
       console.error("Print error:", err);
       
       if (err.message && err.message.includes("Unable to establish connection")) {
-        alert("QZ Tray is not running. Please start QZ Tray and try again.");
+        alert("QZ Tray is not running. Please start QZ Tray and try again.\n\nDownload from: https://qz.io/download/");
       } else {
         alert(`Print failed: ${err.message || "Unknown error"}`);
       }
@@ -149,14 +138,14 @@ export default function BatchPrinter({ batch, product }: BatchPrinterProps) {
   };
 
   return (
-    <div className="mt-4">
+    <>
       <button
         onClick={() => setIsModalOpen(true)}
-        className="w-full px-4 py-2 bg-black text-white rounded hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed"
+        className="w-full px-4 py-2 bg-gray-900 dark:bg-white text-white dark:text-gray-900 rounded-lg font-medium hover:bg-gray-800 dark:hover:bg-gray-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
         disabled={!isQzLoaded}
-        title={!isQzLoaded ? "Loading QZ Tray..." : ""}
+        title={!isQzLoaded ? "QZ Tray not detected. Install QZ Tray to enable printing." : "Print barcodes using QZ Tray"}
       >
-        {isQzLoaded ? "Print Barcodes" : "Loading QZ Tray..."}
+        {isQzLoaded ? "Print Barcodes" : "QZ Tray Not Detected"}
       </button>
 
       <BarcodeSelectionModal
@@ -167,6 +156,6 @@ export default function BatchPrinter({ batch, product }: BatchPrinterProps) {
         price={batch.sellingPrice}
         onPrint={handleQZPrint}
       />
-    </div>
+    </>
   );
 }

@@ -1,46 +1,35 @@
 import React from 'react';
 import Barcode from 'react-barcode';
 import BatchPrinter from './BatchPrinter';
-
-interface Product {
-  id: number;
-  name: string;
-  attributes?: Record<string, any>;
-}
-
-interface Batch {
-  id: number;
-  productId: number;
-  quantity: number;
-  costPrice: number;
-  sellingPrice: number;
-  baseCode: string;
-}
+import { Batch } from '@/services/batchService';
 
 interface BatchCardProps {
   batch: Batch;
-  product?: Product;
   onDelete?: (batchId: number) => void;
 }
 
-export default function BatchCard({ batch, product, onDelete }: BatchCardProps) {
+export default function BatchCard({ batch, onDelete }: BatchCardProps) {
   const handleDelete = async () => {
     if (!confirm('Are you sure you want to delete this batch?')) return;
     
-    try {
-      const res = await fetch(`/api/batch/${batch.id}`, {
-        method: 'DELETE',
-      });
-      
-      if (res.ok) {
-        onDelete?.(batch.id);
-      } else {
-        alert('Failed to delete batch');
-      }
-    } catch (err) {
-      console.error('Delete error:', err);
-      alert('Failed to delete batch');
+    if (onDelete) {
+      onDelete(batch.id);
     }
+  };
+
+  // Convert Laravel batch to legacy format for existing components
+  const legacyBatch = {
+    id: batch.id,
+    productId: batch.product.id,
+    quantity: batch.quantity,
+    costPrice: parseFloat(batch.cost_price),
+    sellingPrice: parseFloat(batch.sell_price),
+    baseCode: batch.barcode?.barcode || batch.batch_number,
+  };
+
+  const legacyProduct = {
+    id: batch.product.id,
+    name: batch.product.name,
   };
 
   return (
@@ -48,7 +37,7 @@ export default function BatchCard({ batch, product, onDelete }: BatchCardProps) 
       <div className="flex items-start justify-between mb-4">
         <div className="flex-1">
           <div className="text-sm text-gray-500">Product</div>
-          <div className="font-medium text-gray-900 dark:text-white">{product?.name ?? '—'}</div>
+          <div className="font-medium text-gray-900 dark:text-white">{batch.product.name}</div>
         </div>
         <div className="flex items-center gap-3">
           <div className="text-right">
@@ -71,11 +60,11 @@ export default function BatchCard({ batch, product, onDelete }: BatchCardProps) 
         <div className="grid grid-cols-2 gap-2 text-sm">
           <div>
             <span className="text-gray-500">Cost:</span>
-            <span className="font-medium ml-1">{batch.costPrice}</span>
+            <span className="font-medium ml-1">{legacyBatch.costPrice}</span>
           </div>
           <div>
             <span className="text-gray-500">Selling:</span>
-            <span className="font-medium ml-1">{batch.sellingPrice}</span>
+            <span className="font-medium ml-1">{legacyBatch.sellingPrice}</span>
           </div>
         </div>
       </div>
@@ -83,15 +72,23 @@ export default function BatchCard({ batch, product, onDelete }: BatchCardProps) 
       <div className="text-xs text-gray-500 mb-2">Base Barcode Preview</div>
       <div className="flex justify-center mb-4 p-3 border rounded bg-gray-50 dark:bg-gray-700">
         <div className="flex flex-col items-center">
-          <Barcode value={batch.baseCode} format="CODE128" renderer="svg" width={1.5} height={50} displayValue={true} margin={4} />
+          <Barcode 
+            value={legacyBatch.baseCode} 
+            format="CODE128" 
+            renderer="svg" 
+            width={1.5} 
+            height={50} 
+            displayValue={true} 
+            margin={4} 
+          />
           <div className="text-xs mt-2 text-center text-gray-600 dark:text-gray-300">
             Will print {batch.quantity} codes<br />
-            ({batch.baseCode}-01 to -{String(batch.quantity).padStart(2, '0')})
+            ({legacyBatch.baseCode}-01 to -{String(batch.quantity).padStart(2, '0')})
           </div>
         </div>
       </div>
 
-      <BatchPrinter batch={batch} product={product} />
+      <BatchPrinter batch={legacyBatch} product={legacyProduct} />
     </div>
   );
 }

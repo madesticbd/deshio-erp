@@ -3,7 +3,6 @@ import React from 'react';
 interface Product {
   id: number;
   name: string;
-  attributes?: Record<string, any>;
 }
 
 interface BatchFormProps {
