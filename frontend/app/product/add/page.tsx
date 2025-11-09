@@ -14,8 +14,6 @@ import { productService, Field } from '@/services/productService';
 import { categoryService, Category } from '@/services/categoryService';
 import { vendorService, Vendor } from '@/services/vendorService';
 import {
-  ProductVariant,
-  ProductGroup,
   FieldValue,
   CategorySelectionState,
   VariationData,

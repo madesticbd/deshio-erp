@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import QZTrayLoader from "@/components/QzTrayLoader";
 import { CartProvider } from "./e-commerce/CartContext";
-import { AuthProvider } from './e-commerce/AuthContext';
+import { AuthProvider } from '@/contexts/AuthContext';
 import "./globals.css";
 
 const geistSans = Geist({

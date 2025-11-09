@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Barcode from 'react-barcode';
 import BatchPrinter from './BatchPrinter';
 import { Batch } from '@/services/batchService';
+import { barcodeService } from '@/services';
 
 interface BatchCardProps {
   batch: Batch;
@@ -10,9 +11,38 @@ interface BatchCardProps {
 
 export default function BatchCard({ batch, onDelete }: BatchCardProps) {
   const [deleting, setDeleting] = useState(false);
+  const [barcodes, setBarcodes] = useState<string[]>([]);
+  const [loadingBarcodes, setLoadingBarcodes] = useState(true);
+  const [showAllBarcodes, setShowAllBarcodes] = useState(false);
+
+  // Fetch all barcodes for this batch
+  useEffect(() => {
+    fetchBarcodes();
+  }, [batch.id]);
+
+  const fetchBarcodes = async () => {
+    try {
+      setLoadingBarcodes(true);
+      const response = await barcodeService.getProductBarcodes(batch.product.id);
+      const barcodesData = response.data.barcodes || [];
+      
+      // Extract barcode values
+      const barcodeValues = barcodesData.map(b => b.barcode);
+      setBarcodes(barcodeValues);
+      
+      console.log(`Loaded ${barcodeValues.length} barcodes for batch ${batch.id}`);
+    } catch (error) {
+      console.error('Error fetching barcodes:', error);
+      setBarcodes([]);
+    } finally {
+      setLoadingBarcodes(false);
+    }
+  };
 
   const handleDelete = async () => {
-    if (!confirm('Are you sure you want to delete this batch?')) return;
+    if (!confirm('Are you sure you want to delete this batch? This will also deactivate all associated barcodes.')) {
+      return;
+    }
     
     try {
       setDeleting(true);
@@ -32,6 +62,9 @@ export default function BatchCard({ batch, onDelete }: BatchCardProps) {
     return parseFloat(value.replace(/,/g, ''));
   };
 
+  // Primary barcode (first one or batch barcode)
+  const primaryBarcode = batch.barcode?.barcode || batch.batch_number;
+
   // Convert Laravel batch to legacy format for existing components
   const legacyBatch = {
     id: batch.id,
@@ -39,7 +72,7 @@ export default function BatchCard({ batch, onDelete }: BatchCardProps) {
     quantity: batch.quantity,
     costPrice: parseFormattedNumber(batch.cost_price),
     sellingPrice: parseFormattedNumber(batch.sell_price),
-    baseCode: batch.barcode?.barcode || batch.batch_number,
+    baseCode: primaryBarcode,
   };
 
   const legacyProduct = {
@@ -48,16 +81,24 @@ export default function BatchCard({ batch, onDelete }: BatchCardProps) {
   };
 
   return (
-    <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-5 hover:shadow-lg transition-shadow">
+    <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md hover:shadow-xl transition-all duration-200 p-5 border border-gray-100 dark:border-gray-700">
+      {/* Header */}
       <div className="flex items-start justify-between mb-4">
         <div className="flex-1">
-          <div className="text-sm text-gray-500">Product</div>
-          <div className="font-medium text-gray-900 dark:text-white">{batch.product.name}</div>
+          <div className="text-xs text-gray-500 dark:text-gray-400 mb-1">Product</div>
+          <div className="font-semibold text-gray-900 dark:text-white text-lg">
+            {batch.product.name}
+          </div>
+          <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+            {batch.store.name}
+          </div>
         </div>
         <div className="flex items-center gap-3">
           <div className="text-right">
-            <div className="text-xs text-gray-500">Qty</div>
-            <div className="font-medium">{batch.quantity}</div>
+            <div className="text-xs text-gray-500 dark:text-gray-400">Quantity</div>
+            <div className="font-bold text-xl text-gray-900 dark:text-white">
+              {batch.quantity}
+            </div>
           </div>
           <button
             onClick={handleDelete}
@@ -79,39 +120,131 @@ export default function BatchCard({ batch, onDelete }: BatchCardProps) {
         </div>
       </div>
 
-      <div className="mb-4 pb-4 border-b border-gray-100 dark:border-gray-700">
-        <div className="grid grid-cols-2 gap-2 text-sm">
+      {/* Pricing Info */}
+      <div className="mb-4 pb-4 border-b border-gray-200 dark:border-gray-700">
+        <div className="grid grid-cols-3 gap-3 text-sm">
           <div>
-            <span className="text-gray-500">Cost:</span>
-            <span className="font-medium ml-1">৳{legacyBatch.costPrice.toLocaleString('en-BD')}</span>
+            <span className="text-gray-500 dark:text-gray-400 block text-xs mb-1">Cost</span>
+            <span className="font-semibold text-gray-900 dark:text-white">
+              ৳{legacyBatch.costPrice.toLocaleString('en-BD')}
+            </span>
           </div>
           <div>
-            <span className="text-gray-500">Selling:</span>
-            <span className="font-medium ml-1">৳{legacyBatch.sellingPrice.toLocaleString('en-BD')}</span>
+            <span className="text-gray-500 dark:text-gray-400 block text-xs mb-1">Selling</span>
+            <span className="font-semibold text-gray-900 dark:text-white">
+              ৳{legacyBatch.sellingPrice.toLocaleString('en-BD')}
+            </span>
+          </div>
+          <div>
+            <span className="text-gray-500 dark:text-gray-400 block text-xs mb-1">Profit</span>
+            <span className="font-semibold text-green-600 dark:text-green-400">
+              {batch.profit_margin}
+            </span>
           </div>
         </div>
       </div>
 
-      <div className="text-xs text-gray-500 mb-2">Base Barcode Preview</div>
-      <div className="flex justify-center mb-4 p-3 border rounded bg-gray-50 dark:bg-gray-700">
-        <div className="flex flex-col items-center">
-          <Barcode 
-            value={legacyBatch.baseCode} 
-            format="CODE128" 
-            renderer="svg" 
-            width={1.5} 
-            height={50} 
-            displayValue={true} 
-            margin={4} 
-          />
-          <div className="text-xs mt-2 text-center text-gray-600 dark:text-gray-300">
-            Will print {batch.quantity} codes<br />
-            ({legacyBatch.baseCode}-01 to -{String(batch.quantity).padStart(2, '0')})
+      {/* Barcodes Section */}
+      <div className="mb-4">
+        <div className="flex items-center justify-between mb-2">
+          <div className="text-xs font-medium text-gray-700 dark:text-gray-300">
+            {loadingBarcodes ? 'Loading barcodes...' : `${barcodes.length} Barcode${barcodes.length !== 1 ? 's' : ''} Generated`}
           </div>
+          {barcodes.length > 1 && (
+            <button
+              onClick={() => setShowAllBarcodes(!showAllBarcodes)}
+              className="text-xs text-blue-600 dark:text-blue-400 hover:underline"
+            >
+              {showAllBarcodes ? 'Show less' : 'Show all'}
+            </button>
+          )}
         </div>
+
+        {loadingBarcodes ? (
+          <div className="flex justify-center py-4 bg-gray-50 dark:bg-gray-700 rounded">
+            <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-gray-400"></div>
+          </div>
+        ) : barcodes.length === 0 ? (
+          <div className="p-3 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded text-center">
+            <p className="text-xs text-yellow-800 dark:text-yellow-300">
+              No barcodes generated yet
+            </p>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {/* Primary Barcode - Always Show */}
+            <div className="flex justify-center p-3 border-2 border-blue-200 dark:border-blue-800 rounded bg-blue-50 dark:bg-blue-950/30">
+              <div className="flex flex-col items-center">
+                <div className="text-xs text-blue-600 dark:text-blue-400 font-medium mb-1">
+                  Primary Barcode
+                </div>
+                <Barcode 
+                  value={primaryBarcode} 
+                  format="CODE128" 
+                  renderer="svg" 
+                  width={1.5} 
+                  height={45} 
+                  displayValue={true} 
+                  margin={4}
+                  fontSize={12}
+                />
+              </div>
+            </div>
+
+            {/* Additional Barcodes - Show on expand */}
+            {showAllBarcodes && barcodes.length > 1 && (
+              <div className="space-y-2 max-h-96 overflow-y-auto border border-gray-200 dark:border-gray-700 rounded p-2">
+                <div className="text-xs text-gray-500 dark:text-gray-400 font-medium mb-2 px-2">
+                  All Generated Barcodes ({barcodes.length})
+                </div>
+                {barcodes.map((barcode, index) => (
+                  <div key={index} className="flex justify-center p-2 bg-gray-50 dark:bg-gray-700 rounded">
+                    <div className="flex flex-col items-center">
+                      <Barcode 
+                        value={barcode} 
+                        format="CODE128" 
+                        renderer="svg" 
+                        width={1.2} 
+                        height={35} 
+                        displayValue={true} 
+                        margin={2}
+                        fontSize={10}
+                      />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Barcode Range Info */}
+            {!showAllBarcodes && barcodes.length > 1 && (
+              <div className="text-xs text-center text-gray-600 dark:text-gray-400 bg-gray-50 dark:bg-gray-700 rounded p-2">
+                <span className="font-medium">{barcodes.length} barcodes</span> from{' '}
+                <span className="font-mono">{barcodes[0]}</span>
+                {' '}to{' '}
+                <span className="font-mono">{barcodes[barcodes.length - 1]}</span>
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
+      {/* Print Button */}
       <BatchPrinter batch={legacyBatch} product={legacyProduct} />
+
+      {/* Batch Info */}
+      <div className="mt-3 pt-3 border-t border-gray-200 dark:border-gray-700">
+        <div className="flex items-center justify-between text-xs text-gray-500 dark:text-gray-400">
+          <span>Batch: {batch.batch_number}</span>
+          <span className={`px-2 py-1 rounded ${
+            batch.status === 'available' ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' :
+            batch.status === 'low_stock' ? 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400' :
+            'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-400'
+          }`}>
+            {batch.status?.replace('_', ' ') || 'Available'}
+          </span>
+        </div>
+      </div>
     </div>
   );
 }
