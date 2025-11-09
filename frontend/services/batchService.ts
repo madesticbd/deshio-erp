@@ -15,6 +15,8 @@ export interface Barcode {
   id: number;
   barcode: string;
   type: string;
+  is_primary: boolean;
+  is_active: boolean;
 }
 
 export interface Batch {
@@ -35,6 +37,7 @@ export interface Batch {
   expiry_date: string | null;
   days_until_expiry: number | null;
   barcode: Barcode | null;
+  barcodes?: Barcode[]; // Array of all generated barcodes
   created_at: string;
 }
 
@@ -146,6 +149,48 @@ class BatchService {
   // Delete/deactivate batch
   async deleteBatch(id: number) {
     const response = await axios.delete(`/batches/${id}`);
+    return response.data;
+  }
+
+
+  // Get all barcodes for a batch/product
+  async getBarcodesByProduct(productId: number) {
+    const response = await axios.get(`/products/${productId}/barcodes`);
+    return response.data;
+  }
+
+  // Generate barcodes for a product
+  async generateBarcodes(data: {
+    product_id: number;
+    type?: 'CODE128' | 'EAN13' | 'QR';
+    make_primary?: boolean;
+    quantity: number;
+  }) {
+    const response = await axios.post('/barcodes/generate', data);
+    return response.data;
+  }
+
+  // Scan a barcode
+  async scanBarcode(barcode: string) {
+    const response = await axios.post('/barcodes/scan', { barcode });
+    return response.data;
+  }
+
+  // Batch scan multiple barcodes
+  async batchScanBarcodes(barcodes: string[]) {
+    const response = await axios.post('/barcodes/batch-scan', { barcodes });
+    return response.data;
+  }
+
+  // Get barcode history
+  async getBarcodeHistory(barcode: string) {
+    const response = await axios.get(`/barcodes/${barcode}/history`);
+    return response.data;
+  }
+
+  // Get barcode location
+  async getBarcodeLocation(barcode: string) {
+    const response = await axios.get(`/barcodes/${barcode}/location`);
     return response.data;
   }
 }

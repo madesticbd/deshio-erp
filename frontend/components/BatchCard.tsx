@@ -32,6 +32,18 @@ export default function BatchCard({ batch, onDelete }: BatchCardProps) {
     return parseFloat(value.replace(/,/g, ''));
   };
 
+  // Get base barcode from batch (backend generated)
+  const baseBarcode = batch.barcode?.barcode || batch.batch_number;
+
+  // Generate individual barcodes with suffixes
+  const generateBarcodeCodes = () => {
+    return Array.from({ length: batch.quantity }).map(
+      (_, i) => `${baseBarcode}-${String(i + 1).padStart(2, "0")}`
+    );
+  };
+
+  const barcodeCodes = generateBarcodeCodes();
+
   // Convert Laravel batch to legacy format for existing components
   const legacyBatch = {
     id: batch.id,
@@ -39,7 +51,7 @@ export default function BatchCard({ batch, onDelete }: BatchCardProps) {
     quantity: batch.quantity,
     costPrice: parseFormattedNumber(batch.cost_price),
     sellingPrice: parseFormattedNumber(batch.sell_price),
-    baseCode: batch.barcode?.barcode || batch.batch_number,
+    baseCode: baseBarcode,
   };
 
   const legacyProduct = {
@@ -53,6 +65,7 @@ export default function BatchCard({ batch, onDelete }: BatchCardProps) {
         <div className="flex-1">
           <div className="text-sm text-gray-500">Product</div>
           <div className="font-medium text-gray-900 dark:text-white">{batch.product.name}</div>
+          <div className="text-xs text-gray-500 mt-1">Base Barcode: {baseBarcode}</div>
         </div>
         <div className="flex items-center gap-3">
           <div className="text-right">
@@ -96,7 +109,7 @@ export default function BatchCard({ batch, onDelete }: BatchCardProps) {
       <div className="flex justify-center mb-4 p-3 border rounded bg-gray-50 dark:bg-gray-700">
         <div className="flex flex-col items-center">
           <Barcode 
-            value={legacyBatch.baseCode} 
+            value={baseBarcode} 
             format="CODE128" 
             renderer="svg" 
             width={1.5} 
@@ -106,12 +119,16 @@ export default function BatchCard({ batch, onDelete }: BatchCardProps) {
           />
           <div className="text-xs mt-2 text-center text-gray-600 dark:text-gray-300">
             Will print {batch.quantity} codes<br />
-            ({legacyBatch.baseCode}-01 to -{String(batch.quantity).padStart(2, '0')})
+            ({barcodeCodes[0]} to {barcodeCodes[barcodeCodes.length - 1]})
           </div>
         </div>
       </div>
 
-      <BatchPrinter batch={legacyBatch} product={legacyProduct} />
+      <BatchPrinter 
+        batch={legacyBatch} 
+        product={legacyProduct}
+        generatedBarcodes={barcodeCodes}
+      />
     </div>
   );
 }

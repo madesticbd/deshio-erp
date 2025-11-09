@@ -19,9 +19,10 @@ interface Batch {
 interface BatchPrinterProps {
   batch: Batch;
   product?: Product;
+  generatedBarcodes?: string[]; // Backend-generated barcodes
 }
 
-export default function BatchPrinter({ batch, product }: BatchPrinterProps) {
+export default function BatchPrinter({ batch, product, generatedBarcodes }: BatchPrinterProps) {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isQzLoaded, setIsQzLoaded] = useState(false);
 
@@ -55,10 +56,8 @@ export default function BatchPrinter({ batch, product }: BatchPrinterProps) {
     return () => clearInterval(interval);
   }, []);
 
-  // Generate barcode strings
-  const codes = Array.from({ length: batch.quantity }).map(
-    (_, i) => `${batch.baseCode}-${String(i + 1).padStart(2, "0")}`
-  );
+  // Use backend-generated barcodes (should always be available)
+  const codes = generatedBarcodes || [];
 
   const handleQZPrint = async (
     selected: string[],
@@ -98,9 +97,9 @@ export default function BatchPrinter({ batch, product }: BatchPrinterProps) {
                   <div class="barcode-container">
                     <div class="product-name">${product?.name || 'Product'}</div>
                     <div class="price">৳${batch.sellingPrice.toLocaleString('en-BD')}</div>
-                    <svg id="barcode-${code}-${i}"></svg>
+                    <svg id="barcode-${code.replace(/[^a-zA-Z0-9]/g, '')}-${i}"></svg>
                     <script>
-                      JsBarcode("#barcode-${code}-${i}", "${code}", {
+                      JsBarcode("#barcode-${code.replace(/[^a-zA-Z0-9]/g, '')}-${i}", "${code}", {
                         format:"CODE128",
                         width: 2,
                         height: 50,
@@ -142,10 +141,20 @@ export default function BatchPrinter({ batch, product }: BatchPrinterProps) {
       <button
         onClick={() => setIsModalOpen(true)}
         className="w-full px-4 py-2 bg-gray-900 dark:bg-white text-white dark:text-gray-900 rounded-lg font-medium hover:bg-gray-800 dark:hover:bg-gray-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-        disabled={!isQzLoaded}
-        title={!isQzLoaded ? "QZ Tray not detected. Install QZ Tray to enable printing." : "Print barcodes using QZ Tray"}
+        disabled={!isQzLoaded || codes.length === 0}
+        title={
+          !isQzLoaded 
+            ? "QZ Tray not detected. Install QZ Tray to enable printing." 
+            : codes.length === 0 
+            ? "Generate barcodes first"
+            : "Print barcodes using QZ Tray"
+        }
       >
-        {isQzLoaded ? "Print Barcodes" : "QZ Tray Not Detected"}
+        {!isQzLoaded 
+          ? "QZ Tray Not Detected" 
+          : codes.length === 0 
+          ? "Generate Barcodes First"
+          : `Print ${codes.length} Barcode${codes.length > 1 ? 's' : ''}`}
       </button>
 
       <BarcodeSelectionModal
