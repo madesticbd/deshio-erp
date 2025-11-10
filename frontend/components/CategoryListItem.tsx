@@ -23,7 +23,10 @@ export default function CategoryListItem({
   const [showSubcategories, setShowSubcategories] = useState(false);
   const [showDropdown, setShowDropdown] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
-  const hasSubcategories = category.children && category.children.length > 0;
+  
+  // Check both children and all_children
+  const subcategories = category.children || category.all_children || [];
+  const hasSubcategories = subcategories && subcategories.length > 0;
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
@@ -66,7 +69,7 @@ export default function CategoryListItem({
 
         {hasSubcategories && (
           <span className="text-xs bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 px-2 py-1 rounded">
-            {category.children?.length} subcategories
+            {subcategories.length} subcategories
           </span>
         )}
 
@@ -117,7 +120,7 @@ export default function CategoryListItem({
 
       {showSubcategories && hasSubcategories && (
         <div className="mt-2 space-y-2">
-          {category.children?.map((sub) => (
+          {subcategories.map((sub) => (
             <CategoryListItem
               key={sub.id}
               category={sub}

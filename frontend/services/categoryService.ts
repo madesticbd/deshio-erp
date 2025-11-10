@@ -104,30 +104,30 @@ class CategoryService {
   }
 
   
-  private normalizeCategory<T extends Category | CategoryTree>(category: T): T {
-    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || '';
+private normalizeCategory<T extends Category | CategoryTree>(category: T): T {
+  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:8080';
 
-    if (category.image_url) {
-    
-      category.image_url = baseUrl + category.image_url.replace('/api/storage', '/storage');
-    }
-
-    
-    if (category.parent) {
-      this.normalizeCategory(category.parent);
-    }
-    if (category.children) {
-      category.children.forEach(child => this.normalizeCategory(child));
-    }
-    if (category.all_children) {
-      category.all_children.forEach(child => this.normalizeCategory(child));
-    }
-    if (category.ancestors) {
-      category.ancestors.forEach(anc => this.normalizeCategory(anc));
-    }
-
-    return category;
+  if (category.image_url && !category.image_url.startsWith('http')) {
+    // Simply prepend base URL - no need to replace anything
+    category.image_url = baseUrl + category.image_url;
   }
+
+  // Recursively normalize nested categories
+  if (category.parent) {
+    this.normalizeCategory(category.parent);
+  }
+  if (category.children) {
+    category.children.forEach(child => this.normalizeCategory(child));
+  }
+  if (category.all_children) {
+    category.all_children.forEach(child => this.normalizeCategory(child));
+  }
+  if (category.ancestors) {
+    category.ancestors.forEach(anc => this.normalizeCategory(anc));
+  }
+
+  return category;
+}
 
 
   // Utility to normalize arrays or paginated data

@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { X, ChevronDown } from "lucide-react";
+import { X, ChevronRight, ChevronDown } from "lucide-react";
 import { Category } from '@/services/categoryService';
 import categoryService from '@/services/categoryService';
 
@@ -22,26 +22,24 @@ export default function AddCategoryDialog({
 }: AddCategoryDialogProps) {
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
-  const [slug, setSlug] = useState("");
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState("");
   const [categories, setCategories] = useState<Category[]>([]);
   const [parentId, setParentId] = useState<number | null>(initialParentId ?? null);
   const [showParentSelector, setShowParentSelector] = useState(false);
   const [loadingCategories, setLoadingCategories] = useState(false);
+  const [expandedCategories, setExpandedCategories] = useState<Set<number>>(new Set());
 
   useEffect(() => {
     if (editCategory) {
       setTitle(editCategory.title);
       setDescription(editCategory.description || "");
-      setSlug(editCategory.slug);
       setImageFile(null);
-      setImagePreview(editCategory.image || "");
+      setImagePreview("");
       setParentId(initialParentId ?? null);
     } else {
       setTitle("");
       setDescription("");
-      setSlug("");
       setImageFile(null);
       setImagePreview("");
       setParentId(initialParentId ?? null);
@@ -66,7 +64,20 @@ export default function AddCategoryDialog({
     try {
       setLoadingCategories(true);
       const data = await categoryService.getTree(true);
-      setCategories(data);
+      
+      // Transform all_children to children for consistency
+      const transformCategories = (cats: Category[]): Category[] => {
+        return cats.map(cat => ({
+          ...cat,
+          children: cat.all_children ? transformCategories(cat.all_children) : []
+        }));
+      };
+      
+      const transformedData = transformCategories(data);
+      setCategories(transformedData);
+      
+      // Start with all categories collapsed
+      setExpandedCategories(new Set());
     } catch (error) {
       console.error('Failed to load categories:', error);
       setCategories([]);
@@ -75,45 +86,93 @@ export default function AddCategoryDialog({
     }
   };
 
-  const generateSlug = (text: string) =>
-    text
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, "-")
-      .replace(/(^-|-$)/g, "");
-
-  const handleTitleChange = (value: string) => {
-    setTitle(value);
-    if (!editCategory) setSlug(generateSlug(value));
+  const toggleCategory = (categoryId: number) => {
+    setExpandedCategories(prev => {
+      const next = new Set(prev);
+      if (next.has(categoryId)) {
+        next.delete(categoryId);
+      } else {
+        next.add(categoryId);
+      }
+      return next;
+    });
   };
 
-  const getCategoryName = (cats: Category[], targetId: number | null): string => {
-    if (!targetId) return "None (Root Level)";
+  const getSelectedCategoryPath = (): string => {
+    if (!parentId) return "None (Root Level)";
     
-    const findCategory = (categories: Category[]): Category | null => {
-      for (const cat of categories) {
-        if (cat.id === targetId) return cat;
+    const findCategoryWithPath = (cats: Category[], path: string[] = []): string | null => {
+      for (const cat of cats) {
+        const currentPath = [...path, cat.title];
+        
+        if (cat.id === parentId) {
+          return currentPath.join(' > ');
+        }
+        
         if (cat.children) {
-          const found = findCategory(cat.children);
+          const found = findCategoryWithPath(cat.children, currentPath);
           if (found) return found;
         }
       }
       return null;
     };
 
-    const category = findCategory(cats);
-    return category ? category.title : "Unknown";
+    return findCategoryWithPath(categories) || "Unknown";
   };
 
-  const renderCategoryOptions = (cats: Category[], depth = 0): React.ReactNode[] => {
-    return cats.flatMap((cat) => {
-      if (editCategory && cat.id === editCategory.id) return [];
+  const renderCategoryTree = (cats: Category[], depth = 0): React.ReactNode => {
+    return cats.map((cat) => {
+      // Skip the category being edited to prevent circular reference
+      if (editCategory && cat.id === editCategory.id) return null;
 
-      return [
-        <option key={cat.id} value={cat.id}>
-          {'  '.repeat(depth) + cat.title}
-        </option>,
-        ...(cat.children ? renderCategoryOptions(cat.children, depth + 1) : [])
-      ];
+      const isExpanded = expandedCategories.has(cat.id);
+      const hasChildren = cat.children && cat.children.length > 0;
+      const isSelected = parentId === cat.id;
+
+      return (
+        <div key={cat.id}>
+          <div
+            className={`flex items-center gap-2 px-3 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer transition-colors ${
+              isSelected ? 'bg-blue-50 dark:bg-blue-900/30' : ''
+            }`}
+            style={{ paddingLeft: `${depth * 16 + 12}px` }}
+          >
+            {hasChildren ? (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  toggleCategory(cat.id);
+                }}
+                className="flex-shrink-0 p-1 hover:bg-gray-200 dark:hover:bg-gray-600 rounded"
+              >
+                {isExpanded ? (
+                  <ChevronDown className="w-3 h-3 text-gray-600 dark:text-gray-400" />
+                ) : (
+                  <ChevronRight className="w-3 h-3 text-gray-600 dark:text-gray-400" />
+                )}
+              </button>
+            ) : (
+              <div className="w-5" />
+            )}
+            <div
+              onClick={() => {
+                setParentId(cat.id);
+                setShowParentSelector(false);
+              }}
+              className="flex-1 py-1"
+            >
+              <span className={`text-sm ${isSelected ? 'font-medium text-blue-600 dark:text-blue-400' : 'text-gray-700 dark:text-gray-300'}`}>
+                {cat.title}
+              </span>
+            </div>
+          </div>
+          {isExpanded && hasChildren && (
+            <div>
+              {renderCategoryTree(cat.children!, depth + 1)}
+            </div>
+          )}
+        </div>
+      );
     });
   };
 
@@ -127,14 +186,13 @@ export default function AddCategoryDialog({
   };
 
   const handleSaveClick = () => {
-    if (!title || !slug) {
-      alert('Please fill in title and slug');
+    if (!title) {
+      alert('Please fill in title');
       return;
     }
 
     const formData = new FormData();
     formData.append('title', title);
-    formData.append('slug', slug);
     if (description) {
       formData.append('description', description);
     }
@@ -147,12 +205,13 @@ export default function AddCategoryDialog({
 
     onSave(formData);
 
+    // Reset form
     setTitle("");
     setDescription("");
-    setSlug("");
     setImageFile(null);
     setImagePreview("");
     setParentId(null);
+    setExpandedCategories(new Set());
   };
 
   if (!open) return null;
@@ -179,22 +238,9 @@ export default function AddCategoryDialog({
             <input 
               type="text" 
               value={title} 
-              onChange={(e) => handleTitleChange(e.target.value)} 
+              onChange={(e) => setTitle(e.target.value)} 
               placeholder="Category title" 
               className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 dark:text-white"
-            />
-          </div>
-
-          <div className="space-y-2">
-            <label className="block text-sm font-medium text-gray-900 dark:text-white">
-              Slug <span className="text-red-500">*</span>
-            </label>
-            <input 
-              type="text" 
-              value={slug} 
-              onChange={(e) => setSlug(e.target.value)} 
-              placeholder="category-slug" 
-              className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 dark:text-white" 
             />
           </div>
 
@@ -214,19 +260,36 @@ export default function AddCategoryDialog({
               Parent Category (optional)
             </label>
             
-            <select
-              value={parentId || ''}
-              onChange={(e) => setParentId(e.target.value ? Number(e.target.value) : null)}
-              disabled={loadingCategories}
-              className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 dark:text-white disabled:opacity-50"
-            >
-              <option value="">None (Root Level)</option>
-              {loadingCategories ? (
-                <option disabled>Loading...</option>
-              ) : (
-                renderCategoryOptions(categories)
+            <div className="relative">
+              <button
+                onClick={() => setShowParentSelector(!showParentSelector)}
+                className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-left flex items-center justify-between text-gray-900 dark:text-white"
+              >
+                <span className="text-sm truncate">{getSelectedCategoryPath()}</span>
+                <ChevronDown className={`w-4 h-4 transition-transform flex-shrink-0 ml-2 ${showParentSelector ? 'rotate-180' : ''}`} />
+              </button>
+
+              {showParentSelector && (
+                <div className="absolute z-10 w-full mt-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg max-h-60 overflow-y-auto">
+                  <div
+                    onClick={() => {
+                      setParentId(null);
+                      setShowParentSelector(false);
+                    }}
+                    className={`px-3 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer text-sm transition-colors ${
+                      parentId === null ? 'bg-blue-50 dark:bg-blue-900/30 font-medium text-blue-600 dark:text-blue-400' : 'text-gray-900 dark:text-white'
+                    }`}
+                  >
+                    None (Root Level)
+                  </div>
+                  {loadingCategories ? (
+                    <div className="px-3 py-2 text-sm text-gray-500 dark:text-gray-400">Loading categories...</div>
+                  ) : (
+                    renderCategoryTree(categories)
+                  )}
+                </div>
               )}
-            </select>
+            </div>
           </div>
 
           <div className="space-y-2">
@@ -238,10 +301,18 @@ export default function AddCategoryDialog({
               className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 dark:text-white file:mr-4 file:py-1 file:px-3 file:rounded file:border-0 file:text-sm file:bg-gray-200 dark:file:bg-gray-700 file:text-gray-700 dark:file:text-gray-300" 
             />
 
-            {imagePreview && (
+            {imagePreview && imagePreview.trim() !== '' && (
               <img 
                 src={imagePreview} 
                 alt="Preview" 
+                className="w-full h-32 object-cover rounded border border-gray-200 dark:border-gray-700 mt-2" 
+              />
+            )}
+
+            {!imagePreview && editCategory?.image_url && editCategory.image_url.trim() !== '' && (
+              <img 
+                src={editCategory.image_url} 
+                alt="Current image" 
                 className="w-full h-32 object-cover rounded border border-gray-200 dark:border-gray-700 mt-2" 
               />
             )}
@@ -257,7 +328,7 @@ export default function AddCategoryDialog({
           </button>
           <button 
             onClick={handleSaveClick} 
-            disabled={!title || !slug} 
+            disabled={!title} 
             className="px-4 py-2 bg-gray-900 dark:bg-white text-white dark:text-gray-900 rounded-lg hover:bg-gray-800 dark:hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
             {editCategory ? "Update" : "Create"}

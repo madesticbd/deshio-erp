@@ -1,25 +1,19 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Plus, Search, ChevronLeft, ChevronRight } from "lucide-react";
+import { Plus, Search } from "lucide-react";
 
 import Header from "@/components/Header";
 import Sidebar from "@/components/Sidebar";
 import CategoryListItem from "@/components/CategoryListItem";
 import AddCategoryDialog from "@/components/AddCategoryDialog";
 import Toast from "@/components/Toast";
-import categoryService, { Category, PaginatedResponse } from "@/services/categoryService";
+import categoryService, { Category } from "@/services/categoryService";
 
 export default function CategoryPageWrapper() {
   const [darkMode, setDarkMode] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [categories, setCategories] = useState<Category[]>([]);
-  const [pagination, setPagination] = useState({
-    current_page: 1,
-    last_page: 1,
-    per_page: 15,
-    total: 0
-  });
   const [searchQuery, setSearchQuery] = useState("");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editCategory, setEditCategory] = useState<Category | null>(null);
@@ -32,7 +26,7 @@ export default function CategoryPageWrapper() {
 
   useEffect(() => {
     loadCategories();
-  }, [searchQuery, pagination.current_page]);
+  }, []);
 
   const showToast = (message: string, type: 'success' | 'error' | 'info' | 'warning' = 'success') => {
     setToast({ message, type });
@@ -41,20 +35,18 @@ export default function CategoryPageWrapper() {
   const loadCategories = async () => {
     try {
       setLoading(true);
-      const result = await categoryService.getAll({
-        page: pagination.current_page,
-        per_page: pagination.per_page,
-        search: searchQuery || undefined,
-        is_active: true
-      }) as PaginatedResponse<Category>;
+      // Load tree structure to show nested categories
+      const result = await categoryService.getTree(true);
       
-      setCategories(result.data);
-      setPagination({
-        current_page: result.current_page,
-        last_page: result.last_page,
-        per_page: result.per_page,
-        total: result.total
-      });
+      // Transform all_children to children
+      const transformCategories = (cats: Category[]): Category[] => {
+        return cats.map(cat => ({
+          ...cat,
+          children: cat.all_children ? transformCategories(cat.all_children) : []
+        }));
+      };
+      
+      setCategories(transformCategories(result));
     } catch (error: any) {
       console.error('Failed to load categories:', error);
       showToast(error.message || 'Failed to load categories', 'error');
@@ -108,9 +100,33 @@ export default function CategoryPageWrapper() {
     }
   };
 
-  const handlePageChange = (page: number) => {
-    setPagination(prev => ({ ...prev, current_page: page }));
+  // Filter categories based on search query
+  const filterCategories = (cats: Category[], query: string): Category[] => {
+    if (!query) return cats;
+    
+    const lowerQuery = query.toLowerCase();
+    
+    return cats.reduce((acc: Category[], cat) => {
+      const matchesTitle = cat.title.toLowerCase().includes(lowerQuery);
+      const matchesDescription = cat.description?.toLowerCase().includes(lowerQuery);
+      const matchesSlug = cat.slug.toLowerCase().includes(lowerQuery);
+      
+      // Check if children match
+      const filteredChildren = cat.children ? filterCategories(cat.children, query) : [];
+      
+      // Include if this category matches OR if any children match
+      if (matchesTitle || matchesDescription || matchesSlug || filteredChildren.length > 0) {
+        acc.push({
+          ...cat,
+          children: filteredChildren.length > 0 ? filteredChildren : cat.children
+        });
+      }
+      
+      return acc;
+    }, []);
   };
+
+  const filteredCategories = filterCategories(categories, searchQuery);
 
   return (
     <div className={darkMode ? "dark" : ""}>
@@ -150,10 +166,7 @@ export default function CategoryPageWrapper() {
                     type="text"
                     placeholder="Search categories..."
                     value={searchQuery}
-                    onChange={(e) => {
-                      setSearchQuery(e.target.value);
-                      setPagination(prev => ({ ...prev, current_page: 1 }));
-                    }}
+                    onChange={(e) => setSearchQuery(e.target.value)}
                     className="w-full pl-9 pr-3 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-900 dark:focus:ring-gray-500"
                   />
                 </div>
@@ -164,7 +177,7 @@ export default function CategoryPageWrapper() {
               <div className="text-center py-12">
                 <p className="text-gray-500 dark:text-gray-400">Loading categories...</p>
               </div>
-            ) : categories.length === 0 ? (
+            ) : filteredCategories.length === 0 ? (
               <div className="text-center py-12">
                 <p className="text-gray-500 dark:text-gray-400">
                   {searchQuery ? 'No categories found matching your search' : 'No categories found. Create your first category!'}
@@ -172,7 +185,7 @@ export default function CategoryPageWrapper() {
               </div>
             ) : (
               <div className="space-y-3">
-                {categories.map((category) => (
+                {filteredCategories.map((category) => (
                   <CategoryListItem
                     key={category.id}
                     category={category}
@@ -181,43 +194,6 @@ export default function CategoryPageWrapper() {
                     onAddSubcategory={handleAddSubcategory}
                   />
                 ))}
-              </div>
-            )}
-
-            {pagination.last_page > 1 && (
-              <div className="flex items-center justify-between mt-6 pt-6 border-t border-gray-200 dark:border-gray-700">
-                <p className="text-sm text-gray-600 dark:text-gray-400">
-                  Page {pagination.current_page} of {pagination.last_page} ({pagination.total} total)
-                </p>
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => handlePageChange(pagination.current_page - 1)}
-                    disabled={pagination.current_page === 1}
-                    className="h-10 w-10 flex items-center justify-center border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-gray-900 dark:text-white"
-                  >
-                    <ChevronLeft className="w-4 h-4" />
-                  </button>
-                  {Array.from({ length: pagination.last_page }, (_, i) => i + 1).map((page) => (
-                    <button
-                      key={page}
-                      onClick={() => handlePageChange(page)}
-                      className={`h-10 w-10 flex items-center justify-center rounded-lg transition-colors ${
-                        pagination.current_page === page
-                          ? "bg-gray-900 dark:bg-white text-white dark:text-gray-900"
-                          : "border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white hover:bg-gray-100 dark:hover:bg-gray-700"
-                      }`}
-                    >
-                      {page}
-                    </button>
-                  ))}
-                  <button
-                    onClick={() => handlePageChange(pagination.current_page + 1)}
-                    disabled={pagination.current_page === pagination.last_page}
-                    className="h-10 w-10 flex items-center justify-center border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-gray-900 dark:text-white"
-                  >
-                    <ChevronRight className="w-4 h-4" />
-                  </button>
-                </div>
               </div>
             )}
 
