@@ -207,3 +207,4 @@ export const categoryService = {
     });
   }
 };
+export type { Category };

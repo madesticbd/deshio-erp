@@ -2,48 +2,43 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { ArrowLeft, Plus, X, Upload, Trash2 } from 'lucide-react';
+import { ArrowLeft, Plus } from 'lucide-react';
 import Header from '@/components/Header';
 import Sidebar from '@/components/Sidebar';
 import Toast from '@/components/Toast';
+import FieldsSidebar from '@/components/product/FieldsSidebar';
+import DynamicFieldInput from '@/components/product/DynamicFieldInput';
+import ImageUpload from '@/components/product/ImageUpload';
+import VariationCard from '@/components/product/VariationCard';
 import { productService, Field } from '@/services/productService';
 import { categoryService, Category } from '@/services/categoryService';
 import { vendorService, Vendor } from '@/services/vendorService';
+import {
+  FieldValue,
+  CategorySelectionState,
+  VariationData,
+  FALLBACK_IMAGE_URL,
+} from '@/types/product';
 
-interface FieldValue {
-  fieldId: number;
-  fieldName: string;
-  fieldType: string;
-  value: any;
-  instanceId: string;
-}
-
-interface CategorySelectionState {
-  [key: string]: string;
-}
-
-interface VariationData {
-  id: string;
-  color: string;
-  images: File[];
-  imagePreviews: string[];
-  sizes: string[];
-}
-
-// Field IDs that are automatically set for variations - prevent duplicates
-const VARIATION_FIELD_IDS = [6, 7, 15, 16]; // Color, Size, Variation Group, Is Variation
 
 export default function AddEditProductPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const productId = searchParams.get('id');
   const isEditMode = !!productId;
+  
+  // Check if adding variation to existing product
+  const addVariationMode = searchParams.get('addVariation') === 'true';
+  const baseSku = searchParams.get('baseSku') || '';
+  const baseName = searchParams.get('baseName') || '';
+  const categoryId = searchParams.get('categoryId') || '';
 
-  const [darkMode, setDarkMode] = useState(false);
-  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [darkMode, setDarkMode] = useState<boolean>(false);
+  const [sidebarOpen, setSidebarOpen] = useState<boolean>(true);
   const [activeTab, setActiveTab] = useState<'general' | 'variations'>('general');
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState<boolean>(false);
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' | 'warning' } | null>(null);
+  const [isVariationProduct, setIsVariationProduct] = useState<boolean>(false);
 
   // Form Data
   const [formData, setFormData] = useState({
@@ -75,55 +70,32 @@ export default function AddEditProductPage() {
   useEffect(() => {
     if (isEditMode && productId && availableFields.length > 0) {
       fetchProduct();
+    } else if (addVariationMode) {
+      // Pre-fill data for adding variation
+      setFormData({
+        name: baseName,
+        sku: baseSku,
+        description: '',
+      });
+      setCategorySelection({ level0: categoryId });
+      setActiveTab('variations');
     }
-  }, [isEditMode, productId, availableFields]);
+  }, [isEditMode, productId, availableFields, addVariationMode]);
 
   const fetchInitialData = async () => {
     try {
       setLoading(true);
       
-      // Fetch fields
-      try {
-        const fieldsData = await productService.getAvailableFields();
-        setAvailableFields(Array.isArray(fieldsData) ? fieldsData : []);
-      } catch (error) {
-        console.error('Failed to fetch fields:', error);
-        setAvailableFields([]);
-      }
+      const fieldsData = await productService.getAvailableFields();
+      setAvailableFields(Array.isArray(fieldsData) ? fieldsData : []);
 
-      // Fetch categories
-      try {
-        const categoriesData = await categoryService.getAll();
-        const categoriesList = Array.isArray(categoriesData) ? categoriesData : [];
-        setCategories(categoriesList);
-        
-        if (categoriesList.length === 0) {
-          setToast({ 
-            message: 'No categories found. Please create categories first.', 
-            type: 'warning' 
-          });
-        }
-      } catch (error) {
-        console.error('Failed to fetch categories:', error);
-        setCategories([]);
-      }
+      const categoriesData = await categoryService.getAll();
+      const categoriesList = Array.isArray(categoriesData) ? categoriesData : [];
+      setCategories(categoriesList);
 
-      // Fetch vendors - FIXED
-      try {
-        const vendorsData = await vendorService.getAll({ is_active: true });
-        const vendorsList = Array.isArray(vendorsData) ? vendorsData : [];
-        setVendors(vendorsList);
-        
-        if (vendorsList.length === 0) {
-          setToast({ 
-            message: 'No vendors found. Please create vendors first.', 
-            type: 'warning' 
-          });
-        }
-      } catch (error) {
-        console.error('Failed to fetch vendors:', error);
-        setVendors([]);
-      }
+      const vendorsData = await vendorService.getAll({ is_active: true });
+      const vendorsList = Array.isArray(vendorsData) ? vendorsData : [];
+      setVendors(vendorsList);
     } catch (error) {
       console.error('Failed to fetch initial data:', error);
       setToast({ message: 'Failed to load page data. Please refresh.', type: 'error' });
@@ -158,11 +130,13 @@ export default function AddEditProductPage() {
         }
       }
 
+      // Check if this is a variation product (has color field)
+      const hasColor = product.custom_fields?.some(cf => cf.field_id === 6 && cf.value);
+      setIsVariationProduct(hasColor);
+
       if (product.custom_fields) {
         const fields: FieldValue[] = product.custom_fields
-          .filter(cf => {
-            return !['Primary Image', 'Additional Images', 'SKU', 'Product Name', 'Description', 'Category', 'Vendor'].includes(cf.field_title);
-          })
+          .filter(cf => !['Primary Image', 'Additional Images', 'SKU', 'Product Name', 'Description', 'Category', 'Vendor'].includes(cf.field_title))
           .map(cf => ({
             fieldId: cf.field_id,
             fieldName: cf.field_title,
@@ -184,12 +158,10 @@ export default function AddEditProductPage() {
   const getCategoryPathArray = (): string[] => {
     const path: string[] = [];
     let level = 0;
-
     while (categorySelection[`level${level}`]) {
       path.push(categorySelection[`level${level}`]);
       level++;
     }
-
     return path;
   };
 
@@ -205,7 +177,6 @@ export default function AddEditProductPage() {
         current = cat.subcategories || [];
       }
     }
-
     return names.join(' > ') || 'None selected';
   };
 
@@ -225,9 +196,7 @@ export default function AddEditProductPage() {
 
     setPrimaryImage(file);
     const reader = new FileReader();
-    reader.onloadend = () => {
-      setPrimaryImagePreview(reader.result as string);
-    };
+    reader.onloadend = () => setPrimaryImagePreview(reader.result as string);
     reader.readAsDataURL(file);
   };
 
@@ -253,96 +222,7 @@ export default function AddEditProductPage() {
     ));
   };
 
-  // Variation functions
-  const addVariation = () => {
-    const newVarId = `var-${Date.now()}-${Math.random()}`;
-    setVariations([...variations, {
-      id: newVarId,
-      color: '',
-      images: [],
-      imagePreviews: [],
-      sizes: [],
-    }]);
-  };
-
-  const removeVariation = (varId: string) => {
-    setVariations(variations.filter(v => v.id !== varId));
-  };
-
-  const updateVariationColor = (varId: string, color: string) => {
-    setVariations(variations.map(v =>
-      v.id === varId ? { ...v, color } : v
-    ));
-  };
-
-  const addSize = (varId: string) => {
-    setVariations(variations.map(v =>
-      v.id === varId ? { ...v, sizes: [...v.sizes, ''] } : v
-    ));
-  };
-
-  const removeSize = (varId: string, sizeIndex: number) => {
-    setVariations(variations.map(v =>
-      v.id === varId ? { ...v, sizes: v.sizes.filter((_, i) => i !== sizeIndex) } : v
-    ));
-  };
-
-  const updateSizeValue = (varId: string, sizeIndex: number, size: string) => {
-    setVariations(variations.map(v =>
-      v.id === varId ? { ...v, sizes: v.sizes.map((s, i) => i === sizeIndex ? size : s) } : v
-    ));
-  };
-
-  const handleVariationImageChange = (varId: string, e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(e.target.files || []);
-    if (files.length === 0) return;
-
-    const validFiles = files.filter(file => {
-      if (!file.type.startsWith('image/')) {
-        setToast({ message: `${file.name} is not an image file`, type: 'error' });
-        return false;
-      }
-      if (file.size > 5 * 1024 * 1024) {
-        setToast({ message: `${file.name} is too large (max 5MB)`, type: 'error' });
-        return false;
-      }
-      return true;
-    });
-
-    setVariations(variations.map(v => {
-      if (v.id !== varId) return v;
-      
-      const newImages = [...v.images, ...validFiles];
-
-      validFiles.forEach(file => {
-        const reader = new FileReader();
-        reader.onloadend = () => {
-          setVariations(prev => prev.map(pv => {
-            if (pv.id !== varId) return pv;
-            return {
-              ...pv,
-              imagePreviews: [...pv.imagePreviews, reader.result as string]
-            };
-          }));
-        };
-        reader.readAsDataURL(file);
-      });
-
-      return { ...v, images: newImages };
-    }));
-  };
-
-  const removeVariationImage = (varId: string, imageIndex: number) => {
-    setVariations(variations.map(v => {
-      if (v.id !== varId) return v;
-      return {
-        ...v,
-        images: v.images.filter((_, i) => i !== imageIndex),
-        imagePreviews: v.imagePreviews.filter((_, i) => i !== imageIndex)
-      };
-    }));
-  };
-
+  // Validation
   const validateForm = (): boolean => {
     if (!formData.name.trim()) {
       setToast({ message: 'Product name is required', type: 'error' });
@@ -365,38 +245,112 @@ export default function AddEditProductPage() {
       return false;
     }
 
-    if (!isEditMode && !primaryImage && variations.length === 0) {
-      setToast({ message: 'Primary image is required', type: 'error' });
-      return false;
-    }
-
-    if (variations.length > 0) {
-      for (const variation of variations) {
-        if (!variation.color.trim()) {
-          setToast({ message: 'All variations must have a color', type: 'error' });
-          return false;
-        }
-
-        if (variation.images.length === 0) {
-          setToast({ message: `Variation "${variation.color}" must have at least one image`, type: 'error' });
-          return false;
-        }
-
-        if (variation.sizes.length === 0) {
-          setToast({ message: `Variation "${variation.color}" must have at least one size`, type: 'error' });
-          return false;
-        }
-
-        for (const size of variation.sizes) {
-          if (!size.trim()) {
-            setToast({ message: `All sizes in variation "${variation.color}" must be specified`, type: 'error' });
-            return false;
-          }
-        }
+    if (!isEditMode && variations.length > 0) {
+      const hasValidVariation = variations.some(v => v.color.trim());
+      
+      if (!hasValidVariation) {
+        setToast({ message: 'Please add at least one color for variations', type: 'error' });
+        return false;
       }
     }
 
     return true;
+  };
+
+  // Variation management functions
+  const addVariation = () => {
+    const newVariation: VariationData = {
+      id: `var-${Date.now()}-${Math.random()}`,
+      color: '',
+      sizes: [''],
+      images: [],
+      imagePreviews: [],
+    };
+    setVariations([...variations, newVariation]);
+  };
+
+  const removeVariation = (variationId: string) => {
+    setVariations(variations.filter(v => v.id !== variationId));
+  };
+
+  const updateVariationColor = (variationId: string, color: string) => {
+    setVariations(variations.map(v =>
+      v.id === variationId ? { ...v, color } : v
+    ));
+  };
+
+  const addSize = (variationId: string) => {
+    setVariations(variations.map(v =>
+      v.id === variationId ? { ...v, sizes: [...v.sizes, ''] } : v
+    ));
+  };
+
+  const updateSizeValue = (variationId: string, sizeIndex: number, value: string) => {
+    setVariations(variations.map(v =>
+      v.id === variationId
+        ? { ...v, sizes: v.sizes.map((s, idx) => (idx === sizeIndex ? value : s)) }
+        : v
+    ));
+  };
+
+  const removeSize = (variationId: string, sizeIndex: number) => {
+    setVariations(variations.map(v =>
+      v.id === variationId
+        ? { ...v, sizes: v.sizes.filter((_, idx) => idx !== sizeIndex) }
+        : v
+    ));
+  };
+
+  const handleVariationImageChange = (variationId: string, e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    
+    if (files.length === 0) return;
+
+    const invalidFiles = files.filter(f => !f.type.startsWith('image/'));
+    if (invalidFiles.length > 0) {
+      setToast({ message: 'Only image files are allowed', type: 'error' });
+      return;
+    }
+
+    const largeFiles = files.filter(f => f.size > 5 * 1024 * 1024);
+    if (largeFiles.length > 0) {
+      setToast({ message: 'Images must be less than 5MB each', type: 'error' });
+      return;
+    }
+
+    setVariations(variations.map(v => {
+      if (v.id !== variationId) return v;
+
+      const newImages = [...v.images, ...files];
+      const newPreviews = [...v.imagePreviews];
+
+      files.forEach(file => {
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          newPreviews.push(reader.result as string);
+          setVariations(prevVars =>
+            prevVars.map(pv =>
+              pv.id === variationId ? { ...pv, imagePreviews: newPreviews } : pv
+            )
+          );
+        };
+        reader.readAsDataURL(file);
+      });
+
+      return { ...v, images: newImages };
+    }));
+  };
+
+  const removeVariationImage = (variationId: string, imageIndex: number) => {
+    setVariations(variations.map(v =>
+      v.id === variationId
+        ? {
+            ...v,
+            images: v.images.filter((_, idx) => idx !== imageIndex),
+            imagePreviews: v.imagePreviews.filter((_, idx) => idx !== imageIndex),
+          }
+        : v
+    ));
   };
 
   const handleSubmit = async () => {
@@ -435,7 +389,6 @@ export default function AddEditProductPage() {
         };
 
         if (variations.length > 0) {
-          // Find Color and Size fields dynamically
           const colorField = availableFields.find(f => f.title === 'Color');
           const sizeField = availableFields.find(f => f.title === 'Size');
 
@@ -448,15 +401,21 @@ export default function AddEditProductPage() {
             return;
           }
 
-          // Create variations - same SKU for all
           const createdProducts = [];
+          const VARIATION_FIELD_IDS = [colorField.id, sizeField.id];
+          const baseCustomFields = customFields.filter(
+            cf => !VARIATION_FIELD_IDS.includes(cf.field_id)
+          );
 
           for (const variation of variations) {
-            for (const size of variation.sizes) {
-              const variationName = `${baseData.name} - ${variation.color} - ${size}`;
-              
-              // Upload images
-              const imageUrls: string[] = [];
+            const hasColor = variation.color.trim();
+            const validSizes = variation.sizes.filter(s => s.trim());
+            const hasSizes = validSizes.length > 0;
+            
+            if (!hasColor) continue; // Skip variations without color
+
+            const imageUrls: string[] = [];
+            if (variation.images.length > 0) {
               for (const imageFile of variation.images) {
                 try {
                   const imageUrl = await productService.uploadImage(imageFile);
@@ -465,23 +424,62 @@ export default function AddEditProductPage() {
                   console.error('Failed to upload image:', error);
                 }
               }
+            }
+            
+            if (imageUrls.length === 0) {
+              imageUrls.push(FALLBACK_IMAGE_URL);
+            }
 
-              // FILTER OUT Color and Size fields to prevent duplicates
-              const VARIATION_FIELD_IDS = [colorField.id, sizeField.id];
-              const baseCustomFields = customFields.filter(
-                cf => !VARIATION_FIELD_IDS.includes(cf.field_id)
-              );
+            if (hasSizes) {
+              // Create product for each size
+              for (const size of validSizes) {
+                const variationName = `${baseData.name} - ${variation.color} - ${size}`;
+                
+                const varCustomFields = [
+                  ...baseCustomFields,
+                  { field_id: colorField.id, value: variation.color },
+                  { field_id: sizeField.id, value: size }
+                ];
 
-              // Create product with ONLY Color and Size variation fields
+                const productData = {
+                  name: variationName,
+                  sku: baseData.sku,
+                  description: baseData.description,
+                  category_id: baseData.category_id,
+                  vendor_id: baseData.vendor_id,
+                  custom_fields: varCustomFields,
+                };
+
+                const product = await productService.create(productData);
+
+                if (imageUrls.length > 0 && product.id) {
+                  for (let i = 0; i < imageUrls.length; i++) {
+                    try {
+                      await productService.addProductImage(product.id, {
+                        image_path: imageUrls[i],
+                        is_primary: i === 0,
+                        order: i,
+                      });
+                    } catch (error) {
+                      console.error('Failed to attach image:', error);
+                    }
+                  }
+                }
+
+                createdProducts.push(product);
+              }
+            } else {
+              // Create product with just color, no size
+              const variationName = `${baseData.name} - ${variation.color}`;
+              
               const varCustomFields = [
-                ...baseCustomFields,  // User's other fields
-                { field_id: colorField.id, value: variation.color },  // Dynamic Color ID
-                { field_id: sizeField.id, value: size }               // Dynamic Size ID
+                ...baseCustomFields,
+                { field_id: colorField.id, value: variation.color }
               ];
 
               const productData = {
                 name: variationName,
-                sku: baseData.sku, // SAME SKU for all variations
+                sku: baseData.sku,
                 description: baseData.description,
                 category_id: baseData.category_id,
                 vendor_id: baseData.vendor_id,
@@ -490,7 +488,6 @@ export default function AddEditProductPage() {
 
               const product = await productService.create(productData);
 
-              // Attach images
               if (imageUrls.length > 0 && product.id) {
                 for (let i = 0; i < imageUrls.length; i++) {
                   try {
@@ -509,13 +506,40 @@ export default function AddEditProductPage() {
             }
           }
 
+          if (createdProducts.length === 0) {
+            setToast({ message: 'No valid variations to create. Please add at least a color.', type: 'warning' });
+            setLoading(false);
+            return;
+          }
+
           setToast({ message: `Created ${createdProducts.length} product variation(s)!`, type: 'success' });
         } else {
-          // Single product
-          await productService.create({
+          const product = await productService.create({
             ...baseData,
             custom_fields: customFields,
           });
+
+          if (primaryImage && product.id) {
+            try {
+              const imageUrl = await productService.uploadImage(primaryImage);
+              if (imageUrl) {
+                await productService.addProductImage(product.id, {
+                  image_path: imageUrl,
+                  is_primary: true,
+                  order: 0,
+                });
+              }
+            } catch (error) {
+              console.error('Failed to upload primary image:', error);
+            }
+          } else if (product.id) {
+            await productService.addProductImage(product.id, {
+              image_path: FALLBACK_IMAGE_URL,
+              is_primary: true,
+              order: 0,
+            });
+          }
+
           setToast({ message: 'Product created successfully!', type: 'success' });
         }
 
@@ -526,88 +550,6 @@ export default function AddEditProductPage() {
       setToast({ message: error.message || 'Failed to save product', type: 'error' });
     } finally {
       setLoading(false);
-    }
-  };
-
-  const renderFieldInput = (field: FieldValue) => {
-    const { instanceId, fieldType, fieldName, value } = field;
-    const fieldDef = availableFields.find(f => f.id === field.fieldId);
-
-    switch (fieldType.toLowerCase()) {
-      case 'text':
-      case 'email':
-      case 'url':
-        return (
-          <input
-            type={fieldType}
-            value={value || ''}
-            onChange={(e) => updateFieldValue(instanceId, e.target.value)}
-            placeholder={fieldDef?.placeholder || `Enter ${fieldName.toLowerCase()}`}
-            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
-          />
-        );
-
-      case 'number':
-        return (
-          <input
-            type="number"
-            value={value || ''}
-            onChange={(e) => updateFieldValue(instanceId, e.target.value)}
-            placeholder={fieldDef?.placeholder || `Enter ${fieldName.toLowerCase()}`}
-            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
-          />
-        );
-
-      case 'textarea':
-        return (
-          <textarea
-            value={value || ''}
-            onChange={(e) => updateFieldValue(instanceId, e.target.value)}
-            placeholder={fieldDef?.placeholder || `Enter ${fieldName.toLowerCase()}`}
-            rows={3}
-            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white resize-none"
-          />
-        );
-
-      case 'select':
-        return (
-          <select
-            value={value || ''}
-            onChange={(e) => updateFieldValue(instanceId, e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
-          >
-            <option value="">Select {fieldName.toLowerCase()}</option>
-            {fieldDef?.options?.map((option) => (
-              <option key={option} value={option}>
-                {option}
-              </option>
-            ))}
-          </select>
-        );
-
-      case 'boolean':
-        return (
-          <label className="flex items-center gap-2">
-            <input
-              type="checkbox"
-              checked={value === 'true' || value === true}
-              onChange={(e) => updateFieldValue(instanceId, e.target.checked ? 'true' : 'false')}
-              className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-            />
-            <span className="text-sm text-gray-700 dark:text-gray-300">Yes</span>
-          </label>
-        );
-
-      default:
-        return (
-          <input
-            type="text"
-            value={value || ''}
-            onChange={(e) => updateFieldValue(instanceId, e.target.value)}
-            placeholder={fieldDef?.placeholder || `Enter ${fieldName.toLowerCase()}`}
-            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
-          />
-        );
     }
   };
 
@@ -629,7 +571,10 @@ export default function AddEditProductPage() {
         <div className="flex-1 flex flex-col">
           <Header darkMode={darkMode} setDarkMode={setDarkMode} toggleSidebar={() => setSidebarOpen(!sidebarOpen)} />
           <main className="flex-1 bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
-            <p className="text-gray-600 dark:text-gray-400">Loading...</p>
+            <div className="text-center">
+              <div className="w-12 h-12 border-4 border-gray-200 dark:border-gray-700 border-t-gray-900 dark:border-t-white rounded-full animate-spin mx-auto mb-4"></div>
+              <p className="text-gray-600 dark:text-gray-400">Loading...</p>
+            </div>
           </main>
         </div>
       </div>
@@ -637,6 +582,7 @@ export default function AddEditProductPage() {
   }
 
   const flatCategories = getFlatCategories(categories);
+  const showVariationsTab = !isEditMode || isVariationProduct;
 
   return (
     <div className={`${darkMode ? 'dark' : ''} flex h-screen`}>
@@ -644,455 +590,307 @@ export default function AddEditProductPage() {
       <div className="flex-1 flex flex-col overflow-hidden">
         <Header darkMode={darkMode} setDarkMode={setDarkMode} toggleSidebar={() => setSidebarOpen(!sidebarOpen)} />
 
-        <main className="flex-1 overflow-y-auto bg-gray-50 dark:bg-gray-900 p-6">
-          <div className="max-w-4xl mx-auto">
+        <main className="flex-1 overflow-y-auto bg-gray-50 dark:bg-gray-900">
+          <div className="max-w-4xl mx-auto p-6">
             {/* Header */}
             <div className="flex items-center gap-4 mb-6">
               <button
                 onClick={() => router.back()}
-                className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
+                className="p-2.5 hover:bg-white dark:hover:bg-gray-800 rounded-lg transition-colors border border-gray-200 dark:border-gray-700 shadow-sm"
               >
                 <ArrowLeft className="w-5 h-5 text-gray-600 dark:text-gray-400" />
               </button>
               <div>
-                <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
-                  {isEditMode ? 'Edit Product' : 'Add New Product'}
+                <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
+                  {isEditMode ? 'Edit Product' : addVariationMode ? 'Add Product Variation' : 'Add New Product'}
                 </h1>
-                <p className="text-sm text-gray-600 dark:text-gray-400">
-                  {isEditMode ? 'Update product information' : 'Create a new product in your catalog'}
+                <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                  {isEditMode 
+                    ? 'Update product information' 
+                    : addVariationMode 
+                    ? 'Create a new variation for existing product'
+                    : 'Create a new product in your catalog'}
                 </p>
               </div>
             </div>
 
             {/* Tabs */}
-            <div className="flex gap-4 border-b border-gray-300 dark:border-gray-700 mb-6">
+            <div className="flex gap-2 border-b border-gray-200 dark:border-gray-700 mb-6">
               <button
                 onClick={() => setActiveTab('general')}
-                className={`px-4 py-2 font-medium border-b-2 transition-colors ${
+                className={`px-6 py-3 font-medium border-b-2 transition-all ${
                   activeTab === 'general'
-                    ? 'border-blue-500 text-blue-600 dark:text-blue-400'
+                    ? 'border-gray-900 dark:border-white text-gray-900 dark:text-white'
                     : 'border-transparent text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-300'
                 }`}
               >
                 General Information
               </button>
-              {!isEditMode && (
+              {showVariationsTab && (
                 <button
                   onClick={() => setActiveTab('variations')}
-                  className={`px-4 py-2 font-medium border-b-2 transition-colors ${
+                  className={`px-6 py-3 font-medium border-b-2 transition-all ${
                     activeTab === 'variations'
-                      ? 'border-blue-500 text-blue-600 dark:text-blue-400'
+                      ? 'border-gray-900 dark:border-white text-gray-900 dark:text-white'
                       : 'border-transparent text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-300'
                   }`}
                 >
-                  Product Variations {variations.length > 0 && `(${variations.reduce((acc, v) => acc + v.sizes.length, 0)})`}
+                  Product Variations
+                  {variations.length > 0 && (
+                    <span className="ml-2 px-2 py-0.5 text-xs bg-gray-900 dark:bg-white text-white dark:text-gray-900 rounded-full">
+                      {variations.length}
+                    </span>
+                  )}
                 </button>
               )}
             </div>
 
-            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
-              {/* GENERAL TAB */}
-              {activeTab === 'general' && (
-                <div className="space-y-6">
-                  {/* Product Name */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                      Product Name <span className="text-red-500">*</span>
-                    </label>
-                    <input
-                      type="text"
-                      value={formData.name}
-                      onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                      placeholder="Enter product name"
-                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
-                    />
-                  </div>
+            {/* GENERAL TAB */}
+            {activeTab === 'general' && (
+              <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+                <div className="lg:col-span-3 space-y-6">
+                  {/* Basic Information Card */}
+                  <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6 shadow-sm">
+                    <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+                      Basic Information
+                    </h2>
+                    <div className="space-y-4">
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                            Product Name <span className="text-red-500">*</span>
+                          </label>
+                          <input
+                            type="text"
+                            value={formData.name}
+                            onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                            placeholder="Enter product name"
+                            disabled={addVariationMode}
+                            className="w-full px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-gray-900 dark:focus:ring-gray-500 focus:border-transparent dark:bg-gray-700 dark:text-white disabled:opacity-50 disabled:cursor-not-allowed"
+                          />
+                        </div>
 
-                  {/* SKU */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                      SKU <span className="text-red-500">*</span>
-                    </label>
-                    <input
-                      type="text"
-                      value={formData.sku}
-                      onChange={(e) => setFormData({ ...formData, sku: e.target.value })}
-                      placeholder="e.g., PROD-001"
-                      disabled={isEditMode}
-                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white disabled:opacity-50 disabled:cursor-not-allowed"
-                    />
-                    {isEditMode && (
-                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                        SKU cannot be changed after creation
-                      </p>
-                    )}
-                    {!isEditMode && variations.length > 0 && (
-                      <p className="text-xs text-blue-600 dark:text-blue-400 mt-1">
-                        All {variations.reduce((acc, v) => acc + v.sizes.length, 0)} variations will use this same SKU
-                      </p>
-                    )}
-                  </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                            SKU <span className="text-red-500">*</span>
+                          </label>
+                          <input
+                            type="text"
+                            value={formData.sku}
+                            onChange={(e) => setFormData({ ...formData, sku: e.target.value })}
+                            placeholder="e.g., PROD-001"
+                            disabled={isEditMode || addVariationMode}
+                            className="w-full px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-gray-900 dark:focus:ring-gray-500 focus:border-transparent dark:bg-gray-700 dark:text-white disabled:opacity-50 disabled:cursor-not-allowed"
+                          />
+                          {(isEditMode || addVariationMode) && (
+                            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                              {addVariationMode ? 'All variations share the same SKU' : 'SKU cannot be changed after creation'}
+                            </p>
+                          )}
+                        </div>
+                      </div>
 
-                  {/* Description */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                      Description
-                    </label>
-                    <textarea
-                      value={formData.description}
-                      onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                      placeholder="Enter product description"
-                      rows={4}
-                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white resize-none"
-                    />
-                  </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                          Description
+                        </label>
+                        <textarea
+                          value={formData.description}
+                          onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                          placeholder="Enter product description"
+                          rows={4}
+                          className="w-full px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-gray-900 dark:focus:ring-gray-500 focus:border-transparent dark:bg-gray-700 dark:text-white resize-none"
+                        />
+                      </div>
 
-                  {/* Category Selection */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                      Category <span className="text-red-500">*</span>
-                    </label>
-                    <select
-                      value={categorySelection.level0 || ''}
-                      onChange={(e) => {
-                        if (e.target.value) {
-                          setCategorySelection({ level0: e.target.value });
-                        } else {
-                          setCategorySelection({});
-                        }
-                      }}
-                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
-                    >
-                      <option value="">Select category</option>
-                      {flatCategories.map((cat) => (
-                        <option key={cat.id} value={cat.id}>
-                          {cat.label}
-                        </option>
-                      ))}
-                    </select>
-                    {categorySelection.level0 && (
-                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                        Selected: {getCategoryPathDisplay()}
-                      </p>
-                    )}
-                  </div>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                            Category <span className="text-red-500">*</span>
+                          </label>
+                          <select
+                            value={categorySelection.level0 || ''}
+                            onChange={(e) => {
+                              if (e.target.value) {
+                                setCategorySelection({ level0: e.target.value });
+                              } else {
+                                setCategorySelection({});
+                              }
+                            }}
+                            disabled={addVariationMode}
+                            className="w-full px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-gray-900 dark:focus:ring-gray-500 focus:border-transparent dark:bg-gray-700 dark:text-white disabled:opacity-50 disabled:cursor-not-allowed"
+                          >
+                            <option value="">Select category</option>
+                            {flatCategories.map((cat) => (
+                              <option key={cat.id} value={cat.id}>
+                                {cat.label}
+                              </option>
+                            ))}
+                          </select>
+                          {categorySelection.level0 && (
+                            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                              {getCategoryPathDisplay()}
+                            </p>
+                          )}
+                        </div>
 
-                  {/* Vendor Selection */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                      Vendor <span className="text-red-500">*</span>
-                    </label>
-                    <select
-                      value={selectedVendorId}
-                      onChange={(e) => setSelectedVendorId(e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
-                    >
-                      <option value="">Select vendor</option>
-                      {Array.isArray(vendors) && vendors.length > 0 ? (
-                        vendors.map((vendor) => (
-                          <option key={vendor.id} value={vendor.id}>
-                            {vendor.name}
-                          </option>
-                        ))
-                      ) : (
-                        <option value="" disabled>No vendors available</option>
-                      )}
-                    </select>
-                    {vendors.length === 0 && (
-                      <p className="text-xs text-amber-600 dark:text-amber-400 mt-1">
-                        No vendors found. Please create a vendor first.
-                      </p>
-                    )}
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                            Vendor <span className="text-red-500">*</span>
+                          </label>
+                          <select
+                            value={selectedVendorId}
+                            onChange={(e) => setSelectedVendorId(e.target.value)}
+                            className="w-full px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-gray-900 dark:focus:ring-gray-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
+                          >
+                            <option value="">Select vendor</option>
+                            {vendors.map((vendor) => (
+                              <option key={vendor.id} value={vendor.id}>
+                                {vendor.name}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                      </div>
+                    </div>
                   </div>
 
                   {/* Primary Image - Only if NOT using variations */}
                   {!isEditMode && variations.length === 0 && (
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                        Primary Image <span className="text-red-500">*</span>
-                      </label>
-                      <label className="cursor-pointer block">
-                        <div className="flex items-center justify-center gap-2 px-4 py-8 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg hover:border-blue-500 dark:hover:border-blue-400 transition-colors">
-                          <Upload className="w-5 h-5" />
-                          <span className="text-sm">Choose Primary Image</span>
-                        </div>
-                        <input
-                          type="file"
-                          accept="image/*"
-                          onChange={handlePrimaryImageChange}
-                          className="hidden"
-                        />
-                      </label>
-
-                      {primaryImagePreview && (
-                        <div className="mt-3 relative">
-                          <img
-                            src={primaryImagePreview}
-                            alt="Primary preview"
-                            className="w-full h-48 object-cover rounded-lg border border-gray-300 dark:border-gray-600"
-                          />
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setPrimaryImage(null);
-                              setPrimaryImagePreview('');
-                            }}
-                            className="absolute top-2 right-2 p-1.5 bg-red-500 text-white rounded-full hover:bg-red-600"
-                          >
-                            <X className="w-4 h-4" />
-                          </button>
-                        </div>
-                      )}
+                    <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6 shadow-sm">
+                      <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+                        Product Image
+                      </h2>
+                      <ImageUpload
+                        label="Primary Image"
+                        preview={primaryImagePreview}
+                        onUpload={handlePrimaryImageChange}
+                        onRemove={() => {
+                          setPrimaryImage(null);
+                          setPrimaryImagePreview('');
+                        }}
+                        optional={true}
+                      />
                     </div>
                   )}
 
                   {variations.length > 0 && (
                     <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
                       <p className="text-sm text-blue-800 dark:text-blue-400">
-                        <strong>Note:</strong> You're creating product variations. Upload images for each color in the "Product Variations" tab. Color and Size fields will be automatically set.
+                        <strong>Note:</strong> You're creating product variations. Upload images for each color in the "Product Variations" tab (optional - placeholder images will be used if not provided).
                       </p>
                     </div>
                   )}
 
-                  {/* Additional Fields */}
-                  <div>
-                    <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Additional Fields</h3>
-
-                    {selectedFields.length === 0 ? (
-                      <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">No additional fields added yet.</p>
-                    ) : (
-                      <div className="space-y-4 mb-4">
+                  {/* Additional Fields Section */}
+                  {selectedFields.length > 0 && (
+                    <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6 shadow-sm">
+                      <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+                        Additional Fields
+                      </h2>
+                      <div className="space-y-4">
                         {selectedFields.map((field) => (
-                          <div key={field.instanceId}>
-                            <div className="flex items-center justify-between mb-2">
-                              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                                {field.fieldName}
-                              </label>
-                              <button
-                                type="button"
-                                onClick={() => removeField(field.instanceId)}
-                                className="p-1 text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded"
-                              >
-                                <Trash2 className="w-4 h-4" />
-                              </button>
-                            </div>
-                            {renderFieldInput(field)}
-                          </div>
+                          <DynamicFieldInput
+                            key={field.instanceId}
+                            field={field}
+                            availableFields={availableFields}
+                            onUpdate={(value) => updateFieldValue(field.instanceId, value)}
+                            onRemove={() => removeField(field.instanceId)}
+                          />
                         ))}
                       </div>
-                    )}
-
-                    {availableFields.length > selectedFields.length && (
-                      <div className="border-t border-gray-300 dark:border-gray-700 pt-4">
-                        <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">Select fields to add:</p>
-                        <div className="flex flex-wrap gap-2">
-                        {availableFields
-                          .filter(f => !selectedFields.find(sf => sf.fieldId === f.id))
-                          .filter(f => !['Primary Image', 'Additional Images', 'SKU', 'Product Name', 'Description', 'Category', 'Vendor', 'Color', 'Size'].includes(f.title))
-                          // ↑ Only filter out Color and Size now (removed Variation Group and Is Variation)
-                          .map((field) => (
-                            <button
-                              key={field.id}
-                              type="button"
-                              onClick={() => addField(field)}
-                              className="px-3 py-1 text-sm bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 rounded-lg hover:bg-blue-200 dark:hover:bg-blue-800 transition-colors flex items-center gap-1"
-                            >
-                              <Plus className="w-4 h-4" />
-                              {field.title}
-                            </button>
-                          ))}
-                      </div>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              )}
-
-              {/* VARIATIONS TAB */}
-              {activeTab === 'variations' && !isEditMode && (
-                <div className="space-y-6">
-                  <div>
-                    <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">Product Variations</h3>
-                    <p className="text-sm text-gray-600 dark:text-gray-400 mb-6">
-                      Create variations with different colors and sizes. Each color has one set of images shared across all sizes.
-                    </p>
-
-                    <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4 mb-6">
-                      <h4 className="font-medium text-blue-900 dark:text-blue-300 mb-2">How Variations Work:</h4>
-                      <ul className="text-sm text-blue-800 dark:text-blue-400 space-y-1">
-                        <li>• All variations will use the SAME SKU: "<strong>{formData.sku || 'Enter SKU in General tab'}</strong>"</li>
-                        <li>• Each color has ONE set of images shared by all sizes</li>
-                        <li>• Products will be named: "<strong>{formData.name || 'Product'} - Blue - S</strong>"</li>
-                        <li>• Example: Blue with sizes S, M, L = 3 products with same blue images</li>
-                      </ul>
-                    </div>
-                  </div>
-
-                  {variations.length === 0 ? (
-                    <div className="text-center py-12 bg-gray-50 dark:bg-gray-700/50 rounded-lg border-2 border-dashed border-gray-300 dark:border-gray-600">
-                      <p className="text-gray-500 dark:text-gray-400 mb-4">
-                        No variations yet. Click "Add Color Variation" to create one.
-                      </p>
-                    </div>
-                  ) : (
-                    <div className="space-y-4">
-                      {variations.map((variation, varIdx) => (
-                        <div
-                          key={variation.id}
-                          className="bg-gray-50 dark:bg-gray-700 p-4 rounded-lg border border-gray-300 dark:border-gray-600"
-                        >
-                          <div className="flex items-center justify-between mb-4">
-                            <div>
-                              <h4 className="font-semibold text-gray-900 dark:text-white">
-                                Color Variation {varIdx + 1}: {variation.color || 'Unnamed'}
-                              </h4>
-                              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                                {variation.sizes.length} size(s) • {variation.images.length} image(s)
-                              </p>
-                            </div>
-                            <button
-                              type="button"
-                              onClick={() => removeVariation(variation.id)}
-                              className="text-red-500 hover:text-red-600 p-2 hover:bg-red-50 dark:hover:bg-red-900/20 rounded"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </button>
-                          </div>
-
-                          <div className="space-y-4">
-                            {/* Color Name */}
-                            <div>
-                              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                                Color Name <span className="text-red-500">*</span>
-                              </label>
-                              <input
-                                type="text"
-                                value={variation.color}
-                                onChange={(e) => updateVariationColor(variation.id, e.target.value)}
-                                placeholder="e.g., Blue, Red, Black"
-                                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
-                              />
-                            </div>
-
-                            {/* Color Images */}
-                            <div>
-                              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                                Images for {variation.color || 'this color'} <span className="text-red-500">*</span>
-                              </label>
-                              <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">
-                                These images will be used for all sizes of this color
-                              </p>
-                              <div className="flex flex-wrap gap-2">
-                                {variation.imagePreviews.map((preview, imgIdx) => (
-                                  <div key={imgIdx} className="relative">
-                                    <img
-                                      src={preview}
-                                      alt={`${variation.color} ${imgIdx + 1}`}
-                                      className="w-20 h-20 object-cover rounded border border-gray-300 dark:border-gray-600"
-                                    />
-                                    {imgIdx === 0 && (
-                                      <div className="absolute -top-1 -left-1 bg-blue-500 text-white text-[10px] px-1 rounded">
-                                        Main
-                                      </div>
-                                    )}
-                                    <button
-                                      type="button"
-                                      onClick={() => removeVariationImage(variation.id, imgIdx)}
-                                      className="absolute -top-1 -right-1 p-0.5 bg-red-500 text-white rounded-full hover:bg-red-600"
-                                    >
-                                      <X className="w-3 h-3" />
-                                    </button>
-                                  </div>
-                                ))}
-
-                                <label className="cursor-pointer w-20 h-20 flex items-center justify-center border-2 border-dashed border-gray-300 dark:border-gray-600 rounded hover:border-blue-500 dark:hover:border-blue-400 transition-colors">
-                                  <Plus className="w-6 h-6 text-gray-400" />
-                                  <input
-                                    type="file"
-                                    accept="image/*"
-                                    multiple
-                                    className="hidden"
-                                    onChange={(e) => handleVariationImageChange(variation.id, e)}
-                                  />
-                                </label>
-                              </div>
-                            </div>
-
-                            {/* Sizes */}
-                            <div>
-                              <div className="flex items-center justify-between mb-2">
-                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                                  Available Sizes <span className="text-red-500">*</span>
-                                </label>
-                                <button
-                                  type="button"
-                                  onClick={() => addSize(variation.id)}
-                                  className="text-sm text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1"
-                                >
-                                  <Plus className="w-4 h-4" />
-                                  Add Size
-                                </button>
-                              </div>
-
-                              {variation.sizes.length === 0 ? (
-                                <p className="text-xs text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-800 p-3 rounded">
-                                  No sizes added. Click "Add Size" to add sizes for this color.
-                                </p>
-                              ) : (
-                                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
-                                  {variation.sizes.map((size, sizeIdx) => (
-                                    <div
-                                      key={sizeIdx}
-                                      className="flex items-center gap-2 bg-white dark:bg-gray-800 p-2 rounded border border-gray-200 dark:border-gray-600"
-                                    >
-                                      <select
-                                        value={size}
-                                        onChange={(e) => updateSizeValue(variation.id, sizeIdx, e.target.value)}
-                                        className="flex-1 px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
-                                      >
-                                        <option value="">Select</option>
-                                        {['XS', 'S', 'M', 'L', 'XL', 'XXL', 'XXXL'].map((s) => (
-                                          <option key={s} value={s}>
-                                            {s}
-                                          </option>
-                                        ))}
-                                      </select>
-                                      <button
-                                        type="button"
-                                        onClick={() => removeSize(variation.id, sizeIdx)}
-                                        className="text-red-500 hover:text-red-600 p-1"
-                                      >
-                                        <X className="w-3 h-3" />
-                                      </button>
-                                    </div>
-                                  ))}
-                                </div>
-                              )}
-                            </div>
-                          </div>
-                        </div>
-                      ))}
                     </div>
                   )}
-
-                  <button
-                    type="button"
-                    onClick={addVariation}
-                    className="w-full py-3 bg-gray-900 dark:bg-white hover:bg-gray-800 dark:hover:bg-gray-100 text-white dark:text-gray-900 rounded-lg font-medium transition-colors flex items-center justify-center gap-2"
-                  >
-                    <Plus className="w-5 h-5" />
-                    Add Color Variation
-                  </button>
                 </div>
-              )}
-            </div>
+
+                {/* Sidebar - Right Side */}
+                <div className="lg:col-span-1">
+                  <div className="sticky top-6">
+                    <FieldsSidebar
+                      fields={availableFields}
+                      selectedFieldIds={selectedFields.map(f => f.fieldId)}
+                      onAddField={addField}
+                    />
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* VARIATIONS TAB */}
+            {activeTab === 'variations' && showVariationsTab && (
+              <div className="space-y-6">
+                <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6 shadow-sm">
+                  <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
+                    Product Variations
+                  </h2>
+                  <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+                    Create variations with different colors and sizes. Color is required, sizes are optional.
+                  </p>
+
+                  <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
+                    <h4 className="font-medium text-blue-900 dark:text-blue-300 mb-2 text-sm">
+                      How Variations Work:
+                    </h4>
+                    <ul className="text-sm text-blue-800 dark:text-blue-400 space-y-1">
+                      <li>• All variations use the same SKU: "<strong>{formData.sku || 'Enter SKU in General tab'}</strong>"</li>
+                      <li>• Each <strong>color is required</strong> for a variation</li>
+                      <li>• Sizes are optional - leave empty for "One Size" products</li>
+                      <li>• Each color gets one set of images (shared across all sizes)</li>
+                      <li>• Products named: "<strong>{formData.name || 'Product'} - Blue - M</strong>"</li>
+                    </ul>
+                  </div>
+                </div>
+
+                {variations.length === 0 ? (
+                  <div className="text-center py-16 bg-white dark:bg-gray-800 rounded-xl border-2 border-dashed border-gray-300 dark:border-gray-600">
+                    <div className="flex flex-col items-center">
+                      <div className="w-16 h-16 bg-gray-100 dark:bg-gray-700 rounded-full flex items-center justify-center mb-4">
+                        <Plus className="w-8 h-8 text-gray-400" />
+                      </div>
+                      <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
+                        No Variations Yet
+                      </h3>
+                      <p className="text-gray-500 dark:text-gray-400 mb-6">
+                        Click "Add Variation" to create your first product variation
+                      </p>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {variations.map((variation, varIdx) => (
+                      <VariationCard
+                        key={variation.id}
+                        variation={variation}
+                        index={varIdx}
+                        onUpdate={(color) => updateVariationColor(variation.id, color)}
+                        onRemove={() => removeVariation(variation.id)}
+                        onImageUpload={(e) => handleVariationImageChange(variation.id, e)}
+                        onImageRemove={(imgIdx) => removeVariationImage(variation.id, imgIdx)}
+                        onSizeAdd={() => addSize(variation.id)}
+                        onSizeUpdate={(sizeIdx, value) => updateSizeValue(variation.id, sizeIdx, value)}
+                        onSizeRemove={(sizeIdx) => removeSize(variation.id, sizeIdx)}
+                      />
+                    ))}
+                  </div>
+                )}
+
+                <button
+                  type="button"
+                  onClick={addVariation}
+                  className="w-full py-3.5 bg-gray-900 dark:bg-white hover:bg-gray-800 dark:hover:bg-gray-100 text-white dark:text-gray-900 rounded-lg font-medium transition-colors flex items-center justify-center gap-2 shadow-sm"
+                >
+                  <Plus className="w-5 h-5" />
+                  Add Variation
+                </button>
+              </div>
+            )}
 
             {/* Action Buttons */}
-            <div className="flex gap-3 mt-6">
+            <div className="flex gap-3 mt-8 sticky bottom-0 bg-gray-50 dark:bg-gray-900 py-4 border-t border-gray-200 dark:border-gray-700">
               <button
                 type="button"
                 onClick={() => router.back()}
-                className="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 font-medium transition-colors"
+                className="flex-1 px-6 py-3 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-white dark:hover:bg-gray-800 font-medium transition-colors shadow-sm"
               >
                 Cancel
               </button>
@@ -1100,9 +898,14 @@ export default function AddEditProductPage() {
                 type="button"
                 onClick={handleSubmit}
                 disabled={loading}
-                className="flex-1 px-4 py-2 bg-gray-900 dark:bg-white hover:bg-gray-800 dark:hover:bg-gray-100 text-white dark:text-gray-900 rounded-lg font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                className="flex-1 px-6 py-3 bg-gray-900 dark:bg-white hover:bg-gray-800 dark:hover:bg-gray-100 text-white dark:text-gray-900 rounded-lg font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
               >
-                {loading ? 'Saving...' : isEditMode ? 'Update Product' : variations.length > 0 ? `Create ${variations.reduce((acc, v) => acc + v.sizes.length, 0)} Products` : 'Create Product'}
+                {loading ? (
+                  <span className="flex items-center justify-center gap-2">
+                    <div className="w-4 h-4 border-2 border-white dark:border-gray-900 border-t-transparent rounded-full animate-spin"></div>
+                    Saving...
+                  </span>
+                ) : isEditMode ? 'Update Product' : 'Create Product'}
               </button>
             </div>
           </div>

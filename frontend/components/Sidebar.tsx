@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { LayoutDashboard, Store, FolderTree, Package, ClipboardList, CreditCard, ShoppingCart, Image, X, AlertTriangle } from 'lucide-react';
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 
 interface SidebarProps {
   isOpen: boolean;
@@ -13,66 +13,44 @@ interface SidebarProps {
 export default function Sidebar({ isOpen, setIsOpen }: SidebarProps) {
   const pathname = usePathname();
   const [openMenu, setOpenMenu] = useState<string | null>(null);
-  const [userRole, setUserRole] = useState<string>('');
-
-  useEffect(() => {
-    // Get user role from localStorage
-    const role = localStorage.getItem('userRole') || '';
-    setUserRole(role);
-  }, []);
 
   const toggleSubMenu = (menu: string) => {
     setOpenMenu(openMenu === menu ? null : menu);
   };
 
-  const allMenuItems = [
-    { icon: LayoutDashboard, label: 'Dashboard', href: '/dashboard', roles: ['super_admin', 'store_manager', 'social_commerce_manager'] },
-    { icon: Store, label: 'Store', href: '/store', roles: ['super_admin', 'store_manager', 'social_commerce_manager'] },
-    { icon: FolderTree, label: 'Category', href: '/category', roles: ['super_admin'] },
-    { icon: Image, label: 'Gallery', href: '/gallery', roles: ['super_admin', 'social_commerce_manager'] },
+  const menuItems = [
+    { icon: LayoutDashboard, label: 'Dashboard', href: '/dashboard' },
+    { icon: Store, label: 'Store', href: '/store' },
+    { icon: FolderTree, label: 'Category', href: '/category' },
+    { icon: Image, label: 'Gallery', href: '/gallery' },
     {
       icon: Package,
       label: 'Product',
       href: '#',
-      roles: ['super_admin'],
       subMenu: [
-        { label: 'Field', href: '/product/field', roles: ['super_admin'] },
-        { label: 'Product', href: '/product/list', roles: ['super_admin'] },
-        { label: 'Batch', href: '/product/batch', roles: ['super_admin'] },
+        { label: 'Field', href: '/product/field' },
+        { label: 'Product', href: '/product/list' },
+        { label: 'Batch', href: '/product/batch' },
       ],
     },
     {
       icon: ClipboardList,
       label: 'Inventory',
       href: '#',
-      roles: ['super_admin', 'store_manager', 'social_commerce_manager'],
       subMenu: [
-        { label: 'Manage Stock', href: '/inventory/manage_stock', roles: ['super_admin', 'store_manager'] },
-        { label: 'Inventory', href: '/inventory/view', roles: ['super_admin', 'social_commerce_manager'] },
+        { label: 'Manage Stock', href: '/inventory/manage_stock' },
+        { label: 'Inventory', href: '/inventory/view' },
       ],
     },
-    { icon: ShoppingCart, label: 'POS', href: '/pos', roles: ['super_admin', 'store_manager'] },
-    { icon: ShoppingCart, label: 'Social commerce', href: '/social-commerce', roles: ['super_admin', 'social_commerce_manager'] },
-    { icon: Package, label: 'Orders', href: '/orders', roles: ['super_admin', 'social_commerce_manager'] },
-    { icon: ClipboardList, label: 'Purchase History', href: '/purchase-history', roles: ['super_admin', 'store_manager'] },
-    { icon: AlertTriangle, label: 'Defect panel', href: '/defects', roles: ['super_admin', 'store_manager'] },
-    { icon: CreditCard, label: 'Transaction', href: '/transaction', roles: ['super_admin'] },
-    { icon: CreditCard, label: 'Accounting', href: '/accounting', roles: ['super_admin'] },
-    { icon: CreditCard, label: 'Vendor Management', href: '/vendor-payment', roles: ['super_admin'] },
-   
-  
+    { icon: ShoppingCart, label: 'POS', href: '/pos' },
+    { icon: ShoppingCart, label: 'Social commerce', href: '/social-commerce' },
+    { icon: Package, label: 'Orders', href: '/orders' },
+    { icon: ClipboardList, label: 'Purchase History', href: '/purchase-history' },
+    { icon: AlertTriangle, label: 'Defect panel', href: '/defects' },
+    { icon: CreditCard, label: 'Transaction', href: '/transaction' },
+    { icon: CreditCard, label: 'Accounting', href: '/accounting' },
+    { icon: CreditCard, label: 'Vendor Management', href: '/vendor-payment' },
   ];
-
-  // Filter menu items based on user role
-  const menuItems = allMenuItems.filter(item => item.roles.includes(userRole)).map(item => {
-    if (item.subMenu) {
-      return {
-        ...item,
-        subMenu: item.subMenu.filter(sub => sub.roles.includes(userRole))
-      };
-    }
-    return item;
-  });
 
   return (
     <>
@@ -135,7 +113,7 @@ export default function Sidebar({ isOpen, setIsOpen }: SidebarProps) {
                           ? 'text-gray-900 dark:text-white bg-gray-100 dark:bg-gray-700 font-medium'
                           : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
                       }`}
-                      >
+                    >
                       <Icon className="w-4 h-4" />
                       <span>{item.label}</span>
                     </Link>
