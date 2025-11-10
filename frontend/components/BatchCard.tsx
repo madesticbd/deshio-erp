@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import Barcode from 'react-barcode';
 import BatchPrinter from './BatchPrinter';
 import { Batch } from '@/services/batchService';
-import { barcodeService } from '@/services';
+import { barcodeTrackingService } from '@/services/barcodeTrackingService';
 
 interface BatchCardProps {
   batch: Batch;
@@ -13,26 +13,37 @@ export default function BatchCard({ batch, onDelete }: BatchCardProps) {
   const [deleting, setDeleting] = useState(false);
   const [barcodes, setBarcodes] = useState<string[]>([]);
   const [loadingBarcodes, setLoadingBarcodes] = useState(true);
+  const [barcodeError, setBarcodeError] = useState<string | null>(null);
   const [showAllBarcodes, setShowAllBarcodes] = useState(false);
 
-  // Fetch all barcodes for this batch
+  // Fetch barcodes for THIS specific batch
   useEffect(() => {
-    fetchBarcodes();
+    fetchBatchBarcodes();
   }, [batch.id]);
 
-  const fetchBarcodes = async () => {
+  const fetchBatchBarcodes = async () => {
     try {
       setLoadingBarcodes(true);
-      const response = await barcodeService.getProductBarcodes(batch.product.id);
-      const barcodesData = response.data.barcodes || [];
+      setBarcodeError(null);
       
-      // Extract barcode values
-      const barcodeValues = barcodesData.map(b => b.barcode);
-      setBarcodes(barcodeValues);
+      // Use the batch-specific endpoint
+      const response = await barcodeTrackingService.getBatchBarcodes(batch.id);
       
-      console.log(`Loaded ${barcodeValues.length} barcodes for batch ${batch.id}`);
-    } catch (error) {
-      console.error('Error fetching barcodes:', error);
+      if (response.success && response.data.barcodes) {
+        // Extract active barcode strings
+        const barcodeValues = response.data.barcodes
+          .filter(b => b.is_active)
+          .map(b => b.barcode);
+        
+        setBarcodes(barcodeValues);
+        console.log(`Loaded ${barcodeValues.length} barcodes for batch ${batch.id}`);
+      } else {
+        setBarcodeError('No barcodes found for this batch');
+        setBarcodes([]);
+      }
+    } catch (error: any) {
+      console.error('Error fetching batch barcodes:', error);
+      setBarcodeError(error.message || 'Failed to load barcodes');
       setBarcodes([]);
     } finally {
       setLoadingBarcodes(false);
@@ -63,7 +74,7 @@ export default function BatchCard({ batch, onDelete }: BatchCardProps) {
   };
 
   // Primary barcode (first one or batch barcode)
-  const primaryBarcode = batch.barcode?.barcode || batch.batch_number;
+  const primaryBarcode = barcodes[0] || batch.barcode?.barcode || batch.batch_number;
 
   // Convert Laravel batch to legacy format for existing components
   const legacyBatch = {
@@ -164,6 +175,18 @@ export default function BatchCard({ batch, onDelete }: BatchCardProps) {
           <div className="flex justify-center py-4 bg-gray-50 dark:bg-gray-700 rounded">
             <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-gray-400"></div>
           </div>
+        ) : barcodeError ? (
+          <div className="p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded text-center">
+            <p className="text-xs text-red-800 dark:text-red-300">
+              {barcodeError}
+            </p>
+            <button
+              onClick={fetchBatchBarcodes}
+              className="mt-2 text-xs text-red-600 dark:text-red-400 hover:underline"
+            >
+              Retry
+            </button>
+          </div>
         ) : barcodes.length === 0 ? (
           <div className="p-3 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded text-center">
             <p className="text-xs text-yellow-800 dark:text-yellow-300">
@@ -229,8 +252,12 @@ export default function BatchCard({ batch, onDelete }: BatchCardProps) {
         )}
       </div>
 
-      {/* Print Button */}
-      <BatchPrinter batch={legacyBatch} product={legacyProduct} />
+      {/* Print Button - Pass batch-specific barcodes */}
+      <BatchPrinter 
+        batch={legacyBatch} 
+        product={legacyProduct} 
+        barcodes={barcodes} // Pass the fetched barcodes
+      />
 
       {/* Batch Info */}
       <div className="mt-3 pt-3 border-t border-gray-200 dark:border-gray-700">

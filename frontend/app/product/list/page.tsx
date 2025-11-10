@@ -7,7 +7,7 @@ import Header from '@/components/Header';
 import Sidebar from '@/components/Sidebar';
 import ProductListItem from '@/components/ProductListItem';
 import { productService, Product } from '@/services/productService';
-import { categoryService, Category } from '@/services/categoryService';
+import categoryService,{ Category } from '@/services/categoryService';
 import Toast from '@/components/Toast';
 
 import {
