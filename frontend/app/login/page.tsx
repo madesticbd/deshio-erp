@@ -2,58 +2,73 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import users from "@/data/users.json";
+import { useAuth } from "@/contexts/AuthContext";
 
 export default function LoginPage() {
   const router = useRouter();
-  const [username, setUsername] = useState("");
+  const { login } = useAuth();
+  
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
 
-  const handleLogin = () => {
-    if (!username.trim() || !password.trim()) {
-      setError("Please enter both username and password.");
+  const handleLogin = async () => {
+    // Validation
+    if (!email.trim() || !password.trim()) {
+      setError("Please enter both email and password.");
       return;
     }
 
-    // Find user in users.json
-    const user = users.users.find(
-      (u) => u.username === username && u.password === password
-    );
-
-    if (!user) {
-      setError("Invalid username or password.");
+    // Basic email validation
+    if (!/\S+@\S+\.\S+/.test(email)) {
+      setError("Please enter a valid email address.");
       return;
     }
 
-    // Clear error
+    setIsLoading(true);
     setError("");
 
-    // Save user info to localStorage
-    localStorage.setItem("loggedIn", "true");
-    localStorage.setItem("userRole", user.role);
-    localStorage.setItem("userId", user.id.toString());
-    localStorage.setItem("userName", user.fullName);
-    localStorage.setItem("userEmail", user.email);
+    try {
+      // Call login from context
+      await login({
+        email: email.trim(),
+        password: password,
+      });
 
-    // Store additional role-specific data
-    if (user.role === "store_manager" && user.storeId) {
-      localStorage.setItem("storeId", user.storeId);
-      localStorage.setItem("storeName", user.storeName || "");
+      console.log("Login successful");
+
+      // Navigate to dashboard
+      router.push("/dashboard");
+    } catch (err: any) {
+      console.error("Login error:", err);
+      
+      // Handle different error types
+      if (err.response) {
+        // Server responded with error status
+        if (err.response.status === 401) {
+          setError("Invalid email or password.");
+        } else if (err.response.status === 422) {
+          setError("Please check your input and try again.");
+        } else {
+          setError(err.response.data?.message || "Login failed. Please try again.");
+        }
+      } else if (err.request) {
+        // Request was made but no response received
+        setError("Cannot connect to server. Please check your connection.");
+      } else {
+        // Something else happened
+        setError("An unexpected error occurred. Please try again.");
+      }
+    } finally {
+      setIsLoading(false);
     }
-
-    if (user.role === "social_commerce_manager" && user.platforms) {
-      localStorage.setItem("platforms", JSON.stringify(user.platforms));
-    }
-
-    console.log("Logged in:", user.fullName, "Role:", user.role);
-
-    // Navigate to dashboard after login
-    router.push("/dashboard");
   };
 
   const handleKeyPress = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === "Enter") handleLogin();
+    if (e.key === "Enter" && !isLoading) {
+      handleLogin();
+    }
   };
 
   return (
@@ -83,22 +98,23 @@ export default function LoginPage() {
 
           {/* Form Inputs */}
           <div className="space-y-5">
-            {/* Username */}
+            {/* Email */}
             <div>
               <label
-                htmlFor="username"
+                htmlFor="email"
                 className="block mb-2 text-sm font-semibold text-gray-700"
               >
-                Username
+                Email Address
               </label>
               <input
-                id="username"
-                type="text"
-                placeholder="Enter your username"
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
+                id="email"
+                type="email"
+                placeholder="Enter your email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
                 onKeyPress={handleKeyPress}
-                className="w-full px-5 py-4 rounded-xl border-2 border-gray-200 bg-white text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all"
+                disabled={isLoading}
+                className="w-full px-5 py-4 rounded-xl border-2 border-gray-200 bg-white text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
               />
             </div>
 
@@ -125,7 +141,8 @@ export default function LoginPage() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 onKeyPress={handleKeyPress}
-                className="w-full px-5 py-4 rounded-xl border-2 border-gray-200 bg-white text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all"
+                disabled={isLoading}
+                className="w-full px-5 py-4 rounded-xl border-2 border-gray-200 bg-white text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
               />
             </div>
 
@@ -140,9 +157,36 @@ export default function LoginPage() {
             <button
               type="button"
               onClick={handleLogin}
-              className="w-full bg-gray-900 text-white py-4 rounded-xl font-semibold hover:bg-gray-800 transition-all shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 mt-6"
+              disabled={isLoading}
+              className="w-full bg-gray-900 text-white py-4 rounded-xl font-semibold hover:bg-gray-800 transition-all shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 mt-6 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
             >
-              Sign In
+              {isLoading ? (
+                <span className="flex items-center justify-center">
+                  <svg
+                    className="animate-spin -ml-1 mr-3 h-5 w-5 text-white"
+                    xmlns="http://www.w3.org/2000/svg"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                  >
+                    <circle
+                      className="opacity-25"
+                      cx="12"
+                      cy="12"
+                      r="10"
+                      stroke="currentColor"
+                      strokeWidth="4"
+                    ></circle>
+                    <path
+                      className="opacity-75"
+                      fill="currentColor"
+                      d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                    ></path>
+                  </svg>
+                  Signing in...
+                </span>
+              ) : (
+                "Sign In"
+              )}
             </button>
           </div>
 
