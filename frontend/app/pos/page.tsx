@@ -5,11 +5,19 @@ import { ChevronDown, X, CheckCircle2, AlertCircle, Package, Calculator, UserPlu
 import Header from '@/components/Header';
 import Sidebar from '@/components/Sidebar';
 import jsPDF from 'jspdf';
+import orderService from '@/services/orderService';
+import paymentService from '@/services/paymentService';
+import employeeService from '@/services/employeeService';
+import storeService from '@/services/storeService';
+import productService from '@/services/productService';
+import batchService, { Batch } from '@/services/batchService';
 
 interface Store {
   id: number;
   name: string;
-  location: string;
+  address: string;
+  type: string;
+  is_active: boolean;
 }
 
 interface Employee {
@@ -25,11 +33,14 @@ interface CartItem {
   id: number;
   productId: number;
   productName: string;
+  batchId: number;
+  batchNumber: string;
   size: string;
   qty: number;
   price: number;
   discount: number;
   amount: number;
+  availableQty: number;
   isDefective?: boolean;
   defectId?: string;
   barcode?: string;
@@ -39,20 +50,12 @@ interface CartItem {
 interface Product {
   id: number;
   name: string;
-  attributes: {
-    mainImage?: string;
-    Price?: string;
-    [key: string]: any;
-  };
-}
-
-interface InventoryItem {
-  id: number;
-  productId: number;
-  barcode: string;
-  status: string;
-  location: string;
-  sellingPrice: number;
+  sku: string;
+  batches?: Batch[];
+  custom_fields?: Array<{
+    field_title: string;
+    value: any;
+  }>;
 }
 
 interface Toast {
@@ -100,7 +103,6 @@ export default function POSPage() {
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
   const [cart, setCart] = useState<CartItem[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
-  const [inventory, setInventory] = useState<InventoryItem[]>([]);
   const [toasts, setToasts] = useState<Toast[]>([]);
   const [userRole, setUserRole] = useState<string>('');
   const [userStoreId, setUserStoreId] = useState<string>('');
@@ -117,6 +119,7 @@ export default function POSPage() {
   const [address, setAddress] = useState('');
   const [product, setProduct] = useState('');
   const [selectedProductId, setSelectedProductId] = useState<number | null>(null);
+  const [selectedBatch, setSelectedBatch] = useState<Batch | null>(null);
   const [sellingPrice, setSellingPrice] = useState(0);
   const [quantity, setQuantity] = useState(0);
   const [discountPercent, setDiscountPercent] = useState(0);
@@ -158,6 +161,18 @@ export default function POSPage() {
   const [returnNote1, setReturnNote1] = useState(0);
   const [showReturnCounter, setShowReturnCounter] = useState(false);
 
+  const [isProcessing, setIsProcessing] = useState(false);
+
+const [paymentMethods, setPaymentMethods] = useState<{
+  cash?: number;
+  card?: number;
+  mobileWallet?: number;
+}>({
+  cash: 1,
+  card: 2,
+  mobileWallet: 5, 
+});
+
   const emptyNotes: NoteCounts = {
     note1000: 0,
     note500: 0,
@@ -186,13 +201,89 @@ export default function POSPage() {
     setTimeout(() => setToasts(prev => prev.filter(toast => toast.id !== id)), 5000);
   };
 
+const fetchPaymentMethods = async () => {
+  try {
+    console.log('🔍 Fetching payment methods...');
+    const methods = await paymentService.getMethods('counter');
+    console.log('✅ Payment methods loaded:', methods);
+    
+    if (!methods || methods.length === 0) {
+      console.warn('⚠️ No payment methods returned from API');
+      showToast('No payment methods found. Using defaults.', 'error');
+      return;
+    }
+    
+    const methodMap: any = {
+      cash: 1,
+      card: 2,
+      mobileWallet: 6, // ✅ DEFAULT to 6
+    };
+    
+    methods.forEach((method: any) => {
+      const code = method.code?.toLowerCase();
+      
+      console.log(`  Method: ${method.name} (ID: ${method.id}, Code: ${code})`);
+      
+      if (code === 'cash') {
+        methodMap.cash = method.id;
+      } else if (code === 'card') {
+        methodMap.card = method.id;
+      } else if (code === 'mobile_banking') {
+        methodMap.mobileWallet = method.id; // Should be 6
+      }
+    });
+    
+    console.log('✅ Payment method IDs mapped:', methodMap);
+    setPaymentMethods(methodMap);
+  } catch (error) {
+    console.error('❌ Failed to load payment methods:', error);
+    console.log('Using default payment method IDs: cash=1, card=2, mobileWallet=6');
+  }
+};
+
   const fetchEmployees = async () => {
     try {
-      const response = await fetch('/api/employees');
-      const data = await response.json();
-      setEmployees(data);
-    } catch (error) {
+      const response: any = await employeeService.getAll({ is_active: true });
+      
+      console.log('Raw employee response:', response);
+      
+      let employeesList: any[] = [];
+      
+      if (Array.isArray(response)) {
+        employeesList = response;
+      } else if (response && typeof response === 'object') {
+        if (Array.isArray(response.data)) {
+          employeesList = response.data;
+        } 
+        else if (response.data && Array.isArray(response.data.data)) {
+          employeesList = response.data.data;
+        }
+      }
+      
+      console.log('Extracted employees list:', employeesList);
+      
+      if (!Array.isArray(employeesList) || employeesList.length === 0) {
+        console.warn('No employees found or invalid data structure');
+        setEmployees([]);
+        return;
+      }
+      
+      const formattedEmployees = employeesList.map((emp: any) => ({
+        id: String(emp.id),
+        name: emp.name,
+        email: emp.email,
+        phone: emp.phone,
+        role: typeof emp.role === 'object' ? emp.role?.title || emp.role?.slug || 'Unknown' : emp.role,
+        joinDate: emp.join_date || new Date().toISOString(),
+      }));
+      
+      console.log('Formatted employees:', formattedEmployees);
+      
+      setEmployees(formattedEmployees);
+    } catch (error: any) {
       console.error('Error fetching employees:', error);
+      showToast(error.message || 'Failed to load employees', 'error');
+      setEmployees([]);
     }
   };
 
@@ -203,25 +294,31 @@ export default function POSPage() {
     }
 
     try {
-      const response = await fetch('/api/employees', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(newEmployee),
+      const savedEmployee = await employeeService.create({
+        name: newEmployee.name,
+        email: newEmployee.email,
+        phone: newEmployee.phone,
+        role: newEmployee.role,
+        store_id: selectedOutlet ? parseInt(selectedOutlet) : undefined,
       });
 
-      if (response.ok) {
-        const savedEmployee = await response.json();
-        setEmployees([...employees, savedEmployee]);
-        setSelectedEmployee(savedEmployee.id);
-        setNewEmployee({ name: '', email: '', phone: '', role: '' });
-        setShowAddEmployeeModal(false);
-        showToast('Employee added successfully!', 'success');
-      } else {
-        showToast('Failed to add employee', 'error');
-      }
-    } catch (error) {
+      const formattedEmployee: Employee = {
+        id: String(savedEmployee.id),
+        name: savedEmployee.name,
+        email: savedEmployee.email,
+        phone: savedEmployee.phone,
+        role: savedEmployee.role,
+        joinDate: savedEmployee.join_date || new Date().toISOString(),
+      };
+
+      setEmployees([...employees, formattedEmployee]);
+      setSelectedEmployee(String(savedEmployee.id));
+      setNewEmployee({ name: '', email: '', phone: '', role: '' });
+      setShowAddEmployeeModal(false);
+      showToast('Employee added successfully!', 'success');
+    } catch (error: any) {
       console.error('Error adding employee:', error);
-      showToast('Error adding employee', 'error');
+      showToast(error.message || 'Failed to add employee', 'error');
     }
   };
 
@@ -255,50 +352,121 @@ export default function POSPage() {
     setUserName(name);
 
     fetchOutlets(role, storeId);
-    fetchProducts();
-    fetchInventory();
     loadDailyCashSummary();
     fetchEmployees();
+    fetchPaymentMethods(); // ✅ ADD THIS
   }, []);
+
+  useEffect(() => {
+    if (selectedOutlet) {
+      fetchProducts();
+    }
+  }, [selectedOutlet]);
 
   const fetchOutlets = async (role: string, storeId: string) => {
     try {
-      const response = await fetch('/api/stores');
-      const data = await response.json();
-      setOutlets(data);
+      const response = await storeService.getStores({ is_active: true });
+      
+      if (!response.success) {
+        showToast('Failed to load stores', 'error');
+        return;
+      }
+      
+      let stores = [];
+      if (Array.isArray(response.data)) {
+        stores = response.data;
+      } else if (response.data && Array.isArray(response.data.data)) {
+        stores = response.data.data;
+      } else if (response.data && typeof response.data === 'object') {
+        stores = [response.data];
+      }
+      
+      setOutlets(stores);
+      
+      if (stores.length === 0) {
+        showToast('No stores found', 'error');
+        return;
+      }
+      
       if (role === 'store_manager' && storeId) {
-        const userStore = data.find((store: Store) => String(store.id) === String(storeId));
+        const userStore = stores.find((store: Store) => String(store.id) === String(storeId));
         if (userStore) {
           setSelectedOutlet(String(userStore.id));
         }
       } else if (storeId) {
-        const userStore = data.find((store: Store) => String(store.id) === String(storeId));
+        const userStore = stores.find((store: Store) => String(store.id) === String(storeId));
         if (userStore) {
           setSelectedOutlet(String(userStore.id));
         }
       }
     } catch (error) {
       console.error('Error fetching outlets:', error);
+      showToast('Failed to load stores', 'error');
+      setOutlets([]);
     }
   };
 
   const fetchProducts = async () => {
+    if (!selectedOutlet) {
+      console.log('No outlet selected');
+      return;
+    }
+
     try {
-      const response = await fetch('/api/products');
-      const data = await response.json();
-      setProducts(data);
+      const result = await productService.getAll({
+        is_archived: false,
+        per_page: 1000,
+      });
+      
+      let productsList: Product[] = [];
+      
+      if (Array.isArray(result)) {
+        productsList = result;
+      } else if (result && typeof result === 'object') {
+        if (Array.isArray((result as any).data)) {
+          productsList = (result as any).data;
+        } 
+        else if ((result as any).data && Array.isArray((result as any).data.data)) {
+          productsList = (result as any).data.data;
+        }
+      }
+      
+      const productsWithBatches = await Promise.all(
+        productsList.map(async (product: Product) => {
+          try {
+            const batchResponse = await batchService.getBatches({
+              product_id: product.id,
+              store_id: parseInt(selectedOutlet),
+              status: 'available',
+              per_page: 100
+            });
+            
+            console.log(`Batches for product ${product.name}:`, batchResponse);
+            
+            const batches = batchResponse.success && batchResponse.data?.data 
+              ? batchResponse.data.data.filter((batch: Batch) => batch.quantity > 0)
+              : [];
+            
+            return {
+              ...product,
+              batches: batches
+            };
+          } catch (error) {
+            console.error(`Error loading batches for product ${product.id}:`, error);
+            return {
+              ...product,
+              batches: []
+            };
+          }
+        })
+      );
+      
+      console.log('Products with batches:', productsWithBatches);
+      setProducts(productsWithBatches);
     } catch (error) {
       console.error('Error fetching products:', error);
-    }
-  };
-
-  const fetchInventory = async () => {
-    try {
-      const response = await fetch('/api/inventory');
-      const data = await response.json();
-      setInventory(data);
-    } catch (error) {
-      console.error('Error fetching inventory:', error);
+      showToast('Failed to load products', 'error');
+      setProducts([]);
     }
   };
 
@@ -383,11 +551,10 @@ export default function POSPage() {
     updateSummary(notes, returnNotes, cashFromNotes, returnCashFromNotes, netCash);
   };
 
-const downloadCashCountPDF = () => {
+  const downloadCashCountPDF = () => {
     const today = new Date().toISOString().split('T')[0];
     const outletData = outlets.find(o => o.id.toString() === selectedOutlet);
 
-    // Fetch from localStorage to simulate "fetch data from json file"
     const savedSummary = localStorage.getItem(`cashSummary_${today}`);
     let summaryData = dailyCashSummary;
     if (savedSummary) {
@@ -426,14 +593,12 @@ const downloadCashCountPDF = () => {
     doc.setFontSize(12);
     doc.text('Cash Received - Note Breakdown', 20, 120);
 
-    // Define column widths
     const colWidths = [40, 40, 60];
     let yPos = 130;
-    // Draw header row
     doc.setLineWidth(0.2);
-    doc.rect(20, yPos - 5, colWidths[0], 10); // Denom
-    doc.rect(20 + colWidths[0], yPos - 5, colWidths[1], 10); // Count
-    doc.rect(20 + colWidths[0] + colWidths[1], yPos - 5, colWidths[2], 10); // Total
+    doc.rect(20, yPos - 5, colWidths[0], 10);
+    doc.rect(20 + colWidths[0], yPos - 5, colWidths[1], 10);
+    doc.rect(20 + colWidths[0] + colWidths[1], yPos - 5, colWidths[2], 10);
     doc.text('Cash Note', 25, yPos + 2);
     doc.text('Count', 65, yPos + 2);
     doc.text('Total', 105, yPos + 2);
@@ -454,14 +619,13 @@ const downloadCashCountPDF = () => {
         yPos += 10;
       }
     });
-    // Total row for received
+
     doc.rect(20, yPos - 5, colWidths[0] + colWidths[1], 10);
     doc.rect(20 + colWidths[0] + colWidths[1], yPos - 5, colWidths[2], 10);
     doc.text('Total Received:', 25, yPos + 2);
     doc.text(`Tk${summaryData.totalReceived.toFixed(2)}`, 105, yPos + 2);
     yPos += 20;
 
-    // Check if we need a new page
     if (yPos > 250) {
       doc.addPage();
       yPos = 20;
@@ -469,7 +633,6 @@ const downloadCashCountPDF = () => {
 
     doc.text('Change Returned - Note Breakdown', 20, yPos);
     yPos += 10;
-    // Draw header row for returned
     doc.rect(20, yPos - 5, colWidths[0], 10);
     doc.rect(20 + colWidths[0], yPos - 5, colWidths[1], 10);
     doc.rect(20 + colWidths[0] + colWidths[1], yPos - 5, colWidths[2], 10);
@@ -492,23 +655,20 @@ const downloadCashCountPDF = () => {
         yPos += 10;
       }
     });
-    // Total row for returned
+
     doc.rect(20, yPos - 5, colWidths[0] + colWidths[1], 10);
     doc.rect(20 + colWidths[0] + colWidths[1], yPos - 5, colWidths[2], 10);
     doc.text('Total Returned:', 25, yPos + 2);
     doc.text(`Tk${summaryData.totalReturned.toFixed(2)}`, 105, yPos + 2);
     yPos += 20;
 
-    // Check if we need a new page
     if (yPos > 230) {
       doc.addPage();
       yPos = 20;
     }
 
-    // Net Cash in Drawer
     doc.text('Net Cash in Drawer - Note Breakdown', 20, yPos);
     yPos += 10;
-    // Draw header row for net
     doc.rect(20, yPos - 5, colWidths[0], 10);
     doc.rect(20 + colWidths[0], yPos - 5, colWidths[1], 10);
     doc.rect(20 + colWidths[0] + colWidths[1], yPos - 5, colWidths[2], 10);
@@ -533,14 +693,13 @@ const downloadCashCountPDF = () => {
         netTotal += netAmount;
         yPos += 10;
         
-        // Check if we need a new page
         if (yPos > 270) {
           doc.addPage();
           yPos = 20;
         }
       }
     });
-    // Total row for net
+
     doc.rect(20, yPos - 5, colWidths[0] + colWidths[1], 10);
     doc.rect(20 + colWidths[0] + colWidths[1], yPos - 5, colWidths[2], 10);
     doc.text('Total Net Cash:', 25, yPos + 2);
@@ -550,19 +709,7 @@ const downloadCashCountPDF = () => {
   };
 
   const getAvailableProducts = () => {
-    if (!selectedOutlet) return [];
-    const selectedOutletData = outlets.find(o => o.id.toString() === selectedOutlet);
-    if (!selectedOutletData) return [];
-    const outletInventory = inventory.filter(inv => inv.location === selectedOutletData.name && inv.status === 'available');
-    const availableProductIds = [...new Set(outletInventory.map(inv => inv.productId))];
-    return products.filter(prod => availableProductIds.includes(prod.id));
-  };
-
-  const getAvailableQuantity = (productId: number) => {
-    if (!selectedOutlet) return 0;
-    const selectedOutletData = outlets.find(o => o.id.toString() === selectedOutlet);
-    if (!selectedOutletData) return 0;
-    return inventory.filter(inv => inv.productId === productId && inv.location === selectedOutletData.name && inv.status === 'available').length;
+    return products.filter(p => p.batches && p.batches.length > 0);
   };
 
   useEffect(() => {
@@ -583,15 +730,29 @@ const downloadCashCountPDF = () => {
   const handleProductSelect = (productName: string) => {
     setProduct(productName);
     const selectedProd = products.find(p => p.name === productName);
+    
+    console.log('Selected product:', selectedProd);
+    
     if (selectedProd) {
       setSelectedProductId(selectedProd.id);
-      const selectedOutletData = outlets.find(o => o.id.toString() === selectedOutlet);
-      if (!selectedOutletData) return;
-      const inventoryItem = inventory.find(inv => inv.productId === selectedProd.id && inv.location === selectedOutletData.name && inv.status === 'available');
-      if (inventoryItem) {
-        setSellingPrice(inventoryItem.sellingPrice);
-      } else if (selectedProd.attributes.Price) {
-        setSellingPrice(Number(selectedProd.attributes.Price));
+      
+      if (selectedProd.batches && selectedProd.batches.length > 0) {
+        const firstBatch = selectedProd.batches[0];
+        console.log('First batch:', firstBatch);
+        console.log('Sell price:', firstBatch.sell_price);
+        
+        setSelectedBatch(firstBatch);
+        
+        const priceString = String(firstBatch.sell_price).replace(/,/g, '');
+        const price = parseFloat(priceString) || 0;
+        
+        console.log('Parsed price:', price); 
+        setSellingPrice(price);
+      } else {
+        console.log('No batches found for this product');
+        setSelectedBatch(null);
+        setSellingPrice(0);
+        showToast('No available batches for this product', 'error');
       }
     }
   };
@@ -605,23 +766,33 @@ const downloadCashCountPDF = () => {
       showToast('Please select an outlet', 'error');
       return;
     }
+    
+    const parsedPrice = typeof sellingPrice === 'string' 
+      ? parseFloat(String(sellingPrice).replace(/,/g, '')) 
+      : sellingPrice;
+    
     const newItem: CartItem = {
       id: Date.now() + Math.random(),
       productId: defectiveProduct.productId,
       productName: defectiveProduct.productName,
+      batchId: 0,
+      batchNumber: 'DEFECTIVE',
       size: '',
       qty: 1,
-      price: sellingPrice,
+      price: parsedPrice,
       discount: 0,
-      amount: sellingPrice,
+      amount: parsedPrice,
+      availableQty: 1,
       isDefective: true,
       defectId: defectiveProduct.id,
       barcode: defectiveProduct.barcode
     };
+    
     setCart([...cart, newItem]);
     showToast('Defective product added to cart', 'success');
     setProduct('');
     setSelectedProductId(null);
+    setSelectedBatch(null);
     setSellingPrice(0);
     setQuantity(0);
     setDefectiveProduct(null);
@@ -632,37 +803,29 @@ const downloadCashCountPDF = () => {
     if (defectiveProduct && selectedProductId === defectiveProduct.productId) {
       return addDefectiveToCart();
     }
+    
     if (!product || !selectedProductId) {
       showToast('Please select a product', 'error');
       return;
     }
+    
+    if (!selectedBatch) {
+      showToast('No batch selected for this product', 'error');
+      return;
+    }
+    
     if (sellingPrice <= 0 || quantity <= 0) {
       showToast('Please enter valid price and quantity', 'error');
       return;
     }
+    
     if (!selectedOutlet) {
       showToast('Please select an outlet', 'error');
       return;
     }
-    const availableQty = getAvailableQuantity(selectedProductId);
-    if (availableQty < quantity) {
-      showToast(`Only ${availableQty} items available at this outlet`, 'error');
-      return;
-    }
-    const selectedOutletData = outlets.find(o => o.id.toString() === selectedOutlet);
-    if (!selectedOutletData) {
-      showToast('Invalid outlet selected', 'error');
-      return;
-    }
 
-    const availableItems = inventory.filter(
-      inv => inv.productId === selectedProductId &&
-             inv.location === selectedOutletData.name &&
-             inv.status === 'available'
-    ).slice(0, quantity);
-
-    if (availableItems.length < quantity) {
-      showToast('Not enough items in inventory', 'error');
+    if (quantity > selectedBatch.quantity) {
+      showToast(`Only ${selectedBatch.quantity} units available in this batch`, 'error');
       return;
     }
 
@@ -673,17 +836,21 @@ const downloadCashCountPDF = () => {
       id: Date.now() + Math.random(),
       productId: selectedProductId,
       productName: product,
+      batchId: selectedBatch.id,
+      batchNumber: selectedBatch.batch_number,
       size: '',
       qty: quantity,
       price: sellingPrice,
       discount: discountValue,
       amount: baseAmount - discountValue,
+      availableQty: selectedBatch.quantity,
       isDefective: false,
-      barcodes: availableItems.map(item => item.barcode)
     };
+    
     setCart([...cart, newItem]);
     setProduct('');
     setSelectedProductId(null);
+    setSelectedBatch(null);
     setSellingPrice(0);
     setQuantity(0);
     setDiscountPercent(0);
@@ -708,36 +875,12 @@ const downloadCashCountPDF = () => {
                      (returnNote100 * 100) + (returnNote50 * 50) + (returnNote20 * 20) + 
                      (returnNote10 * 10) + (returnNote5 * 5) + (returnNote2 * 2) + (returnNote1 * 1);
 
-  // Use consistent calculation for both display and sale data
   const effectiveCash = cashFromNotes > 0 ? cashFromNotes : cashPaid;
   const totalPaid = effectiveCash + cardPaid + bkashPaid + nagadPaid;
   const due = total - totalPaid + transactionFee;
   const change = due < 0 ? Math.abs(due) : 0;
 
-  const updateInventoryStatus = async (productId: number, quantity: number, barcodes: string[]) => {
-    try {
-      if (!selectedOutlet) return;
-      const selectedOutletData = outlets.find(o => o.id.toString() === selectedOutlet);
-      if (!selectedOutletData) return;
-      const availableItems = inventory.filter(
-        inv => inv.productId === productId &&
-               inv.location === selectedOutletData.name &&
-               inv.status === 'available' &&
-               barcodes.includes(inv.barcode)
-      );
-      for (const item of availableItems.slice(0, quantity)) {
-        await fetch('/api/inventory', {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ id: item.id, status: 'sold', soldAt: new Date().toISOString() }),
-        });
-      }
-    } catch (error) {
-      console.error('Error updating inventory:', error);
-      throw error;
-    }
-  };
-
+  // ✅ COMPLETE FIXED handleSell FUNCTION
   const handleSell = async () => {
     if (!selectedOutlet) {
       showToast('Please select an outlet', 'error');
@@ -756,114 +899,219 @@ const downloadCashCountPDF = () => {
     const finalTotalPaid = finalCash + cardPaid + bkashPaid + nagadPaid;
     const finalDue = total - finalTotalPaid + transactionFee;
 
-    const now = new Date().toISOString();
-    const selectedEmp = employees.find(emp => emp.id === selectedEmployee);
-    
-    const saleData = {
-      id: `sale-${Date.now()}`,
-      salesBy: selectedEmp ? selectedEmp.name : (userName || 'Admin'),
-      employeeId: selectedEmployee,
-      outletId: selectedOutlet,
-      date: date,
-      customer: { name: customerName, mobile: mobileNo, address: address },
-      items: cart.map(item => ({
-        id: item.id,
-        productId: item.productId,
-        productName: item.productName,
-        size: item.size,
-        qty: item.qty,
-        price: item.price,
-        discount: item.discount,
-        amount: item.amount,
-        isDefective: item.isDefective || false,
-        defectId: item.defectId || null,
-        ...(item.isDefective ? { barcode: item.barcode } : { barcodes: item.barcodes })
-      })),
-      amounts: { subtotal, totalDiscount, vat, vatRate, transportCost, total },
-      payments: { 
-        cash: finalCash, 
-        card: cardPaid, 
-        bkash: bkashPaid, 
-        nagad: nagadPaid, 
-        transactionFee, 
-        totalPaid: finalTotalPaid, 
-        due: finalDue 
-      },
-      createdAt: now,
-      updatedAt: now,
-      exchangeHistory: []
-    };
+    if (finalDue > 0 && !confirm(`There is an outstanding amount of ৳${finalDue.toFixed(2)}. Continue?`)) {
+      return;
+    }
+
+    setIsProcessing(true);
 
     try {
-      const response = await fetch('/api/sales', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(saleData),
-      });
-      
-      if (response.ok) {
-        const responseData = await response.json();
+      const cashReceived = cashFromNotes > 0 ? [
+        { denomination: 1000, quantity: note1000, type: 'note' as const },
+        { denomination: 500, quantity: note500, type: 'note' as const },
+        { denomination: 200, quantity: note200, type: 'note' as const },
+        { denomination: 100, quantity: note100, type: 'note' as const },
+        { denomination: 50, quantity: note50, type: 'note' as const },
+        { denomination: 20, quantity: note20, type: 'note' as const },
+        { denomination: 10, quantity: note10, type: 'note' as const },
+        { denomination: 5, quantity: note5, type: 'note' as const },
+        { denomination: 2, quantity: note2, type: 'note' as const },
+        { denomination: 1, quantity: note1, type: 'note' as const },
+      ].filter(d => d.quantity > 0) : undefined;
 
-        // Save cash count entry if cash payment was made
-        if (finalCash > 0 && cashFromNotes > 0) {
-          recordCashPayment();
-        } else {
-          setDailyCashSummary(prev => {
-            const newSummary = {...prev, transactionCount: (prev.transactionCount || 0) + 1};
-            const today = new Date().toISOString().split('T')[0];
-            localStorage.setItem(`cashSummary_${today}`, JSON.stringify(newSummary));
-            return newSummary;
-          });
+      const cashChange = returnCashFromNotes > 0 ? [
+        { denomination: 1000, quantity: returnNote1000, type: 'note' as const },
+        { denomination: 500, quantity: returnNote500, type: 'note' as const },
+        { denomination: 200, quantity: returnNote200, type: 'note' as const },
+        { denomination: 100, quantity: returnNote100, type: 'note' as const },
+        { denomination: 50, quantity: returnNote50, type: 'note' as const },
+        { denomination: 20, quantity: returnNote20, type: 'note' as const },
+        { denomination: 10, quantity: returnNote10, type: 'note' as const },
+        { denomination: 5, quantity: returnNote5, type: 'note' as const },
+        { denomination: 2, quantity: returnNote2, type: 'note' as const },
+        { denomination: 1, quantity: returnNote1, type: 'note' as const },
+      ].filter(d => d.quantity > 0) : undefined;
+
+      const orderPayload = {
+        order_type: 'counter' as const,
+        customer: customerName || mobileNo ? {
+          name: customerName || 'Walk-in Customer',
+          phone: mobileNo || '01XXXXXXXXX',
+          email: undefined,
+          address: address || undefined,
+        } : undefined,
+        store_id: parseInt(selectedOutlet),
+        salesman_id: parseInt(selectedEmployee),
+        items: cart.map(item => ({
+          product_id: item.productId,
+          batch_id: item.batchId,
+          quantity: item.qty,
+          unit_price: item.price,
+          discount_amount: item.discount || 0,
+          tax_amount: 0,
+          ...(item.barcode ? { barcode: item.barcode } : {}),
+        })),
+        discount_amount: totalDiscount,
+        shipping_amount: transportCost,
+        notes: `VAT: ${vatRate}%${address ? `, Address: ${address}` : ''}`,
+      };
+
+      console.log('📦 Creating order...');
+      const order = await orderService.create(orderPayload);
+      console.log('✅ Order created:', order.order_number);
+      showToast(`Order #${order.order_number} created!`, 'success');
+
+      // ✅ FIXED PAYMENT PROCESSING
+      if (finalTotalPaid > 0) {
+        type PaymentSplit = {
+          payment_method_id: number;
+          amount: number;
+          cash_received?: Array<{
+            denomination: number;
+            quantity: number;
+            type: 'note' | 'coin';
+          }>;
+          cash_change?: Array<{
+            denomination: number;
+            quantity: number;
+            type: 'note' | 'coin';
+          }>;
+        };
+
+        const paymentSplits: PaymentSplit[] = [];
+        
+        if (finalCash > 0) {
+          const cashSplit: PaymentSplit = {
+            payment_method_id: paymentMethods.cash || 1,
+            amount: finalCash,
+          };
+          if (cashReceived) cashSplit.cash_received = cashReceived;
+          if (cashChange) cashSplit.cash_change = cashChange;
+          console.log('💵 Cash split:', cashSplit);
+          paymentSplits.push(cashSplit);
         }
         
-        for (const item of cart) {
-          if (!item.isDefective) {
-            await updateInventoryStatus(item.productId, item.qty, item.barcodes || []);
-          }
+        if (cardPaid > 0) {
+          const cardSplit: PaymentSplit = {
+            payment_method_id: paymentMethods.card || 2,
+            amount: cardPaid,
+          };
+          console.log('💳 Card split:', cardSplit);
+          paymentSplits.push(cardSplit);
         }
-        showToast('Sale completed successfully!', 'success');
-        setCart([]);
-        setCustomerName('');
-        setMobileNo('');
-        setAddress('');
-        setCashPaid(0);
-        setCardPaid(0);
-        setBkashPaid(0);
-        setNagadPaid(0);
-        setTransactionFee(0);
-        setTransportCost(0);
-        setNote1000(0);
-        setNote500(0);
-        setNote200(0);
-        setNote100(0);
-        setNote50(0);
-        setNote20(0);
-        setNote10(0);
-        setNote5(0);
-        setNote2(0);
-        setNote1(0);
-        setShowNoteCounter(false);
-        setReturnNote1000(0);
-        setReturnNote500(0);
-        setReturnNote200(0);
-        setReturnNote100(0);
-        setReturnNote50(0);
-        setReturnNote20(0);
-        setReturnNote10(0);
-        setReturnNote5(0);
-        setReturnNote2(0);
-        setReturnNote1(0);
-        setShowReturnCounter(false);
-        await fetchInventory();
-      } else {
-        const errorData = await response.json();
-        console.error('API Error:', errorData);
-        showToast('Failed to complete sale', 'error');
+        
+        if (bkashPaid > 0) {
+          const bkashSplit: PaymentSplit = {
+            payment_method_id: paymentMethods.mobileWallet || 7,
+            amount: bkashPaid,
+          };
+          console.log('📱 bKash split:', bkashSplit);
+          paymentSplits.push(bkashSplit);
+        }
+        
+        if (nagadPaid > 0) {
+          const nagadSplit: PaymentSplit = {
+            payment_method_id: paymentMethods.mobileWallet || 7,
+            amount: nagadPaid,
+          };
+          console.log('📱 Nagad split:', nagadSplit);
+          paymentSplits.push(nagadSplit);
+        }
+
+        console.log('📋 Payment splits:', JSON.stringify(paymentSplits, null, 2));
+
+        if (paymentSplits.length === 0) {
+          console.log('⚠️ No payments to process');
+        } else if (paymentSplits.length === 1) {
+          console.log('💳 Processing single payment...');
+          
+          const payment = paymentSplits[0];
+          
+          await paymentService.process(order.id, {
+            payment_method_id: payment.payment_method_id,
+            amount: payment.amount,
+            payment_type: (finalDue <= 0 ? 'full' : 'partial') as 'full' | 'partial',
+            auto_complete: true,
+            ...(payment.cash_received && { cash_received: payment.cash_received }),
+            ...(payment.cash_change && { cash_change: payment.cash_change }),
+          });
+          
+          console.log('✅ Single payment processed');
+        } else {
+          console.log('💳💳 Processing split payment...');
+          
+          await paymentService.processSplit(order.id, {
+            total_amount: finalTotalPaid,
+            payment_type: finalDue <= 0 ? 'full' : 'partial',
+            auto_complete: true,
+            splits: paymentSplits,
+          });
+          
+          console.log('✅ Split payment processed');
+        }
       }
-    } catch (error) {
-      console.error('Error saving sale:', error);
-      showToast('Error saving sale', 'error');
+
+      console.log('🏁 Completing order...');
+      await orderService.complete(order.id);
+      console.log('✅ Order completed');
+
+      if (finalCash > 0 && cashFromNotes > 0) {
+        recordCashPayment();
+      } else {
+        setDailyCashSummary(prev => {
+          const newSummary = {...prev, transactionCount: (prev.transactionCount || 0) + 1};
+          const today = new Date().toISOString().split('T')[0];
+          localStorage.setItem(`cashSummary_${today}`, JSON.stringify(newSummary));
+          return newSummary;
+        });
+      }
+
+      showToast(`Order #${order.order_number} completed successfully!`, 'success');
+      
+      resetForm();
+      fetchProducts();
+
+    } catch (error: any) {
+      console.error('❌ Sale error:', error);
+      showToast(error.message || 'Failed to complete sale', 'error');
+    } finally {
+      setIsProcessing(false);
     }
+  };
+
+  const resetForm = () => {
+    setCart([]);
+    setCustomerName('');
+    setMobileNo('');
+    setAddress('');
+    setCashPaid(0);
+    setCardPaid(0);
+    setBkashPaid(0);
+    setNagadPaid(0);
+    setTransactionFee(0);
+    setTransportCost(0);
+    setNote1000(0);
+    setNote500(0);
+    setNote200(0);
+    setNote100(0);
+    setNote50(0);
+    setNote20(0);
+    setNote10(0);
+    setNote5(0);
+    setNote2(0);
+    setNote1(0);
+    setShowNoteCounter(false);
+    setReturnNote1000(0);
+    setReturnNote500(0);
+    setReturnNote200(0);
+    setReturnNote100(0);
+    setReturnNote50(0);
+    setReturnNote20(0);
+    setReturnNote10(0);
+    setReturnNote5(0);
+    setReturnNote2(0);
+    setReturnNote1(0);
+    setShowReturnCounter(false);
   };
 
   return (
@@ -884,12 +1132,8 @@ const downloadCashCountPDF = () => {
             </div>
             <div className="max-w-7xl mx-auto">
               <div className="flex items-center justify-between mb-6">
-                
-                
-              
-              
-              <h1 className="text-2xl font-semibold text-gray-900 dark:text-white mb-6">Point of Sale</h1>
-              {dailyCashSummary.totalReceived > 0 && (
+                <h1 className="text-2xl font-semibold text-gray-900 dark:text-white mb-6">Point of Sale</h1>
+                {dailyCashSummary.totalReceived > 0 && (
                   <button
                     onClick={downloadCashCountPDF}
                     className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-md text-sm font-medium transition-colors"
@@ -900,7 +1144,6 @@ const downloadCashCountPDF = () => {
                 )}
               </div>  
               
-              {/* Top Section with Employee */}
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Sales By</label>
@@ -921,7 +1164,7 @@ const downloadCashCountPDF = () => {
                         setSelectedEmployee(e.target.value);
                       }
                     }} 
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white [&_option[value='add_new']]:bg-gradient-to-r [&_option[value='add_new']]:from-gray-50 [&_option[value='add_new']]:to-gray-100 [&_option[value='add_new']]:dark:from-gray-800 [&_option[value='add_new']]:dark:to-gray-700 [&_option[value='add_new']]:font-semibold [&_option[value='add_new']]:text-gray-700 [&_option[value='add_new']]:dark:text-gray-300"
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                   >
                     <option value="">Select Employee</option>
                     {employees.map((emp) => (
@@ -929,18 +1172,15 @@ const downloadCashCountPDF = () => {
                         {emp.name} - {emp.role}
                       </option>
                     ))}
-                    <option value="add_new">
-                      + Add New Employee
-                    </option>
+                    <option value="add_new">+ Add New Employee</option>
                   </select>
                 </div>
-              
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Outlet <span className="text-red-500">*</span></label>
                   <select value={selectedOutlet} onChange={(e) => setSelectedOutlet(e.target.value)} className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white">
                     <option value="">Choose an Outlet</option>
-                    {outlets.map((outlet) => (<option key={outlet.id} value={outlet.id}>{outlet.name} - {outlet.location}</option>))}
+                    {outlets.map((outlet) => (<option key={outlet.id} value={outlet.id}>{outlet.name} - {outlet.address}</option>))}
                   </select>
                 </div>
                 
@@ -978,7 +1218,10 @@ const downloadCashCountPDF = () => {
                         <input type="text" placeholder="Search Customer" value={customerName} onChange={(e) => setCustomerName(e.target.value)} className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm" />
                       </div>
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Product {defectiveProduct && <span className="text-orange-600">(Defective - No Stock)</span>}</label>
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                          Product {defectiveProduct && <span className="text-orange-600">(Defective - No Stock)</span>}
+                          {selectedBatch && <span className="text-xs text-gray-500 ml-2">(Stock: {selectedBatch.quantity})</span>}
+                        </label>
                         {defectiveProduct ? (
                           <input 
                             type="text" 
@@ -989,7 +1232,7 @@ const downloadCashCountPDF = () => {
                         ) : (
                           <select value={product} onChange={(e) => handleProductSelect(e.target.value)} disabled={!selectedOutlet} className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm disabled:bg-gray-100 disabled:dark:bg-gray-600">
                             <option value="">Select Product</option>
-                            {getAvailableProducts().map((prod) => (<option key={prod.id} value={prod.name}>{prod.name} ({getAvailableQuantity(prod.id)} available)</option>))}
+                            {getAvailableProducts().map((prod) => (<option key={prod.id} value={prod.name}>{prod.name} ({prod.batches?.length || 0} batches)</option>))}
                           </select>
                         )}
                       </div>
@@ -1037,7 +1280,7 @@ const downloadCashCountPDF = () => {
                       <thead className="bg-gray-50 dark:bg-gray-700">
                         <tr>
                           <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 dark:text-gray-300">Product Name</th>
-                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 dark:text-gray-300">Size</th>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 dark:text-gray-300">Batch</th>
                           <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 dark:text-gray-300">Qty</th>
                           <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 dark:text-gray-300">Price</th>
                           <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 dark:text-gray-300">Discount</th>
@@ -1055,7 +1298,7 @@ const downloadCashCountPDF = () => {
                                 {item.productName}
                                 {item.isDefective && <span className="ml-2 px-2 py-0.5 bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400 text-xs rounded">Defective</span>}
                               </td>
-                              <td className="px-4 py-3 text-sm text-gray-900 dark:text-white">{item.size || '-'}</td>
+                              <td className="px-4 py-3 text-xs text-gray-600 dark:text-gray-400">{item.batchNumber}</td>
                               <td className="px-4 py-3 text-sm text-gray-900 dark:text-white">{item.qty}</td>
                               <td className="px-4 py-3 text-sm text-gray-900 dark:text-white">{item.price}</td>
                               <td className="px-4 py-3 text-sm text-gray-900 dark:text-white">{item.discount.toFixed(2)}</td>
@@ -1153,7 +1396,7 @@ const downloadCashCountPDF = () => {
                               <input type="number" min="0" value={note5} onChange={(e) => setNote5(Number(e.target.value))} className="w-full px-2 py-1 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm" />
                             </div>
                             <div>
-                              <label className="block text-xs text-gray-700 dark:text-gray-300 mb-1">৳2 ×</label>
+                              <label className="block text-xs text-xs text-gray-700 dark:text-gray-300 mb-1">৳2 ×</label>
                               <input type="number" min="0" value={note2} onChange={(e) => setNote2(Number(e.target.value))} className="w-full px-2 py-1 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm" />
                             </div>
                           </div>
@@ -1286,7 +1529,13 @@ const downloadCashCountPDF = () => {
                         <span className={`font-bold ${due > 0 ? 'text-red-600 dark:text-red-400' : 'text-green-600 dark:text-green-400'}`}>৳{due.toFixed(2)}</span>
                       </div>
                     </div>
-                    <button onClick={handleSell} className="w-full py-2.5 bg-gray-900 hover:bg-gray-800 dark:bg-white dark:hover:bg-gray-100 text-white dark:text-gray-900 rounded-md text-sm font-semibold transition-colors">Complete Sale</button>
+                    <button 
+                      onClick={handleSell} 
+                      disabled={isProcessing}
+                      className="w-full py-2.5 bg-gray-900 hover:bg-gray-800 dark:bg-white dark:hover:bg-gray-100 text-white dark:text-gray-900 rounded-md text-sm font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {isProcessing ? 'Processing...' : 'Complete Sale'}
+                    </button>
                   </div>
                 </div>
               </div>
@@ -1294,7 +1543,6 @@ const downloadCashCountPDF = () => {
         </div>
       </div>
 
-      {/* Add Employee Modal */}
       {showAddEmployeeModal && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl max-w-md w-full border border-gray-200 dark:border-gray-800">
