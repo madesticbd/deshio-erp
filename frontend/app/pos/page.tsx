@@ -127,6 +127,7 @@ export default function POSPage() {
   const [amount, setAmount] = useState(0);
 
   const [defectiveProduct, setDefectiveProduct] = useState<DefectItem | null>(null);
+  const [barcodeMode, setBarcodeMode] = useState(false);
 
   const [vatRate, setVatRate] = useState(5);
   const [transportCost, setTransportCost] = useState(0);
@@ -799,38 +800,52 @@ const fetchPaymentMethods = async () => {
     sessionStorage.removeItem('defectItem');
   };
 
-  const addToCart = () => {
-    if (defectiveProduct && selectedProductId === defectiveProduct.productId) {
-      return addDefectiveToCart();
-    }
-    
-    if (!product || !selectedProductId) {
-      showToast('Please select a product', 'error');
-      return;
-    }
-    
-    if (!selectedBatch) {
-      showToast('No batch selected for this product', 'error');
-      return;
-    }
-    
-    if (sellingPrice <= 0 || quantity <= 0) {
-      showToast('Please enter valid price and quantity', 'error');
-      return;
-    }
-    
-    if (!selectedOutlet) {
-      showToast('Please select an outlet', 'error');
-      return;
-    }
+const addToCart = async () => {
+  if (defectiveProduct && selectedProductId === defectiveProduct.productId) {
+    return addDefectiveToCart();
+  }
+  
+  if (!product || !selectedProductId) {
+    showToast('Please select a product', 'error');
+    return;
+  }
+  
+  if (!selectedBatch) {
+    showToast('No batch selected for this product', 'error');
+    return;
+  }
+  
+  if (sellingPrice <= 0 || quantity <= 0) {
+    showToast('Please enter valid price and quantity', 'error');
+    return;
+  }
+  
+  if (!selectedOutlet) {
+    showToast('Please select an outlet', 'error');
+    return;
+  }
 
-    if (quantity > selectedBatch.quantity) {
-      showToast(`Only ${selectedBatch.quantity} units available in this batch`, 'error');
+  if (quantity > selectedBatch.quantity) {
+    showToast(`Only ${selectedBatch.quantity} units available in this batch`, 'error');
+    return;
+  }
+
+  const baseAmount = sellingPrice * quantity;
+  const discountValue = discountPercent > 0 ? (baseAmount * discountPercent) / 100 : discountAmount;
+
+  // ✅ IMPORTANT: For manual entry, prompt user to scan barcodes instead
+  if (quantity === 1) {
+    // Single item - can proceed without barcode (will fail at order completion)
+    // Better to show warning
+    const shouldContinue = confirm(
+      'Warning: Adding items without scanning barcodes may cause issues. ' +
+      'Please use Barcode Scanner mode for best results. Continue anyway?'
+    );
+    
+    if (!shouldContinue) {
+      setBarcodeMode(true); // Enable scanner mode
       return;
     }
-
-    const baseAmount = sellingPrice * quantity;
-    const discountValue = discountPercent > 0 ? (baseAmount * discountPercent) / 100 : discountAmount;
 
     const newItem: CartItem = {
       id: Date.now() + Math.random(),
@@ -839,25 +854,35 @@ const fetchPaymentMethods = async () => {
       batchId: selectedBatch.id,
       batchNumber: selectedBatch.batch_number,
       size: '',
-      qty: quantity,
+      qty: 1,
       price: sellingPrice,
       discount: discountValue,
       amount: baseAmount - discountValue,
       availableQty: selectedBatch.quantity,
       isDefective: false,
+      barcode: undefined, // ✅ No barcode - will cause issues
     };
     
     setCart([...cart, newItem]);
-    setProduct('');
-    setSelectedProductId(null);
-    setSelectedBatch(null);
-    setSellingPrice(0);
-    setQuantity(0);
-    setDiscountPercent(0);
-    setDiscountAmount(0);
-    setAmount(0);
-  };
-
+  } else {
+    // Multiple items - force barcode scanning
+    showToast(
+      `Please scan ${quantity} barcodes individually using Barcode Scanner mode.`,
+      'error'
+    );
+    setBarcodeMode(true);
+    return;
+  }
+  
+  setProduct('');
+  setSelectedProductId(null);
+  setSelectedBatch(null);
+  setSellingPrice(0);
+  setQuantity(0);
+  setDiscountPercent(0);
+  setDiscountAmount(0);
+  setAmount(0);
+};
   const removeFromCart = (id: number) => {
     setCart(cart.filter(item => item.id !== id));
   };
