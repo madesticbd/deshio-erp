@@ -1,7 +1,7 @@
 "use client";
 import React, { useState, useEffect } from "react";
 import BarcodeSelectionModal from "./BarcodeSelectionModal";
-import barcodeService, { BarcodeInfo } from "@/services/barcodeService";
+import { barcodeTrackingService } from "@/services/barcodeTrackingService";
 
 interface Product {
   id: number;
@@ -20,12 +20,13 @@ interface Batch {
 interface BatchPrinterProps {
   batch: Batch;
   product?: Product;
+  barcodes?: string[]; // Accept pre-fetched barcodes from parent
 }
 
-export default function BatchPrinter({ batch, product }: BatchPrinterProps) {
+export default function BatchPrinter({ batch, product, barcodes: externalBarcodes }: BatchPrinterProps) {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isQzLoaded, setIsQzLoaded] = useState(false);
-  const [barcodes, setBarcodes] = useState<string[]>([]);
+  const [barcodes, setBarcodes] = useState<string[]>(externalBarcodes || []);
   const [isLoadingBarcodes, setIsLoadingBarcodes] = useState(false);
   const [barcodeError, setBarcodeError] = useState<string | null>(null);
 
@@ -59,10 +60,23 @@ export default function BatchPrinter({ batch, product }: BatchPrinterProps) {
     return () => clearInterval(interval);
   }, []);
 
-  // Fetch barcodes from backend when modal opens
+  // Update barcodes if external barcodes change
+  useEffect(() => {
+    if (externalBarcodes && externalBarcodes.length > 0) {
+      setBarcodes(externalBarcodes);
+    }
+  }, [externalBarcodes]);
+
+  // Fetch barcodes from backend when modal opens (only if not provided externally)
   const fetchBarcodes = async () => {
-    if (!product?.id) {
-      setBarcodeError("Product information not available");
+    // If barcodes are already provided from parent, don't fetch
+    if (externalBarcodes && externalBarcodes.length > 0) {
+      setBarcodes(externalBarcodes);
+      return;
+    }
+
+    if (!batch?.id) {
+      setBarcodeError("Batch information not available");
       return;
     }
 
@@ -70,18 +84,20 @@ export default function BatchPrinter({ batch, product }: BatchPrinterProps) {
     setBarcodeError(null);
 
     try {
-      const response = await barcodeService.getProductBarcodes(product.id);
+      // Use batch-specific endpoint instead of product endpoint
+      const response = await barcodeTrackingService.getBatchBarcodes(batch.id);
       
       if (response.success && response.data.barcodes) {
-        // Extract barcode strings from the response
+        // Extract active barcode strings from the response
         const barcodeCodes = response.data.barcodes
-          .filter((b: BarcodeInfo) => b.is_active)
-          .map((b: BarcodeInfo) => b.barcode);
+          .filter((b) => b.is_active)
+          .map((b) => b.barcode);
         
         if (barcodeCodes.length === 0) {
-          setBarcodeError("No active barcodes found for this product");
+          setBarcodeError("No active barcodes found for this batch");
         } else {
           setBarcodes(barcodeCodes);
+          console.log(`✅ Loaded ${barcodeCodes.length} barcodes for batch ${batch.id}`);
         }
       } else {
         setBarcodeError("Failed to fetch barcodes");
@@ -96,7 +112,9 @@ export default function BatchPrinter({ batch, product }: BatchPrinterProps) {
 
   const handleOpenModal = () => {
     setIsModalOpen(true);
-    fetchBarcodes();
+    if (!externalBarcodes || externalBarcodes.length === 0) {
+      fetchBarcodes();
+    }
   };
 
   const handleQZPrint = async (
@@ -137,9 +155,9 @@ export default function BatchPrinter({ batch, product }: BatchPrinterProps) {
                   <div class="barcode-container">
                     <div class="product-name">${product?.name || 'Product'}</div>
                     <div class="price">৳${batch.sellingPrice.toLocaleString('en-BD')}</div>
-                    <svg id="barcode-${code}-${i}"></svg>
+                    <svg id="barcode-${code.replace(/[^a-zA-Z0-9]/g, '')}-${i}"></svg>
                     <script>
-                      JsBarcode("#barcode-${code}-${i}", "${code}", {
+                      JsBarcode("#barcode-${code.replace(/[^a-zA-Z0-9]/g, '')}-${i}", "${code}", {
                         format:"CODE128",
                         width: 2,
                         height: 50,
@@ -155,7 +173,7 @@ export default function BatchPrinter({ batch, product }: BatchPrinterProps) {
       });
 
       await (window as any).qz.print(config, data);
-      alert(`${data.length} barcode(s) sent to printer successfully!`);
+      alert(`✅ ${data.length} barcode(s) sent to printer successfully!`);
       setIsModalOpen(false);
     } catch (err: any) {
       console.error("Print error:", err);

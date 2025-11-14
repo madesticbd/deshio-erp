@@ -3,13 +3,13 @@
 import { useState, useRef, useEffect } from 'react';
 import { MoreVertical, Trash2, Edit, Plus, ChevronDown, ChevronRight } from 'lucide-react';
 import { ImageWithFallback } from './figma/ImageWithFallback';
-import { Category } from './CategoryCard';
+import { Category } from '@/services/categoryService';
 
 interface CategoryListItemProps {
   category: Category;
-  onDelete: (id: string) => void;
+  onDelete: (id: number) => void;
   onEdit: (category: Category) => void;
-  onAddSubcategory: (parentId: string) => void;
+  onAddSubcategory: (parentId: number) => void;
   level?: number;
 }
 
@@ -23,7 +23,10 @@ export default function CategoryListItem({
   const [showSubcategories, setShowSubcategories] = useState(false);
   const [showDropdown, setShowDropdown] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
-  const hasSubcategories = category.subcategories && category.subcategories.length > 0;
+  
+  // Check both children and all_children
+  const subcategories = category.children || category.all_children || [];
+  const hasSubcategories = subcategories && subcategories.length > 0;
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
@@ -41,7 +44,6 @@ export default function CategoryListItem({
         className="flex items-center gap-3 p-3 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors group"
         style={{ marginLeft: `${level * 24}px` }}
       >
-        {/* Subcategory toggle button */}
         {hasSubcategories ? (
           <button
             onClick={() => setShowSubcategories(!showSubcategories)}
@@ -53,28 +55,24 @@ export default function CategoryListItem({
           <div className="w-6" />
         )}
 
-        {/* Category Image */}
         <ImageWithFallback
-          src={category.image}
+          src={category.image_url || " "}
           alt={category.title}
           className="w-16 h-16 rounded object-cover flex-shrink-0"
         />
 
-        {/* Category Details */}
         <div className="flex-1 min-w-0">
           <h3 className="text-gray-900 dark:text-white mb-1">{category.title}</h3>
-          <p className="text-sm text-gray-600 dark:text-gray-400 line-clamp-1">{category.description}</p>
+          <p className="text-sm text-gray-600 dark:text-gray-400 line-clamp-1">{category.description || ''}</p>
           <span className="text-xs text-gray-500 dark:text-gray-400">/{category.slug}</span>
         </div>
 
-        {/* Subcategory count */}
         {hasSubcategories && (
           <span className="text-xs bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 px-2 py-1 rounded">
-            {category.subcategories?.length} subcategories
+            {subcategories.length} subcategories
           </span>
         )}
 
-        {/* Dropdown menu */}
         <div className="relative" ref={dropdownRef}>
           <button
             onClick={() => setShowDropdown(!showDropdown)}
@@ -120,10 +118,9 @@ export default function CategoryListItem({
         </div>
       </div>
 
-      {/* Subcategories recursively */}
       {showSubcategories && hasSubcategories && (
         <div className="mt-2 space-y-2">
-          {category.subcategories?.map((sub) => (
+          {subcategories.map((sub) => (
             <CategoryListItem
               key={sub.id}
               category={sub}
@@ -135,6 +132,6 @@ export default function CategoryListItem({
           ))}
         </div>
       )}
-    </div>
-  );
+    </div>
+  );
 }

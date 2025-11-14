@@ -1,12 +1,14 @@
-import axios from '@/lib/axios';
-import { ApiResponse } from './api.types';
+import axiosInstance from '@/lib/axios';
 
-export interface StoreBreakdown {
+// Types
+export interface Store {
   store_id: number;
   store_name: string;
   store_code: string;
   quantity: number;
-  batches_count: number;
+  batches_count?: number;
+  is_warehouse?: boolean;
+  is_online?: boolean;
 }
 
 export interface GlobalInventoryItem {
@@ -15,8 +17,17 @@ export interface GlobalInventoryItem {
   sku: string;
   total_quantity: number;
   stores_count: number;
-  stores: StoreBreakdown[];
+  stores: Store[];
   is_low_stock: boolean;
+}
+
+export interface ProductAvailability {
+  product_id: number;
+  product_name: string;
+  sku: string;
+  total_quantity: number;
+  available_in_stores: number;
+  stores: Store[];
 }
 
 export interface LowStockAlert {
@@ -33,7 +44,49 @@ export interface LowStockAlert {
   urgency: 'critical' | 'high' | 'medium';
 }
 
-export interface InventoryStatistics {
+export interface LowStockAlertsResponse {
+  total_alerts: number;
+  critical: number;
+  high: number;
+  medium: number;
+  alerts: LowStockAlert[];
+}
+
+export interface StoreValue {
+  store_id: number;
+  store_name: string;
+  store_code: string;
+  total_value: number;
+  products_count: number;
+  batches_count: number;
+}
+
+export interface ProductValue {
+  product_id: number;
+  product_name: string;
+  sku: string;
+  total_quantity: number;
+  total_value: number;
+  average_unit_cost: number;
+}
+
+export interface InventoryValueResponse {
+  total_inventory_value: number;
+  total_products: number;
+  total_batches: number;
+  by_store: StoreValue[];
+  top_products: ProductValue[];
+}
+
+export interface StoreSummary {
+  store_id: number;
+  store_name: string;
+  products_count: number;
+  total_quantity: number;
+  total_value: number;
+}
+
+export interface StatisticsResponse {
   overview: {
     total_products: number;
     total_batches: number;
@@ -46,57 +99,24 @@ export interface InventoryStatistics {
     out_of_stock: number;
     expiring_soon: number;
   };
-  stores: Array<{
-    store_id: number;
-    store_name: string;
-    products_count: number;
-    total_quantity: number;
-    total_value: number;
-  }>;
+  stores: StoreSummary[];
 }
 
-export interface ProductSearchResult {
-  product_id: number;
+export interface StockAgingItem {
+  batch_id: number;
+  batch_number: string;
   product_name: string;
-  sku: string;
-  total_quantity: number;
-  available_in_stores: number;
-  stores: Array<{
-    store_id: number;
-    store_name: string;
-    store_code: string;
-    quantity: number;
-    is_warehouse: boolean;
-    is_online: boolean;
-  }>;
+  store_name: string;
+  quantity: number;
+  days_in_stock: number;
+  age_category: 'fresh' | 'medium' | 'aged';
+  value: number;
 }
 
-export interface InventoryValueReport {
-  total_inventory_value: number;
-  total_products: number;
-  total_batches: number;
-  by_store: Array<{
-    store_id: number;
-    store_name: string;
-    store_code: string;
-    total_value: number;
-    products_count: number;
-    batches_count: number;
-  }>;
-  top_products: Array<{
-    product_id: number;
-    product_name: string;
-    sku: string;
-    total_quantity: number;
-    total_value: number;
-    average_unit_cost: number;
-  }>;
-}
-
-export interface StockAgingData {
-  fresh: any[];
-  medium: any[];
-  aged: any[];
+export interface StockAgingResponse {
+  fresh: StockAgingItem[];
+  medium: StockAgingItem[];
+  aged: StockAgingItem[];
   summary: {
     fresh_count: number;
     medium_count: number;
@@ -104,66 +124,97 @@ export interface StockAgingData {
   };
 }
 
-class InventoryService {
-  private readonly endpoint = '/inventory';
+export interface GlobalInventoryParams {
+  product_id?: number;
+  store_id?: number;
+  low_stock?: boolean;
+}
 
+export interface SearchProductParams {
+  search: string;
+}
+
+// API Response wrapper
+interface ApiResponse<T> {
+  success: boolean;
+  data: T;
+  message?: string;
+}
+
+// Inventory Service
+const inventoryService = {
   /**
    * Get global inventory overview across all stores
    */
-  async getGlobalInventory(filters?: {
-    product_id?: number;
-    store_id?: number;
-    low_stock?: boolean;
-  }): Promise<ApiResponse<GlobalInventoryItem[]>> {
-    const response = await axios.get(`${this.endpoint}/global`, { params: filters });
+  getGlobalInventory: async (params?: GlobalInventoryParams) => {
+    const response = await axiosInstance.get<ApiResponse<GlobalInventoryItem[]>>(
+      '/inventory/global',
+      { params }
+    );
     return response.data;
-  }
+  },
 
   /**
-   * Search product availability across all stores
+   * Get inventory for a specific store
    */
-  async searchProductAcrossStores(search: string): Promise<ApiResponse<ProductSearchResult[]>> {
-    const response = await axios.post(`${this.endpoint}/search`, { search });
+  getStoreInventory: async (storeId: number) => {
+    const response = await axiosInstance.get<ApiResponse<GlobalInventoryItem[]>>(
+      '/inventory/global',
+      { params: { store_id: storeId } }
+    );
     return response.data;
-  }
-
-  /**
-   * Get low stock alerts across all stores
-   */
-  async getLowStockAlerts(): Promise<ApiResponse<{
-    total_alerts: number;
-    critical: number;
-    high: number;
-    medium: number;
-    alerts: LowStockAlert[];
-  }>> {
-    const response = await axios.get(`${this.endpoint}/low-stock-alerts`);
-    return response.data;
-  }
-
-  /**
-   * Get inventory value report
-   */
-  async getInventoryValue(): Promise<ApiResponse<InventoryValueReport>> {
-    const response = await axios.get(`${this.endpoint}/value`);
-    return response.data;
-  }
+  },
 
   /**
    * Get inventory statistics and dashboard data
    */
-  async getStatistics(): Promise<ApiResponse<InventoryStatistics>> {
-    const response = await axios.get(`${this.endpoint}/statistics`);
+  getStatistics: async () => {
+    const response = await axiosInstance.get<ApiResponse<StatisticsResponse>>(
+      '/inventory/statistics'
+    );
     return response.data;
-  }
+  },
+
+  /**
+   * Get inventory value report
+   */
+  getInventoryValue: async () => {
+    const response = await axiosInstance.get<ApiResponse<InventoryValueResponse>>(
+      '/inventory/value'
+    );
+    return response.data;
+  },
+
+  /**
+   * Search product availability across all stores
+   */
+  searchProductAcrossStores: async (params: SearchProductParams) => {
+    const response = await axiosInstance.post<ApiResponse<ProductAvailability[]>>(
+      '/inventory/search',
+      params
+    );
+    return response.data;
+  },
+
+  /**
+   * Get low stock alerts across all stores
+   */
+  getLowStockAlerts: async () => {
+    const response = await axiosInstance.get<ApiResponse<LowStockAlertsResponse>>(
+      '/inventory/low-stock-alerts'
+    );
+    return response.data;
+  },
 
   /**
    * Get stock aging analysis
    */
-  async getStockAging(): Promise<ApiResponse<StockAgingData>> {
-    const response = await axios.get(`${this.endpoint}/stock-aging`);
+  getStockAging: async () => {
+    const response = await axiosInstance.get<ApiResponse<StockAgingResponse>>(
+      '/inventory/stock-aging'
+    );
     return response.data;
-  }
-}
+  },
+};
 
-export default new InventoryService();
+export default inventoryService;
