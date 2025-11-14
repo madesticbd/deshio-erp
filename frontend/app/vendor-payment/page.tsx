@@ -1,28 +1,15 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { X, Plus, DollarSign, ShoppingCart, MoreVertical, Eye, Receipt } from 'lucide-react';
+import { X, Plus, DollarSign, ShoppingCart, MoreVertical, Eye, Receipt, Loader2, AlertCircle } from 'lucide-react';
 import Header from '@/components/Header';
 import Sidebar from '@/components/Sidebar';
-
-interface Vendor {
-  id: number;
-  name: string;
-  phone: string;
-  email: string;
-  address: string;
-  total: number;
-  paid: number;
-}
-
-interface Transaction {
-  id: number;
-  vendorId: number;
-  type: 'purchase' | 'payment';
-  amount: number;
-  date: string;
-  note?: string;
-}
+import { vendorService, Vendor } from '@/services/vendorService';
+import purchaseOrderService, { PurchaseOrder, CreatePurchaseOrderData } from '@/services/purchase-order.service';
+import { vendorPaymentService, CreatePaymentRequest } from '@/services/vendorPaymentService';
+import storeService, { Store } from '@/services/storeService';
+import productService, { Product } from '@/services/productService';
+import paymentMethodService, { PaymentMethod } from '@/services/paymentMethodService';
 
 const Modal = ({ isOpen, onClose, title, children, size = 'md' }: {
   isOpen: boolean;
@@ -59,46 +46,28 @@ const Modal = ({ isOpen, onClose, title, children, size = 'md' }: {
   );
 };
 
+const Alert = ({ type, message }: { type: 'success' | 'error'; message: string }) => (
+  <div className={`fixed top-4 right-4 z-50 flex items-center gap-2 px-4 py-3 rounded-lg shadow-lg ${
+    type === 'success' ? 'bg-green-500 text-white' : 'bg-red-500 text-white'
+  }`}>
+    <AlertCircle className="w-5 h-5" />
+    <span>{message}</span>
+  </div>
+);
+
 export default function VendorPaymentPage() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [darkMode, setDarkMode] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [alert, setAlert] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
 
-  // Load from localStorage on mount
+  // Data states
   const [vendors, setVendors] = useState<Vendor[]>([]);
-  const [transactions, setTransactions] = useState<Transaction[]>([]);
-
-  useEffect(() => {
-    const savedVendors = localStorage.getItem('vendors');
-    const savedTransactions = localStorage.getItem('vendorTransactions');
-
-    if (savedVendors) {
-      setVendors(JSON.parse(savedVendors));
-    } else {
-      setVendors([
-        { id: 1, name: 'ABC Traders', phone: '+880 1712-345678', email: 'contact@abctraders.com', address: '123 Main St, Dhaka', total: 10000, paid: 7000 },
-        { id: 2, name: 'XYZ Supplies', phone: '+880 1898-765432', email: 'info@xyzsupplies.com', address: '456 Commerce Ave, Dhaka', total: 5000, paid: 5000 },
-      ]);
-    }
-
-    if (savedTransactions) {
-      setTransactions(JSON.parse(savedTransactions));
-    }
-  }, []);
-  
-
-  // Save to localStorage whenever vendors or transactions change
-  useEffect(() => {
-    if (vendors.length > 0) {
-      localStorage.setItem('vendors', JSON.stringify(vendors));
-    }
-  }, [vendors]);
-
-  useEffect(() => {
-    if (transactions.length > 0) {
-      localStorage.setItem('vendorTransactions', JSON.stringify(transactions));
-    }
-  }, [transactions]);
-  
+  const [stores, setStores] = useState<Store[]>([]);
+  const [products, setProducts] = useState<Product[]>([]);
+  const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([]);
+  const [purchaseOrders, setPurchaseOrders] = useState<PurchaseOrder[]>([]);
+  const [vendorPayments, setVendorPayments] = useState<any[]>([]);
 
   // Modal states
   const [showAddVendor, setShowAddVendor] = useState(false);
@@ -109,152 +78,401 @@ export default function VendorPaymentPage() {
   const [selectedVendor, setSelectedVendor] = useState<Vendor | null>(null);
   const [dropdownOpen, setDropdownOpen] = useState<number | null>(null);
 
-  // Form states
-  const [vendorForm, setVendorForm] = useState({ name: '', phone: '', email: '', address: '' });
-  const [purchaseVendorId, setPurchaseVendorId] = useState('');
-  const [purchaseAmount, setPurchaseAmount] = useState('');
-  const [paymentType, setPaymentType] = useState('due');
-  const [partialAmount, setPartialAmount] = useState('');
-  const [paymentAmount, setPaymentAmount] = useState('');
+  // Form states - Add Vendor
+  const [vendorForm, setVendorForm] = useState({
+    name: '',
+    email: '',
+    phone: '',
+    address: '',
+    contact_person: '',
+    website: '',
+    type: 'manufacturer' as 'manufacturer' | 'distributor',
+    credit_limit: '',
+    payment_terms: '',
+    notes: ''
+  });
+
+  // Form states - Add Purchase
+  const [purchaseForm, setPurchaseForm] = useState({
+    vendor_id: '',
+    store_id: '',
+    expected_delivery_date: '',
+    tax_amount: '',
+    discount_amount: '',
+    shipping_cost: '',
+    notes: '',
+    terms_and_conditions: '',
+    items: [
+      {
+        product_id: '',
+        quantity_ordered: '',
+        unit_cost: '',
+        unit_sell_price: '',
+        tax_amount: '',
+        discount_amount: '',
+        notes: ''
+      }
+    ]
+  });
+
+  // Form states - Payment
+  const [paymentForm, setPaymentForm] = useState({
+    payment_method_id: '',
+    amount: '',
+    payment_date: new Date().toISOString().split('T')[0],
+    payment_type: 'purchase_order' as 'purchase_order' | 'advance',
+    reference_number: '',
+    transaction_id: '',
+    notes: '',
+    allocations: [] as { purchase_order_id: number; amount: number; notes?: string }[]
+  });
+
+  const [selectedPOs, setSelectedPOs] = useState<{ [key: number]: { selected: boolean; amount: string } }>({});
+
+  // Load initial data
+  useEffect(() => {
+    loadVendors();
+    loadStores();
+    loadProducts();
+    loadPaymentMethods();
+  }, []);
 
   // Close dropdown when clicking outside
-    useEffect(() => {
-      const handleClickOutside = () => {
-        if (dropdownOpen !== null) {
-          setDropdownOpen(null);
-        }
+  useEffect(() => {
+    const handleClickOutside = () => {
+      if (dropdownOpen !== null) {
+        setDropdownOpen(null);
+      }
+    };
+
+    document.addEventListener('click', handleClickOutside);
+    return () => document.removeEventListener('click', handleClickOutside);
+  }, [dropdownOpen]);
+
+  // Show alert helper
+  const showAlert = (type: 'success' | 'error', message: string) => {
+    setAlert({ type, message });
+    setTimeout(() => setAlert(null), 3000);
+  };
+
+  // Load vendors
+  const loadVendors = async () => {
+    try {
+      setLoading(true);
+      const data = await vendorService.getAll({ is_active: true });
+      setVendors(data);
+    } catch (error: any) {
+      showAlert('error', error.message || 'Failed to load vendors');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Load stores (warehouses)
+  const loadStores = async () => {
+    try {
+      const response = await storeService.getStores({ 
+        is_warehouse: true,
+        is_active: true 
+      });
+      
+      if (response.success && Array.isArray(response.data?.data)) {
+        setStores(response.data.data);
+      } else if (response.success && Array.isArray(response.data)) {
+        setStores(response.data);
+      } else {
+        console.warn('Unexpected stores response format:', response);
+        setStores([]);
+      }
+    } catch (error) {
+      console.error('Failed to load stores:', error);
+      showAlert('error', 'Failed to load warehouses');
+    }
+  };
+
+  // Load products
+  const loadProducts = async () => {
+    try {
+      const data = await productService.getAll({ 
+        is_active: true,
+        per_page: 1000 // Get all active products
+      });
+      setProducts(data);
+    } catch (error: any) {
+      console.error('Failed to load products:', error);
+      showAlert('error', error.message || 'Failed to load products');
+    }
+  };
+
+  // Load payment methods
+  const loadPaymentMethods = async () => {
+    try {
+      const data = await paymentMethodService.getAll({ 
+        is_active: true 
+      });
+      setPaymentMethods(data);
+    } catch (error: any) {
+      console.error('Failed to load payment methods:', error);
+      showAlert('error', error.message || 'Failed to load payment methods');
+    }
+  };
+
+  // Handle Add Vendor
+  const handleAddVendor = async () => {
+    if (!vendorForm.name.trim()) {
+      showAlert('error', 'Vendor name is required');
+      return;
+    }
+
+    try {
+      setLoading(true);
+      const newVendor = await vendorService.create({
+        name: vendorForm.name,
+        email: vendorForm.email || undefined,
+        phone: vendorForm.phone || undefined,
+        address: vendorForm.address || undefined,
+        contact_person: vendorForm.contact_person || undefined,
+        website: vendorForm.website || undefined,
+        type: vendorForm.type,
+        credit_limit: vendorForm.credit_limit ? parseFloat(vendorForm.credit_limit) : undefined,
+        payment_terms: vendorForm.payment_terms || undefined,
+        notes: vendorForm.notes || undefined
+      });
+
+      setVendors([...vendors, newVendor]);
+      setVendorForm({
+        name: '',
+        email: '',
+        phone: '',
+        address: '',
+        contact_person: '',
+        website: '',
+        type: 'manufacturer',
+        credit_limit: '',
+        payment_terms: '',
+        notes: ''
+      });
+      setShowAddVendor(false);
+      showAlert('success', 'Vendor added successfully');
+    } catch (error: any) {
+      showAlert('error', error.message || 'Failed to add vendor');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Handle Add Purchase Order
+  const handleAddPurchase = async () => {
+    if (!purchaseForm.vendor_id || !purchaseForm.store_id) {
+      showAlert('error', 'Please select vendor and warehouse');
+      return;
+    }
+
+    if (purchaseForm.items.length === 0 || !purchaseForm.items[0].product_id) {
+      showAlert('error', 'Please add at least one product');
+      return;
+    }
+
+    try {
+      setLoading(true);
+
+      const purchaseData: CreatePurchaseOrderData = {
+        vendor_id: parseInt(purchaseForm.vendor_id),
+        store_id: parseInt(purchaseForm.store_id),
+        expected_delivery_date: purchaseForm.expected_delivery_date || undefined,
+        tax_amount: purchaseForm.tax_amount ? parseFloat(purchaseForm.tax_amount) : undefined,
+        discount_amount: purchaseForm.discount_amount ? parseFloat(purchaseForm.discount_amount) : undefined,
+        shipping_cost: purchaseForm.shipping_cost ? parseFloat(purchaseForm.shipping_cost) : undefined,
+        notes: purchaseForm.notes || undefined,
+        terms_and_conditions: purchaseForm.terms_and_conditions || undefined,
+        items: purchaseForm.items.filter(item => item.product_id).map(item => ({
+          product_id: parseInt(item.product_id),
+          quantity_ordered: parseInt(item.quantity_ordered),
+          unit_cost: parseFloat(item.unit_cost),
+          unit_sell_price: item.unit_sell_price ? parseFloat(item.unit_sell_price) : undefined,
+          tax_amount: item.tax_amount ? parseFloat(item.tax_amount) : undefined,
+          discount_amount: item.discount_amount ? parseFloat(item.discount_amount) : undefined,
+          notes: item.notes || undefined
+        }))
       };
 
-      document.addEventListener('click', handleClickOutside);
-      return () => document.removeEventListener('click', handleClickOutside);
-    }, [dropdownOpen]);
-  // Generate transaction ID
-  const generateTransactionId = () => Math.max(...transactions.map(t => t.id), 0) + 1;
-
-  const handleAddVendor = () => {
-    if (!vendorForm.name.trim()) return;
-
-    const newVendor: Vendor = {
-      id: Math.max(...vendors.map(v => v.id), 0) + 1,
-      name: vendorForm.name.trim(),
-      phone: vendorForm.phone.trim(),
-      email: vendorForm.email.trim(),
-      address: vendorForm.address.trim(),
-      total: 0,
-      paid: 0,
-    };
-
-    setVendors([...vendors, newVendor]);
-    setVendorForm({ name: '', phone: '', email: '', address: '' });
-    setShowAddVendor(false);
-  };
-
-  const handleAddPurchase = () => {
-    const amount = parseFloat(purchaseAmount);
-    if (!purchaseVendorId || isNaN(amount) || amount <= 0) return;
-
-    let paidAmount = 0;
-    let note = '';
-
-    if (paymentType === 'full') {
-      paidAmount = amount;
-      note = 'Paid in full';
-    } else if (paymentType === 'partial') {
-      const partial = parseFloat(partialAmount);
-      if (isNaN(partial) || partial < 0 || partial > amount) return;
-      paidAmount = partial;
-      note = `Partial payment: ৳${partial.toFixed(2)}`;
-    } else {
-      note = 'Buy on due';
+      const result = await purchaseOrderService.create(purchaseData);
+      
+      setPurchaseForm({
+        vendor_id: '',
+        store_id: '',
+        expected_delivery_date: '',
+        tax_amount: '',
+        discount_amount: '',
+        shipping_cost: '',
+        notes: '',
+        terms_and_conditions: '',
+        items: [{
+          product_id: '',
+          quantity_ordered: '',
+          unit_cost: '',
+          unit_sell_price: '',
+          tax_amount: '',
+          discount_amount: '',
+          notes: ''
+        }]
+      });
+      
+      setShowAddPurchase(false);
+      showAlert('success', 'Purchase order created successfully');
+      loadVendors(); // Refresh vendor data
+    } catch (error: any) {
+      showAlert('error', error.message || 'Failed to create purchase order');
+    } finally {
+      setLoading(false);
     }
-
-    const vendorId = parseInt(purchaseVendorId);
-    const newTransactionId = generateTransactionId();
-
-    // Add purchase transaction
-    setTransactions(prev => [...prev, {
-      id: newTransactionId,
-      vendorId,
-      type: 'purchase',
-      amount,
-      date: new Date().toISOString(),
-      note
-    }]);
-
-    // Add payment transaction if any
-    if (paidAmount > 0) {
-      setTransactions(prev => [...prev, {
-        id: generateTransactionId(),
-        vendorId,
-        type: 'payment',
-        amount: paidAmount,
-        date: new Date().toISOString(),
-        note: 'Purchase payment'
-      }]);
-    }
-
-    // Update vendor totals
-    setVendors(prev =>
-      prev.map(v =>
-        v.id === vendorId
-          ? { ...v, total: v.total + amount, paid: v.paid + paidAmount }
-          : v
-      )
-    );
-
-    // Reset form
-    setPurchaseVendorId('');
-    setPurchaseAmount('');
-    setPaymentType('due');
-    setPartialAmount('');
-    setShowAddPurchase(false);
   };
 
-  const handlePayment = () => {
-    const amount = parseFloat(paymentAmount);
-    if (!selectedVendor || isNaN(amount) || amount <= 0) return;
-
-    const newTransaction: Transaction = {
-      id: generateTransactionId(),
-      vendorId: selectedVendor.id,
-      type: 'payment',
-      amount,
-      date: new Date().toISOString(),
-      note: 'Due payment'
-    };
-
-    setTransactions(prev => [...prev, newTransaction]);
-
-    setVendors(prev =>
-      prev.map(v =>
-        v.id === selectedVendor.id
-          ? { ...v, paid: Math.min(v.total, v.paid + amount) }
-          : v
-      )
-    );
-
-    setPaymentAmount('');
-    setSelectedVendor(null);
-    setShowPayment(false);
+  // Add product item to purchase
+  const addProductItem = () => {
+    setPurchaseForm({
+      ...purchaseForm,
+      items: [
+        ...purchaseForm.items,
+        {
+          product_id: '',
+          quantity_ordered: '',
+          unit_cost: '',
+          unit_sell_price: '',
+          tax_amount: '',
+          discount_amount: '',
+          notes: ''
+        }
+      ]
+    });
   };
 
-  const openPaymentModal = (vendor: Vendor) => {
+  // Remove product item
+  const removeProductItem = (index: number) => {
+    setPurchaseForm({
+      ...purchaseForm,
+      items: purchaseForm.items.filter((_, i) => i !== index)
+    });
+  };
+
+  // Update product item
+  const updateProductItem = (index: number, field: string, value: string) => {
+    const newItems = [...purchaseForm.items];
+    newItems[index] = { ...newItems[index], [field]: value };
+    setPurchaseForm({ ...purchaseForm, items: newItems });
+  };
+
+  // Handle Payment
+  const openPaymentModal = async (vendor: Vendor) => {
     setSelectedVendor(vendor);
-    setShowPayment(true);
-    setPaymentAmount('');
+    setLoading(true);
+    
+    try {
+      // Get outstanding purchase orders for this vendor
+      const outstanding = await vendorPaymentService.getOutstanding(vendor.id);
+      setPurchaseOrders(outstanding.purchase_orders);
+      
+      // Initialize selected POs
+      const initialSelected: { [key: number]: { selected: boolean; amount: string } } = {};
+      outstanding.purchase_orders.forEach(po => {
+        initialSelected[po.id] = { selected: false, amount: '' };
+      });
+      setSelectedPOs(initialSelected);
+      
+      setShowPayment(true);
+    } catch (error: any) {
+      showAlert('error', error.message || 'Failed to load outstanding orders');
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const openViewVendor = (vendor: Vendor) => {
+  // Handle Make Payment
+  const handlePayment = async () => {
+    if (!selectedVendor || !paymentForm.payment_method_id || !paymentForm.amount) {
+      showAlert('error', 'Please fill in all required fields');
+      return;
+    }
+
+    try {
+      setLoading(true);
+
+      // Build allocations from selected POs
+      const allocations = Object.entries(selectedPOs)
+        .filter(([_, data]) => data.selected && parseFloat(data.amount) > 0)
+        .map(([poId, data]) => ({
+          purchase_order_id: parseInt(poId),
+          amount: parseFloat(data.amount),
+          notes: `Payment for PO`
+        }));
+
+      const paymentData: CreatePaymentRequest = {
+        vendor_id: selectedVendor.id,
+        payment_method_id: parseInt(paymentForm.payment_method_id),
+        amount: parseFloat(paymentForm.amount),
+        payment_date: paymentForm.payment_date,
+        payment_type: paymentForm.payment_type,
+        reference_number: paymentForm.reference_number || undefined,
+        transaction_id: paymentForm.transaction_id || undefined,
+        notes: paymentForm.notes || undefined,
+        allocations: allocations.length > 0 ? allocations : undefined
+      };
+
+      await vendorPaymentService.create(paymentData);
+
+      setPaymentForm({
+        payment_method_id: '',
+        amount: '',
+        payment_date: new Date().toISOString().split('T')[0],
+        payment_type: 'purchase_order',
+        reference_number: '',
+        transaction_id: '',
+        notes: '',
+        allocations: []
+      });
+      setSelectedPOs({});
+      setShowPayment(false);
+      showAlert('success', 'Payment recorded successfully');
+      loadVendors(); // Refresh vendor data
+    } catch (error: any) {
+      showAlert('error', error.message || 'Failed to record payment');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Open view vendor
+  const openViewVendor = async (vendor: Vendor) => {
     setSelectedVendor(vendor);
     setShowViewVendor(true);
   };
 
-  const openTransactions = (vendor: Vendor) => {
+  // Open transactions
+  const openTransactions = async (vendor: Vendor) => {
     setSelectedVendor(vendor);
-    setShowTransactions(true);
+    setLoading(true);
+    
+    try {
+      const payments = await vendorPaymentService.getAll({ vendor_id: vendor.id });
+      setVendorPayments(payments.data || []);
+      setShowTransactions(true);
+    } catch (error: any) {
+      showAlert('error', error.message || 'Failed to load transactions');
+    } finally {
+      setLoading(false);
+    }
+    
     setDropdownOpen(null);
   };
 
+  // Calculate total allocated amount
+  const calculateTotalAllocated = () => {
+    return Object.values(selectedPOs)
+      .filter(data => data.selected)
+      .reduce((sum, data) => sum + (parseFloat(data.amount) || 0), 0);
+  };
+
+  // Format date
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('en-GB', {
       day: '2-digit',
@@ -275,10 +493,12 @@ export default function VendorPaymentPage() {
           toggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)}
         />
 
+        {alert && <Alert type={alert.type} message={alert.message} />}
+
         <main className="p-6">
           <div className="flex items-center justify-between mb-6">
             <h1 className="text-2xl font-semibold text-gray-800 dark:text-gray-100">
-              Vendor Payment Tracker
+              Vendor Payment Management
             </h1>
             <div className="flex gap-3">
               <button
@@ -293,27 +513,30 @@ export default function VendorPaymentPage() {
                 className="flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
               >
                 <ShoppingCart className="w-4 h-4" />
-                New Purchase
+                New Purchase Order
               </button>
             </div>
           </div>
 
-          <div className="overflow-x-auto bg-white dark:bg-gray-800 rounded-xl shadow-sm">
-            <table className="min-w-full text-sm text-left text-gray-700 dark:text-gray-300">
-              <thead className="bg-gray-100 dark:bg-gray-700">
-                <tr>
-                  <th className="px-6 py-3">Vendor</th>
-                  <th className="px-6 py-3">Contact</th>
-                  <th className="px-6 py-3">Total Amount</th>
-                  <th className="px-6 py-3">Amount Paid</th>
-                  <th className="px-6 py-3">Amount Due</th>
-                  <th className="px-6 py-3 text-center">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {vendors.map((vendor) => {
-                  const due = vendor.total - vendor.paid;
-                  return (
+          {loading && vendors.length === 0 ? (
+            <div className="flex items-center justify-center py-12">
+              <Loader2 className="w-8 h-8 animate-spin text-gray-500" />
+            </div>
+          ) : (
+            <div className="overflow-x-auto bg-white dark:bg-gray-800 rounded-xl shadow-sm">
+              <table className="min-w-full text-sm text-left text-gray-700 dark:text-gray-300">
+                <thead className="bg-gray-100 dark:bg-gray-700">
+                  <tr>
+                    <th className="px-6 py-3">Vendor</th>
+                    <th className="px-6 py-3">Type</th>
+                    <th className="px-6 py-3">Contact</th>
+                    <th className="px-6 py-3">Credit Limit</th>
+                    <th className="px-6 py-3">Status</th>
+                    <th className="px-6 py-3 text-center">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {vendors.map((vendor) => (
                     <tr
                       key={vendor.id}
                       className="border-b border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/30"
@@ -323,35 +546,34 @@ export default function VendorPaymentPage() {
                         <div className="text-xs text-gray-500 dark:text-gray-400">{vendor.phone}</div>
                       </td>
                       <td className="px-6 py-3">
-                        <div className="text-xs">{vendor.email}</div>
-                      </td>
-                      <td className="px-6 py-3">৳{vendor.total.toFixed(2)}</td>
-                      <td className="px-6 py-3 text-green-600 dark:text-green-400">
-                        ৳{vendor.paid.toFixed(2)}
-                      </td>
-                      <td
-                        className={`px-6 py-3 font-semibold ${
-                          due > 0
-                            ? 'text-yellow-600 dark:text-yellow-400'
-                            : 'text-green-600 dark:text-green-400'
-                        }`}
-                      >
-                        ৳{due.toFixed(2)}
+                        <span className="capitalize text-xs bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 px-2 py-1 rounded">
+                          {vendor.type}
+                        </span>
                       </td>
                       <td className="px-6 py-3">
-                        <div className="flex items-center justify-end gap-2">
+                        <div className="text-xs">{vendor.email || 'N/A'}</div>
+                      </td>
+                      <td className="px-6 py-3">
+                        ৳{vendor.credit_limit?.toFixed(2) || '0.00'}
+                      </td>
+                      <td className="px-6 py-3">
+                        <span className={`text-xs px-2 py-1 rounded ${
+                          vendor.is_active
+                            ? 'bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400'
+                            : 'bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400'
+                        }`}>
+                          {vendor.is_active ? 'Active' : 'Inactive'}
+                        </span>
+                      </td>
+                      <td className="px-6 py-3">
+                        <div className="flex items-center justify-center gap-2">
+                          <button
+                            onClick={() => openPaymentModal(vendor)}
+                            className="flex items-center gap-1 bg-gray-900 hover:bg-gray-700 text-white text-xs px-3 py-2 rounded-lg transition-colors"
+                          >
+                            ৳ Make Payment
+                          </button>
                           
-
-                          {due > 0 ? (
-                            <button
-                              onClick={() => openPaymentModal(vendor)}
-                              className="flex items-center gap-1 bg-gray-900 hover:bg-gray-700 text-white text-xs px-3 py-2 rounded-lg transition-colors"
-                            >
-                              ৳ Pay Due
-                            </button>
-                          ) : (
-                          <span className="text-gray-600 dark:text-gray-400 text-xs bg-green-100 dark:bg-green-900/30 px-3 py-1 rounded-lg">Paid in full</span>
-                          )}
                           <div className="relative">
                             <button
                               onClick={(e) => {
@@ -359,7 +581,6 @@ export default function VendorPaymentPage() {
                                 setDropdownOpen(dropdownOpen === vendor.id ? null : vendor.id);
                               }}
                               className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
-                              title="More options"
                             >
                               <MoreVertical className="w-4 h-4 text-gray-600 dark:text-gray-400" />
                             </button>
@@ -374,11 +595,12 @@ export default function VendorPaymentPage() {
                                   onClick={(e) => {
                                     e.stopPropagation();
                                     openViewVendor(vendor);
+                                    setDropdownOpen(null);
                                   }}
                                   className="flex items-center gap-2 w-full px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors rounded-t-lg"
                                 >
                                   <Eye className="w-4 h-4" />
-                                  View Vendor Details
+                                  View Details
                                 </button>
                                 <button
                                   onClick={(e) => {
@@ -396,13 +618,716 @@ export default function VendorPaymentPage() {
                         </div>
                       </td>
                     </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
+                  ))}
+                </tbody>
+              </table>
+
+              {vendors.length === 0 && !loading && (
+                <div className="text-center py-12 text-gray-500 dark:text-gray-400">
+                  No vendors found. Add your first vendor to get started.
+                </div>
+              )}
+            </div>
+          )}
         </main>
       </div>
+
+      {/* Add Vendor Modal */}
+      <Modal
+        isOpen={showAddVendor}
+        onClose={() => setShowAddVendor(false)}
+        title="Add New Vendor"
+        size="lg"
+      >
+        <div className="space-y-4">
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                Vendor Name <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="text"
+                value={vendorForm.name}
+                onChange={(e) => setVendorForm({...vendorForm, name: e.target.value})}
+                className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-gray-500 focus:border-transparent"
+                placeholder="Enter vendor name"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                Type <span className="text-red-500">*</span>
+              </label>
+              <select
+                value={vendorForm.type}
+                onChange={(e) => setVendorForm({...vendorForm, type: e.target.value as 'manufacturer' | 'distributor'})}
+                className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-gray-500 focus:border-transparent"
+              >
+                <option value="manufacturer">Manufacturer</option>
+                <option value="distributor">Distributor</option>
+              </select>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                Email
+              </label>
+              <input
+                type="email"
+                value={vendorForm.email}
+                onChange={(e) => setVendorForm({...vendorForm, email: e.target.value})}
+                className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-gray-500 focus:border-transparent"
+                placeholder="vendor@example.com"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                Phone
+              </label>
+              <input
+                type="tel"
+                value={vendorForm.phone}
+                onChange={(e) => setVendorForm({...vendorForm, phone: e.target.value})}
+                className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-gray-500 focus:border-transparent"
+                placeholder="+880 1xxx-xxxxxx"
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                Contact Person
+              </label>
+              <input
+                type="text"
+                value={vendorForm.contact_person}
+                onChange={(e) => setVendorForm({...vendorForm, contact_person: e.target.value})}
+                className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-gray-500 focus:border-transparent"
+                placeholder="Contact person name"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                Website
+              </label>
+              <input
+                type="url"
+                value={vendorForm.website}
+                onChange={(e) => setVendorForm({...vendorForm, website: e.target.value})}
+                className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-gray-500 focus:border-transparent"
+                placeholder="https://vendor.com"
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              Address
+            </label>
+            <textarea
+              value={vendorForm.address}
+              onChange={(e) => setVendorForm({...vendorForm, address: e.target.value})}
+              rows={2}
+              className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-gray-500 focus:border-transparent resize-none"
+              placeholder="Enter vendor address"
+            />
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                Credit Limit (৳)
+              </label>
+              <input
+                type="number"
+                step="0.01"
+                value={vendorForm.credit_limit}
+                onChange={(e) => setVendorForm({...vendorForm, credit_limit: e.target.value})}
+                className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-gray-500 focus:border-transparent"
+                placeholder="50000.00"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                Payment Terms
+              </label>
+              <input
+                type="text"
+                value={vendorForm.payment_terms}
+                onChange={(e) => setVendorForm({...vendorForm, payment_terms: e.target.value})}
+                className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-gray-500 focus:border-transparent"
+                placeholder="Net 30"
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              Notes
+            </label>
+            <textarea
+              value={vendorForm.notes}
+              onChange={(e) => setVendorForm({...vendorForm, notes: e.target.value})}
+              rows={2}
+              className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-gray-500 focus:border-transparent resize-none"
+              placeholder="Additional notes about this vendor"
+            />
+          </div>
+
+          <div className="flex gap-3 justify-end pt-2">
+            <button
+              onClick={() => setShowAddVendor(false)}
+              className="px-4 py-2 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+              disabled={loading}
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleAddVendor}
+              disabled={loading}
+              className="px-4 py-2 bg-gray-900 hover:bg-gray-700 text-white rounded-lg transition-colors disabled:opacity-50 flex items-center gap-2"
+            >
+              {loading && <Loader2 className="w-4 h-4 animate-spin" />}
+              Add Vendor
+            </button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Add Purchase Order Modal */}
+      <Modal
+        isOpen={showAddPurchase}
+        onClose={() => setShowAddPurchase(false)}
+        title="Create Purchase Order"
+        size="xl"
+      >
+        <div className="space-y-4">
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                Vendor <span className="text-red-500">*</span>
+              </label>
+              <select
+                value={purchaseForm.vendor_id}
+                onChange={(e) => setPurchaseForm({...purchaseForm, vendor_id: e.target.value})}
+                className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-green-500 focus:border-transparent"
+              >
+                <option value="">Select vendor</option>
+                {vendors.map(v => (
+                  <option key={v.id} value={v.id}>{v.name}</option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                Warehouse <span className="text-red-500">*</span>
+              </label>
+              <select
+                value={purchaseForm.store_id}
+                onChange={(e) => setPurchaseForm({...purchaseForm, store_id: e.target.value})}
+                className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-green-500 focus:border-transparent"
+              >
+                <option value="">Select warehouse</option>
+                {stores.filter(s => s.is_warehouse).map(s => (
+                  <option key={s.id} value={s.id}>{s.name}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                Expected Delivery Date
+              </label>
+              <input
+                type="date"
+                value={purchaseForm.expected_delivery_date}
+                onChange={(e) => setPurchaseForm({...purchaseForm, expected_delivery_date: e.target.value})}
+                min={new Date().toISOString().split('T')[0]}
+                className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-green-500 focus:border-transparent"
+              />
+            </div>
+          </div>
+
+          <div className="border-t border-gray-200 dark:border-gray-700 pt-4">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-100">Products</h3>
+              <button
+                onClick={addProductItem}
+                className="text-xs flex items-center gap-1 text-green-600 hover:text-green-700"
+              >
+                <Plus className="w-3 h-3" />
+                Add Product
+              </button>
+            </div>
+
+            {purchaseForm.items.map((item, index) => (
+              <div key={index} className="border border-gray-200 dark:border-gray-600 rounded-lg p-3 mb-3">
+                <div className="grid grid-cols-3 gap-3 mb-2">
+                  <div className="col-span-2">
+                    <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      Product
+                    </label>
+                    <select
+                      value={item.product_id}
+                      onChange={(e) => updateProductItem(index, 'product_id', e.target.value)}
+                      className="w-full px-2 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+                    >
+                      <option value="">Select product</option>
+                      {products.map(p => (
+                        <option key={p.id} value={p.id}>{p.name} ({p.sku})</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      Quantity
+                    </label>
+                    <input
+                      type="number"
+                      min="1"
+                      value={item.quantity_ordered}
+                      onChange={(e) => updateProductItem(index, 'quantity_ordered', e.target.value)}
+                      className="w-full px-2 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+                      placeholder="0"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-4 gap-3">
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      Unit Cost (৳)
+                    </label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      value={item.unit_cost}
+                      onChange={(e) => updateProductItem(index, 'unit_cost', e.target.value)}
+                      className="w-full px-2 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+                      placeholder="0.00"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      Sell Price (৳)
+                    </label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      value={item.unit_sell_price}
+                      onChange={(e) => updateProductItem(index, 'unit_sell_price', e.target.value)}
+                      className="w-full px-2 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+                      placeholder="0.00"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      Tax (৳)
+                    </label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      value={item.tax_amount}
+                      onChange={(e) => updateProductItem(index, 'tax_amount', e.target.value)}
+                      className="w-full px-2 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+                      placeholder="0.00"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      Discount (৳)
+                    </label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      value={item.discount_amount}
+                      onChange={(e) => updateProductItem(index, 'discount_amount', e.target.value)}
+                      className="w-full px-2 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+                      placeholder="0.00"
+                    />
+                  </div>
+                </div>
+
+                {purchaseForm.items.length > 1 && (
+                  <button
+                    onClick={() => removeProductItem(index)}
+                    className="mt-2 text-xs text-red-600 hover:text-red-700"
+                  >
+                    Remove
+                  </button>
+                )}
+              </div>
+            ))}
+          </div>
+
+          <div className="grid grid-cols-3 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                Tax Amount (৳)
+              </label>
+              <input
+                type="number"
+                step="0.01"
+                value={purchaseForm.tax_amount}
+                onChange={(e) => setPurchaseForm({...purchaseForm, tax_amount: e.target.value})}
+                className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+                placeholder="0.00"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                Discount (৳)
+              </label>
+              <input
+                type="number"
+                step="0.01"
+                value={purchaseForm.discount_amount}
+                onChange={(e) => setPurchaseForm({...purchaseForm, discount_amount: e.target.value})}
+                className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+                placeholder="0.00"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                Shipping (৳)
+              </label>
+              <input
+                type="number"
+                step="0.01"
+                value={purchaseForm.shipping_cost}
+                onChange={(e) => setPurchaseForm({...purchaseForm, shipping_cost: e.target.value})}
+                className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+                placeholder="0.00"
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              Notes
+            </label>
+            <textarea
+              value={purchaseForm.notes}
+              onChange={(e) => setPurchaseForm({...purchaseForm, notes: e.target.value})}
+              rows={2}
+              className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 resize-none"
+              placeholder="Additional notes"
+            />
+          </div>
+
+          <div className="flex gap-3 justify-end pt-2">
+            <button
+              onClick={() => setShowAddPurchase(false)}
+              className="px-4 py-2 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+              disabled={loading}
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleAddPurchase}
+              disabled={loading}
+              className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors disabled:opacity-50 flex items-center gap-2"
+            >
+              {loading && <Loader2 className="w-4 h-4 animate-spin" />}
+              Create Purchase Order
+            </button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Payment Modal */}
+      <Modal
+        isOpen={showPayment}
+        onClose={() => setShowPayment(false)}
+        title="Make Payment"
+        size="lg"
+      >
+        {selectedVendor && (
+          <div className="space-y-4">
+            <div className="bg-gray-50 dark:bg-gray-700/50 p-4 rounded-lg">
+              <p className="text-sm text-gray-600 dark:text-gray-400">Vendor</p>
+              <p className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+                {selectedVendor.name}
+              </p>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Payment Method <span className="text-red-500">*</span>
+                </label>
+                <select
+                  value={paymentForm.payment_method_id}
+                  onChange={(e) => setPaymentForm({...paymentForm, payment_method_id: e.target.value})}
+                  className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+                >
+                  <option value="">Select method</option>
+                  {paymentMethods.map(pm => (
+                    <option key={pm.id} value={pm.id}>{pm.name}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Payment Date <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="date"
+                  value={paymentForm.payment_date}
+                  onChange={(e) => setPaymentForm({...paymentForm, payment_date: e.target.value})}
+                  className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                Payment Type
+              </label>
+              <select
+                value={paymentForm.payment_type}
+                onChange={(e) => setPaymentForm({...paymentForm, payment_type: e.target.value as 'purchase_order' | 'advance'})}
+                className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+              >
+                <option value="purchase_order">Purchase Order Payment</option>
+                <option value="advance">Advance Payment</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                Total Amount (৳) <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="number"
+                step="0.01"
+                min="0.01"
+                value={paymentForm.amount}
+                onChange={(e) => setPaymentForm({...paymentForm, amount: e.target.value})}
+                className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+                placeholder="0.00"
+              />
+            </div>
+
+            {paymentForm.payment_type === 'purchase_order' && purchaseOrders.length > 0 && (
+              <div className="border border-gray-200 dark:border-gray-600 rounded-lg p-4">
+                <h4 className="text-sm font-semibold text-gray-800 dark:text-gray-100 mb-3">
+                  Allocate to Purchase Orders
+                </h4>
+                
+                {purchaseOrders.map((po) => (
+                  <div key={po.id} className="flex items-center gap-3 mb-3 p-2 bg-gray-50 dark:bg-gray-700/50 rounded">
+                    <input
+                      type="checkbox"
+                      checked={selectedPOs[po.id]?.selected || false}
+                      onChange={(e) => setSelectedPOs({
+                        ...selectedPOs,
+                        [po.id]: { ...selectedPOs[po.id], selected: e.target.checked, amount: e.target.checked ? selectedPOs[po.id]?.amount || '' : '' }
+                      })}
+                      className="w-4 h-4"
+                    />
+                    <div className="flex-1">
+                      <p className="text-sm font-medium text-gray-900 dark:text-gray-100">
+                        {po.po_number}
+                      </p>
+                      <p className="text-xs text-gray-500 dark:text-gray-400">
+                        Outstanding: ৳{po.outstanding_amount?.toFixed(2)}
+                      </p>
+                    </div>
+                    {selectedPOs[po.id]?.selected && (
+                      <input
+                        type="number"
+                        step="0.01"
+                        min="0.01"
+                        max={po.outstanding_amount}
+                        value={selectedPOs[po.id]?.amount || ''}
+                        onChange={(e) => setSelectedPOs({
+                          ...selectedPOs,
+                          [po.id]: { ...selectedPOs[po.id], amount: e.target.value }
+                        })}
+                        className="w-32 px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+                        placeholder="Amount"
+                      />
+                    )}
+                  </div>
+                ))}
+
+                <div className="mt-3 pt-3 border-t border-gray-200 dark:border-gray-600">
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-600 dark:text-gray-400">Total Allocated:</span>
+                    <span className="font-semibold text-gray-900 dark:text-gray-100">
+                      ৳{calculateTotalAllocated().toFixed(2)}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Reference Number
+                </label>
+                <input
+                  type="text"
+                  value={paymentForm.reference_number}
+                  onChange={(e) => setPaymentForm({...paymentForm, reference_number: e.target.value})}
+                  className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+                  placeholder="CHQ-12345"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Transaction ID
+                </label>
+                <input
+                  type="text"
+                  value={paymentForm.transaction_id}
+                  onChange={(e) => setPaymentForm({...paymentForm, transaction_id: e.target.value})}
+                  className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+                  placeholder="TXN-12345"
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                Notes
+              </label>
+              <textarea
+                value={paymentForm.notes}
+                onChange={(e) => setPaymentForm({...paymentForm, notes: e.target.value})}
+                rows={2}
+                className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 resize-none"
+                placeholder="Additional notes"
+              />
+            </div>
+
+            <div className="flex gap-3 justify-end pt-2">
+              <button
+                onClick={() => setShowPayment(false)}
+                className="px-4 py-2 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+                disabled={loading}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handlePayment}
+                disabled={loading}
+                className="px-4 py-2 bg-gray-900 hover:bg-gray-700 text-white rounded-lg transition-colors disabled:opacity-50 flex items-center gap-2"
+              >
+                {loading && <Loader2 className="w-4 h-4 animate-spin" />}
+                Confirm Payment
+              </button>
+            </div>
+          </div>
+        )}
+      </Modal>
+
+      {/* View Vendor Modal */}
+      <Modal
+        isOpen={showViewVendor}
+        onClose={() => setShowViewVendor(false)}
+        title="Vendor Details"
+      >
+        {selectedVendor && (
+          <div className="space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">Vendor Name</p>
+                <p className="text-base font-semibold text-gray-900 dark:text-gray-100">
+                  {selectedVendor.name}
+                </p>
+              </div>
+              <div>
+                <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">Type</p>
+                <p className="text-base text-gray-900 dark:text-gray-100 capitalize">
+                  {selectedVendor.type}
+                </p>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">Phone</p>
+                <p className="text-base text-gray-900 dark:text-gray-100">
+                  {selectedVendor.phone || 'N/A'}
+                </p>
+              </div>
+              <div>
+                <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">Email</p>
+                <p className="text-base text-gray-900 dark:text-gray-100">
+                  {selectedVendor.email || 'N/A'}
+                </p>
+              </div>
+            </div>
+
+            <div>
+              <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">Address</p>
+              <p className="text-base text-gray-900 dark:text-gray-100">
+                {selectedVendor.address || 'N/A'}
+              </p>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">Contact Person</p>
+                <p className="text-base text-gray-900 dark:text-gray-100">
+                  {selectedVendor.contact_person || 'N/A'}
+                </p>
+              </div>
+              <div>
+                <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">Credit Limit</p>
+                <p className="text-base text-gray-900 dark:text-gray-100">
+                  ৳{selectedVendor.credit_limit?.toFixed(2) || '0.00'}
+                </p>
+              </div>
+            </div>
+
+            <div>
+              <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">Payment Terms</p>
+              <p className="text-base text-gray-900 dark:text-gray-100">
+                {selectedVendor.payment_terms || 'N/A'}
+              </p>
+            </div>
+
+            {selectedVendor.notes && (
+              <div>
+                <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">Notes</p>
+                <p className="text-base text-gray-900 dark:text-gray-100">
+                  {selectedVendor.notes}
+                </p>
+              </div>
+            )}
+
+            <div className="flex justify-end pt-4">
+              <button
+                onClick={() => setShowViewVendor(false)}
+                className="px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600 rounded-lg transition-colors"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        )}
+      </Modal>
 
       {/* Transaction History Modal */}
       <Modal
@@ -420,49 +1345,38 @@ export default function VendorPaymentPage() {
             </div>
 
             <div className="max-h-96 overflow-y-auto">
-              {transactions
-                .filter(t => t.vendorId === selectedVendor.id)
-                .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
-                .map((trans) => (
+              {vendorPayments.length > 0 ? (
+                vendorPayments.map((payment) => (
                   <div
-                    key={trans.id}
+                    key={payment.id}
                     className="flex items-center justify-between p-3 border-b border-gray-200 dark:border-gray-700 last:border-0"
                   >
                     <div className="flex items-center gap-3">
-                      <div className={`p-2 rounded-full ${
-                        trans.type === 'purchase' ? 'bg-blue-100 dark:bg-blue-900/30' : 'bg-green-100 dark:bg-green-900/30'
-                      }`}>
-                        {trans.type === 'purchase' ? (
-                          <ShoppingCart className="w-4 h-4 text-blue-600 dark:text-blue-400" />
-                        ) : (
-                          <DollarSign className="w-4 h-4 text-green-600 dark:text-green-400" />
-                        )}
+                      <div className="p-2 rounded-full bg-green-100 dark:bg-green-900/30">
+                        <DollarSign className="w-4 h-4 text-green-600 dark:text-green-400" />
                       </div>
                       <div>
                         <p className="font-medium text-gray-900 dark:text-gray-100">
-                          {trans.type === 'purchase' ? 'Purchase' : 'Payment'}
+                          {payment.payment_number}
                         </p>
-                        {trans.note && (
-                          <p className="text-xs text-gray-500 dark:text-gray-400">{trans.note}</p>
-                        )}
+                        <p className="text-xs text-gray-500 dark:text-gray-400">
+                          {payment.payment_type} - {payment.status}
+                        </p>
                       </div>
                     </div>
                     <div className="text-right">
-                      <p className={`font-semibold ${
-                        trans.type === 'purchase' ? 'text-blue-600 dark:text-blue-400' : 'text-green-600 dark:text-green-400'
-                      }`}>
-                        {trans.type === 'purchase' ? '+' : '-'}৳{trans.amount.toFixed(2)}
+                      <p className="font-semibold text-green-600 dark:text-green-400">
+                        ৳{payment.amount?.toFixed(2)}
                       </p>
                       <p className="text-xs text-gray-500 dark:text-gray-400">
-                        {formatDate(trans.date)}
+                        {formatDate(payment.payment_date)}
                       </p>
                     </div>
                   </div>
-                ))}
-
-              {transactions.filter(t => t.vendorId === selectedVendor.id).length === 0 && (
+                ))
+              ) : (
                 <p className="text-center text-gray-500 dark:text-gray-400 py-8">
-                  No transactions yet.
+                  No transactions found.
                 </p>
               )}
             </div>
@@ -473,393 +1387,6 @@ export default function VendorPaymentPage() {
                 className="px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600 rounded-lg transition-colors"
               >
                 Close
-              </button>
-            </div>
-          </div>
-        )}
-      </Modal>
-
-      {/* Add Vendor Modal */}
-      <Modal
-        isOpen={showAddVendor}
-        onClose={() => {
-          setShowAddVendor(false);
-          setVendorForm({ name: '', phone: '', email: '', address: '' });
-        }}
-        title="Add New Vendor"
-      >
-        <div className="space-y-3">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              Vendor Name <span className="text-red-500">*</span>
-            </label>
-            <input
-              type="text"
-              value={vendorForm.name}
-              onChange={(e) => setVendorForm({...vendorForm, name: e.target.value})}
-              className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-gray-500 focus:border-transparent"
-              placeholder="Enter vendor name"
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              Phone Number
-            </label>
-            <input
-              type="tel"
-              value={vendorForm.phone}
-              onChange={(e) => setVendorForm({...vendorForm, phone: e.target.value})}
-              className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-gray-500 focus:border-transparent"
-              placeholder="+880 1xxx-xxxxxx"
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              Email Address
-            </label>
-            <input
-              type="email"
-              value={vendorForm.email}
-              onChange={(e) => setVendorForm({...vendorForm, email: e.target.value})}
-              className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-gray-500 focus:border-transparent"
-              placeholder="vendor@example.com"
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              Address
-            </label>
-            <textarea
-              value={vendorForm.address}
-              onChange={(e) => setVendorForm({...vendorForm, address: e.target.value})}
-              rows={2}
-              className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-gray-500 focus:border-transparent resize-none"
-              placeholder="Enter vendor address"
-            />
-          </div>
-
-          <div className="flex gap-3 justify-end pt-2">
-            <button
-              onClick={() => {
-                setShowAddVendor(false);
-                setVendorForm({ name: '', phone: '', email: '', address: '' });
-              }}
-              className="px-4 py-2 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
-            >
-              Cancel
-            </button>
-            <button
-              onClick={handleAddVendor}
-              className="px-4 py-2 bg-gray-900 hover:bg-gray-700 text-white rounded-lg transition-colors"
-            >
-              Add Vendor
-            </button>
-          </div>
-        </div>
-      </Modal>
-
-      {/* View Vendor Modal */}
-      <Modal
-        isOpen={showViewVendor}
-        onClose={() => setShowViewVendor(false)}
-        title="Vendor Details"
-      >
-        {selectedVendor && (
-          <div className="space-y-3">
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">Vendor Name</p>
-                <p className="text-base font-semibold text-gray-900 dark:text-gray-100">
-                  {selectedVendor.name}
-                </p>
-              </div>
-              <div>
-                <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">Phone Number</p>
-                <p className="text-base text-gray-900 dark:text-gray-100">
-                  {selectedVendor.phone || 'N/A'}
-                </p>
-              </div>
-            </div>
-
-            <div>
-              <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">Email Address</p>
-              <p className="text-base text-gray-900 dark:text-gray-100">
-                {selectedVendor.email || 'N/A'}
-              </p>
-            </div>
-
-            <div>
-              <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">Address</p>
-              <p className="text-base text-gray-900 dark:text-gray-100">
-                {selectedVendor.address || 'N/A'}
-              </p>
-            </div>
-
-            <div className="border-t border-gray-200 dark:border-gray-700 pt-6">
-              <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-100 mb-4">
-                Payment Summary
-              </h3>
-              <div className="grid grid-cols-3 gap-4">
-                <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg">
-                  <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">Total Amount</p>
-                  <p className="text-xl font-bold text-blue-600 dark:text-blue-400">
-                    ৳{selectedVendor.total.toFixed(2)}
-                  </p>
-                </div>
-                <div className="bg-green-50 dark:bg-green-900/20 p-4 rounded-lg">
-                  <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">Amount Paid</p>
-                  <p className="text-xl font-bold text-green-600 dark:text-green-400">
-                    ৳{selectedVendor.paid.toFixed(2)}
-                  </p>
-                </div>
-                <div className="bg-yellow-50 dark:bg-yellow-900/20 p-4 rounded-lg">
-                  <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">Amount Due</p>
-                  <p className="text-xl font-bold text-yellow-600 dark:text-yellow-400">
-                    ৳{(selectedVendor.total - selectedVendor.paid).toFixed(2)}
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            <div className="flex justify-end pt-4">
-              <button
-                onClick={() => setShowViewVendor(false)}
-                className="px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600 rounded-lg transition-colors"
-              >
-                Close
-              </button>
-            </div>
-          </div>
-        )}
-      </Modal>
-
-      {/* Add Purchase Modal */}
-      <Modal
-        isOpen={showAddPurchase}
-        onClose={() => {
-          setShowAddPurchase(false);
-          setPurchaseVendorId('');
-          setPurchaseAmount('');
-          setPaymentType('due');
-          setPartialAmount('');
-        }}
-        title="Add New Purchase"
-      >
-        <div className="space-y-3">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              Select Vendor
-            </label>
-            <select
-              value={purchaseVendorId}
-              onChange={(e) => setPurchaseVendorId(e.target.value)}
-              className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-green-500 focus:border-transparent"
-            >
-              <option value="">Choose a vendor</option>
-              {vendors.map((vendor) => (
-                <option key={vendor.id} value={vendor.id}>
-                  {vendor.name}
-                </option>
-              ))}
-            </select>
-          </div>
-          
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              Purchase Amount
-            </label>
-            <input
-              type="number"
-              step="0.01"
-              min="0.01"
-              value={purchaseAmount}
-              onChange={(e) => setPurchaseAmount(e.target.value)}
-              className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-green-500 focus:border-transparent"
-              placeholder="0.00"
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-              Payment Status
-            </label>
-            <div className="space-y-2">
-              <label className="flex items-center p-2 border border-gray-300 dark:border-gray-600 rounded-lg cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
-                <input
-                  type="radio"
-                  name="paymentType"
-                  value="full"
-                  checked={paymentType === 'full'}
-                  onChange={(e) => setPaymentType(e.target.value)}
-                  className="w-4 h-4 text-green-600 focus:ring-green-500"
-                />
-                <div className="ml-2">
-                  <div className="text-sm font-medium text-gray-900 dark:text-gray-100">
-                    Paying in Full
-                  </div>
-                  <div className="text-xs text-gray-500 dark:text-gray-400">
-                    Complete payment at time of purchase
-                  </div>
-                </div>
-              </label>
-
-              <label className="flex items-center p-2 border border-gray-300 dark:border-gray-600 rounded-lg cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
-                <input
-                  type="radio"
-                  name="paymentType"
-                  value="partial"
-                  checked={paymentType === 'partial'}
-                  onChange={(e) => setPaymentType(e.target.value)}
-                  className="w-4 h-4 text-blue-600 focus:ring-blue-500"
-                />
-                <div className="ml-2 flex-1">
-                  <div className="text-sm font-medium text-gray-900 dark:text-gray-100">
-                    Partial Payment
-                  </div>
-                  <div className="text-xs text-gray-500 dark:text-gray-400">
-                    Pay partial amount now, rest on due
-                  </div>
-                </div>
-              </label>
-
-              <div className={`ml-6 transition-all ${paymentType === 'partial' ? 'opacity-100 max-h-16' : 'opacity-0 max-h-0 overflow-hidden'}`}>
-                <input
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  max={purchaseAmount || 0}
-                  value={partialAmount}
-                  onChange={(e) => setPartialAmount(e.target.value)}
-                  disabled={paymentType !== 'partial'}
-                  className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:opacity-50"
-                  placeholder="Enter partial amount"
-                />
-              </div>
-
-              <label className="flex items-center p-2 border border-gray-300 dark:border-gray-600 rounded-lg cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
-                <input
-                  type="radio"
-                  name="paymentType"
-                  value="due"
-                  checked={paymentType === 'due'}
-                  onChange={(e) => setPaymentType(e.target.value)}
-                  className="w-4 h-4 text-yellow-600 focus:ring-yellow-500"
-                />
-                <div className="ml-2">
-                  <div className="text-sm font-medium text-gray-900 dark:text-gray-100">
-                    Buy on Due
-                  </div>
-                  <div className="text-xs text-gray-500 dark:text-gray-400">
-                    Pay later, full amount on due
-                  </div>
-                </div>
-              </label>
-            </div>
-          </div>
-
-          {purchaseAmount && (
-            <div className="bg-gray-50 dark:bg-gray-700/50 p-3 rounded-lg">
-              <div className="flex justify-between text-sm mb-1">
-                <span className="text-gray-600 dark:text-gray-400">Purchase Amount:</span>
-                <span className="font-semibold text-gray-900 dark:text-gray-100">
-                  ৳{parseFloat(purchaseAmount || '0').toFixed(2)}
-                </span>
-              </div>
-              <div className="flex justify-between text-sm mb-1">
-                <span className="text-gray-600 dark:text-gray-400">Paying Now:</span>
-                <span className="font-semibold text-green-600 dark:text-green-400">
-                  ৳{paymentType === 'full' 
-                   ? parseFloat(purchaseAmount || '0').toFixed(2)
-                    : paymentType === 'partial'
-                    ? parseFloat(partialAmount || '0').toFixed(2)
-                    : '0.00'}
-                </span>
-              </div>
-              <div className="flex justify-between text-sm pt-1 border-t border-gray-200 dark:border-gray-600">
-                <span className="text-gray-600 dark:text-gray-400">Remaining Due:</span>
-                <span className="font-bold text-yellow-600 dark:text-yellow-400">
-                  ৳{paymentType === 'full'
-                    ? '0.00'
-                    : paymentType === 'partial'
-                    ? (parseFloat(purchaseAmount || '0') - parseFloat(partialAmount || '0')).toFixed(2)
-                    : parseFloat(purchaseAmount || '0').toFixed(2)}
-                </span>
-              </div>
-            </div>
-          )}
-
-          <div className="flex gap-3 justify-end">
-            <button
-              onClick={() => {
-                setShowAddPurchase(false);
-                setPurchaseVendorId('');
-                setPurchaseAmount('');
-                setPaymentType('due');
-                setPartialAmount('');
-              }}
-              className="px-4 py-2 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
-            >
-              Cancel
-            </button>
-            <button
-              onClick={handleAddPurchase}
-              className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors"
-            >
-              Add Purchase
-            </button>
-          </div>
-        </div>
-      </Modal>
-
-      {/* Payment Modal */}
-      <Modal
-        isOpen={showPayment}
-        onClose={() => setShowPayment(false)}
-        title="Make Payment"
-      >
-        {selectedVendor && (
-          <div className="space-y-4">
-            <div className="bg-gray-50 dark:bg-gray-700/50 p-4 rounded-lg">
-              <p className="text-sm text-gray-600 dark:text-gray-400">Vendor</p>
-              <p className="text-lg font-semibold text-gray-900 dark:text-gray-100">
-                {selectedVendor.name}
-              </p>
-              <p className="text-sm text-gray-600 dark:text-gray-400 mt-2">Amount Due</p>
-              <p className="text-2xl font-bold text-yellow-600 dark:text-yellow-400">
-                ৳{(selectedVendor.total - selectedVendor.paid).toFixed(2)}
-              </p>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Payment Amount
-              </label>
-              <input
-                type="number"
-                step="0.01"
-                min="0.01"
-                max={selectedVendor.total - selectedVendor.paid}
-                value={paymentAmount}
-                onChange={(e) => setPaymentAmount(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && handlePayment()}
-                className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                placeholder="0.00"
-              />
-            </div>
-            <div className="flex gap-3 justify-end">
-              <button
-                onClick={() => setShowPayment(false)}
-                className="px-4 py-2 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handlePayment}
-                className="px-4 py-2 bg-gray-900 hover:bg-gray-700 text-white rounded-lg transition-colors"
-              >
-                Confirm Payment
               </button>
             </div>
           </div>

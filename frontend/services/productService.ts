@@ -1,4 +1,4 @@
-// services/productService.ts
+// services/productService.ts (Updated)
 import axiosInstance from '@/lib/axios';
 
 export interface Product {
@@ -11,6 +11,7 @@ export interface Product {
   is_archived: boolean;
   custom_fields?: CustomField[];
   images?: ProductImage[];
+  variants?: any[]; // Product variants
   category?: {
     id: number;
     title: string;
@@ -36,7 +37,8 @@ export interface ProductImage {
   product_id: number;
   image_path: string;
   is_primary: boolean;
-  order: number;
+  is_active: boolean;
+  sort_order: number;
 }
 
 export interface Field {
@@ -62,6 +64,12 @@ export interface CreateProductData {
   }[];
 }
 
+export interface CreateProductWithVariantsData extends CreateProductData {
+  use_variants: boolean;
+  variant_attributes?: Record<string, string[]>; // e.g., { Color: ["Red", "Blue"], Size: ["S", "M"] }
+  base_price_adjustment?: number;
+}
+
 // Helper to normalize API response
 function transformProduct(product: any): Product {
   return {
@@ -74,6 +82,7 @@ function transformProduct(product: any): Product {
     is_archived: product.is_archived,
     custom_fields: product.custom_fields,
     images: product.images,
+    variants: product.variants,
     category: product.category,
     vendor: product.vendor,
     created_at: product.created_at,
@@ -125,8 +134,8 @@ export const productService = {
     }
   },
 
-  /** Create single product */
-  async create(data: CreateProductData): Promise<Product> {
+  /** Create product (simple or with variants) */
+  async create(data: CreateProductData | CreateProductWithVariantsData): Promise<Product> {
     try {
       const response = await axiosInstance.post('/products', data, {
         headers: { 'Content-Type': 'application/json' },
@@ -136,6 +145,33 @@ export const productService = {
     } catch (error: any) {
       console.error('Create product error:', error);
       throw new Error(error.response?.data?.message || 'Failed to create product');
+    }
+  },
+
+  /** Create product with variant matrix */
+  async createWithVariants(
+    productData: CreateProductData,
+    variantAttributes: Record<string, string[]>,
+    options?: {
+      base_price_adjustment?: number;
+      image_url?: string;
+    }
+  ): Promise<{ product: Product; variants: any[] }> {
+    try {
+      // Step 1: Create base product
+      const product = await this.create(productData);
+
+      // Step 2: Generate variant matrix
+      const variantService = await import('./productVariantService');
+      const variants = await variantService.default.generateMatrix(product.id, {
+        attributes: variantAttributes,
+        base_price_adjustment: options?.base_price_adjustment,
+      });
+
+      return { product, variants };
+    } catch (error: any) {
+      console.error('Create product with variants error:', error);
+      throw new Error(error.response?.data?.message || 'Failed to create product with variants');
     }
   },
 
@@ -223,6 +259,61 @@ export const productService = {
     } catch (error: any) {
       console.error('Add product image error:', error);
       throw new Error(error.response?.data?.message || 'Failed to add product image');
+    }
+  },
+
+  /** Bulk update products */
+  async bulkUpdate(data: {
+    product_ids: number[];
+    action: 'archive' | 'restore' | 'update_category' | 'update_vendor';
+    category_id?: number;
+    vendor_id?: number;
+  }): Promise<{ message: string }> {
+    try {
+      const response = await axiosInstance.post('/products/bulk-update', data);
+      const result = response.data;
+      return { message: result.message || 'Bulk update successful' };
+    } catch (error: any) {
+      console.error('Bulk update error:', error);
+      throw new Error(error.response?.data?.message || 'Failed to bulk update products');
+    }
+  },
+
+  /** Get product statistics */
+  async getStatistics(params?: { from_date?: string; to_date?: string }): Promise<any> {
+    try {
+      const response = await axiosInstance.get('/products/statistics', { params });
+      const result = response.data;
+      return result.data || {};
+    } catch (error: any) {
+      console.error('Get statistics error:', error);
+      return {};
+    }
+  },
+
+  /** Search products by custom field */
+  async searchByCustomField(params: {
+    field_id: number;
+    value: any;
+    operator?: '=' | 'like' | '>' | '<' | '>=' | '<=';
+    per_page?: number;
+  }): Promise<{ data: Product[]; total: number }> {
+    try {
+      const response = await axiosInstance.get('/products/search-by-field', { params });
+      const result = response.data;
+      
+      if (result.success) {
+        const products = (result.data.data || result.data || []).map(transformProduct);
+        return {
+          data: products,
+          total: result.data.total || products.length,
+        };
+      }
+
+      return { data: [], total: 0 };
+    } catch (error: any) {
+      console.error('Search by custom field error:', error);
+      return { data: [], total: 0 };
     }
   },
 };

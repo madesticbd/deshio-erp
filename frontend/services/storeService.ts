@@ -42,6 +42,14 @@ class StoreService {
     return response.data;
   }
 
+  // ✅ Get all warehouse stores
+  async getWarehouses() {
+    const response = await axios.get('/stores', {
+      params: { type: 'warehouse', is_active: true },
+    });
+    return response.data;
+  }
+
   // Get single store
   async getStore(id: number) {
     const response = await axios.get(`/stores/${id}`);

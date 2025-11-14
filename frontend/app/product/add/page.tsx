@@ -8,10 +8,10 @@ import Sidebar from '@/components/Sidebar';
 import Toast from '@/components/Toast';
 import FieldsSidebar from '@/components/product/FieldsSidebar';
 import DynamicFieldInput from '@/components/product/DynamicFieldInput';
-import ImageUpload from '@/components/product/ImageUpload';
 import VariationCard from '@/components/product/VariationCard';
+import ImageGalleryManager from '@/components/product/ImageGalleryManager';
 import { productService, Field } from '@/services/productService';
-import { categoryService, Category } from '@/services/categoryService';
+import categoryService, { Category, CategoryTree } from '@/services/categoryService';
 import { vendorService, Vendor } from '@/services/vendorService';
 import {
   FieldValue,
@@ -20,14 +20,12 @@ import {
   FALLBACK_IMAGE_URL,
 } from '@/types/product';
 
-
 export default function AddEditProductPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const productId = searchParams.get('id');
   const isEditMode = !!productId;
   
-  // Check if adding variation to existing product
   const addVariationMode = searchParams.get('addVariation') === 'true';
   const baseSku = searchParams.get('baseSku') || '';
   const baseName = searchParams.get('baseName') || '';
@@ -39,8 +37,8 @@ export default function AddEditProductPage() {
   const [loading, setLoading] = useState<boolean>(false);
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' | 'warning' } | null>(null);
   const [isVariationProduct, setIsVariationProduct] = useState<boolean>(false);
+  const [hasVariations, setHasVariations] = useState<boolean>(false);
 
-  // Form Data
   const [formData, setFormData] = useState({
     name: '',
     sku: '',
@@ -49,18 +47,12 @@ export default function AddEditProductPage() {
 
   const [categorySelection, setCategorySelection] = useState<CategorySelectionState>({});
   const [selectedVendorId, setSelectedVendorId] = useState<string>('');
-  const [primaryImage, setPrimaryImage] = useState<File | null>(null);
-  const [primaryImagePreview, setPrimaryImagePreview] = useState<string>('');
+  const [productImages, setProductImages] = useState<any[]>([]);
 
-  // Dynamic Fields
   const [availableFields, setAvailableFields] = useState<Field[]>([]);
   const [selectedFields, setSelectedFields] = useState<FieldValue[]>([]);
-
-  // Variations
   const [variations, setVariations] = useState<VariationData[]>([]);
-
-  // Data
-  const [categories, setCategories] = useState<Category[]>([]);
+  const [categories, setCategories] = useState<CategoryTree[]>([]);
   const [vendors, setVendors] = useState<Vendor[]>([]);
 
   useEffect(() => {
@@ -71,16 +63,22 @@ export default function AddEditProductPage() {
     if (isEditMode && productId && availableFields.length > 0) {
       fetchProduct();
     } else if (addVariationMode) {
-      // Pre-fill data for adding variation
       setFormData({
         name: baseName,
         sku: baseSku,
         description: '',
       });
       setCategorySelection({ level0: categoryId });
+      setHasVariations(true);
       setActiveTab('variations');
     }
   }, [isEditMode, productId, availableFields, addVariationMode]);
+
+  useEffect(() => {
+    if (hasVariations && !isEditMode) {
+      setActiveTab('variations');
+    }
+  }, [hasVariations, isEditMode]);
 
   const fetchInitialData = async () => {
     try {
@@ -89,9 +87,8 @@ export default function AddEditProductPage() {
       const fieldsData = await productService.getAvailableFields();
       setAvailableFields(Array.isArray(fieldsData) ? fieldsData : []);
 
-      const categoriesData = await categoryService.getAll();
-      const categoriesList = Array.isArray(categoriesData) ? categoriesData : [];
-      setCategories(categoriesList);
+      const categoriesData = await categoryService.getTree();
+      setCategories(Array.isArray(categoriesData) ? categoriesData : []);
 
       const vendorsData = await vendorService.getAll({ is_active: true });
       const vendorsList = Array.isArray(vendorsData) ? vendorsData : [];
@@ -121,18 +118,12 @@ export default function AddEditProductPage() {
       setCategorySelection({ level0: String(product.category_id) });
 
       if (product.images && product.images.length > 0) {
-        const primaryImg = product.images.find(img => img.is_primary);
-        if (primaryImg) {
-          const imageUrl = primaryImg.image_path.startsWith('http')
-            ? primaryImg.image_path
-            : `${process.env.NEXT_PUBLIC_API_URL?.replace('/api', '')}/storage/${primaryImg.image_path}`;
-          setPrimaryImagePreview(imageUrl);
-        }
+        setProductImages(product.images);
       }
 
-      // Check if this is a variation product (has color field)
       const hasColor = product.custom_fields?.some(cf => cf.field_id === 6 && cf.value);
       setIsVariationProduct(hasColor);
+      setHasVariations(hasColor);
 
       if (product.custom_fields) {
         const fields: FieldValue[] = product.custom_fields
@@ -168,36 +159,16 @@ export default function AddEditProductPage() {
   const getCategoryPathDisplay = (): string => {
     const path = getCategoryPathArray();
     const names: string[] = [];
-    let current: Category[] = categories;
+    let current: CategoryTree[] = categories;
 
     for (const id of path) {
       const cat = current.find(c => String(c.id) === String(id));
       if (cat) {
         names.push(cat.title);
-        current = cat.subcategories || [];
+        current = cat.children || cat.all_children || [];
       }
     }
     return names.join(' > ') || 'None selected';
-  };
-
-  const handlePrimaryImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    if (!file.type.startsWith('image/')) {
-      setToast({ message: 'Please select an image file', type: 'error' });
-      return;
-    }
-
-    if (file.size > 5 * 1024 * 1024) {
-      setToast({ message: 'Image must be less than 5MB', type: 'error' });
-      return;
-    }
-
-    setPrimaryImage(file);
-    const reader = new FileReader();
-    reader.onloadend = () => setPrimaryImagePreview(reader.result as string);
-    reader.readAsDataURL(file);
   };
 
   const addField = (field: Field) => {
@@ -222,7 +193,6 @@ export default function AddEditProductPage() {
     ));
   };
 
-  // Validation
   const validateForm = (): boolean => {
     if (!formData.name.trim()) {
       setToast({ message: 'Product name is required', type: 'error' });
@@ -245,7 +215,7 @@ export default function AddEditProductPage() {
       return false;
     }
 
-    if (!isEditMode && variations.length > 0) {
+    if (!isEditMode && hasVariations && variations.length > 0) {
       const hasValidVariation = variations.some(v => v.color.trim());
       
       if (!hasValidVariation) {
@@ -257,7 +227,6 @@ export default function AddEditProductPage() {
     return true;
   };
 
-  // Variation management functions
   const addVariation = () => {
     const newVariation: VariationData = {
       id: `var-${Date.now()}-${Math.random()}`,
@@ -388,7 +357,7 @@ export default function AddEditProductPage() {
           vendor_id: parseInt(selectedVendorId),
         };
 
-        if (variations.length > 0) {
+        if (hasVariations && variations.length > 0) {
           const colorField = availableFields.find(f => f.title === 'Color');
           const sizeField = availableFields.find(f => f.title === 'Size');
 
@@ -412,7 +381,7 @@ export default function AddEditProductPage() {
             const validSizes = variation.sizes.filter(s => s.trim());
             const hasSizes = validSizes.length > 0;
             
-            if (!hasColor) continue; // Skip variations without color
+            if (!hasColor) continue;
 
             const imageUrls: string[] = [];
             if (variation.images.length > 0) {
@@ -430,52 +399,21 @@ export default function AddEditProductPage() {
               imageUrls.push(FALLBACK_IMAGE_URL);
             }
 
-            if (hasSizes) {
-              // Create product for each size
-              for (const size of validSizes) {
-                const variationName = `${baseData.name} - ${variation.color} - ${size}`;
-                
-                const varCustomFields = [
-                  ...baseCustomFields,
-                  { field_id: colorField.id, value: variation.color },
-                  { field_id: sizeField.id, value: size }
-                ];
+            const sizesToCreate = hasSizes ? validSizes : [''];
 
-                const productData = {
-                  name: variationName,
-                  sku: baseData.sku,
-                  description: baseData.description,
-                  category_id: baseData.category_id,
-                  vendor_id: baseData.vendor_id,
-                  custom_fields: varCustomFields,
-                };
-
-                const product = await productService.create(productData);
-
-                if (imageUrls.length > 0 && product.id) {
-                  for (let i = 0; i < imageUrls.length; i++) {
-                    try {
-                      await productService.addProductImage(product.id, {
-                        image_path: imageUrls[i],
-                        is_primary: i === 0,
-                        order: i,
-                      });
-                    } catch (error) {
-                      console.error('Failed to attach image:', error);
-                    }
-                  }
-                }
-
-                createdProducts.push(product);
-              }
-            } else {
-              // Create product with just color, no size
-              const variationName = `${baseData.name} - ${variation.color}`;
+            for (const size of sizesToCreate) {
+              const variationName = size 
+                ? `${baseData.name} - ${variation.color} - ${size}`
+                : `${baseData.name} - ${variation.color}`;
               
               const varCustomFields = [
                 ...baseCustomFields,
                 { field_id: colorField.id, value: variation.color }
               ];
+
+              if (size) {
+                varCustomFields.push({ field_id: sizeField.id, value: size });
+              }
 
               const productData = {
                 name: variationName,
@@ -507,32 +445,66 @@ export default function AddEditProductPage() {
           }
 
           if (createdProducts.length === 0) {
-            setToast({ message: 'No valid variations to create. Please add at least a color.', type: 'warning' });
+            setToast({ message: 'No valid variations to create.', type: 'warning' });
             setLoading(false);
             return;
           }
 
           setToast({ message: `Created ${createdProducts.length} product variation(s)!`, type: 'success' });
         } else {
+          // ===== CRITICAL FIX: Single Product with Images =====
+          console.log('Creating single product with images:', productImages.length);
+          
+          // Step 1: Create product first
           const product = await productService.create({
             ...baseData,
             custom_fields: customFields,
           });
 
-          if (primaryImage && product.id) {
-            try {
-              const imageUrl = await productService.uploadImage(primaryImage);
-              if (imageUrl) {
-                await productService.addProductImage(product.id, {
-                  image_path: imageUrl,
-                  is_primary: true,
-                  order: 0,
-                });
+          console.log('Product created with ID:', product.id);
+
+          // Step 2: Upload images after product is created
+          if (productImages.length > 0 && product.id) {
+            console.log('Starting image upload process...');
+            
+            let uploadedCount = 0;
+            for (let i = 0; i < productImages.length; i++) {
+              const imageItem = productImages[i];
+              
+              try {
+                // Only upload if image has file and not yet uploaded
+                if (imageItem.file && !imageItem.uploaded) {
+                  console.log(`Uploading image ${i + 1}/${productImages.length}:`, imageItem.file.name);
+                  
+                  // Upload file to storage
+                  const uploadedImageUrl = await productService.uploadImage(imageItem.file);
+                  
+                  if (uploadedImageUrl) {
+                    console.log(`Image uploaded, URL: ${uploadedImageUrl}`);
+                    
+                    // Attach to product
+                    await productService.addProductImage(product.id, {
+                      image_path: uploadedImageUrl,
+                      is_primary: imageItem.is_primary || i === 0,
+                      alt_text: imageItem.alt_text || '',
+                      sort_order: imageItem.sort_order || i,
+                    });
+                    
+                    uploadedCount++;
+                    console.log(`Image ${i + 1} attached successfully`);
+                  }
+                } else if (imageItem.uploaded) {
+                  console.log(`Image ${i + 1} already uploaded, skipping`);
+                }
+              } catch (error) {
+                console.error(`Failed to upload image ${i + 1}:`, error);
+                // Continue with other images even if one fails
               }
-            } catch (error) {
-              console.error('Failed to upload primary image:', error);
             }
+            
+            console.log(`Total images uploaded: ${uploadedCount}/${productImages.length}`);
           } else if (product.id) {
+            console.log('No images provided, adding fallback');
             await productService.addProductImage(product.id, {
               image_path: FALLBACK_IMAGE_URL,
               is_primary: true,
@@ -553,12 +525,13 @@ export default function AddEditProductPage() {
     }
   };
 
-  const getFlatCategories = (cats: Category[], depth = 0): { id: string; label: string; depth: number }[] => {
+  const getFlatCategories = (cats: CategoryTree[], depth = 0): { id: string; label: string; depth: number }[] => {
     return cats.reduce((acc: { id: string; label: string; depth: number }[], cat) => {
       const prefix = '—'.repeat(depth);
-      acc.push({ id: cat.id, label: `${prefix} ${cat.title}`, depth });
-      if (cat.subcategories && cat.subcategories.length > 0) {
-        acc.push(...getFlatCategories(cat.subcategories, depth + 1));
+      acc.push({ id: String(cat.id), label: `${prefix} ${cat.title}`, depth });
+      const childCategories = cat.children || cat.all_children || [];
+      if (childCategories.length > 0) {
+        acc.push(...getFlatCategories(childCategories, depth + 1));
       }
       return acc;
     }, []);
@@ -592,7 +565,6 @@ export default function AddEditProductPage() {
 
         <main className="flex-1 overflow-y-auto bg-gray-50 dark:bg-gray-900">
           <div className="max-w-4xl mx-auto p-6">
-            {/* Header */}
             <div className="flex items-center gap-4 mb-6">
               <button
                 onClick={() => router.back()}
@@ -614,7 +586,6 @@ export default function AddEditProductPage() {
               </div>
             </div>
 
-            {/* Tabs */}
             <div className="flex gap-2 border-b border-gray-200 dark:border-gray-700 mb-6">
               <button
                 onClick={() => setActiveTab('general')}
@@ -645,11 +616,9 @@ export default function AddEditProductPage() {
               )}
             </div>
 
-            {/* GENERAL TAB */}
             {activeTab === 'general' && (
               <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
                 <div className="lg:col-span-3 space-y-6">
-                  {/* Basic Information Card */}
                   <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6 shadow-sm">
                     <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
                       Basic Information
@@ -752,37 +721,69 @@ export default function AddEditProductPage() {
                           </select>
                         </div>
                       </div>
+
+                      {!isEditMode && !addVariationMode && (
+                        <div className="pt-4 border-t border-gray-200 dark:border-gray-700">
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <label className="text-sm font-medium text-gray-900 dark:text-white">
+                                Create Product with Variations
+                              </label>
+                              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                                Enable this to create products with different colors and sizes
+                              </p>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const newValue = !hasVariations;
+                                setHasVariations(newValue);
+                                if (!newValue) {
+                                  setVariations([]);
+                                }
+                              }}
+                              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-gray-900 dark:focus:ring-gray-500 focus:ring-offset-2 ${
+                                hasVariations ? 'bg-gray-900 dark:bg-white' : 'bg-gray-200 dark:bg-gray-700'
+                              }`}
+                            >
+                              <span
+                                className={`inline-block h-4 w-4 transform rounded-full bg-white dark:bg-gray-900 transition-transform ${
+                                  hasVariations ? 'translate-x-6' : 'translate-x-1'
+                                }`}
+                              />
+                            </button>
+                          </div>
+                        </div>
+                      )}
                     </div>
                   </div>
 
-                  {/* Primary Image - Only if NOT using variations */}
-                  {!isEditMode && variations.length === 0 && (
+                  {!hasVariations && !addVariationMode && (
                     <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6 shadow-sm">
                       <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-                        Product Image
+                        Product Images
                       </h2>
-                      <ImageUpload
-                        label="Primary Image"
-                        preview={primaryImagePreview}
-                        onUpload={handlePrimaryImageChange}
-                        onRemove={() => {
-                          setPrimaryImage(null);
-                          setPrimaryImagePreview('');
+                      <ImageGalleryManager
+                        productId={isEditMode ? parseInt(productId!) : undefined}
+                        existingImages={productImages}
+                        onImagesChange={(images) => {
+                          console.log('Images changed:', images);
+                          setProductImages(images);
                         }}
-                        optional={true}
+                        maxImages={10}
+                        allowReorder={true}
                       />
                     </div>
                   )}
 
-                  {variations.length > 0 && (
+                  {hasVariations && !isEditMode && (
                     <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
                       <p className="text-sm text-blue-800 dark:text-blue-400">
-                        <strong>Note:</strong> You're creating product variations. Upload images for each color in the "Product Variations" tab (optional - placeholder images will be used if not provided).
+                        <strong>Variations Mode Enabled:</strong> You can upload images for each color variant in the "Product Variations" tab.
                       </p>
                     </div>
                   )}
 
-                  {/* Additional Fields Section */}
                   {selectedFields.length > 0 && (
                     <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6 shadow-sm">
                       <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
@@ -803,7 +804,6 @@ export default function AddEditProductPage() {
                   )}
                 </div>
 
-                {/* Sidebar - Right Side */}
                 <div className="lg:col-span-1">
                   <div className="sticky top-6">
                     <FieldsSidebar
@@ -816,7 +816,6 @@ export default function AddEditProductPage() {
               </div>
             )}
 
-            {/* VARIATIONS TAB */}
             {activeTab === 'variations' && showVariationsTab && (
               <div className="space-y-6">
                 <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6 shadow-sm">
@@ -885,7 +884,6 @@ export default function AddEditProductPage() {
               </div>
             )}
 
-            {/* Action Buttons */}
             <div className="flex gap-3 mt-8 sticky bottom-0 bg-gray-50 dark:bg-gray-900 py-4 border-t border-gray-200 dark:border-gray-700">
               <button
                 type="button"
@@ -912,7 +910,6 @@ export default function AddEditProductPage() {
         </main>
       </div>
 
-      {/* Toast */}
       {toast && (
         <Toast
           message={toast.message}
