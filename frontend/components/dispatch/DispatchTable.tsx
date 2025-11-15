@@ -5,6 +5,7 @@ import { Eye, Truck, CheckCircle, XCircle, Ban } from 'lucide-react';
 interface DispatchTableProps {
   dispatches: ProductDispatch[];
   loading: boolean;
+  currentStoreId?: number; // NEW: Current user's store
   onViewDetails: (dispatch: ProductDispatch) => void;
   onApprove: (id: number) => void;
   onMarkDispatched: (id: number) => void;
@@ -15,6 +16,7 @@ interface DispatchTableProps {
 const DispatchTable: React.FC<DispatchTableProps> = ({
   dispatches,
   loading,
+  currentStoreId, // NEW
   onViewDetails,
   onApprove,
   onMarkDispatched,
@@ -179,7 +181,7 @@ const DispatchTable: React.FC<DispatchTableProps> = ({
                         <Eye className="w-4 h-4 text-gray-600 dark:text-gray-400" />
                       </button>
 
-                      {dispatch.status === 'pending' && !dispatch.approved_by && (
+                      {dispatch.status === 'pending' && (
                         <>
                           <button
                             onClick={() => onApprove(dispatch.id)}
@@ -198,7 +200,7 @@ const DispatchTable: React.FC<DispatchTableProps> = ({
                         </>
                       )}
 
-                      {dispatch.status === 'pending' && dispatch.approved_by &&(
+                      {dispatch.status === 'approved' && (
                         <>
                           <button
                             onClick={() => onMarkDispatched(dispatch.id)}

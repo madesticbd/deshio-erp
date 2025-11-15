@@ -25,6 +25,7 @@ export default function DispatchManagementPage() {
   const [darkMode, setDarkMode] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [store, setStore] = useState<Store | null>(null);
+  const [currentStoreId, setCurrentStoreId] = useState<number | null>(null); // NEW
   const [stores, setStores] = useState<Store[]>([]);
   const [dispatches, setDispatches] = useState<ProductDispatch[]>([]);
   const [statistics, setStatistics] = useState<DispatchStatistics | null>(null);
