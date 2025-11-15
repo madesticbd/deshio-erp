@@ -61,7 +61,7 @@ export interface SplitPaymentRequest {
 export interface Payment {
   id: number;
   order_id: number;
-  payment_method_id: number;
+  payment_method_id: number | null;  
   amount: number;
   fee_amount: number;
   net_amount: number;
@@ -71,11 +71,11 @@ export interface Payment {
   external_reference?: string;
   order_balance_before: number;
   order_balance_after: number;
-  payment_method: {
+  payment_method: { 
     id: number;
     name: string;
     type: string;
-  };
+  } | null;  
   payment_splits?: any[];
 }
 
