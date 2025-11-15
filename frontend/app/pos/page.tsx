@@ -217,7 +217,7 @@ const fetchPaymentMethods = async () => {
     const methodMap: any = {
       cash: 1,
       card: 2,
-      mobileWallet: 6, // ✅ DEFAULT to 6
+      mobileWallet: 6, 
     };
     
     methods.forEach((method: any) => {

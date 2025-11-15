@@ -1,292 +1,324 @@
 import axiosInstance from '@/lib/axios';
 
-export interface PaymentPayload {
-  payment_method_id: number;
-  amount: number;
-  payment_type?: 'full' | 'partial' | 'installment' | 'advance';
-  transaction_reference?: string;
-  external_reference?: string;
-  notes?: string;
-  payment_data?: any;
-  auto_complete?: boolean;
-  cash_received?: Array<{
-    denomination: number;
-    quantity: number;
-    type?: 'note' | 'coin';
-  }>;
-  cash_change?: Array<{
-    denomination: number;
-    quantity: number;
-    type?: 'note' | 'coin';
-  }>;
-}
-
-export interface SplitPaymentPayload {
-  total_amount: number;
-  payment_type?: string;
-  notes?: string;
-  auto_complete?: boolean;
-  splits: Array<{
-    payment_method_id: number;
-    amount: number;
-    transaction_reference?: string;
-    external_reference?: string;
-    payment_data?: any;
-    cash_received?: Array<{
-      denomination: number;
-      quantity: number;
-      type?: 'note' | 'coin';
-    }>;
-    cash_change?: Array<{
-      denomination: number;
-      quantity: number;
-      type?: 'note' | 'coin';
-    }>;
-  }>;
-}
 
 export interface PaymentMethod {
   id: number;
+  code: string;
   name: string;
-  type: 'cash' | 'card' | 'digital_wallet' | 'bank_transfer' | 'other';
-  is_active: boolean;
-  allowed_customer_types: string[];
+  type: string;
+  supports_partial: boolean;
   requires_reference: boolean;
-  fee_type?: string;
-  fee_amount?: number;
-  fee_percentage?: number;
+  min_amount: number | null;
+  max_amount: number | null;
+  fixed_fee: number;
+  percentage_fee: number;
 }
 
-const paymentService = {
-  /** Process simple payment */
-  async process(orderId: number, payload: PaymentPayload): Promise<any> {
+export interface CashDenomination {
+  denomination: number;
+  quantity: number;
+  type: 'note' | 'coin';
+}
+
+export interface PaymentData {
+  [key: string]: any;
+}
+
+// Single payment request
+export interface SimplePaymentRequest {
+  payment_method_id: number;
+  amount: number;
+  payment_type: 'full' | 'partial' | 'advance' | 'installment' | 'final';
+  transaction_reference?: string;
+  external_reference?: string;
+  auto_complete?: boolean;
+  notes?: string;
+  payment_data?: PaymentData;
+  cash_received?: CashDenomination[];
+  cash_change?: CashDenomination[];
+}
+
+// Split payment request
+export interface PaymentSplit {
+  payment_method_id: number;
+  amount: number;
+  transaction_reference?: string;
+  external_reference?: string;
+  notes?: string;
+  payment_data?: PaymentData;
+  cash_received?: CashDenomination[];
+  cash_change?: CashDenomination[];
+}
+
+export interface SplitPaymentRequest {
+  total_amount: number;
+  payment_type: 'full' | 'partial' | 'advance' | 'installment' | 'final';
+  auto_complete?: boolean;
+  notes?: string;
+  splits: PaymentSplit[];
+}
+
+export interface Payment {
+  id: number;
+  order_id: number;
+  payment_method_id: number | null;  
+  amount: number;
+  fee_amount: number;
+  net_amount: number;
+  payment_type: string;
+  status: string;
+  transaction_reference?: string;
+  external_reference?: string;
+  order_balance_before: number;
+  order_balance_after: number;
+  payment_method: { 
+    id: number;
+    name: string;
+    type: string;
+  } | null;  
+  payment_splits?: any[];
+}
+
+export interface PaymentMethodsResponse {
+  success: boolean;
+  data: {
+    customer_type: string;
+    payment_methods: PaymentMethod[];
+    note: string;
+  };
+}
+
+export interface PaymentResponse {
+  success: boolean;
+  message: string;
+  data: Payment;
+}
+
+// ===========================
+// PAYMENT SERVICE
+// ===========================
+
+class PaymentService {
+  /**
+   * ✅ Step 1: Get Available Payment Methods (PUBLIC API - No Auth)
+   * 
+   * @param customerType - 'counter', 'social_commerce', or 'ecommerce'
+   * @returns Array of available payment methods
+   */
+  async getMethods(customerType: 'counter' | 'social_commerce' | 'ecommerce' = 'counter'): Promise<PaymentMethod[]> {
     try {
-      console.log('💳 Processing payment for order:', orderId);
-      console.log('💳 Payment payload:', JSON.stringify(payload, null, 2));
+      console.log('🔍 Fetching payment methods for:', customerType);
       
-      // ✅ Validate required fields
-      if (!payload.payment_method_id) {
-        throw new Error('payment_method_id is required');
+      // ✅ PUBLIC ENDPOINT - No authentication required
+      const response = await axiosInstance.get<PaymentMethodsResponse>('/payment-methods', {
+        params: { customer_type: customerType },
+      });
+      
+      console.log('✅ Payment methods response:', response.data);
+      
+      if (!response.data.success || !response.data.data?.payment_methods) {
+        console.error('❌ Invalid payment methods response format');
+        throw new Error('Invalid payment methods response');
       }
       
-      if (!payload.amount || payload.amount <= 0) {
-        throw new Error('Valid payment amount is required');
-      }
+      const methods = response.data.data.payment_methods;
+      console.log('✅ Loaded payment methods:', methods.map(m => ({ 
+        id: m.id, 
+        code: m.code, 
+        name: m.name 
+      })));
       
-      const response = await axiosInstance.post(`/orders/${orderId}/payments/simple`, payload);
-      
-      console.log('✅ Payment API Response:', response.data);
-      
-      const result = response.data;
-      
-      if (!result.success) {
-        throw new Error(result.message || 'Failed to process payment');
-      }
-      
-      return result.data;
+      return methods;
     } catch (error: any) {
-      console.error('❌ Process payment error:', error);
-      console.error('❌ Response data:', error.response?.data);
-      console.error('❌ Status:', error.response?.status);
+      console.error('❌ Failed to fetch payment methods:', error);
+      console.error('❌ Error response:', error.response?.data);
+      throw new Error(error.response?.data?.message || 'Failed to fetch payment methods');
+    }
+  }
+
+  /**
+   * ✅ Step 3a: Process Single Payment Method
+   * 
+   * Endpoint: POST /api/orders/{order}/payments/simple
+   * 
+   * @param orderId - Order ID
+   * @param paymentData - Payment details
+   * @returns Payment object
+   */
+  async processSimple(orderId: number, paymentData: SimplePaymentRequest): Promise<Payment> {
+    try {
+      console.log('💳 Processing single payment for order:', orderId);
+      console.log('💳 Payment data:', JSON.stringify(paymentData, null, 2));
       
-      // Extract error message
-      let errorMessage = 'Failed to process payment';
-      
-      if (error.response?.data?.message) {
-        errorMessage = error.response.data.message;
-      } else if (error.response?.data?.error) {
-        errorMessage = error.response.data.error;
-      } else if (error.message) {
-        errorMessage = error.message;
+      // Validate payment method ID
+      if (!paymentData.payment_method_id || paymentData.payment_method_id <= 0) {
+        throw new Error('Invalid payment method ID');
       }
       
+      // Validate amount
+      if (!paymentData.amount || paymentData.amount <= 0) {
+        throw new Error('Invalid payment amount');
+      }
+      
+      const response = await axiosInstance.post<PaymentResponse>(
+        `/orders/${orderId}/payments/simple`,
+        paymentData
+      );
+      
+      console.log('✅ Payment processed:', response.data);
+      
+      if (!response.data.success) {
+        throw new Error(response.data.message || 'Payment processing failed');
+      }
+      
+      return response.data.data;
+    } catch (error: any) {
+      console.error('❌ Payment processing failed:', error);
+      console.error('❌ Error response:', error.response?.data);
+      
+      const errorMessage = error.response?.data?.message || error.message || 'Failed to process payment';
       throw new Error(errorMessage);
     }
-  },
+  }
 
-  /** Process split payment */
-  async processSplit(orderId: number, payload: SplitPaymentPayload): Promise<any> {
+  /**
+   * ✅ Step 3b: Process Split Payment (Multiple Methods)
+   * 
+   * Endpoint: POST /api/orders/{order}/payments/split
+   * 
+   * @param orderId - Order ID
+   * @param paymentData - Split payment details
+   * @returns Payment object with splits
+   */
+  async processSplit(orderId: number, paymentData: SplitPaymentRequest): Promise<Payment> {
     try {
       console.log('💳💳 Processing split payment for order:', orderId);
-      console.log('💳💳 Split payment payload:', JSON.stringify(payload, null, 2));
+      console.log('💳💳 Split data:', JSON.stringify(paymentData, null, 2));
       
-      // ✅ Validate required fields
-      if (!payload.splits || payload.splits.length === 0) {
-        throw new Error('At least one payment split is required');
+      // Validate total amount
+      if (!paymentData.total_amount || paymentData.total_amount <= 0) {
+        throw new Error('Invalid total payment amount');
       }
       
-      // ✅ Validate each split has payment_method_id
-      const invalidSplits = payload.splits.filter(split => !split.payment_method_id);
-      if (invalidSplits.length > 0) {
-        console.error('❌ Invalid splits (missing payment_method_id):', invalidSplits);
-        throw new Error(`${invalidSplits.length} payment split(s) are missing payment_method_id`);
+      // Validate splits exist
+      if (!paymentData.splits || paymentData.splits.length < 2) {
+        throw new Error('Split payment requires at least 2 payment methods');
       }
       
-      // ✅ Validate each split has valid amount
-      const invalidAmounts = payload.splits.filter(split => !split.amount || split.amount <= 0);
-      if (invalidAmounts.length > 0) {
-        console.error('❌ Invalid splits (invalid amount):', invalidAmounts);
-        throw new Error(`${invalidAmounts.length} payment split(s) have invalid amounts`);
+      // Validate each split
+      for (let i = 0; i < paymentData.splits.length; i++) {
+        const split = paymentData.splits[i];
+        
+        if (!split.payment_method_id || split.payment_method_id <= 0) {
+          throw new Error(`Split ${i + 1}: Invalid payment method ID`);
+        }
+        
+        if (!split.amount || split.amount <= 0) {
+          throw new Error(`Split ${i + 1}: Invalid amount`);
+        }
       }
       
-      // ✅ Validate total amount
-      const calculatedTotal = payload.splits.reduce((sum, split) => sum + split.amount, 0);
-      if (Math.abs(calculatedTotal - payload.total_amount) > 0.01) {
-        console.error('❌ Total mismatch:', { 
-          expected: payload.total_amount, 
-          calculated: calculatedTotal 
-        });
-        throw new Error(`Split amounts (${calculatedTotal}) don't match total amount (${payload.total_amount})`);
+      // Validate total matches sum of splits
+      const splitsTotal = paymentData.splits.reduce((sum, split) => sum + split.amount, 0);
+      const difference = Math.abs(splitsTotal - paymentData.total_amount);
+      
+      if (difference > 0.01) {
+        throw new Error(
+          `Total split amount (${splitsTotal.toFixed(2)}) does not match total payment amount (${paymentData.total_amount.toFixed(2)})`
+        );
       }
       
-      const response = await axiosInstance.post(`/orders/${orderId}/payments/split`, payload);
+      const response = await axiosInstance.post<PaymentResponse>(
+        `/orders/${orderId}/payments/split`,
+        paymentData
+      );
       
-      console.log('✅ Split payment API Response:', response.data);
+      console.log('✅ Split payment processed:', response.data);
       
-      const result = response.data;
-      
-      if (!result.success) {
-        throw new Error(result.message || 'Failed to process split payment');
+      if (!response.data.success) {
+        throw new Error(response.data.message || 'Split payment processing failed');
       }
       
-      return result.data;
+      return response.data.data;
     } catch (error: any) {
-      console.error('❌ Process split payment error:', error);
-      console.error('❌ Response data:', error.response?.data);
-      console.error('❌ Status:', error.response?.status);
+      console.error('❌ Split payment processing failed:', error);
+      console.error('❌ Error response:', error.response?.data);
       
-      // Extract error message
-      let errorMessage = 'Failed to process split payment';
-      
-      if (error.response?.data?.message) {
-        errorMessage = error.response.data.message;
-      } else if (error.response?.data?.error) {
-        errorMessage = error.response.data.error;
-      } else if (error.message) {
-        errorMessage = error.message;
-      }
-      
-      // Check for specific errors
-      if (errorMessage.includes('payment_method_id') && errorMessage.includes('cannot be null')) {
-        errorMessage = 'Payment method ID is missing. Please ensure all payment methods are properly selected.';
-      }
-      
+      const errorMessage = error.response?.data?.message || error.message || 'Failed to process split payment';
       throw new Error(errorMessage);
     }
-  },
-
- /** Get available payment methods */
-async getMethods(customerType?: string): Promise<PaymentMethod[]> {
-  try {
-    console.log('🔍 Fetching payment methods for customer type:', customerType);
-    
-    const response = await axiosInstance.get('/payments/methods', {
-      params: { customer_type: customerType || 'counter' }, // ✅ ADD customer_type param
-    });
-    
-    const result = response.data;
-    
-    console.log('✅ Payment methods response:', result);
-    
-    if (!result.success) {
-      throw new Error(result.message || 'Failed to fetch payment methods');
-    }
-    
-    return result.data;
-  } catch (error: any) {
-    console.error('❌ Get payment methods error:', error);
-    
-    let errorMessage = 'Failed to fetch payment methods';
-    if (error.response?.data?.message) {
-      errorMessage = error.response.data.message;
-    }
-    
-    throw new Error(errorMessage);
   }
-},
-  /** Get order payments */
-  async getOrderPayments(orderId: number): Promise<any> {
-    try {
-      console.log('🔍 Fetching payments for order:', orderId);
-      
-      const response = await axiosInstance.get(`/orders/${orderId}/payments/advanced`);
-      
-      const result = response.data;
-      
-      if (!result.success) {
-        throw new Error(result.message || 'Failed to fetch payments');
-      }
-      
-      console.log('✅ Order payments:', result.data);
-      
-      return result.data;
-    } catch (error: any) {
-      console.error('❌ Get order payments error:', error);
-      
-      let errorMessage = 'Failed to fetch payments';
-      if (error.response?.data?.message) {
-        errorMessage = error.response.data.message;
-      }
-      
-      throw new Error(errorMessage);
-    }
-  },
 
-  /** Get payment statistics */
-  async getStats(params?: any): Promise<any> {
-    try {
-      console.log('📊 Fetching payment statistics with params:', params);
-      
-      const response = await axiosInstance.get('/payments/stats', { params });
-      
-      const result = response.data;
-      
-      if (!result.success) {
-        throw new Error(result.message || 'Failed to fetch payment statistics');
-      }
-      
-      console.log('✅ Payment statistics:', result.data);
-      
-      return result.data;
-    } catch (error: any) {
-      console.error('❌ Get payment stats error:', error);
-      
-      let errorMessage = 'Failed to fetch payment statistics';
-      if (error.response?.data?.message) {
-        errorMessage = error.response.data.message;
-      }
-      
-      throw new Error(errorMessage);
-    }
-  },
+  /**
+   * Legacy method - redirects to processSimple for backward compatibility
+   * @deprecated Use processSimple instead
+   */
+  async process(orderId: number, paymentData: SimplePaymentRequest): Promise<Payment> {
+    console.warn('⚠️ Using deprecated process() method. Use processSimple() instead.');
+    return this.processSimple(orderId, paymentData);
+  }
 
-  /** Get overdue payments */
-  async getOverdue(params?: { store_id?: number }): Promise<any> {
+  /**
+   * Helper: Calculate Change
+   * 
+   * Endpoint: POST /api/payment-utils/calculate-change
+   * 
+   * @param amountDue - Amount customer needs to pay
+   * @param amountReceived - Amount customer actually paid
+   * @returns Suggested change denominations
+   */
+  async calculateChange(amountDue: number, amountReceived: number): Promise<{
+    change_amount: number;
+    suggested_denominations: CashDenomination[];
+  }> {
     try {
-      console.log('⏰ Fetching overdue payments with params:', params);
+      const response = await axiosInstance.post('/payment-utils/calculate-change', {
+        amount_due: amountDue,
+        amount_received: amountReceived,
+      });
       
-      const response = await axiosInstance.get('/payments/overdue', { params });
-      
-      const result = response.data;
-      
-      if (!result.success) {
-        throw new Error(result.message || 'Failed to fetch overdue payments');
-      }
-      
-      console.log('✅ Overdue payments:', result.data);
-      
-      return result.data;
+      return response.data.data;
     } catch (error: any) {
-      console.error('❌ Get overdue payments error:', error);
+      console.error('❌ Failed to calculate change:', error);
       
-      let errorMessage = 'Failed to fetch overdue payments';
-      if (error.response?.data?.message) {
-        errorMessage = error.response.data.message;
+      // Fallback: Calculate manually if API fails
+      const changeAmount = amountReceived - amountDue;
+      if (changeAmount < 0) {
+        throw new Error('Amount received is less than amount due');
       }
       
-      throw new Error(errorMessage);
+      return {
+        change_amount: changeAmount,
+        suggested_denominations: this.calculateChangeDenominations(changeAmount),
+      };
     }
-  },
-};
+  }
 
+  /**
+   * Helper: Calculate optimal change denominations
+   * @private
+   */
+  private calculateChangeDenominations(amount: number): CashDenomination[] {
+    const denominations = [1000, 500, 200, 100, 50, 20, 10, 5, 2, 1];
+    const result: CashDenomination[] = [];
+    let remaining = amount;
+    
+    for (const denom of denominations) {
+      if (remaining >= denom) {
+        const quantity = Math.floor(remaining / denom);
+        result.push({
+          denomination: denom,
+          quantity,
+          type: 'note',
+        });
+        remaining -= quantity * denom;
+      }
+    }
+    
+    return result;
+  }
+}
+
+// Export singleton instance
+const paymentService = new PaymentService();
 export default paymentService;
