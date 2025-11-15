@@ -128,7 +128,7 @@ export default function DispatchManagementPage() {
 
       const dispatchId = dispatchResponse.data.id;
 
-      // Add items
+      // Add items (works with existing backend)
       for (const item of data.items) {
         await dispatchService.addItem(dispatchId, {
           batch_id: parseInt(item.batch_id),
@@ -136,7 +136,8 @@ export default function DispatchManagementPage() {
         });
       }
 
-      showToast('Dispatch created successfully', 'success');
+      const totalItems = data.items.reduce((sum: number, item: any) => sum + parseInt(item.quantity), 0);
+      showToast(`Dispatch created successfully with ${totalItems} item${totalItems > 1 ? 's' : ''}`, 'success');
       setShowCreateModal(false);
       fetchDispatches();
       fetchStatistics();
