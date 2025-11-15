@@ -67,19 +67,7 @@ const BarcodeScanner: React.FC<BarcodeScannerProps> = ({
       const response = await barcodeService.scanBarcode(barcodeValue.trim());
       
       if (response.success && response.data) {
-        // Validate store if storeId is provided
-        if (storeId && response.data.current_location?.id !== storeId) {
-          const locationName = response.data.current_location?.name || 'Unknown';
-          const errorMsg = `Item not in selected store. Current location: ${locationName}`;
-          setError(errorMsg);
-          if (onScanError) {
-            onScanError(errorMsg);
-          }
-          setIsScanning(false);
-          return;
-        }
-
-        // Check if item is available
+        // Check if item is available first
         if (!response.data.is_available) {
           const errorMsg = 'Item is not available for use';
           setError(errorMsg);
@@ -88,6 +76,46 @@ const BarcodeScanner: React.FC<BarcodeScannerProps> = ({
           }
           setIsScanning(false);
           return;
+        }
+
+        // Validate store if storeId is provided
+        if (storeId) {
+          const itemLocation = response.data.current_location;
+          const itemBatch = response.data.current_batch;
+          
+          // Check if we have location info
+          if (!itemLocation && !itemBatch) {
+            const errorMsg = 'Unable to determine item location. Item may not be assigned to any store.';
+            setError(errorMsg);
+            if (onScanError) {
+              onScanError(errorMsg);
+            }
+            setIsScanning(false);
+            return;
+          }
+          
+          // Check location from current_location
+          if (itemLocation && itemLocation.id !== storeId) {
+            const locationName = itemLocation.name || 'Unknown';
+            const errorMsg = `Item not in selected store. Current location: ${locationName}`;
+            setError(errorMsg);
+            if (onScanError) {
+              onScanError(errorMsg);
+            }
+            setIsScanning(false);
+            return;
+          }
+          
+          // Also check batch store if available
+          if (itemBatch && itemBatch.store_id && itemBatch.store_id !== storeId) {
+            const errorMsg = `Item batch not in selected store.`;
+            setError(errorMsg);
+            if (onScanError) {
+              onScanError(errorMsg);
+            }
+            setIsScanning(false);
+            return;
+          }
         }
 
         setSuccess('✓ Scanned successfully');
