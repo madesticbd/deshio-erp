@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { Search, X, Package, Globe } from 'lucide-react';
 import Header from '@/components/Header';
 import Sidebar from '@/components/Sidebar';
-import { useRouter } from 'next/navigation';
+import axios from '@/lib/axios';
 
 interface DefectItem {
   id: string;
@@ -17,34 +17,32 @@ interface DefectItem {
 
 interface CartProduct {
   id: number | string;
-  productId?: number | string;
-  batchId?: number | string;
+  product_id?: number | string;
+  batch_id?: number | string;
   productName: string;
-  size: string;
-  qty: number;
-  price: number;
-  discount: number;
+  barcode?: string;
+  quantity: number;
+  unit_price: number;
+  discount_amount: number;
   amount: number;
   isDefective?: boolean;
   defectId?: string;
-  barcode?: string;
 }
 
 export default function SocialCommercePage() {
-  const router = useRouter();
   const [darkMode, setDarkMode] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [allProducts, setAllProducts] = useState<any[]>([]);
   const [inventory, setInventory] = useState<any[]>([]);
+  const [stores, setStores] = useState<any[]>([]);
   
-  const [date, setDate] = useState('06-Oct-2025');
+  const [date, setDate] = useState(getTodayDate());
   const [salesBy, setSalesBy] = useState('');
   const [userName, setUserName] = useState('');
   const [userEmail, setUserEmail] = useState('');
   const [userPhone, setUserPhone] = useState('');
   const [socialId, setSocialId] = useState('');
   
-  // International flag
   const [isInternational, setIsInternational] = useState(false);
   
   // Bangladesh address fields
@@ -67,13 +65,6 @@ export default function SocialCommercePage() {
   const [districts, setDistricts] = useState<any[]>([]);
   const [upazillas, setUpazillas] = useState<any[]>([]);
 
-  // Get user info from localStorage
-  useEffect(() => {
-    const userName = localStorage.getItem('userName') || '';
-    setSalesBy(userName);
-  }, []);
-
-  // Product search and selection
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<any[]>([]);
   const [selectedProduct, setSelectedProduct] = useState<any>(null);
@@ -85,6 +76,141 @@ export default function SocialCommercePage() {
   const [amount, setAmount] = useState('0.00');
 
   const [defectiveProduct, setDefectiveProduct] = useState<DefectItem | null>(null);
+  const [selectedStore, setSelectedStore] = useState('');
+  const [isLoadingData, setIsLoadingData] = useState(true);
+
+  const showToast = (message: string, type: 'success' | 'error' = 'success') => {
+    // Simple alert for now - you can integrate a proper toast library
+    if (type === 'error') {
+      alert('Error: ' + message);
+    } else {
+      console.log('Success:', message);
+    }
+  };
+
+  function getTodayDate() {
+    const today = new Date();
+    const day = String(today.getDate()).padStart(2, '0');
+    const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    const month = monthNames[today.getMonth()];
+    const year = today.getFullYear();
+    return `${day}-${month}-${year}`;
+  }
+
+  const fetchStores = async () => {
+    try {
+      const response = await axios.get('/stores', {
+        params: { is_active: true }
+      });
+      
+      console.log('Store API response:', response);
+      
+      let storesData = [];
+      
+      // Handle different response structures
+      if (response.data) {
+        if (response.data.success && response.data.data) {
+          // Structure: { success: true, data: [...] }
+          if (Array.isArray(response.data.data)) {
+            storesData = response.data.data;
+          } else if (response.data.data.data && Array.isArray(response.data.data.data)) {
+            // Structure: { success: true, data: { data: [...] } }
+            storesData = response.data.data.data;
+          }
+        } else if (Array.isArray(response.data)) {
+          // Direct array response
+          storesData = response.data;
+        } else if (response.data.data && Array.isArray(response.data.data)) {
+          // Structure: { data: [...] }
+          storesData = response.data.data;
+        }
+      }
+      
+      console.log('Extracted stores:', storesData);
+      
+      const storesArray = Array.isArray(storesData) ? storesData : [];
+      setStores(storesArray);
+      
+      if (storesArray.length > 0) {
+        setSelectedStore(String(storesArray[0].id));
+      } else {
+        showToast('No active stores found', 'error');
+      }
+    } catch (error) {
+      console.error('Error fetching stores:', error);
+      showToast('Failed to load stores', 'error');
+      setStores([]);
+    }
+  };
+
+  const fetchProducts = async () => {
+    try {
+      const response = await axios.get('/products');
+      
+      console.log('Products API response:', response);
+      
+      let productsData = [];
+      
+      // Handle different response structures
+      if (response.data) {
+        if (response.data.success && response.data.data) {
+          if (Array.isArray(response.data.data)) {
+            productsData = response.data.data;
+          } else if (response.data.data.data && Array.isArray(response.data.data.data)) {
+            productsData = response.data.data.data;
+          }
+        } else if (Array.isArray(response.data)) {
+          productsData = response.data;
+        } else if (response.data.data && Array.isArray(response.data.data)) {
+          productsData = response.data.data;
+        }
+      }
+      
+      console.log('Extracted products:', productsData);
+      setAllProducts(Array.isArray(productsData) ? productsData : []);
+    } catch (error) {
+      console.error('Error fetching products:', error);
+      showToast('Failed to load products', 'error');
+      setAllProducts([]);
+    }
+  };
+
+  const fetchInventory = async () => {
+    try {
+      const response = await axios.get('/inventory/global');
+      
+      console.log('Inventory API response:', response);
+      
+      let inventoryData = [];
+      
+      // Handle different response structures
+      if (response.data) {
+        if (response.data.success && response.data.data) {
+          if (Array.isArray(response.data.data)) {
+            inventoryData = response.data.data;
+          } else if (response.data.data.data && Array.isArray(response.data.data.data)) {
+            inventoryData = response.data.data.data;
+          }
+        } else if (Array.isArray(response.data)) {
+          inventoryData = response.data;
+        } else if (response.data.data && Array.isArray(response.data.data)) {
+          inventoryData = response.data.data;
+        }
+      }
+      
+      console.log('Extracted inventory:', inventoryData);
+      setInventory(Array.isArray(inventoryData) ? inventoryData : []);
+    } catch (error) {
+      console.error('Error fetching inventory:', error);
+      showToast('Failed to load inventory', 'error');
+      setInventory([]);
+    }
+  };
+
+  useEffect(() => {
+    const userName = localStorage.getItem('userName') || '';
+    setSalesBy(userName);
+  }, []);
 
   useEffect(() => {
     const defectData = sessionStorage.getItem('defectItem');
@@ -121,10 +247,23 @@ export default function SocialCommercePage() {
   const getFlattenedProducts = () => {
     const flattened: any[] = [];
     
+    // Safety check - ensure allProducts is an array
+    if (!Array.isArray(allProducts)) {
+      console.warn('allProducts is not an array:', allProducts);
+      return flattened;
+    }
+    
     allProducts.forEach(product => {
-      if (product.variations && product.variations.length > 0) {
-        product.variations.forEach((variation: any, index: number) => {
-          const colorAttr = variation.attributes?.Colour || `Variation ${index + 1}`;
+      const variations = product.variations || product.variants;
+      
+      if (variations && variations.length > 0) {
+        variations.forEach((variation: any, index: number) => {
+          const colorAttr = variation.attributes?.Colour || 
+                          variation.attributes?.colour || 
+                          variation.attributes?.Color || 
+                          variation.attributes?.color || 
+                          `Variation ${index + 1}`;
+          
           flattened.push({
             id: variation.id,
             name: `${product.name} - ${colorAttr}`,
@@ -133,19 +272,99 @@ export default function SocialCommercePage() {
             variationIndex: index,
             attributes: {
               ...product.attributes,
-              ...variation.attributes
+              ...variation.attributes,
+              mainImage: variation.attributes?.main_image || 
+                        variation.attributes?.mainImage || 
+                        product.attributes?.main_image || 
+                        product.attributes?.mainImage || 
+                        '',
+              Price: variation.attributes?.Price || 
+                    variation.attributes?.price || 
+                    variation.price || 
+                    0
             }
           });
         });
       } else {
         flattened.push({
           ...product,
-          isVariation: false
+          isVariation: false,
+          attributes: {
+            ...product.attributes,
+            mainImage: product.attributes?.main_image || 
+                      product.attributes?.mainImage || 
+                      '',
+            Price: product.attributes?.Price || 
+                  product.attributes?.price || 
+                  product.price || 
+                  0
+          }
         });
       }
     });
     
     return flattened;
+  };
+
+  const performLocalSearch = (query: string) => {
+    const flattenedProducts = getFlattenedProducts();
+    
+    if (flattenedProducts.length === 0) {
+      console.log('No products available for local search');
+      return [];
+    }
+    
+    const results: any[] = [];
+    const queryLower = query.toLowerCase();
+
+    flattenedProducts.forEach((prod: any) => {
+      // Get available inventory items for this product
+      const availableItems = inventory.filter((item: any) => {
+        const itemProductId = String(item.product_id || item.productId);
+        const prodId = String(prod.id);
+        return itemProductId === prodId && item.status === 'available';
+      });
+
+      if (availableItems.length === 0) return;
+
+      // Check if product name matches
+      const productName = (prod.name || '').toLowerCase();
+      const productSku = (prod.sku || '').toLowerCase();
+      
+      if (productName.includes(queryLower) || productSku.includes(queryLower)) {
+        // Group by batch
+        const groups: { [key: string]: { batchId: any; price: number; count: number } } = {};
+
+        availableItems.forEach((item: any) => {
+          const bid = item.batch_id || item.batchId || 'default';
+          const price = item.selling_price || item.sellingPrice || 0;
+          
+          if (!groups[bid]) {
+            groups[bid] = {
+              batchId: bid,
+              price: price,
+              count: 0
+            };
+          }
+          groups[bid].count++;
+        });
+
+        Object.values(groups).forEach((group) => {
+          results.push({
+            ...prod,
+            batchId: group.batchId,
+            attributes: { 
+              ...prod.attributes, 
+              Price: group.price,
+              mainImage: prod.attributes?.mainImage || ''
+            },
+            available: group.count
+          });
+        });
+      }
+    });
+    
+    return results;
   };
 
   const calculateAmount = (
@@ -170,10 +389,9 @@ export default function SocialCommercePage() {
   useEffect(() => {
     const fetchProducts = async () => {
       try {
-        const response = await fetch('/api/products');
-        if (response.ok) {
-          const data = await response.json();
-          setAllProducts(data);
+        const response = await axios.get('/products');
+        if (response.data.success) {
+          setAllProducts(response.data.data || []);
         }
       } catch (error) {
         console.error('Error fetching products:', error);
@@ -182,18 +400,64 @@ export default function SocialCommercePage() {
     
     const fetchInventory = async () => {
       try {
-        const response = await fetch('/api/inventory');
-        if (response.ok) {
-          const data = await response.json();
-          setInventory(data);
+        const response = await axios.get('/inventory/global');
+        if (response.data.success) {
+          setInventory(response.data.data || []);
         }
       } catch (error) {
         console.error('Error fetching inventory:', error);
       }
     };
+
+    const fetchStores = async () => {
+      try {
+        const response = await axios.get('/stores', {
+          params: { is_active: true }
+        });
+        
+        console.log('Store API response:', response);
+        
+        let storesData = [];
+        
+        // Handle different response structures
+        if (response.data) {
+          if (response.data.success && response.data.data) {
+            // Structure: { success: true, data: [...] }
+            if (Array.isArray(response.data.data)) {
+              storesData = response.data.data;
+            } else if (response.data.data.data && Array.isArray(response.data.data.data)) {
+              // Structure: { success: true, data: { data: [...] } }
+              storesData = response.data.data.data;
+            }
+          } else if (Array.isArray(response.data)) {
+            // Direct array response
+            storesData = response.data;
+          } else if (response.data.data && Array.isArray(response.data.data)) {
+            // Structure: { data: [...] }
+            storesData = response.data.data;
+          }
+        }
+        
+        console.log('Extracted stores:', storesData);
+        
+        const storesArray = Array.isArray(storesData) ? storesData : [];
+        setStores(storesArray);
+        
+        if (storesArray.length > 0) {
+          setSelectedStore(String(storesArray[0].id));
+        } else {
+          showToast('No active stores found', 'error');
+        }
+      } catch (error) {
+        console.error('Error fetching stores:', error);
+        showToast('Failed to load stores', 'error');
+        setStores([]);
+      }
+    };
     
     fetchProducts();
     fetchInventory();
+    fetchStores();
   }, []);
   
   useEffect(() => {
@@ -252,11 +516,12 @@ export default function SocialCommercePage() {
 
   const getAvailableInventory = (productId: number | string, batchId?: number | string) => {
     return inventory.filter(item => {
-      const itemProductId = typeof item.productId === 'string' ? item.productId : String(item.productId);
-      const searchProductId = typeof productId === 'string' ? productId : String(productId);
+      const itemProductId = String(item.product_id || item.productId);
+      const searchProductId = String(productId);
       const matchesProduct = itemProductId === searchProductId && item.status === 'available';
       if (batchId !== undefined) {
-        return matchesProduct && item.batchId === batchId;
+        const itemBatchId = item.batch_id || item.batchId;
+        return matchesProduct && String(itemBatchId) === String(batchId);
       }
       return matchesProduct;
     }).length;
@@ -268,48 +533,103 @@ export default function SocialCommercePage() {
       return;
     }
 
-    const delayDebounce = setTimeout(() => {
-      const flattenedProducts = getFlattenedProducts();
-      const results: any[] = [];
+    // Safety check - ensure we have valid data
+    if (!Array.isArray(inventory)) {
+      console.warn('Invalid inventory data for search:', inventory);
+      setSearchResults([]);
+      return;
+    }
 
-      flattenedProducts.forEach((prod: any) => {
-        const availableItems = inventory.filter((item: any) => 
-          String(item.productId) === String(prod.id) && item.status === 'available'
-        );
-
-        if (availableItems.length === 0) return;
-
-        const groups: { [key: string]: { batchId: any; price: number; count: number } } = {};
-
-        availableItems.forEach((item: any) => {
-          const bid = item.batchId;
-          if (!groups[bid]) {
-            groups[bid] = {
-              batchId: bid,
-              price: item.sellingPrice,
-              count: 0
-            };
-          }
-          groups[bid].count++;
+    const delayDebounce = setTimeout(async () => {
+      try {
+        // Use the advanced search API
+        const response = await axios.post('/products/advanced-search', {
+          query: searchQuery,
+          enable_fuzzy: true,
+          fuzzy_threshold: 60,
+          search_fields: ['name', 'sku', 'description', 'category', 'custom_fields'],
+          per_page: 50
         });
 
-        if (prod.name.toLowerCase().includes(searchQuery.toLowerCase())) {
-          Object.values(groups).forEach((group) => {
-            results.push({
-              ...prod,
-              batchId: group.batchId,
-              attributes: { ...prod.attributes, Price: group.price },
-              available: group.count
+        console.log('Search API response:', response);
+
+        if (response.data.success) {
+          const products = response.data.data?.items || [];
+          const results: any[] = [];
+
+          // Process each product and match with inventory
+          products.forEach((prod: any) => {
+            // Get available inventory items for this product
+            const availableItems = inventory.filter((item: any) => {
+              const itemProductId = String(item.product_id || item.productId);
+              const prodId = String(prod.id);
+              return itemProductId === prodId && item.status === 'available';
+            });
+
+            if (availableItems.length === 0) return;
+
+            // Group by batch
+            const groups: { [key: string]: { batchId: any; price: number; count: number } } = {};
+
+            availableItems.forEach((item: any) => {
+              const bid = item.batch_id || item.batchId || 'default';
+              const price = item.selling_price || item.sellingPrice || 0;
+              
+              if (!groups[bid]) {
+                groups[bid] = {
+                  batchId: bid,
+                  price: price,
+                  count: 0
+                };
+              }
+              groups[bid].count++;
+            });
+
+            // Add result for each batch
+            Object.values(groups).forEach((group) => {
+              // Get primary image
+              const primaryImage = prod.images?.find((img: any) => img.is_primary) || prod.images?.[0];
+              const imageUrl = primaryImage?.image_url || 
+                             primaryImage?.url || 
+                             prod.attributes?.main_image || 
+                             prod.attributes?.mainImage || 
+                             '';
+
+              results.push({
+                id: prod.id,
+                name: prod.name,
+                sku: prod.sku,
+                batchId: group.batchId,
+                attributes: { 
+                  Price: group.price,
+                  mainImage: imageUrl,
+                  ...prod.attributes
+                },
+                available: group.count,
+                relevance_score: prod.relevance_score || 0,
+                search_stage: prod.search_stage || 'api'
+              });
             });
           });
+
+          console.log('Processed search results:', results);
+          setSearchResults(results);
+        } else {
+          console.warn('Search API returned unsuccessful response');
+          setSearchResults([]);
         }
-      });
-      
-      setSearchResults(results);
+      } catch (error) {
+        console.error('Search API error:', error);
+        
+        // Fallback to local search if API fails
+        console.log('Falling back to local search...');
+        const localResults = performLocalSearch(searchQuery);
+        setSearchResults(localResults);
+      }
     }, 300);
 
     return () => clearTimeout(delayDebounce);
-  }, [searchQuery, allProducts, inventory]);
+  }, [searchQuery, inventory]);
 
   const handleProductSelect = (product: any) => {
     setSelectedProduct(product);
@@ -345,16 +665,15 @@ export default function SocialCommercePage() {
     
     const newItem: CartProduct = {
       id: Date.now(),
-      productId: selectedProduct.id,
+      product_id: selectedProduct.id,
       productName: selectedProduct.name,
-      size: '1',
-      qty: 1,
-      price: price,
-      discount: 0,
+      barcode: selectedProduct.barcode,
+      quantity: 1,
+      unit_price: price,
+      discount_amount: 0,
       amount: price,
       isDefective: true,
-      defectId: selectedProduct.defectId,
-      barcode: selectedProduct.barcode
+      defectId: selectedProduct.defectId
     };
     
     setCart([...cart, newItem]);
@@ -381,9 +700,9 @@ export default function SocialCommercePage() {
     const requestedQty = parseInt(quantity);
     
     const existingItem = cart.find(
-      item => String(item.productId) === String(selectedProduct.id) && item.batchId === selectedProduct.batchId
+      item => String(item.product_id) === String(selectedProduct.id) && item.batch_id === selectedProduct.batchId
     );
-    const cartQty = existingItem ? existingItem.qty : 0;
+    const cartQty = existingItem ? existingItem.quantity : 0;
     
     if (cartQty + requestedQty > availableQty) {
       alert(`Only ${availableQty} units available. You already have ${cartQty} in cart.`);
@@ -398,33 +717,42 @@ export default function SocialCommercePage() {
     const { finalAmount, totalDiscount } = calculateAmount(price, qty, discPer, discTk);
     
     const existingItemIndex = cart.findIndex(
-      item => String(item.productId) === String(selectedProduct.id) && item.batchId === selectedProduct.batchId && item.price === price
+      item => String(item.product_id) === String(selectedProduct.id) && 
+      String(item.batch_id) === String(selectedProduct.batchId) && 
+      item.unit_price === price
     );
     
     if (existingItemIndex !== -1) {
       const updatedCart = [...cart];
       const existingItem = updatedCart[existingItemIndex];
-      const newQty = existingItem.qty + qty;
+      const newQty = existingItem.quantity + qty;
       const { finalAmount: newAmount } = calculateAmount(price, newQty, discPer, discTk);
       
       updatedCart[existingItemIndex] = {
         ...existingItem,
-        qty: newQty,
-        discount: existingItem.discount + totalDiscount,
+        quantity: newQty,
+        discount_amount: existingItem.discount_amount + totalDiscount,
         amount: newAmount
       };
       
       setCart(updatedCart);
     } else {
+      // Find barcode from inventory
+      const inventoryItem = inventory.find(i => {
+        const iProdId = String(i.product_id || i.productId);
+        const iBatchId = String(i.batch_id || i.batchId);
+        return iProdId === String(selectedProduct.id) && iBatchId === String(selectedProduct.batchId);
+      });
+      
       const newItem: CartProduct = {
         id: Date.now(),
-        productId: selectedProduct.id,
-        batchId: selectedProduct.batchId,
+        product_id: selectedProduct.id,
+        batch_id: selectedProduct.batchId,
         productName: selectedProduct.name,
-        size: '1',
-        qty: qty,
-        price: price,
-        discount: totalDiscount,
+        barcode: inventoryItem?.barcode,
+        quantity: qty,
+        unit_price: price,
+        discount_amount: totalDiscount,
         amount: finalAmount
       };
       
@@ -453,8 +781,11 @@ export default function SocialCommercePage() {
       alert('Please add products to cart');
       return;
     }
+    if (!selectedStore) {
+      alert('Please select a store');
+      return;
+    }
     
-    // Validate address based on type
     if (isInternational) {
       if (!country || !internationalCity) {
         alert('Please fill in international delivery address (Country and City are required)');
@@ -469,15 +800,33 @@ export default function SocialCommercePage() {
     
     try {
       const orderData = {
-        salesBy,
-        date,
-        isInternational,
+        order_type: 'social_commerce',
+        store_id: parseInt(selectedStore),
         customer: {
           name: userName,
           email: userEmail,
           phone: userPhone,
-          socialId: socialId
+          address: isInternational ? 
+            `${internationalCity}, ${state ? state + ', ' : ''}${country}` :
+            `${city}, ${district}, ${division}`
         },
+        items: cart.map(item => ({
+          product_id: parseInt(String(item.product_id)),
+          batch_id: item.batch_id ? parseInt(String(item.batch_id)) : undefined,
+          barcode: item.barcode,
+          quantity: item.quantity,
+          unit_price: item.unit_price,
+          discount_amount: item.discount_amount
+        })),
+        shipping_amount: 0,
+        notes: `Social Commerce Order. ${socialId ? `Social ID: ${socialId}. ` : ''}${isInternational ? 'International' : 'Domestic'} delivery.`
+      };
+      
+      sessionStorage.setItem('pendingOrder', JSON.stringify({
+        ...orderData,
+        salesBy,
+        date,
+        isInternational,
         deliveryAddress: isInternational ? {
           country,
           state,
@@ -493,12 +842,10 @@ export default function SocialCommercePage() {
           address: deliveryAddress,
           postalCode
         },
-        products: cart,
         subtotal
-      };
+      }));
       
-      sessionStorage.setItem('pendingOrder', JSON.stringify(orderData));
-      router.push('/social-commerce/amount-details');
+      window.location.href = '/social-commerce/amount-details';
     } catch (error) {
       console.error('Error processing order:', error);
       alert('Failed to process order. Please try again.');
@@ -535,6 +882,21 @@ export default function SocialCommercePage() {
                     onChange={(e) => setDate(e.target.value)}
                     className="w-full px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                   />
+                </div>
+                <div className="w-full sm:w-auto">
+                  <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">Store <span className="text-red-500">*</span></label>
+                  <select
+                    value={selectedStore}
+                    onChange={(e) => setSelectedStore(e.target.value)}
+                    className="w-full px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                  >
+                    <option value="">Select Store</option>
+                    {Array.isArray(stores) && stores.map((store) => (
+                      <option key={store.id} value={store.id}>
+                        {store.name}
+                      </option>
+                    ))}
+                  </select>
                 </div>
               </div>
 
@@ -595,7 +957,6 @@ export default function SocialCommercePage() {
                       <button
                         onClick={() => {
                           setIsInternational(!isInternational);
-                          // Clear all address fields when switching
                           setDivision('');
                           setDistrict('');
                           setCity('');
@@ -620,7 +981,6 @@ export default function SocialCommercePage() {
                     </div>
                     
                     {isInternational ? (
-                      /* International Address Fields */
                       <div className="space-y-3">
                         <div>
                           <label className="block text-xs text-gray-700 dark:text-gray-300 mb-1">Country*</label>
@@ -674,7 +1034,6 @@ export default function SocialCommercePage() {
                         </div>
                       </div>
                     ) : (
-                      /* Bangladesh Address Fields */
                       <div className="space-y-3">
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                           <div>
@@ -790,15 +1149,31 @@ export default function SocialCommercePage() {
                     <div className="flex gap-2 mb-4">
                       <input
                         type="text"
-                        placeholder="Search product name..."
+                        placeholder={isLoadingData ? "Loading products..." : "Search product name..."}
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
-                        className="flex-1 px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400"
+                        disabled={isLoadingData}
+                        className="flex-1 px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 disabled:opacity-50 disabled:cursor-not-allowed"
                       />
-                      <button className="px-4 py-2 bg-black hover:bg-gray-800 text-white rounded transition-colors flex-shrink-0">
+                      <button 
+                        disabled={isLoadingData}
+                        className="px-4 py-2 bg-black hover:bg-gray-800 text-white rounded transition-colors flex-shrink-0 disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
                         <Search size={18} />
                       </button>
                     </div>
+
+                    {isLoadingData && (
+                      <div className="text-center py-8 text-sm text-gray-500 dark:text-gray-400">
+                        Loading products and inventory...
+                      </div>
+                    )}
+
+                    {!isLoadingData && searchQuery && searchResults.length === 0 && (
+                      <div className="text-center py-8 text-sm text-gray-500 dark:text-gray-400">
+                        No products found matching "{searchQuery}"
+                      </div>
+                    )}
 
                     {searchResults.length > 0 && (
                       <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 max-h-60 md:max-h-80 overflow-y-auto mb-4 p-1">
@@ -905,7 +1280,6 @@ export default function SocialCommercePage() {
                             }}
                             disabled={!selectedProduct || !quantity || parseInt(quantity) <= 1 || selectedProduct?.isDefective}
                             className="w-8 h-8 flex items-center justify-center border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors disabled:opacity-40 disabled:cursor-not-allowed text-lg"
-                            title="Decrease quantity"
                           >
                             −
                           </button>
@@ -931,7 +1305,6 @@ export default function SocialCommercePage() {
                             }}
                             disabled={!selectedProduct || selectedProduct?.isDefective}
                             className="w-8 h-8 flex items-center justify-center border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors disabled:opacity-40 disabled:cursor-not-allowed text-lg"
-                            title="Increase quantity"
                           >
                             +
                           </button>
@@ -1016,7 +1389,7 @@ export default function SocialCommercePage() {
                                 <td className="px-3 py-2 text-gray-900 dark:text-white">
                                   <div className="max-w-[120px]">
                                     <p className="truncate">{item.productName}</p>
-                                    {item.batchId && <p className="text-xs text-gray-500">(Batch {item.batchId})</p>}
+                                    {item.batch_id && <p className="text-xs text-gray-500">(Batch {item.batch_id})</p>}
                                     {item.isDefective && (
                                       <span className="inline-block mt-1 px-2 py-0.5 bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400 text-xs rounded">
                                         Defective
@@ -1024,8 +1397,8 @@ export default function SocialCommercePage() {
                                     )}
                                   </div>
                                 </td>
-                                <td className="px-3 py-2 text-gray-900 dark:text-white whitespace-nowrap">{item.qty}</td>
-                                <td className="px-3 py-2 text-gray-900 dark:text-white whitespace-nowrap">{item.price.toFixed(2)}</td>
+                                <td className="px-3 py-2 text-gray-900 dark:text-white whitespace-nowrap">{item.quantity}</td>
+                                <td className="px-3 py-2 text-gray-900 dark:text-white whitespace-nowrap">{item.unit_price.toFixed(2)}</td>
                                 <td className="px-3 py-2 text-gray-900 dark:text-white whitespace-nowrap">{item.amount.toFixed(2)}</td>
                                 <td className="px-3 py-2">
                                   <button
