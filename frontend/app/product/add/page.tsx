@@ -11,6 +11,7 @@ import DynamicFieldInput from '@/components/product/DynamicFieldInput';
 import VariationCard from '@/components/product/VariationCard';
 import ImageGalleryManager from '@/components/product/ImageGalleryManager';
 import { productService, Field } from '@/services/productService';
+import productImageService from '@/services/productImageService';
 import categoryService, { Category, CategoryTree } from '@/services/categoryService';
 import { vendorService, Vendor } from '@/services/vendorService';
 import {
@@ -337,6 +338,7 @@ export default function AddEditProductPage() {
       }));
 
       if (isEditMode) {
+        // EDIT MODE - Images are handled by ImageGalleryManager automatically
         await productService.update(parseInt(productId!), {
           name: formData.name,
           sku: formData.sku,
@@ -349,6 +351,7 @@ export default function AddEditProductPage() {
         setToast({ message: 'Product updated successfully!', type: 'success' });
         setTimeout(() => router.push('/product/list'), 1500);
       } else {
+        // CREATE MODE
         const baseData = {
           name: formData.name,
           sku: formData.sku,
@@ -358,6 +361,7 @@ export default function AddEditProductPage() {
         };
 
         if (hasVariations && variations.length > 0) {
+          // VARIATIONS MODE
           const colorField = availableFields.find(f => f.title === 'Color');
           const sizeField = availableFields.find(f => f.title === 'Size');
 
@@ -383,22 +387,6 @@ export default function AddEditProductPage() {
             
             if (!hasColor) continue;
 
-            const imageUrls: string[] = [];
-            if (variation.images.length > 0) {
-              for (const imageFile of variation.images) {
-                try {
-                  const imageUrl = await productService.uploadImage(imageFile);
-                  if (imageUrl) imageUrls.push(imageUrl);
-                } catch (error) {
-                  console.error('Failed to upload image:', error);
-                }
-              }
-            }
-            
-            if (imageUrls.length === 0) {
-              imageUrls.push(FALLBACK_IMAGE_URL);
-            }
-
             const sizesToCreate = hasSizes ? validSizes : [''];
 
             for (const size of sizesToCreate) {
@@ -415,27 +403,30 @@ export default function AddEditProductPage() {
                 varCustomFields.push({ field_id: sizeField.id, value: size });
               }
 
-              const productData = {
+              // Create product
+              const product = await productService.create({
                 name: variationName,
                 sku: baseData.sku,
                 description: baseData.description,
                 category_id: baseData.category_id,
                 vendor_id: baseData.vendor_id,
                 custom_fields: varCustomFields,
-              };
+              });
 
-              const product = await productService.create(productData);
-
-              if (imageUrls.length > 0 && product.id) {
-                for (let i = 0; i < imageUrls.length; i++) {
+              // Upload variation images using productImageService
+              if (variation.images.length > 0 && product.id) {
+                for (let i = 0; i < variation.images.length; i++) {
                   try {
-                    await productService.addProductImage(product.id, {
-                      image_path: imageUrls[i],
-                      is_primary: i === 0,
-                      order: i,
-                    });
+                    await productImageService.uploadImage(
+                      product.id,
+                      variation.images[i],
+                      {
+                        is_primary: i === 0,
+                        sort_order: i,
+                      }
+                    );
                   } catch (error) {
-                    console.error('Failed to attach image:', error);
+                    console.error('Failed to upload variation image:', error);
                   }
                 }
               }
@@ -452,64 +443,51 @@ export default function AddEditProductPage() {
 
           setToast({ message: `Created ${createdProducts.length} product variation(s)!`, type: 'success' });
         } else {
-          // ===== CRITICAL FIX: Single Product with Images =====
-          console.log('Creating single product with images:', productImages.length);
-          
-          // Step 1: Create product first
-          const product = await productService.create({
+          // ===== SINGLE PRODUCT MODE =====
+          // STEP 1: CREATE THE PRODUCT FIRST (without images)
+          console.log('Step 1: Creating product...');
+          const createdProduct = await productService.create({
             ...baseData,
             custom_fields: customFields,
           });
 
-          console.log('Product created with ID:', product.id);
+          console.log('Product created with ID:', createdProduct.id);
 
-          // Step 2: Upload images after product is created
-          if (productImages.length > 0 && product.id) {
-            console.log('Starting image upload process...');
+          // STEP 2: UPLOAD AND ATTACH IMAGES (after product exists)
+          if (productImages.length > 0 && createdProduct.id) {
+            console.log(`Step 2: Uploading ${productImages.length} images...`);
             
-            let uploadedCount = 0;
+            let successCount = 0;
+            
             for (let i = 0; i < productImages.length; i++) {
               const imageItem = productImages[i];
               
-              try {
-                // Only upload if image has file and not yet uploaded
-                if (imageItem.file && !imageItem.uploaded) {
-                  console.log(`Uploading image ${i + 1}/${productImages.length}:`, imageItem.file.name);
+              // Check if this image needs to be uploaded
+              if (imageItem.file && !imageItem.uploaded) {
+                try {
+                  console.log(`Uploading image ${i + 1}: ${imageItem.file.name}`);
                   
-                  // Upload file to storage
-                  const uploadedImageUrl = await productService.uploadImage(imageItem.file);
-                  
-                  if (uploadedImageUrl) {
-                    console.log(`Image uploaded, URL: ${uploadedImageUrl}`);
-                    
-                    // Attach to product
-                    await productService.addProductImage(product.id, {
-                      image_path: uploadedImageUrl,
-                      is_primary: imageItem.is_primary || i === 0,
+                  // ✅ USE productImageService.uploadImage - uploads AND attaches in one call!
+                  await productImageService.uploadImage(
+                    createdProduct.id,
+                    imageItem.file,
+                    {
                       alt_text: imageItem.alt_text || '',
+                      is_primary: imageItem.is_primary || (i === 0),
                       sort_order: imageItem.sort_order || i,
-                    });
-                    
-                    uploadedCount++;
-                    console.log(`Image ${i + 1} attached successfully`);
-                  }
-                } else if (imageItem.uploaded) {
-                  console.log(`Image ${i + 1} already uploaded, skipping`);
+                    }
+                  );
+                  
+                  successCount++;
+                  console.log(`Image ${i + 1} uploaded and attached successfully`);
+                } catch (error) {
+                  console.error(`Failed to upload/attach image ${i + 1}:`, error);
+                  // Continue with other images even if one fails
                 }
-              } catch (error) {
-                console.error(`Failed to upload image ${i + 1}:`, error);
-                // Continue with other images even if one fails
               }
             }
             
-            console.log(`Total images uploaded: ${uploadedCount}/${productImages.length}`);
-          } else if (product.id) {
-            console.log('No images provided, adding fallback');
-            await productService.addProductImage(product.id, {
-              image_path: FALLBACK_IMAGE_URL,
-              is_primary: true,
-              order: 0,
-            });
+            console.log(`Successfully uploaded ${successCount}/${productImages.length} images`);
           }
 
           setToast({ message: 'Product created successfully!', type: 'success' });
@@ -767,7 +745,6 @@ export default function AddEditProductPage() {
                         productId={isEditMode ? parseInt(productId!) : undefined}
                         existingImages={productImages}
                         onImagesChange={(images) => {
-                          console.log('Images changed:', images);
                           setProductImages(images);
                         }}
                         maxImages={10}

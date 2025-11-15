@@ -6,7 +6,7 @@ import Header from '@/components/Header';
 import Sidebar from '@/components/Sidebar';
 import { vendorService, Vendor } from '@/services/vendorService';
 import purchaseOrderService, { PurchaseOrder, CreatePurchaseOrderData } from '@/services/purchase-order.service';
-import { vendorPaymentService, CreatePaymentRequest } from '@/services/vendorPaymentService';
+import { vendorPaymentService, CreatePaymentRequest, PaymentMethod } from '@/services/vendorPaymentService';
 import storeService, { Store } from '@/services/storeService';
 import productService, { Product } from '@/services/productService';
 
@@ -16,67 +16,6 @@ const formatCurrency = (value: any): string => {
   const numValue = typeof value === 'string' ? parseFloat(value) : value;
   return isNaN(numValue) ? '0.00' : numValue.toFixed(2);
 };
-
-interface PaymentMethod {
-  id: number;
-  code: string;
-  name: string;
-  description: string;
-  type: string;
-}
-
-// Hardcoded payment methods from database
-const PAYMENT_METHODS: PaymentMethod[] = [
-  {
-    id: 1,
-    code: 'cash',
-    name: 'Cash',
-    description: 'Cash payment at counter',
-    type: 'cash'
-  },
-  {
-    id: 2,
-    code: 'card',
-    name: 'Card Payment',
-    description: 'Credit/Debit card payment',
-    type: 'card'
-  },
-  {
-    id: 3,
-    code: 'online_pay',
-    name: 'Online Pay',
-    description: 'Online payment gateway',
-    type: 'online_banking'
-  },
-  {
-    id: 4,
-    code: 'bank_transfer',
-    name: 'Bank Transfer',
-    description: 'Direct bank transfer',
-    type: 'bank_transfer'
-  },
-  {
-    id: 5,
-    code: 'online_banking',
-    name: 'Online Banking',
-    description: 'Online banking payment',
-    type: 'online_banking'
-  },
-  {
-    id: 6,
-    code: 'mobile_banking',
-    name: 'Mobile Banking',
-    description: 'Mobile banking payment (bKash, Nagad, etc.)',
-    type: 'mobile_banking'
-  },
-  {
-    id: 7,
-    code: 'digital_wallet',
-    name: 'Digital Wallet',
-    description: 'Digital wallet payment',
-    type: 'digital_wallet'
-  }
-];
 
 const Modal = ({ isOpen, onClose, title, children, size = 'md' }: {
   isOpen: boolean;
@@ -114,7 +53,7 @@ const Modal = ({ isOpen, onClose, title, children, size = 'md' }: {
 };
 
 const Alert = ({ type, message }: { type: 'success' | 'error'; message: string }) => (
-  <div className={`fixed top-4 right-4 z-50 flex items-center gap-2 px-4 py-3 rounded-lg shadow-lg ${
+  <div className={`fixed top-4 right-4 z-[9999] flex items-center gap-2 px-4 py-3 rounded-lg shadow-lg ${
     type === 'success' ? 'bg-green-500 text-white' : 'bg-red-500 text-white'
   }`}>
     <AlertCircle className="w-5 h-5" />
@@ -201,7 +140,7 @@ export default function VendorPaymentPage() {
     loadVendors();
     loadStores();
     loadProducts();
-    // Payment methods are hardcoded, no need to load
+    loadPaymentMethods();
   }, []);
 
   // Close dropdown when clicking outside
@@ -227,11 +166,10 @@ export default function VendorPaymentPage() {
     try {
       setLoading(true);
       const data = await vendorService.getAll({ is_active: true });
-      // Ensure data is always an array
       setVendors(Array.isArray(data) ? data : []);
     } catch (error: any) {
       console.error('Failed to load vendors:', error);
-      setVendors([]); // Set empty array on error
+      setVendors([]);
       showAlert('error', error.message || 'Failed to load vendors');
     } finally {
       setLoading(false);
@@ -256,25 +194,36 @@ export default function VendorPaymentPage() {
       }
     } catch (error) {
       console.error('Failed to load stores:', error);
-      setStores([]); // Set empty array on error
+      setStores([]);
       showAlert('error', 'Failed to load warehouses');
     }
   };
 
   // Load products
   const loadProducts = async () => {
-  try {
-    const response = await productService.getAll({ 
-      per_page: 1000 // Get all active products
-    });
-    // Fix: Access the data property from the response
-    setProducts(Array.isArray(response.data) ? response.data : []);
-  } catch (error: any) {
-    console.error('Failed to load products:', error);
-    setProducts([]); // Set empty array on error
-    showAlert('error', error.message || 'Failed to load products');
-  }
-};
+    try {
+      const response = await productService.getAll({ 
+        per_page: 1000
+      });
+      setProducts(Array.isArray(response.data) ? response.data : []);
+    } catch (error: any) {
+      console.error('Failed to load products:', error);
+      setProducts([]);
+      showAlert('error', error.message || 'Failed to load products');
+    }
+  };
+
+  // Load payment methods
+  const loadPaymentMethods = async () => {
+    try {
+      const methods = await vendorPaymentService.getAllPaymentMethods();
+      setPaymentMethods(Array.isArray(methods) ? methods : []);
+    } catch (error: any) {
+      console.error('Failed to load payment methods:', error);
+      setPaymentMethods([]);
+      showAlert('error', error.message || 'Failed to load payment methods');
+    }
+  };
 
   // Handle Add Vendor
   const handleAddVendor = async () => {
@@ -355,7 +304,7 @@ export default function VendorPaymentPage() {
         }))
       };
 
-      const result = await purchaseOrderService.create(purchaseData);
+      await purchaseOrderService.create(purchaseData);
       
       setPurchaseForm({
         vendor_id: '',
@@ -379,7 +328,7 @@ export default function VendorPaymentPage() {
       
       setShowAddPurchase(false);
       showAlert('success', 'Purchase order created successfully');
-      loadVendors(); // Refresh vendor data
+      loadVendors();
     } catch (error: any) {
       showAlert('error', error.message || 'Failed to create purchase order');
     } finally {
@@ -427,11 +376,9 @@ export default function VendorPaymentPage() {
     setLoading(true);
     
     try {
-      // Get outstanding purchase orders for this vendor
       const outstanding = await vendorPaymentService.getOutstanding(vendor.id);
       setPurchaseOrders(outstanding.purchase_orders);
       
-      // Initialize selected POs
       const initialSelected: { [key: number]: { selected: boolean; amount: string } } = {};
       outstanding.purchase_orders.forEach(po => {
         initialSelected[po.id] = { selected: false, amount: '' };
@@ -456,7 +403,6 @@ export default function VendorPaymentPage() {
     try {
       setLoading(true);
 
-      // Build allocations from selected POs
       const allocations = Object.entries(selectedPOs)
         .filter(([_, data]) => data.selected && parseFloat(data.amount) > 0)
         .map(([poId, data]) => ({
@@ -492,7 +438,7 @@ export default function VendorPaymentPage() {
       setSelectedPOs({});
       setShowPayment(false);
       showAlert('success', 'Payment recorded successfully');
-      loadVendors(); // Refresh vendor data
+      loadVendors();
     } catch (error: any) {
       showAlert('error', error.message || 'Failed to record payment');
     } finally {
@@ -807,7 +753,7 @@ export default function VendorPaymentPage() {
                 step="0.01"
                 value={vendorForm.credit_limit}
                 onChange={(e) => setVendorForm({...vendorForm, credit_limit: e.target.value})}
-                className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-gray-500 focus:border-transparent"
+                className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
                 placeholder="50000.00"
               />
             </div>
@@ -820,7 +766,7 @@ export default function VendorPaymentPage() {
                 type="text"
                 value={vendorForm.payment_terms}
                 onChange={(e) => setVendorForm({...vendorForm, payment_terms: e.target.value})}
-                className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-gray-500 focus:border-transparent"
+                className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
                 placeholder="Net 30"
               />
             </div>
@@ -834,7 +780,7 @@ export default function VendorPaymentPage() {
               value={vendorForm.notes}
               onChange={(e) => setVendorForm({...vendorForm, notes: e.target.value})}
               rows={2}
-              className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-gray-500 focus:border-transparent resize-none"
+              className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 resize-none"
               placeholder="Additional notes about this vendor"
             />
           </div>
@@ -875,7 +821,7 @@ export default function VendorPaymentPage() {
               <select
                 value={purchaseForm.vendor_id}
                 onChange={(e) => setPurchaseForm({...purchaseForm, vendor_id: e.target.value})}
-                className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
               >
                 <option value="">Select vendor</option>
                 {Array.isArray(vendors) && vendors.map(v => (
@@ -891,7 +837,7 @@ export default function VendorPaymentPage() {
               <select
                 value={purchaseForm.store_id}
                 onChange={(e) => setPurchaseForm({...purchaseForm, store_id: e.target.value})}
-                className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
               >
                 <option value="">Select warehouse</option>
                 {Array.isArray(stores) && stores.filter(s => s.is_warehouse).map(s => (
@@ -911,7 +857,7 @@ export default function VendorPaymentPage() {
                 value={purchaseForm.expected_delivery_date}
                 onChange={(e) => setPurchaseForm({...purchaseForm, expected_delivery_date: e.target.value})}
                 min={new Date().toISOString().split('T')[0]}
-                className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
               />
             </div>
           </div>
@@ -1136,7 +1082,7 @@ export default function VendorPaymentPage() {
                   className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
                 >
                   <option value="">Select method</option>
-                  {PAYMENT_METHODS.map(pm => (
+                  {paymentMethods.map(pm => (
                     <option key={pm.id} value={pm.id}>{pm.name}</option>
                   ))}
                 </select>
