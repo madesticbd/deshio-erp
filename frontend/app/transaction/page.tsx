@@ -5,21 +5,7 @@ import { Plus, Calendar, Tag, TrendingDown, TrendingUp, Receipt, Search, Shoppin
 import Header from '@/components/Header';
 import Sidebar from '@/components/Sidebar';
 import Link from 'next/link';
-
-interface Transaction {
-  id: string;
-  name: string;
-  description: string;
-  type: 'income' | 'expense';
-  amount: number;
-  category: string;
-  date: string;
-  comment?: string;
-  receiptImage?: string;
-  createdAt: string;
-  source: 'manual' | 'sale' | 'order' | 'batch' | 'return' | 'exchange';
-  referenceId?: string;
-}
+import transactionService, { Transaction } from '@/services/transactionService';
 
 export default function TransactionsPage() {
   const [darkMode, setDarkMode] = useState(false);
@@ -30,6 +16,7 @@ export default function TransactionsPage() {
   const [filterSource, setFilterSource] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [dateFilter, setDateFilter] = useState<'all' | 'today' | 'week' | 'month'>('all');
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     loadTransactions();
@@ -37,12 +24,13 @@ export default function TransactionsPage() {
 
   const loadTransactions = async () => {
     setIsLoading(true);
+    setError(null);
     try {
-      const response = await fetch('/api/transactions');
-      const data = await response.json();
+      const data = await transactionService.getTransactions();
       setTransactions(data.transactions || []);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to load transactions:', error);
+      setError(error.response?.data?.message || 'Failed to load transactions. Please try again.');
     } finally {
       setIsLoading(false);
     }
@@ -172,9 +160,10 @@ export default function TransactionsPage() {
               <div className="flex gap-3">
                 <button
                   onClick={loadTransactions}
-                  className="flex items-center gap-2 px-4 py-2 bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-white rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors border border-gray-300 dark:border-gray-700"
+                  disabled={isLoading}
+                  className="flex items-center gap-2 px-4 py-2 bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-white rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors border border-gray-300 dark:border-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  <RefreshCw className="w-4 h-4" />
+                  <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
                   Refresh
                 </button>
                 <Link
@@ -186,6 +175,30 @@ export default function TransactionsPage() {
                 </Link>
               </div>
             </div>
+
+            {/* Error Message */}
+            {error && (
+              <div className="mb-6 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
+                <div className="flex items-center gap-2">
+                  <div className="flex-shrink-0">
+                    <svg className="w-5 h-5 text-red-600 dark:text-red-400" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                    </svg>
+                  </div>
+                  <div className="flex-1">
+                    <p className="text-sm text-red-800 dark:text-red-200">{error}</p>
+                  </div>
+                  <button
+                    onClick={() => setError(null)}
+                    className="flex-shrink-0 text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-200"
+                  >
+                    <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+                    </svg>
+                  </button>
+                </div>
+              </div>
+            )}
 
             {/* Summary Cards */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">

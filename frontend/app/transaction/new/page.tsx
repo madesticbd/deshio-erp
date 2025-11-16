@@ -2,19 +2,13 @@
 
 import { useState, useEffect, DragEvent, ChangeEvent } from 'react';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, Upload, X, Plus } from 'lucide-react';
+import { ArrowLeft, Upload, X } from 'lucide-react';
 import Header from '@/components/Header';
 import Sidebar from '@/components/Sidebar';
 import Link from 'next/link';
+import transactionService, { Category } from '@/services/transactionService';
 
-interface Category {
-  id: string;
-  name: string;
-  type: 'income' | 'expense';
-  createdAt: string;
-}
-
-export default function NewExpensePage() {
+export default function NewTransactionPage() {
   const [darkMode, setDarkMode] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const router = useRouter();
@@ -38,6 +32,7 @@ export default function NewExpensePage() {
   const [showNewCategory, setShowNewCategory] = useState(false);
   const [newCategoryName, setNewCategoryName] = useState('');
   const [newCategoryType, setNewCategoryType] = useState<'income' | 'expense'>('expense');
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     loadCategories();
@@ -46,11 +41,11 @@ export default function NewExpensePage() {
   const loadCategories = async () => {
     setIsLoadingCategories(true);
     try {
-      const response = await fetch('/api/transactions');
-      const data = await response.json();
-      setCategories(data.categories || []);
-    } catch (error) {
+      const categoriesData = await transactionService.getCategories();
+      setCategories(categoriesData);
+    } catch (error: any) {
       console.error('Failed to load categories:', error);
+      setError('Failed to load categories. Please try again.');
     } finally {
       setIsLoadingCategories(false);
     }
@@ -58,13 +53,19 @@ export default function NewExpensePage() {
 
   const handleInputChange = (field: string, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }));
+    setError(null);
   };
 
   const handleFileUpload = (file: File) => {
     if (!file) return;
     
     if (!['image/png', 'image/jpeg', 'image/jpg', 'image/webp'].includes(file.type)) {
-      alert('Please upload a valid image file (PNG, JPG, or WEBP)');
+      setError('Please upload a valid image file (PNG, JPG, or WEBP)');
+      return;
+    }
+
+    if (file.size > 5 * 1024 * 1024) { // 5MB limit
+      setError('File size must be less than 5MB');
       return;
     }
     
@@ -98,61 +99,64 @@ export default function NewExpensePage() {
   };
 
   const handleCreateCategory = async () => {
-    if (!newCategoryName.trim()) return;
+    if (!newCategoryName.trim()) {
+      setError('Category name is required');
+      return;
+    }
     
     try {
-      const response = await fetch('/api/transactions/categories', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          name: newCategoryName,
-          type: newCategoryType
-        })
+      setIsLoadingCategories(true);
+      const newCategory = await transactionService.createCategory({
+        name: newCategoryName,
+        type: newCategoryType
       });
       
-      if (response.ok) {
-        await loadCategories();
-        setFormData(prev => ({ ...prev, category: newCategoryName }));
-        setShowNewCategory(false);
-        setNewCategoryName('');
-      } else {
-        alert('Failed to create category');
-      }
-    } catch (error) {
+      await loadCategories();
+      setFormData(prev => ({ ...prev, category: newCategoryName }));
+      setShowNewCategory(false);
+      setNewCategoryName('');
+      setError(null);
+    } catch (error: any) {
       console.error('Error creating category:', error);
-      alert('Failed to create category');
+      setError(error.response?.data?.message || 'Failed to create category');
+    } finally {
+      setIsLoadingCategories(false);
     }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
+    // Validation
     if (!formData.name || !formData.amount || !formData.category) {
-      alert('Please fill in all required fields');
+      setError('Please fill in all required fields');
+      return;
+    }
+
+    if (parseFloat(formData.amount) <= 0) {
+      setError('Amount must be greater than 0');
       return;
     }
 
     setIsSubmitting(true);
+    setError(null);
+    
     try {
-      const response = await fetch('/api/transactions', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          ...formData,
-          amount: parseFloat(formData.amount),
-          source: 'manual'
-        })
+      await transactionService.createTransaction({
+        name: formData.name,
+        description: formData.description,
+        type: formData.type,
+        amount: parseFloat(formData.amount),
+        category: formData.category,
+        date: formData.date,
+        comment: formData.comment,
+        receiptImage: formData.receiptImage || undefined,
       });
       
-      if (response.ok) {
-        router.push('/transaction');
-      } else {
-        const error = await response.json();
-        alert(error.error || 'Failed to save transaction');
-      }
-    } catch (error) {
+      router.push('/transaction');
+    } catch (error: any) {
       console.error('Failed to save transaction:', error);
-      alert('Failed to save transaction. Please try again.');
+      setError(error.response?.data?.message || 'Failed to save transaction. Please try again.');
     } finally {
       setIsSubmitting(false);
     }
@@ -190,6 +194,30 @@ export default function NewExpensePage() {
                 </p>
               </div>
             </div>
+
+            {/* Error Message */}
+            {error && (
+              <div className="mb-6 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
+                <div className="flex items-center gap-2">
+                  <div className="flex-shrink-0">
+                    <svg className="w-5 h-5 text-red-600 dark:text-red-400" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                    </svg>
+                  </div>
+                  <div className="flex-1">
+                    <p className="text-sm text-red-800 dark:text-red-200">{error}</p>
+                  </div>
+                  <button
+                    onClick={() => setError(null)}
+                    className="flex-shrink-0 text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-200"
+                  >
+                    <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+                    </svg>
+                  </button>
+                </div>
+              </div>
+            )}
 
             {/* Form */}
             <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
@@ -265,6 +293,7 @@ export default function NewExpensePage() {
                       <input
                         type="number"
                         step="0.01"
+                        min="0"
                         value={formData.amount}
                         onChange={(e) => handleInputChange('amount', e.target.value)}
                         placeholder="0.00"
@@ -310,9 +339,10 @@ export default function NewExpensePage() {
                           <button
                             type="button"
                             onClick={handleCreateCategory}
-                            className="w-full px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm"
+                            disabled={isLoadingCategories || !newCategoryName.trim()}
+                            className="w-full px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm disabled:opacity-50 disabled:cursor-not-allowed"
                           >
-                            Create Category
+                            {isLoadingCategories ? 'Creating...' : 'Create Category'}
                           </button>
                         </div>
                       )}
@@ -373,7 +403,7 @@ export default function NewExpensePage() {
                       Receipt or Proof
                     </h3>
                     <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
-                      Upload an image of the receipt or supporting document
+                      Upload an image of the receipt or supporting document (Max 5MB)
                     </p>
 
                     <div
