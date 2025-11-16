@@ -89,6 +89,23 @@ export interface PaymentStatistics {
   recent_payments: VendorPayment[];
 }
 
+export interface PaymentMethod {
+  id: number;
+  code: string;
+  name: string;
+  description: string;
+  type: string;
+  is_active: boolean;
+  requires_reference?: boolean;
+  supports_partial?: boolean;
+  min_amount?: number;
+  max_amount?: number;
+  fixed_fee?: number;
+  percentage_fee?: number;
+  icon?: string;
+  sort_order?: number;
+}
+
 interface ApiResponse<T> {
   success: boolean;
   message?: string;
@@ -104,6 +121,23 @@ interface PaginatedResponse<T> {
 }
 
 export const vendorPaymentService = {
+  /**
+   * Get all payment methods
+   */
+  async getAllPaymentMethods(): Promise<PaymentMethod[]> {
+    try {
+      const response = await axiosInstance.get<ApiResponse<{
+        payment_methods: PaymentMethod[];
+        total_count: number;
+        note: string;
+      }>>('/payment-methods/all');
+      return response.data.data.payment_methods;
+    } catch (error: any) {
+      console.error('Get payment methods error:', error);
+      throw new Error(error.response?.data?.message || 'Failed to fetch payment methods');
+    }
+  },
+
   /**
    * Create a new vendor payment
    * Supports partial payments

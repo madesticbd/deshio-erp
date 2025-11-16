@@ -155,11 +155,46 @@ class PurchaseOrderService {
    * Get all purchase orders with filters and pagination
    */
   async getAll(filters?: PurchaseOrderFilters): Promise<PaginatedResponse<PurchaseOrder>> {
-    const response: AxiosResponse<PaginatedResponse<PurchaseOrder>> = await axiosInstance.get(
+    // Clean up filters - remove empty values
+    const cleanFilters: any = {};
+    
+    if (filters) {
+      if (filters.vendor_id) cleanFilters.vendor_id = filters.vendor_id;
+      if (filters.store_id) cleanFilters.store_id = filters.store_id;
+      if (filters.status) cleanFilters.status = filters.status;
+      if (filters.payment_status) cleanFilters.payment_status = filters.payment_status;
+      if (filters.search) cleanFilters.search = filters.search;
+      if (filters.from_date) cleanFilters.from_date = filters.from_date;
+      if (filters.to_date) cleanFilters.to_date = filters.to_date;
+      if (filters.sort_by) cleanFilters.sort_by = filters.sort_by;
+      if (filters.sort_direction) cleanFilters.sort_direction = filters.sort_direction;
+      if (filters.per_page) cleanFilters.per_page = filters.per_page;
+      if (filters.page) cleanFilters.page = filters.page;
+    }
+
+    const response: AxiosResponse<any> = await axiosInstance.get(
       this.baseURL,
-      { params: filters }
+      { params: cleanFilters }
     );
-    return response.data;
+    
+    // Laravel returns: { success: true, data: { current_page, data: [...], ... } }
+    return {
+      success: response.data.success || true,
+      data: response.data.data || { 
+        data: [], 
+        current_page: 1, 
+        last_page: 1, 
+        per_page: 15, 
+        total: 0,
+        from: 0,
+        to: 0,
+        first_page_url: '',
+        last_page_url: '',
+        next_page_url: null,
+        prev_page_url: null,
+        path: ''
+      }
+    };
   }
 
   /**
@@ -259,7 +294,7 @@ class PurchaseOrderService {
     to_date?: string;
   }): Promise<ApiResponse<PurchaseOrderStatistics>> {
     const response: AxiosResponse<ApiResponse<PurchaseOrderStatistics>> = await axiosInstance.get(
-      `${this.baseURL}/statistics`,
+      `${this.baseURL}/stats`,
       { params: filters }
     );
     return response.data;
