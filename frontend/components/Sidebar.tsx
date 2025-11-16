@@ -51,6 +51,7 @@ export default function Sidebar({ isOpen, setIsOpen }: SidebarProps) {
     { icon: CreditCard, label: 'Accounting', href: '/accounting' },
     { icon: CreditCard, label: 'Vendor Management', href: '/vendor' },
     { icon: CreditCard, label: 'Purchase Order', href: '/purchase-order' },
+    { icon: CreditCard, label: 'Employee Management', href: '/employees' },
   ];
 
   return (
