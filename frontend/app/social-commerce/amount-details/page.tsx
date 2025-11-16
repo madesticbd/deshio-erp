@@ -1,36 +1,32 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { Globe } from 'lucide-react';
 import Header from '@/components/Header';
 import Sidebar from '@/components/Sidebar';
+import axios from '@/lib/axios';
 
-interface Store {
-  id: string;
+interface PaymentMethod {
+  id: number;
+  code: string;
   name: string;
-  location: string;
   type: string;
-  isOnline: boolean;
+  supports_partial: boolean;
+  requires_reference: boolean;
 }
 
 export default function AmountDetailsPage() {
-  const router = useRouter();
   const [darkMode, setDarkMode] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [orderData, setOrderData] = useState<any>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   
-  // Amount details
   const [vatRate, setVatRate] = useState('5');
   const [transportCost, setTransportCost] = useState('0');
-  const [sslCommerzPaid, setSslCommerzPaid] = useState('0');
-  const [advancePaid, setAdvancePaid] = useState('0');
-  const [transactionId, setTransactionId] = useState('');
-  
-  // Store selection
-  const [stores, setStores] = useState<Store[]>([]);
-  const [selectedStore, setSelectedStore] = useState('');
-  const [isLoadingStores, setIsLoadingStores] = useState(true);
+  const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([]);
+  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState('');
+  const [transactionReference, setTransactionReference] = useState('');
+  const [paymentNotes, setPaymentNotes] = useState('');
 
   const getTodayDate = () => {
     const today = new Date();
@@ -40,37 +36,34 @@ export default function AmountDetailsPage() {
     return `${day}-${month}-${year}`;
   };
 
-  // Load stores from API
-  useEffect(() => {
-    const fetchStores = async () => {
-      try {
-        const response = await fetch('/api/stores');
-        if (response.ok) {
-          const data = await response.json();
-          setStores(data);
-          // Set first store as default if available
-          if (data.length > 0) {
-            setSelectedStore(data[0].id);
-          }
-        }
-      } catch (error) {
-        console.error('Error loading stores:', error);
-      } finally {
-        setIsLoadingStores(false);
-      }
-    };
-
-    fetchStores();
-  }, []);
-
   useEffect(() => {
     const storedOrder = sessionStorage.getItem('pendingOrder');
     if (storedOrder) {
       setOrderData(JSON.parse(storedOrder));
     } else {
-      router.push('/social-commerce');
+      window.location.href = '/social-commerce';
     }
-  }, [router]);
+
+    // Fetch payment methods for social commerce
+    const fetchPaymentMethods = async () => {
+      try {
+        const response = await axios.get('/payment-methods', {
+          params: { customer_type: 'social_commerce' }
+        });
+        if (response.data.success) {
+          const methods = response.data.data.payment_methods || [];
+          setPaymentMethods(methods);
+          if (methods.length > 0) {
+            setSelectedPaymentMethod(String(methods[0].id));
+          }
+        }
+      } catch (error) {
+        console.error('Error fetching payment methods:', error);
+      }
+    };
+
+    fetchPaymentMethods();
+  }, []);
 
   if (!orderData) {
     return (
@@ -81,79 +74,84 @@ export default function AmountDetailsPage() {
   }
 
   const subtotal = orderData.subtotal || 0;
-  const totalDiscount = orderData.products.reduce((sum: number, item: any) => sum + item.discount, 0);
+  const totalDiscount = orderData.items?.reduce((sum: number, item: any) => sum + (item.discount_amount || 0), 0) || 0;
   const vat = (subtotal * parseFloat(vatRate)) / 100;
   const transport = parseFloat(transportCost) || 0;
   const total = subtotal + vat + transport;
-  
-  const paidSslCommerz = parseFloat(sslCommerzPaid) || 0;
-  const paidAdvance = parseFloat(advancePaid) || 0;
-  const totalPaid = paidSslCommerz + paidAdvance;
-  const dueAmount = Math.max(0, total - totalPaid);
-  const returnAmount = Math.max(0, totalPaid - total);
 
-  // Get selected store details
-  const getSelectedStoreDetails = () => {
-    return stores.find(store => store.id === selectedStore);
-  };
+  const selectedMethod = paymentMethods.find(m => String(m.id) === selectedPaymentMethod);
 
   const handlePlaceOrder = async () => {
-    if (!selectedStore) {
-      alert('Please select a store before placing the order.');
+    if (!selectedPaymentMethod) {
+      alert('Please select a payment method');
+      return;
+    }
+
+    if (selectedMethod?.requires_reference && !transactionReference.trim()) {
+      alert(`Please enter transaction reference for ${selectedMethod.name}`);
       return;
     }
 
     setIsProcessing(true);
 
     try {
-      const selectedStoreDetails = getSelectedStoreDetails();
+      // Step 1: Create the order
+      const createOrderResponse = await axios.post('/orders', orderData);
 
-      // Create the complete order data with all payment details and store info
-      const completeOrderData = {
-        ...orderData,
-        date: orderData.date || getTodayDate(),
-        amounts: {
-          subtotal,
-          totalDiscount,
-          vat,
-          vatRate: parseFloat(vatRate),
-          transportCost: transport,
-          total
-        },
-        payments: {
-          sslCommerz: paidSslCommerz,
-          advance: paidAdvance,
-          transactionId,
-          totalPaid,
-          due: dueAmount
-        },
-        store: {
-          id: selectedStore,
-          name: selectedStoreDetails?.name || '',
-          location: selectedStoreDetails?.location || '',
-          type: selectedStoreDetails?.type || ''
-        }
+      if (!createOrderResponse.data.success) {
+        throw new Error(createOrderResponse.data.message || 'Failed to create order');
+      }
+
+      const createdOrder = createOrderResponse.data.data;
+
+      // Step 2: Process payment
+      const paymentData: any = {
+        payment_method_id: parseInt(selectedPaymentMethod),
+        amount: total,
+        payment_type: 'full',
+        auto_complete: true,
+        notes: paymentNotes || `Social Commerce payment via ${selectedMethod?.name}`
       };
 
-      // Send order to API - inventory allocation happens in the backend
-      const response = await fetch('/api/social-orders', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(completeOrderData),
-      });
-
-      const result = await response.json();
-
-      if (response.ok) {
-        alert('Order placed successfully!');
-        sessionStorage.removeItem('pendingOrder');
-        router.push('/orders');
-      } else {
-        alert(result.error || 'Failed to place order');
+      if (selectedMethod?.requires_reference && transactionReference) {
+        paymentData.transaction_reference = transactionReference;
+        paymentData.external_reference = transactionReference;
       }
-    } catch (error) {
+
+      // Add payment data based on payment type
+      if (selectedMethod?.type === 'mobile_banking' && transactionReference) {
+        paymentData.payment_data = {
+          mobile_number: orderData.customer.phone,
+          provider: selectedMethod.name,
+          transaction_id: transactionReference
+        };
+      } else if (selectedMethod?.type === 'card' && transactionReference) {
+        paymentData.payment_data = {
+          transaction_reference: transactionReference
+        };
+      }
+
+      const paymentResponse = await axios.post(`/orders/${createdOrder.id}/payments/simple`, paymentData);
+
+      if (!paymentResponse.data.success) {
+        throw new Error(paymentResponse.data.message || 'Failed to process payment');
+      }
+
+      // Step 3: Complete the order
+      const completeResponse = await axios.patch(`/orders/${createdOrder.id}/complete`, {});
+
+      if (!completeResponse.data.success) {
+        throw new Error(completeResponse.data.message || 'Failed to complete order');
+      }
+
+      alert(`Order ${createdOrder.order_number} placed successfully!`);
+      sessionStorage.removeItem('pendingOrder');
+      window.location.href = '/orders';
+
+    } catch (error: any) {
       console.error('Error:', error);
-      alert('Error placing order');
+      const errorMessage = error.response?.data?.message || error.message || 'Error placing order. Please try again.';
+      alert(errorMessage);
     } finally {
       setIsProcessing(false);
     }
@@ -187,49 +185,69 @@ export default function AmountDetailsPage() {
                   {/* Delivery Address */}
                   <div className="mb-4 p-3 bg-green-50 dark:bg-green-900/20 rounded border border-green-200 dark:border-green-800">
                     <p className="text-xs text-green-800 dark:text-green-300 font-medium mb-2">Delivery Address</p>
-                    <p className="text-xs text-gray-900 dark:text-white">
-                      {orderData.deliveryAddress.division}, {orderData.deliveryAddress.district}, {orderData.deliveryAddress.city}
-                    </p>
-                    {orderData.deliveryAddress.zone && (
-                      <p className="text-xs text-gray-600 dark:text-gray-400">Zone: {orderData.deliveryAddress.zone}</p>
-                    )}
-                    {orderData.deliveryAddress.address && (
-                      <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">{orderData.deliveryAddress.address}</p>
-                    )}
-                    {orderData.deliveryAddress.postalCode && (
-                      <p className="text-xs text-gray-600 dark:text-gray-400">Postal Code: {orderData.deliveryAddress.postalCode}</p>
+                    {orderData.isInternational ? (
+                      <>
+                        <p className="text-xs text-gray-900 dark:text-white">
+                          {orderData.deliveryAddress.city}{orderData.deliveryAddress.state && `, ${orderData.deliveryAddress.state}`}, {orderData.deliveryAddress.country}
+                        </p>
+                        {orderData.deliveryAddress.postalCode && (
+                          <p className="text-xs text-gray-600 dark:text-gray-400">Postal Code: {orderData.deliveryAddress.postalCode}</p>
+                        )}
+                        {orderData.deliveryAddress.address && (
+                          <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">{orderData.deliveryAddress.address}</p>
+                        )}
+                        <div className="mt-2 flex items-center gap-1 text-xs text-blue-700 dark:text-blue-400">
+                          <Globe className="w-3 h-3" />
+                          <span>International Delivery</span>
+                        </div>
+                      </>
+                    ) : (
+                      <>
+                        <p className="text-xs text-gray-900 dark:text-white">
+                          {orderData.deliveryAddress.division}, {orderData.deliveryAddress.district}, {orderData.deliveryAddress.city}
+                        </p>
+                        {orderData.deliveryAddress.zone && (
+                          <p className="text-xs text-gray-600 dark:text-gray-400">Zone: {orderData.deliveryAddress.zone}</p>
+                        )}
+                        {orderData.deliveryAddress.address && (
+                          <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">{orderData.deliveryAddress.address}</p>
+                        )}
+                        {orderData.deliveryAddress.postalCode && (
+                          <p className="text-xs text-gray-600 dark:text-gray-400">Postal Code: {orderData.deliveryAddress.postalCode}</p>
+                        )}
+                      </>
                     )}
                   </div>
 
                   {/* Products List */}
                   <div className="mb-4">
-                    <p className="text-sm font-medium text-gray-900 dark:text-white mb-3">Products ({orderData.products.length})</p>
+                    <p className="text-sm font-medium text-gray-900 dark:text-white mb-3">Products ({orderData.items?.length || 0})</p>
                     <div className="space-y-2 max-h-60 md:max-h-80 overflow-y-auto">
-                      {orderData.products.map((product: any) => (
-                        <div key={product.id} className={`flex justify-between items-center p-2 rounded ${
-                          product.isDefective 
+                      {orderData.items?.map((item: any, index: number) => (
+                        <div key={index} className={`flex justify-between items-center p-2 rounded ${
+                          item.isDefective 
                             ? 'bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-700' 
                             : 'bg-gray-50 dark:bg-gray-700'
                         }`}>
                           <div className="min-w-0 flex-1">
                             <p className="text-sm text-gray-900 dark:text-white truncate">
-                              {product.productName}
-                              {product.isDefective && (
+                              {item.productName}
+                              {item.isDefective && (
                                 <span className="ml-2 px-2 py-0.5 bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400 text-xs rounded">
                                   Defective
                                 </span>
                               )}
                             </p>
                             <p className="text-xs text-gray-600 dark:text-gray-400">
-                              Qty: {product.qty} × {product.price.toFixed(2)} Tk
+                              Qty: {item.quantity} × {item.unit_price.toFixed(2)} Tk
                             </p>
-                            {product.barcode && (
+                            {item.barcode && (
                               <p className="text-xs text-gray-500 dark:text-gray-400 font-mono">
-                                Barcode: {product.barcode}
+                                Barcode: {item.barcode}
                               </p>
                             )}
                           </div>
-                          <p className="text-sm font-medium text-gray-900 dark:text-white ml-2">{product.amount.toFixed(2)} Tk</p>
+                          <p className="text-sm font-medium text-gray-900 dark:text-white ml-2">{item.amount.toFixed(2)} Tk</p>
                         </div>
                       ))}
                     </div>
@@ -276,7 +294,7 @@ export default function AmountDetailsPage() {
                           value={vatRate}
                           onChange={(e) => setVatRate(e.target.value)}
                           disabled={isProcessing}
-                          className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white disabled:opacity-50 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                          className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white disabled:opacity-50"
                         />
                       </div>
                     </div>
@@ -288,106 +306,68 @@ export default function AmountDetailsPage() {
                         value={transportCost}
                         onChange={(e) => setTransportCost(e.target.value)}
                         disabled={isProcessing}
-                        className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white disabled:opacity-50 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                        className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white disabled:opacity-50"
                       />
                     </div>
 
                     <div className="pt-3 border-t border-gray-200 dark:border-gray-700">
-                      <div className="flex justify-between text-lg font-semibold mb-2">
+                      <div className="flex justify-between text-lg font-semibold mb-4">
                         <span className="text-gray-900 dark:text-white">Total</span>
                         <span className="text-gray-900 dark:text-white">{total.toFixed(2)} Tk</span>
                       </div>
                     </div>
 
+                    {/* Payment Method Selection */}
                     <div>
-                      <label className="block text-sm text-gray-700 dark:text-gray-300 mb-2">Paid Amount</label>
-                      <div className="grid grid-cols-2 gap-3">
-                        <div>
-                          <label className="block text-xs text-gray-500 dark:text-gray-500 mb-1">SSL Commerz</label>
-                          <input
-                            type="number"
-                            value={sslCommerzPaid}
-                            onChange={(e) => setSslCommerzPaid(e.target.value)}
-                            disabled={isProcessing}
-                            className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white disabled:opacity-50 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-xs text-gray-500 dark:text-gray-500 mb-1">Advance</label>
-                          <input
-                            type="number"
-                            value={advancePaid}
-                            onChange={(e) => setAdvancePaid(e.target.value)}
-                            disabled={isProcessing}
-                            className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white disabled:opacity-50 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                          />
-                        </div>
-                      </div>
-                      <div className="mt-3">
-                        <label className="block text-xs text-gray-500 dark:text-gray-500 mb-1">Transaction ID (Optional)</label>
+                      <label className="block text-sm text-gray-700 dark:text-gray-300 mb-2">Payment Method <span className="text-red-500">*</span></label>
+                      <select
+                        value={selectedPaymentMethod}
+                        onChange={(e) => setSelectedPaymentMethod(e.target.value)}
+                        disabled={isProcessing}
+                        className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white disabled:opacity-50"
+                      >
+                        <option value="">Select Payment Method</option>
+                        {paymentMethods.map((method) => (
+                          <option key={method.id} value={method.id}>
+                            {method.name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    {/* Transaction Reference */}
+                    {selectedMethod?.requires_reference && (
+                      <div>
+                        <label className="block text-sm text-gray-700 dark:text-gray-300 mb-1">
+                          Transaction Reference <span className="text-red-500">*</span>
+                        </label>
                         <input
                           type="text"
-                          value={transactionId}
-                          onChange={(e) => setTransactionId(e.target.value)}
+                          value={transactionReference}
+                          onChange={(e) => setTransactionReference(e.target.value)}
                           disabled={isProcessing}
-                          placeholder="Enter transaction ID"
+                          placeholder={`Enter ${selectedMethod.name} transaction ID`}
                           className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 disabled:opacity-50"
                         />
                       </div>
+                    )}
 
-                      {/* Store Selection Dropdown */}
-                      <div className="mt-3">
-                        <label className="block text-xs text-gray-500 dark:text-gray-500 mb-1">
-                          Select Store <span className="text-red-500">*</span>
-                        </label>
-                        {isLoadingStores ? (
-                          <div className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded bg-gray-50 dark:bg-gray-700 text-gray-500 dark:text-gray-400">
-                            Loading stores...
-                          </div>
-                        ) : stores.length === 0 ? (
-                          <div className="w-full px-3 py-2 text-sm border border-red-300 dark:border-red-600 rounded bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400">
-                            No stores available. Please add a store first.
-                          </div>
-                        ) : (
-                          <select
-                            value={selectedStore}
-                            onChange={(e) => setSelectedStore(e.target.value)}
-                            disabled={isProcessing}
-                            className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white disabled:opacity-50 focus:ring-2 focus:ring-teal-500 focus:border-transparent"
-                          >
-                            <option value="">-- Select a Store --</option>
-                            {stores.map((store) => (
-                              <option key={store.id} value={store.id}>
-                                {store.name} - {store.location} ({store.type})
-                              </option>
-                            ))}
-                          </select>
-                        )}
-                        {selectedStore && (
-                          <div className="mt-2 p-2 bg-teal-50 dark:bg-teal-900/20 rounded border border-teal-200 dark:border-teal-800">
-                            <p className="text-xs text-teal-700 dark:text-teal-300">
-                              ✓ Selected: <span className="font-medium">{getSelectedStoreDetails()?.name}</span>
-                            </p>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-
-                    <div className="flex justify-between text-sm">
-                      <span className="text-gray-600 dark:text-gray-400">Return</span>
-                      <span className="text-green-600 dark:text-green-400 font-medium">
-                        {returnAmount.toFixed(2)} Tk
-                      </span>
-                    </div>
-
-                    <div className="pt-3 border-t border-gray-200 dark:border-gray-700 flex justify-between items-center">
-                      <span className="text-sm text-gray-600 dark:text-gray-400">Due Amount</span>
-                      <span className="text-lg font-semibold text-gray-900 dark:text-white">{dueAmount.toFixed(2)} Tk</span>
+                    {/* Payment Notes */}
+                    <div>
+                      <label className="block text-sm text-gray-700 dark:text-gray-300 mb-1">Payment Notes (Optional)</label>
+                      <textarea
+                        value={paymentNotes}
+                        onChange={(e) => setPaymentNotes(e.target.value)}
+                        disabled={isProcessing}
+                        placeholder="Add any payment notes..."
+                        rows={2}
+                        className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 disabled:opacity-50"
+                      />
                     </div>
 
                     <div className="grid grid-cols-2 gap-3 pt-4">
                       <button 
-                        onClick={() => router.back()}
+                        onClick={() => window.history.back()}
                         disabled={isProcessing}
                         className="px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 text-sm rounded hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                       >
@@ -395,7 +375,7 @@ export default function AmountDetailsPage() {
                       </button>
                       <button
                         onClick={handlePlaceOrder}
-                        disabled={isProcessing || !selectedStore}
+                        disabled={isProcessing || !selectedPaymentMethod}
                         className="px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white text-sm font-medium rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                       >
                         {isProcessing ? (
