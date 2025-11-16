@@ -6,10 +6,16 @@ import Header from '@/components/Header';
 import Sidebar from '@/components/Sidebar';
 import { vendorService, Vendor } from '@/services/vendorService';
 import purchaseOrderService, { PurchaseOrder, CreatePurchaseOrderData } from '@/services/purchase-order.service';
-import { vendorPaymentService, CreatePaymentRequest } from '@/services/vendorPaymentService';
+import { vendorPaymentService, CreatePaymentRequest, PaymentMethod } from '@/services/vendorPaymentService';
 import storeService, { Store } from '@/services/storeService';
 import productService, { Product } from '@/services/productService';
-import paymentMethodService, { PaymentMethod } from '@/services/paymentMethodService';
+
+// Utility function to safely format currency
+const formatCurrency = (value: any): string => {
+  if (value === null || value === undefined || value === '') return '0.00';
+  const numValue = typeof value === 'string' ? parseFloat(value) : value;
+  return isNaN(numValue) ? '0.00' : numValue.toFixed(2);
+};
 
 const Modal = ({ isOpen, onClose, title, children, size = 'md' }: {
   isOpen: boolean;
@@ -47,7 +53,7 @@ const Modal = ({ isOpen, onClose, title, children, size = 'md' }: {
 };
 
 const Alert = ({ type, message }: { type: 'success' | 'error'; message: string }) => (
-  <div className={`fixed top-4 right-4 z-50 flex items-center gap-2 px-4 py-3 rounded-lg shadow-lg ${
+  <div className={`fixed top-4 right-4 z-[9999] flex items-center gap-2 px-4 py-3 rounded-lg shadow-lg ${
     type === 'success' ? 'bg-green-500 text-white' : 'bg-red-500 text-white'
   }`}>
     <AlertCircle className="w-5 h-5" />
@@ -160,8 +166,10 @@ export default function VendorPaymentPage() {
     try {
       setLoading(true);
       const data = await vendorService.getAll({ is_active: true });
-      setVendors(data);
+      setVendors(Array.isArray(data) ? data : []);
     } catch (error: any) {
+      console.error('Failed to load vendors:', error);
+      setVendors([]);
       showAlert('error', error.message || 'Failed to load vendors');
     } finally {
       setLoading(false);
@@ -186,6 +194,7 @@ export default function VendorPaymentPage() {
       }
     } catch (error) {
       console.error('Failed to load stores:', error);
+      setStores([]);
       showAlert('error', 'Failed to load warehouses');
     }
   };
@@ -193,13 +202,13 @@ export default function VendorPaymentPage() {
   // Load products
   const loadProducts = async () => {
     try {
-      const data = await productService.getAll({ 
-        is_active: true,
-        per_page: 1000 // Get all active products
+      const response = await productService.getAll({ 
+        per_page: 1000
       });
-      setProducts(data);
+      setProducts(Array.isArray(response.data) ? response.data : []);
     } catch (error: any) {
       console.error('Failed to load products:', error);
+      setProducts([]);
       showAlert('error', error.message || 'Failed to load products');
     }
   };
@@ -207,12 +216,11 @@ export default function VendorPaymentPage() {
   // Load payment methods
   const loadPaymentMethods = async () => {
     try {
-      const data = await paymentMethodService.getAll({ 
-        is_active: true 
-      });
-      setPaymentMethods(data);
+      const methods = await vendorPaymentService.getAllPaymentMethods();
+      setPaymentMethods(Array.isArray(methods) ? methods : []);
     } catch (error: any) {
       console.error('Failed to load payment methods:', error);
+      setPaymentMethods([]);
       showAlert('error', error.message || 'Failed to load payment methods');
     }
   };
@@ -296,7 +304,7 @@ export default function VendorPaymentPage() {
         }))
       };
 
-      const result = await purchaseOrderService.create(purchaseData);
+      await purchaseOrderService.create(purchaseData);
       
       setPurchaseForm({
         vendor_id: '',
@@ -320,7 +328,7 @@ export default function VendorPaymentPage() {
       
       setShowAddPurchase(false);
       showAlert('success', 'Purchase order created successfully');
-      loadVendors(); // Refresh vendor data
+      loadVendors();
     } catch (error: any) {
       showAlert('error', error.message || 'Failed to create purchase order');
     } finally {
@@ -368,11 +376,9 @@ export default function VendorPaymentPage() {
     setLoading(true);
     
     try {
-      // Get outstanding purchase orders for this vendor
       const outstanding = await vendorPaymentService.getOutstanding(vendor.id);
       setPurchaseOrders(outstanding.purchase_orders);
       
-      // Initialize selected POs
       const initialSelected: { [key: number]: { selected: boolean; amount: string } } = {};
       outstanding.purchase_orders.forEach(po => {
         initialSelected[po.id] = { selected: false, amount: '' };
@@ -397,7 +403,6 @@ export default function VendorPaymentPage() {
     try {
       setLoading(true);
 
-      // Build allocations from selected POs
       const allocations = Object.entries(selectedPOs)
         .filter(([_, data]) => data.selected && parseFloat(data.amount) > 0)
         .map(([poId, data]) => ({
@@ -433,7 +438,7 @@ export default function VendorPaymentPage() {
       setSelectedPOs({});
       setShowPayment(false);
       showAlert('success', 'Payment recorded successfully');
-      loadVendors(); // Refresh vendor data
+      loadVendors();
     } catch (error: any) {
       showAlert('error', error.message || 'Failed to record payment');
     } finally {
@@ -536,7 +541,7 @@ export default function VendorPaymentPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {vendors.map((vendor) => (
+                  {Array.isArray(vendors) && vendors.map((vendor) => (
                     <tr
                       key={vendor.id}
                       className="border-b border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/30"
@@ -554,7 +559,7 @@ export default function VendorPaymentPage() {
                         <div className="text-xs">{vendor.email || 'N/A'}</div>
                       </td>
                       <td className="px-6 py-3">
-                        ৳{vendor.credit_limit?.toFixed(2) || '0.00'}
+                        ৳{formatCurrency(vendor.credit_limit)}
                       </td>
                       <td className="px-6 py-3">
                         <span className={`text-xs px-2 py-1 rounded ${
@@ -748,7 +753,7 @@ export default function VendorPaymentPage() {
                 step="0.01"
                 value={vendorForm.credit_limit}
                 onChange={(e) => setVendorForm({...vendorForm, credit_limit: e.target.value})}
-                className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-gray-500 focus:border-transparent"
+                className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
                 placeholder="50000.00"
               />
             </div>
@@ -761,7 +766,7 @@ export default function VendorPaymentPage() {
                 type="text"
                 value={vendorForm.payment_terms}
                 onChange={(e) => setVendorForm({...vendorForm, payment_terms: e.target.value})}
-                className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-gray-500 focus:border-transparent"
+                className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
                 placeholder="Net 30"
               />
             </div>
@@ -775,7 +780,7 @@ export default function VendorPaymentPage() {
               value={vendorForm.notes}
               onChange={(e) => setVendorForm({...vendorForm, notes: e.target.value})}
               rows={2}
-              className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-gray-500 focus:border-transparent resize-none"
+              className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 resize-none"
               placeholder="Additional notes about this vendor"
             />
           </div>
@@ -805,7 +810,7 @@ export default function VendorPaymentPage() {
         isOpen={showAddPurchase}
         onClose={() => setShowAddPurchase(false)}
         title="Create Purchase Order"
-        size="xl"
+        size="lg"
       >
         <div className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
@@ -816,10 +821,10 @@ export default function VendorPaymentPage() {
               <select
                 value={purchaseForm.vendor_id}
                 onChange={(e) => setPurchaseForm({...purchaseForm, vendor_id: e.target.value})}
-                className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
               >
                 <option value="">Select vendor</option>
-                {vendors.map(v => (
+                {Array.isArray(vendors) && vendors.map(v => (
                   <option key={v.id} value={v.id}>{v.name}</option>
                 ))}
               </select>
@@ -832,10 +837,10 @@ export default function VendorPaymentPage() {
               <select
                 value={purchaseForm.store_id}
                 onChange={(e) => setPurchaseForm({...purchaseForm, store_id: e.target.value})}
-                className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
               >
                 <option value="">Select warehouse</option>
-                {stores.filter(s => s.is_warehouse).map(s => (
+                {Array.isArray(stores) && stores.filter(s => s.is_warehouse).map(s => (
                   <option key={s.id} value={s.id}>{s.name}</option>
                 ))}
               </select>
@@ -852,7 +857,7 @@ export default function VendorPaymentPage() {
                 value={purchaseForm.expected_delivery_date}
                 onChange={(e) => setPurchaseForm({...purchaseForm, expected_delivery_date: e.target.value})}
                 min={new Date().toISOString().split('T')[0]}
-                className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
               />
             </div>
           </div>
@@ -882,7 +887,7 @@ export default function VendorPaymentPage() {
                       className="w-full px-2 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
                     >
                       <option value="">Select product</option>
-                      {products.map(p => (
+                      {Array.isArray(products) && products.map(p => (
                         <option key={p.id} value={p.id}>{p.name} ({p.sku})</option>
                       ))}
                     </select>
@@ -1131,7 +1136,7 @@ export default function VendorPaymentPage() {
                   Allocate to Purchase Orders
                 </h4>
                 
-                {purchaseOrders.map((po) => (
+                {Array.isArray(purchaseOrders) && purchaseOrders.map((po) => (
                   <div key={po.id} className="flex items-center gap-3 mb-3 p-2 bg-gray-50 dark:bg-gray-700/50 rounded">
                     <input
                       type="checkbox"
@@ -1147,7 +1152,7 @@ export default function VendorPaymentPage() {
                         {po.po_number}
                       </p>
                       <p className="text-xs text-gray-500 dark:text-gray-400">
-                        Outstanding: ৳{po.outstanding_amount?.toFixed(2)}
+                        Outstanding: ৳{formatCurrency(po.outstanding_amount)}
                       </p>
                     </div>
                     {selectedPOs[po.id]?.selected && (
@@ -1172,7 +1177,7 @@ export default function VendorPaymentPage() {
                   <div className="flex justify-between text-sm">
                     <span className="text-gray-600 dark:text-gray-400">Total Allocated:</span>
                     <span className="font-semibold text-gray-900 dark:text-gray-100">
-                      ৳{calculateTotalAllocated().toFixed(2)}
+                      ৳{formatCurrency(calculateTotalAllocated())}
                     </span>
                   </div>
                 </div>
@@ -1296,7 +1301,7 @@ export default function VendorPaymentPage() {
               <div>
                 <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">Credit Limit</p>
                 <p className="text-base text-gray-900 dark:text-gray-100">
-                  ৳{selectedVendor.credit_limit?.toFixed(2) || '0.00'}
+                  ৳{formatCurrency(selectedVendor.credit_limit)}
                 </p>
               </div>
             </div>
@@ -1345,7 +1350,7 @@ export default function VendorPaymentPage() {
             </div>
 
             <div className="max-h-96 overflow-y-auto">
-              {vendorPayments.length > 0 ? (
+              {Array.isArray(vendorPayments) && vendorPayments.length > 0 ? (
                 vendorPayments.map((payment) => (
                   <div
                     key={payment.id}
@@ -1366,7 +1371,7 @@ export default function VendorPaymentPage() {
                     </div>
                     <div className="text-right">
                       <p className="font-semibold text-green-600 dark:text-green-400">
-                        ৳{payment.amount?.toFixed(2)}
+                        ৳{formatCurrency(payment.amount)}
                       </p>
                       <p className="text-xs text-gray-500 dark:text-gray-400">
                         {formatDate(payment.payment_date)}

@@ -49,7 +49,8 @@ export default function Sidebar({ isOpen, setIsOpen }: SidebarProps) {
     { icon: AlertTriangle, label: 'Defect panel', href: '/defects' },
     { icon: CreditCard, label: 'Transaction', href: '/transaction' },
     { icon: CreditCard, label: 'Accounting', href: '/accounting' },
-    { icon: CreditCard, label: 'Vendor Management', href: '/vendor-payment' },
+    { icon: CreditCard, label: 'Vendor Management', href: '/vendor' },
+    { icon: CreditCard, label: 'Purchase Order', href: '/purchase-order' },
   ];
 
   return (

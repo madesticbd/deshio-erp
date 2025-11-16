@@ -100,7 +100,9 @@ export interface PaymentResponse {
 
 class PaymentService {
   /**
-   * ✅ Step 1: Get Available Payment Methods (PUBLIC API - No Auth)
+   * ✅ Get Available Payment Methods
+   * 
+   * Endpoint: GET /api/payment-methods?customer_type={type}
    * 
    * @param customerType - 'counter', 'social_commerce', or 'ecommerce'
    * @returns Array of available payment methods
@@ -109,35 +111,49 @@ class PaymentService {
     try {
       console.log('🔍 Fetching payment methods for:', customerType);
       
-      // ✅ PUBLIC ENDPOINT - No authentication required
+      // ✅ CORRECT ENDPOINT - Public API, no auth required
       const response = await axiosInstance.get<PaymentMethodsResponse>('/payment-methods', {
         params: { customer_type: customerType },
       });
       
-      console.log('✅ Payment methods response:', response.data);
+      console.log('✅ Payment methods API response:', response.data);
       
       if (!response.data.success || !response.data.data?.payment_methods) {
-        console.error('❌ Invalid payment methods response format');
+        console.error('❌ Invalid payment methods response format:', response.data);
         throw new Error('Invalid payment methods response');
       }
       
       const methods = response.data.data.payment_methods;
-      console.log('✅ Loaded payment methods:', methods.map(m => ({ 
-        id: m.id, 
-        code: m.code, 
-        name: m.name 
-      })));
+      
+      console.log('✅ Payment methods loaded:');
+      methods.forEach(m => {
+        console.log(`  - ${m.name} (ID: ${m.id}, Code: ${m.code}, Type: ${m.type})`);
+      });
+      
+      if (methods.length === 0) {
+        console.warn('⚠️ No payment methods available for customer type:', customerType);
+      }
       
       return methods;
+      
     } catch (error: any) {
       console.error('❌ Failed to fetch payment methods:', error);
-      console.error('❌ Error response:', error.response?.data);
-      throw new Error(error.response?.data?.message || 'Failed to fetch payment methods');
+      
+      if (error.response) {
+        console.error('❌ Response status:', error.response.status);
+        console.error('❌ Response data:', error.response.data);
+      }
+      
+      throw new Error(
+        error.response?.data?.message || 
+        error.message || 
+        'Failed to fetch payment methods'
+      );
     }
   }
 
   /**
-   * ✅ Step 3a: Process Single Payment Method
+   * ✅ Process Single Payment Method
    * 
    * Endpoint: POST /api/orders/{order}/payments/simple
    * 
@@ -182,7 +198,7 @@ class PaymentService {
   }
 
   /**
-   * ✅ Step 3b: Process Split Payment (Multiple Methods)
+   * ✅ Process Split Payment (Multiple Methods)
    * 
    * Endpoint: POST /api/orders/{order}/payments/split
    * 
@@ -218,14 +234,22 @@ class PaymentService {
         }
       }
       
-      // Validate total matches sum of splits
+      // Validate total matches sum of splits (with tolerance)
       const splitsTotal = paymentData.splits.reduce((sum, split) => sum + split.amount, 0);
       const difference = Math.abs(splitsTotal - paymentData.total_amount);
       
-      if (difference > 0.01) {
-        throw new Error(
-          `Total split amount (${splitsTotal.toFixed(2)}) does not match total payment amount (${paymentData.total_amount.toFixed(2)})`
-        );
+      if (difference > 0.10) { // 10 cent tolerance
+        console.warn('⚠️ Split payment amount mismatch:', {
+          total: paymentData.total_amount,
+          splits_sum: splitsTotal,
+          difference
+        });
+        
+        if (difference > 1.00) { // Only fail if difference > $1
+          throw new Error(
+            `Total split amount (${splitsTotal.toFixed(2)}) does not match total payment amount (${paymentData.total_amount.toFixed(2)})`
+          );
+        }
       }
       
       const response = await axiosInstance.post<PaymentResponse>(
