@@ -1,16 +1,17 @@
 import axios from 'axios';
 
 const axiosInstance = axios.create({
-  baseURL: process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000/api',
+  baseURL: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api',
   headers: {
     'Content-Type': 'application/json',
     'Accept': 'application/json',
   },
 });
 
-// Request interceptor
+// Request interceptor to add auth token
 axiosInstance.interceptors.request.use(
   (config) => {
+    // Get token from localStorage
     if (typeof window !== 'undefined') {
       const token = localStorage.getItem('authToken');
       if (token) {
@@ -24,28 +25,30 @@ axiosInstance.interceptors.request.use(
   }
 );
 
-// Response interceptor
+// Response interceptor to handle errors
 axiosInstance.interceptors.response.use(
-  (response) => response,
+  (response) => {
+    return response;
+  },
   (error) => {
-    // Only run client-side code in the browser
-    if (typeof window !== 'undefined') {
-      // Log error details for debugging
-      if (process.env.NODE_ENV === 'development') {
-        console.error('API Error:', {
-          message: error.message,
-          url: error.config?.url,
-          status: error.response?.status,
-          data: error.response?.data,
-        });
-      }
-      
-      // Handle 401 Unauthorized
-      if (error.response?.status === 401) {
+    // Handle 401 Unauthorized errors
+    if (error.response?.status === 401) {
+      // Clear auth data
+      if (typeof window !== 'undefined') {
         localStorage.removeItem('authToken');
         localStorage.removeItem('userRole');
-        // Optionally redirect to login
-        // window.location.href = '/login';
+        localStorage.removeItem('userId');
+        localStorage.removeItem('userName');
+        localStorage.removeItem('userEmail');
+        localStorage.removeItem('storeId');
+        localStorage.removeItem('storeName');
+        localStorage.removeItem('platforms');
+        
+        // Redirect to login page if not already there
+        const currentPath = window.location.pathname;
+        if (currentPath !== '/login' && currentPath !== '/signup') {
+          window.location.href = '/login';
+        }
       }
     }
     

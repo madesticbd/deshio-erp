@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { Moon, Sun, Menu, User, LogOut } from 'lucide-react';
-import { useRouter } from 'next/navigation';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface HeaderProps {
   darkMode: boolean;
@@ -11,21 +11,19 @@ interface HeaderProps {
 }
 
 export default function Header({ darkMode, setDarkMode, toggleSidebar }: HeaderProps) {
-  const router = useRouter();
+  const { user, logout } = useAuth();
   const [showDropdown, setShowDropdown] = useState(false);
-  const [userName, setUserName] = useState('');
-  const [userRole, setUserRole] = useState('');
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
 
-  useEffect(() => {
-    const name = localStorage.getItem('userName') || 'User';
-    const role = localStorage.getItem('userRole') || 'Guest';
-    setUserName(name);
-    setUserRole(role);
-  }, []);
-
-  const handleLogout = () => {
-    localStorage.clear();
-    router.push('/login');
+  const handleLogout = async () => {
+    if (isLoggingOut) return;
+    
+    setIsLoggingOut(true);
+    try {
+      await logout();
+    } finally {
+      setIsLoggingOut(false);
+    }
   };
 
   return (
@@ -73,16 +71,21 @@ export default function Header({ darkMode, setDarkMode, toggleSidebar }: HeaderP
             }`}
           >
             <div className="px-4 py-3 border-b border-gray-200 dark:border-gray-700">
-              <p className="text-sm font-semibold text-gray-800 dark:text-gray-100">{userName}</p>
-              <p className="text-xs text-gray-500 dark:text-gray-400 capitalize">{userRole}</p>
+              <p className="text-sm font-semibold text-gray-800 dark:text-gray-100">
+                {user?.name || 'User'}
+              </p>
+              <p className="text-xs text-gray-500 dark:text-gray-400 capitalize">
+                {user?.role_id || 'Guest'}
+              </p>
             </div>
 
             <button
               onClick={handleLogout}
-              className="flex items-center gap-2 w-full text-left px-4 py-3 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30 transition-colors"
+              disabled={isLoggingOut}
+              className="flex items-center gap-2 w-full text-left px-4 py-3 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <LogOut className="w-4 h-4" />
-              Logout
+              {isLoggingOut ? 'Logging out...' : 'Logout'}
             </button>
           </div>
         </div>

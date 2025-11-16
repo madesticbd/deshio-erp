@@ -10,6 +10,7 @@ import FieldsSidebar from '@/components/product/FieldsSidebar';
 import DynamicFieldInput from '@/components/product/DynamicFieldInput';
 import VariationCard from '@/components/product/VariationCard';
 import ImageGalleryManager from '@/components/product/ImageGalleryManager';
+import CategoryTreeSelector from '@/components/product/CategoryTreeSelector';
 import { productService, Field } from '@/services/productService';
 import productImageService from '@/services/productImageService';
 import categoryService, { Category, CategoryTree } from '@/services/categoryService';
@@ -503,18 +504,6 @@ export default function AddEditProductPage() {
     }
   };
 
-  const getFlatCategories = (cats: CategoryTree[], depth = 0): { id: string; label: string; depth: number }[] => {
-    return cats.reduce((acc: { id: string; label: string; depth: number }[], cat) => {
-      const prefix = '—'.repeat(depth);
-      acc.push({ id: String(cat.id), label: `${prefix} ${cat.title}`, depth });
-      const childCategories = cat.children || cat.all_children || [];
-      if (childCategories.length > 0) {
-        acc.push(...getFlatCategories(childCategories, depth + 1));
-      }
-      return acc;
-    }, []);
-  };
-
   if (loading && !availableFields.length && !categories.length) {
     return (
       <div className={`${darkMode ? 'dark' : ''} flex h-screen`}>
@@ -532,7 +521,6 @@ export default function AddEditProductPage() {
     );
   }
 
-  const flatCategories = getFlatCategories(categories);
   const showVariationsTab = !isEditMode || isVariationProduct;
 
   return (
@@ -651,35 +639,18 @@ export default function AddEditProductPage() {
                       </div>
 
                       <div className="grid grid-cols-2 gap-4">
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                            Category <span className="text-red-500">*</span>
-                          </label>
-                          <select
-                            value={categorySelection.level0 || ''}
-                            onChange={(e) => {
-                              if (e.target.value) {
-                                setCategorySelection({ level0: e.target.value });
-                              } else {
-                                setCategorySelection({});
-                              }
-                            }}
-                            disabled={addVariationMode}
-                            className="w-full px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-gray-900 dark:focus:ring-gray-500 focus:border-transparent dark:bg-gray-700 dark:text-white disabled:opacity-50 disabled:cursor-not-allowed"
-                          >
-                            <option value="">Select category</option>
-                            {flatCategories.map((cat) => (
-                              <option key={cat.id} value={cat.id}>
-                                {cat.label}
-                              </option>
-                            ))}
-                          </select>
-                          {categorySelection.level0 && (
-                            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                              {getCategoryPathDisplay()}
-                            </p>
-                          )}
-                        </div>
+                        <CategoryTreeSelector
+                          categories={categories}
+                          selectedCategoryId={categorySelection.level0 || ''}
+                          onSelect={(categoryId) => {
+                            if (categoryId) {
+                              setCategorySelection({ level0: categoryId });
+                            } else {
+                              setCategorySelection({});
+                            }
+                          }}
+                          disabled={addVariationMode}
+                        />
 
                         <div>
                           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
