@@ -1,4 +1,4 @@
-// app/orders/page.tsx - Fixed QZ Connection on Print Only
+// app/orders/page.tsx - Connected to Backend API
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -14,6 +14,7 @@ import ReturnProductModal from '@/components/orders/ReturnProductModal';
 import { Order } from '@/types/order';
 import { Truck, Printer, Settings, CheckCircle, XCircle, Plane } from 'lucide-react';
 import { checkQZStatus, printBulkReceipts, getPrinters } from '@/lib/qz-tray';
+import axiosInstance from '@/lib/axios';
 
 export default function OrdersDashboard() {
   const [darkMode, setDarkMode] = useState(false);
@@ -96,49 +97,75 @@ export default function OrdersDashboard() {
 
   const loadOrders = async () => {
     try {
-      const response = await fetch('/api/social-orders');
-      if (response.ok) {
-        const data = await response.json();
-        const ordersWithDates = data.map((order: any) => ({
-          ...order,
-          date: order.date || getTodayDate()
-        })) as Order[];
-        
-        const role = localStorage.getItem('userRole') || '';
-        const name = localStorage.getItem('userName') || '';
-        
-        let filteredData = ordersWithDates;
-        if (role === 'social_commerce_manager') {
-          filteredData = ordersWithDates.filter((order: Order) => order.salesBy === name);
+      // Call backend API with social_commerce filter
+      const response = await axiosInstance.get('/orders', {
+        params: {
+          order_type: 'social_commerce',
+          sort_by: 'created_at',
+          sort_order: 'desc',
+          per_page: 1000
+        }
+      });
+
+      if (response.data.success && response.data.data.data) {
+        // Transform backend response to match UI Order interface
+        const transformedOrders = response.data.data.data.map((order: any) => ({
+          id: order.id,
+          orderNumber: order.order_number,
+          date: new Date(order.order_date).toLocaleDateString('en-GB'),
+          customer: {
+            name: order.customer.name,
+            phone: order.customer.phone,
+            email: order.customer.email || '',
+            address: order.shipping_address || ''
+          },
+          items: order.items?.map((item: any) => ({
+            id: item.id,
+            name: item.product_name,
+            sku: item.product_sku,
+            quantity: item.quantity,
+            price: parseFloat(item.unit_price),
+            discount: parseFloat(item.discount_amount || '0')
+          })) || [],
+          subtotal: parseFloat(order.subtotal),
+          discount: parseFloat(order.discount_amount || '0'),
+          shipping: parseFloat(order.shipping_amount || '0'),
+          amounts: {
+            total: parseFloat(order.total_amount),
+            paid: parseFloat(order.paid_amount),
+            due: parseFloat(order.outstanding_amount)
+          },
+          payments: {
+            total: parseFloat(order.total_amount),
+            paid: parseFloat(order.paid_amount),
+            due: parseFloat(order.outstanding_amount)
+          },
+          status: order.payment_status === 'paid' ? 'Paid' : 'Pending',
+          salesBy: order.salesman?.name || userName || 'N/A',
+          store: order.store.name,
+          notes: order.notes || ''
+        }));
+
+        // Apply role-based filtering
+        let filteredData = transformedOrders;
+        if (userRole === 'social_commerce_manager') {
+          filteredData = transformedOrders.filter((order: any) => 
+            order.salesBy === userName
+          );
         }
         
         setOrders(filteredData);
         setFilteredOrders(filteredData);
         return;
       }
-    } catch (error) {
-      console.error('Failed to load from API:', error);
-    }
-    
-    try {
-      const data = (await import('@/data/orders.json')).default;
-      const ordersWithDates = data.map((order: any) => ({
-        ...order,
-        date: order.date || getTodayDate()
-      })) as Order[];
-      
-      const role = localStorage.getItem('userRole') || '';
-      const name = localStorage.getItem('userName') || '';
-      
-      let filteredData = ordersWithDates;
-      if (role === 'social_commerce_manager') {
-        filteredData = ordersWithDates.filter((order: Order) => order.salesBy === name);
-      }
-      
-      setOrders(filteredData);
-      setFilteredOrders(filteredData);
-    } catch (error) {
-      console.error('Failed to load orders:', error);
+
+      setOrders([]);
+      setFilteredOrders([]);
+    } catch (error: any) {
+      console.error('Failed to load orders from backend:', error);
+      alert('Failed to load orders. Please check your connection.');
+      setOrders([]);
+      setFilteredOrders([]);
     }
   };
 
@@ -188,24 +215,31 @@ export default function OrdersDashboard() {
 
   const handleSaveOrder = async (updatedOrder: Order) => {
     try {
-      const response = await fetch(`/api/social-orders?id=${updatedOrder.id}`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
+      // Build payload with safe access to fields that may not exist on the typed interfaces
+      const payload = {
+        customer: {
+          name: updatedOrder.customer.name,
+          phone: updatedOrder.customer.phone,
+          email: updatedOrder.customer.email,
+          address: (updatedOrder as any).customer?.address ?? ''
         },
-        body: JSON.stringify(updatedOrder),
-      });
+        shipping_address: (updatedOrder as any).customer?.address ?? '',
+        shipping_amount: (updatedOrder as any).shipping ?? (updatedOrder as any).shipping_amount ?? 0,
+        discount_amount: (updatedOrder as any).discount ?? (updatedOrder as any).discount_amount ?? 0,
+        notes: (updatedOrder as any).notes ?? ''
+      };
 
-      if (response.ok) {
+      const response = await axiosInstance.put(`/orders/${updatedOrder.id}`, payload);
+
+      if (response.data.success) {
         await loadOrders();
         alert('Order updated successfully!');
       } else {
-        const errorData = await response.json();
-        alert(`Failed to update order: ${errorData.error || 'Unknown error'}`);
+        alert('Failed to update order');
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error updating order:', error);
-      throw error;
+      alert(`Failed to update order: ${error.response?.data?.message || error.message}`);
     }
   };
 
@@ -246,30 +280,20 @@ export default function OrdersDashboard() {
     if (!confirm('Are you sure you want to cancel this order?')) return;
 
     try {
-      const response = await fetch(`/api/social-orders?id=${orderId}`, {
-        method: 'DELETE',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+      const response = await axiosInstance.patch(`/orders/${orderId}/cancel`, {
+        reason: 'Cancelled by user'
       });
 
-      const contentType = response.headers.get('content-type');
-      if (!contentType || !contentType.includes('application/json')) {
-        alert('API endpoint not found. Please ensure /api/social-orders/route.ts exists with DELETE method.');
-        return;
-      }
-      
-      if (response.ok) {
+      if (response.data.success) {
         await loadOrders();
         setActiveMenu(null);
         alert('Order cancelled successfully!');
       } else {
-        const errorData = await response.json();
-        alert(`Failed to cancel order: ${errorData.error || 'Unknown error'}`);
+        alert('Failed to cancel order');
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error cancelling order:', error);
-      alert(`API Error: Make sure /api/social-orders/route.ts exists with a DELETE export function`);
+      alert(`Failed to cancel order: ${error.response?.data?.message || error.message}`);
     }
   };
 
