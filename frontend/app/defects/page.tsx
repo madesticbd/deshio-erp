@@ -5,12 +5,12 @@ import { Search, Barcode, User, Package, Trash2, ShoppingCart, AlertCircle, Stor
 import Header from '@/components/Header';
 import Sidebar from '@/components/Sidebar';
 import SellDefectModal from '@/components/SellDefectModal';
-
-interface StoreItem {
-  id: string;
-  name: string;
-  location?: string;
-}
+import defectIntegrationService from '@/services/defectIntegrationService';
+import barcodeOrderMapper from '@/services/barcodeOrderMapper';
+import storeService from '@/services/storeService';
+import defectiveProductService from '@/services/defectiveProductService';
+import type { DefectiveProduct } from '@/services/defectiveProductService';
+import type { Store } from '@/services/storeService';
 
 interface DefectItem {
   id: string;
@@ -30,35 +30,27 @@ interface DefectItem {
   image?: string;
 }
 
-interface InventoryItem {
-  id: number;
-  barcode: string;
-  productId: number;
-  productName: string;
-  status: string;
-  location?: string;
-  sellingPrice: number;
-}
-
 interface Order {
   id: number;
+  order_number: string;
   customerName?: string;
   customerPhone?: string;
   customer?: {
     name: string;
     phone: string;
   };
-  total?: number;
+  total_amount?: string;
   amounts?: {
     total: number;
   };
-  products: Array<{
+  items: Array<{
     id: number;
-    productId: number;
-    productName: string;
-    qty: number;
-    price: number;
+    product_id: number;
+    product_name: string;
+    quantity: number;
+    unit_price: string;
     barcodes?: string[];
+    available_for_return?: number;
   }>;
 }
 
@@ -66,7 +58,7 @@ export default function DefectsPage() {
   const [darkMode, setDarkMode] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [defects, setDefects] = useState<DefectItem[]>([]);
-  const [stores, setStores] = useState<StoreItem[]>([]);
+  const [stores, setStores] = useState<Store[]>([]);
   const [selectedStore, setSelectedStore] = useState<string>('all');
   const [activeTab, setActiveTab] = useState<'identification' | 'returns'>('identification');
   const [expandedDefect, setExpandedDefect] = useState<string | null>(null);
@@ -77,7 +69,7 @@ export default function DefectsPage() {
   const [returnReason, setReturnReason] = useState('');
   const [isUsedItem, setIsUsedItem] = useState(false);
   const [storeForDefect, setStoreForDefect] = useState('');
-  const [scannedProduct, setScannedProduct] = useState<InventoryItem | null>(null);
+  const [scannedProduct, setScannedProduct] = useState<any>(null);
   const [defectImage, setDefectImage] = useState<File | null>(null);
   
   // Customer Returns
@@ -92,6 +84,7 @@ export default function DefectsPage() {
   
   const [loading, setLoading] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
+  const [errorMessage, setErrorMessage] = useState('');
   
   // Sell modal
   const [sellModalOpen, setSellModalOpen] = useState(false);
@@ -99,14 +92,9 @@ export default function DefectsPage() {
   const [sellPrice, setSellPrice] = useState('');
   const [sellType, setSellType] = useState<'pos' | 'social'>('pos');
   
-  // Vendor return
+  // Vendor return (will implement later)
   const [returnToVendorModalOpen, setReturnToVendorModalOpen] = useState(false);
-  const [returnNotes, setReturnNotes] = useState('');
   const [selectedDefectsForVendor, setSelectedDefectsForVendor] = useState<string[]>([]);
-  const [vendorName, setVendorName] = useState('');
-  const [vendorContact, setVendorContact] = useState('');
-  const [vendorEmail, setVendorEmail] = useState('');
-  const [expectedReturnDate, setExpectedReturnDate] = useState('');
 
   useEffect(() => {
     fetchStores();
@@ -119,10 +107,13 @@ export default function DefectsPage() {
 
   const fetchStores = async () => {
     try {
-      const response = await fetch('/api/stores');
-      if (response.ok) {
-        const data = await response.json();
-        setStores(data);
+      const result = await storeService.getStores({ is_active: true });
+      if (result.success) {
+        // Handle paginated response - extract the data array
+        const storesData = Array.isArray(result.data) 
+          ? result.data 
+          : (result.data?.data || []);
+        setStores(storesData);
       }
     } catch (error) {
       console.error('Error fetching stores:', error);
@@ -131,35 +122,48 @@ export default function DefectsPage() {
 
   const fetchDefects = async () => {
     try {
-      const url = selectedStore === 'all' 
-        ? '/api/defects'
-        : `/api/defects?store=${selectedStore}`;
-      const response = await fetch(url);
-      if (response.ok) {
-        const data = await response.json();
-        setDefects(data);
+      const filters: any = {};
+      if (selectedStore !== 'all') {
+        filters.store_id = parseInt(selectedStore);
       }
-    } catch (error) {
+      
+      const result = await defectIntegrationService.getDefectiveProducts(filters);
+      
+      // Transform backend data to frontend format
+      const transformedDefects: DefectItem[] = (result.data || []).map((d: DefectiveProduct) => ({
+        id: d.id.toString(),
+        barcode: d.barcode?.barcode || '',
+        productId: d.product_id,
+        productName: d.product?.name || 'Unknown Product',
+        status: d.status === 'available_for_sale' ? 'approved' : 
+                d.status === 'sold' ? 'sold' : 'pending',
+        addedBy: d.identifiedBy?.name || 'System',
+        addedAt: d.identified_at,
+        originalSellingPrice: parseFloat(d.original_price.toString()),
+        costPrice: d.product?.cost_price ? parseFloat(d.product.cost_price.toString()) : undefined,
+        returnReason: d.defect_description,
+        store: d.store?.name,
+        image: d.defect_images?.[0],
+        sellingPrice: d.suggested_selling_price ? parseFloat(d.suggested_selling_price.toString()) : undefined,
+      }));
+      
+      setDefects(transformedDefects);
+    } catch (error: any) {
       console.error('Error fetching defects:', error);
-    }
-  };
-
-  const findProductByBarcode = async (barcode: string): Promise<InventoryItem | null> => {
-    try {
-      const response = await fetch('/api/inventory');
-      const inventory: InventoryItem[] = await response.json();
-      return inventory.find(inv => inv.barcode === barcode) || null;
-    } catch (error) {
-      console.error('Error finding product:', error);
-      return null;
+      setErrorMessage(error.message || 'Failed to fetch defects');
+      setTimeout(() => setErrorMessage(''), 5000);
     }
   };
 
   const handleBarcodeCheck = async (value: string) => {
     setBarcodeInput(value);
     if (value.trim().length > 3) {
-      const product = await findProductByBarcode(value);
-      setScannedProduct(product);
+      try {
+        const scanResult = await defectIntegrationService.scanBarcode(value);
+        setScannedProduct(scanResult);
+      } catch (error) {
+        setScannedProduct(null);
+      }
     } else {
       setScannedProduct(null);
     }
@@ -188,50 +192,45 @@ export default function DefectsPage() {
       return;
     }
 
-    const product = await findProductByBarcode(barcodeInput);
-    if (!product) {
-      alert('Product not found in inventory');
-      return;
-    }
-
     if (!storeForDefect) {
-      alert('Please select the store location where this defect is being recorded.');
+      alert('Please select the store location');
       return;
     }
 
     setLoading(true);
     try {
-      const formData = new FormData();
-      formData.append('barcode', barcodeInput);
-      formData.append('returnReason', isUsedItem ? 'USED_ITEM' : returnReason);
-      formData.append('isUsed', isUsedItem.toString());
-      formData.append('store', storeForDefect);
-      formData.append('isDefectIdentification', 'true');
-      if (defectImage) formData.append('image', defectImage);
+      // Upload image first if exists
+      let imageUrl: string | undefined;
+      if (defectImage) {
+        imageUrl = await defectIntegrationService.uploadImage(defectImage);
+      }
 
-      const response = await fetch('/api/defects', {
-        method: 'POST',
-        body: formData
+      // Mark as defective
+      await defectIntegrationService.markAsDefective({
+        barcode: barcodeInput,
+        store_id: parseInt(storeForDefect),
+        defect_type: isUsedItem ? 'other' : 'physical_damage',
+        defect_description: isUsedItem 
+          ? 'USED_ITEM - Product has been used/opened by customer'
+          : returnReason,
+        severity: isUsedItem ? 'minor' : 'moderate',
+        is_used_item: isUsedItem,
+        defect_images: imageUrl ? [imageUrl] : undefined,
+        internal_notes: `Identified by employee at store ${storeForDefect}`,
       });
 
-      const data = await response.json();
-
-      if (response.ok) {
-        setSuccessMessage(isUsedItem ? 'Item marked as used successfully!' : 'Item marked as defective successfully!');
-        setBarcodeInput('');
-        setReturnReason('');
-        setIsUsedItem(false);
-        setStoreForDefect('');
-        setScannedProduct(null);
-        setDefectImage(null);
-        fetchDefects();
-        setTimeout(() => setSuccessMessage(''), 3000);
-      } else {
-        alert(data.error || 'Failed to mark as defective');
-      }
-    } catch (error) {
+      setSuccessMessage(isUsedItem ? 'Item marked as used successfully!' : 'Item marked as defective successfully!');
+      setBarcodeInput('');
+      setReturnReason('');
+      setIsUsedItem(false);
+      setStoreForDefect('');
+      setScannedProduct(null);
+      setDefectImage(null);
+      fetchDefects();
+      setTimeout(() => setSuccessMessage(''), 3000);
+    } catch (error: any) {
       console.error('Error:', error);
-      alert('Error processing defect');
+      alert(error.message || 'Error processing defect');
     } finally {
       setLoading(false);
     }
@@ -244,82 +243,44 @@ export default function DefectsPage() {
     }
 
     if (!storeForReturn) {
-      alert('Please select a store first before searching for returns');
+      alert('Please select a store first');
       return;
     }
 
+    setLoading(true);
     try {
-      const [ordersResponse, salesResponse] = await Promise.all([
-        fetch('/api/social-orders'),
-        fetch('/api/sales')
-      ]);
+      const orders = await defectIntegrationService.searchCustomerOrders(
+        searchType,
+        searchValue
+      );
 
-      let foundOrders: Order[] = [];
-
-      if (ordersResponse.ok) {
-        const orders = await ordersResponse.json();
-        if (searchType === 'phone') {
-          foundOrders = orders.filter((order: Order) => {
-            const phone = order.customerPhone || order.customer?.phone || '';
-            return phone.includes(searchValue);
-          });
-        } else {
-          const order = orders.find((o: Order) => o.id.toString() === searchValue);
-          if (order) foundOrders = [order];
-        }
-      }
-
-      if (salesResponse.ok) {
-        const sales = await salesResponse.json();
-        if (searchType === 'phone') {
-          const phoneSales = sales.filter((sale: any) => 
-            sale.customer?.mobile?.includes(searchValue)
-          );
-          foundOrders = [...foundOrders, ...phoneSales.map((sale: any) => ({
-            id: sale.id,
-            customerName: sale.customer?.name,
-            customerPhone: sale.customer?.mobile,
-            total: sale.amounts?.total,
-            products: sale.items?.map((item: any) => ({
-              id: item.id,
-              productId: item.productId || item.id,
-              productName: item.productName,
-              qty: item.qty,
-              price: item.price,
-              barcodes: item.barcodes || []
-            })) || []
-          }))];
-        } else {
-          const sale = sales.find((s: any) => s.id.toString() === searchValue);
-          if (sale) {
-            foundOrders.push({
-              id: sale.id,
-              customerName: sale.customer?.name,
-              customerPhone: sale.customer?.mobile,
-              total: sale.amounts?.total,
-              products: sale.items?.map((item: any) => ({
-                id: item.id,
-                productId: item.productId || item.id,
-                productName: item.productName,
-                qty: item.qty,
-                price: item.price,
-                barcodes: item.barcodes || []
-              })) || []
-            });
-          }
-        }
-      }
-
-      if (foundOrders.length === 0) {
+      if (orders.length === 0) {
         alert('No orders found');
+        setCustomerOrders([]);
+        return;
       }
 
-      setCustomerOrders(foundOrders);
+      // Enrich orders with barcode information
+      const enrichedOrders = await Promise.all(
+        orders.map(async (order) => {
+          try {
+            const orderWithBarcodes = await barcodeOrderMapper.getOrderWithBarcodes(order.id);
+            return orderWithBarcodes;
+          } catch (error) {
+            console.error('Error enriching order:', error);
+            return order;
+          }
+        })
+      );
+
+      setCustomerOrders(enrichedOrders as Order[]);
       setSelectedOrder('');
       setSelectedBarcodes([]);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error searching:', error);
-      alert('Error searching orders');
+      alert(error.message || 'Error searching orders');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -344,23 +305,40 @@ export default function DefectsPage() {
 
     setLoading(true);
     try {
-      const order = customerOrders.find(o => o.id.toString() === selectedOrder);
-      if (!order) return;
+      // Validate barcodes first
+      const validation = await barcodeOrderMapper.validateBarcodesForReturn(
+        parseInt(selectedOrder),
+        selectedBarcodes
+      );
 
-      for (const barcode of selectedBarcodes) {
-        const formData = new FormData();
-        formData.append('barcode', barcode);
-        formData.append('returnReason', customerReturnReason);
-        formData.append('store', storeForReturn);
-        formData.append('orderId', selectedOrder);
-        formData.append('customerPhone', order.customerPhone || order.customer?.phone || '');
-        if (returnImage) formData.append('image', returnImage);
-
-        await fetch('/api/defects', {
-          method: 'POST',
-          body: formData
-        });
+      if (!validation.valid) {
+        alert('Validation errors: ' + validation.errors.join(', '));
+        return;
       }
+
+      if (validation.warnings.length > 0) {
+        const proceed = confirm(
+          'Warnings found:\n' + validation.warnings.join('\n') + '\n\nContinue anyway?'
+        );
+        if (!proceed) return;
+      }
+
+      // Upload return image if exists
+      let imageUrl: string | undefined;
+      if (returnImage) {
+        imageUrl = await defectIntegrationService.uploadImage(returnImage);
+      }
+
+      // Create customer return
+      await defectIntegrationService.createCustomerReturn({
+        order_id: parseInt(selectedOrder),
+        selected_barcodes: selectedBarcodes,
+        return_reason: customerReturnReason,
+        return_type: 'defective',
+        store_id: parseInt(storeForReturn),
+        customer_notes: `Customer return - ${customerReturnReason}`,
+        attachments: imageUrl ? [imageUrl] : undefined,
+      });
 
       setSuccessMessage(`Successfully processed return for ${selectedBarcodes.length} items!`);
       setSearchValue('');
@@ -371,9 +349,9 @@ export default function DefectsPage() {
       setReturnImage(null);
       fetchDefects();
       setTimeout(() => setSuccessMessage(''), 5000);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error processing return:', error);
-      alert('Error processing return');
+      alert(error.message || 'Error processing return');
     } finally {
       setLoading(false);
     }
@@ -396,6 +374,7 @@ export default function DefectsPage() {
     try {
       setSellModalOpen(false);
 
+      // Store defect data for POS/Social Commerce
       const defectData = {
         id: selectedDefect.id,
         barcode: selectedDefect.barcode,
@@ -407,13 +386,14 @@ export default function DefectsPage() {
 
       sessionStorage.setItem('defectItem', JSON.stringify(defectData));
 
+      // Redirect to selling interface
       const url = sellType === 'pos'
         ? `/pos?defect=${selectedDefect.id}`
         : `/social-commerce?defect=${selectedDefect.id}`;
       window.location.href = url;
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error:', error);
-      alert('Error processing sale');
+      alert(error.message || 'Error processing sale');
     } finally {
       setLoading(false);
     }
@@ -423,68 +403,16 @@ export default function DefectsPage() {
     if (!confirm('Are you sure you want to remove this defect?')) return;
 
     try {
-      const response = await fetch(`/api/defects?id=${defectId}`, {
-        method: 'DELETE'
+      await defectiveProductService.dispose(parseInt(defectId), {
+        disposal_notes: 'Removed by employee',
       });
-
-      if (response.ok) {
-        fetchDefects();
-        alert('Defect removed successfully');
-      }
-    } catch (error) {
+      
+      fetchDefects();
+      setSuccessMessage('Defect removed successfully');
+      setTimeout(() => setSuccessMessage(''), 3000);
+    } catch (error: any) {
       console.error('Error removing defect:', error);
-      alert('Error removing defect');
-    }
-  };
-
-  const handleReturnToVendor = async () => {
-    if (selectedDefectsForVendor.length === 0) {
-      alert('Please select at least one item to return');
-      return;
-    }
-
-    if (!vendorName.trim()) {
-      alert('Please enter vendor name');
-      return;
-    }
-
-    setLoading(true);
-    try {
-      const response = await fetch(`/api/defects/return-to-vendor`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          defectIds: selectedDefectsForVendor,
-          notes: returnNotes,
-          vendorDetails: {
-            name: vendorName,
-            contact: vendorContact,
-            email: vendorEmail,
-            expectedReturnDate: expectedReturnDate
-          }
-        })
-      });
-
-      if (response.ok) {
-        setSuccessMessage(`${selectedDefectsForVendor.length} item(s) marked for return to vendor successfully!`);
-        setReturnToVendorModalOpen(false);
-        setReturnNotes('');
-        setVendorName('');
-        setVendorContact('');
-        setVendorEmail('');
-        setExpectedReturnDate('');
-        setSelectedDefectsForVendor([]);
-        fetchDefects();
-        setTimeout(() => setSuccessMessage(''), 3000);
-      } else {
-        const data = await response.json();
-        alert(data.error || 'Failed to mark for vendor return');
-      }
-    } catch (error) {
-      console.error('Error:', error);
-      alert('Error processing vendor return');
-    } finally {
-      setLoading(false);
+      alert(error.message || 'Error removing defect');
     }
   };
 
@@ -513,10 +441,11 @@ export default function DefectsPage() {
     if (!isPending) return false;
     
     if (filterType === 'all') return true;
-    if (filterType === 'used') return d.returnReason === 'USED_ITEM';
-    if (filterType === 'defects') return d.returnReason !== 'USED_ITEM';
+    if (filterType === 'used') return d.returnReason?.includes('USED_ITEM');
+    if (filterType === 'defects') return !d.returnReason?.includes('USED_ITEM');
     return true;
   });
+  
   const soldDefects = defects.filter(d => d.status === 'sold');
 
   return (
@@ -551,6 +480,14 @@ export default function DefectsPage() {
                 </div>
               )}
 
+              {/* Error Message */}
+              {errorMessage && (
+                <div className="mb-6 p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg flex items-center gap-3">
+                  <AlertCircle className="w-5 h-5 text-red-600 dark:text-red-400" />
+                  <p className="text-red-800 dark:text-red-300">{errorMessage}</p>
+                </div>
+              )}
+
               {/* Store Selection */}
               <div className="mb-6 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4">
                 <div className="flex items-center justify-between">
@@ -559,7 +496,7 @@ export default function DefectsPage() {
                     <div>
                       <h3 className="font-semibold text-gray-900 dark:text-white">Store Selection</h3>
                       <p className="text-sm text-gray-500 dark:text-gray-400">
-                        Select store to view defects • Barcode scanning auto-detects store • Selling requires store selection
+                        Select store to view defects • Barcode scanning auto-detects store
                       </p>
                     </div>
                   </div>
@@ -627,10 +564,11 @@ export default function DefectsPage() {
                           {scannedProduct && (
                             <div className="mt-2 p-3 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-700 rounded">
                               <p className="text-sm font-medium text-green-800 dark:text-green-300">
-                                {scannedProduct.productName}
+                                {scannedProduct.product?.name}
                               </p>
                               <p className="text-xs text-green-700 dark:text-green-400">
-                                Status: {scannedProduct.status} • Location: {scannedProduct.location}
+                                Available: {scannedProduct.is_available ? 'Yes' : 'No'} • 
+                                Location: {scannedProduct.current_location?.name || 'N/A'}
                               </p>
                             </div>
                           )}
@@ -663,7 +601,7 @@ export default function DefectsPage() {
                         {!isUsedItem && (
                           <div>
                             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                              Return Reason {!isUsedItem && <span className="text-red-500">*</span>}
+                              Return Reason <span className="text-red-500">*</span>
                             </label>
                             <textarea
                               value={returnReason}
@@ -689,7 +627,7 @@ export default function DefectsPage() {
 
                         <div>
                           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                            Store Location (if required)
+                            Store Location <span className="text-red-500">*</span>
                           </label>
                           <select
                             value={storeForDefect}
@@ -724,7 +662,7 @@ export default function DefectsPage() {
                       <div className="space-y-4">
                         <div>
                           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                            Return to Store (Required)
+                            Return to Store <span className="text-red-500">*</span>
                           </label>
                           <select
                             value={storeForReturn}
@@ -738,16 +676,11 @@ export default function DefectsPage() {
                               </option>
                             ))}
                           </select>
-                          {!storeForReturn && (
-                            <p className="mt-1 text-xs text-red-500">
-                              Please select a store before searching
-                            </p>
-                          )}
                         </div>
 
                         <div>
                           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                            Return Reason (Required)
+                            Return Reason <span className="text-red-500">*</span>
                           </label>
                           <textarea
                             value={customerReturnReason}
@@ -801,14 +734,14 @@ export default function DefectsPage() {
                                   : 'border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300'
                               }`}
                             >
-                              Order/Sale ID
+                              Order ID
                             </button>
                           </div>
                         </div>
 
                         <div>
                           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                            {searchType === 'phone' ? 'Customer Phone Number' : 'Order/Sale ID'}
+                            {searchType === 'phone' ? 'Customer Phone Number' : 'Order ID'}
                           </label>
                           <div className="flex gap-2">
                             <input
@@ -821,7 +754,7 @@ export default function DefectsPage() {
                             />
                             <button
                               onClick={handleSearchCustomer}
-                              disabled={!storeForReturn}
+                              disabled={!storeForReturn || loading}
                               className="px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white rounded-md"
                             >
                               <Search className="w-4 h-4" />
@@ -842,11 +775,11 @@ export default function DefectsPage() {
                               >
                                 <option value="">Select order...</option>
                                 {customerOrders.map(order => {
-                                  const name = order.customerName || order.customer?.name || 'Unknown';
-                                  const total = order.total || order.amounts?.total || 0;
+                                  const name = order.customer?.name || 'Unknown';
+                                  const total = order.total_amount || '0';
                                   return (
                                     <option key={order.id} value={order.id}>
-                                      Order #{order.id} - {name} (৳{total})
+                                      Order #{order.order_number} - {name} (৳{total})
                                     </option>
                                   );
                                 })}
@@ -857,47 +790,24 @@ export default function DefectsPage() {
                               <>
                                 <div>
                                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                                    Order Details
-                                  </label>
-                                  {(() => {
-                                    const order = customerOrders.find(o => o.id.toString() === selectedOrder);
-                                    if (!order) return null;
-                                    return (
-                                      <div className="p-3 bg-gray-50 dark:bg-gray-700/50 border border-gray-300 dark:border-gray-600 rounded-md text-sm space-y-1">
-                                        <p className="text-gray-900 dark:text-white">
-                                          <span className="font-medium">Customer:</span> {order.customerName || order.customer?.name}
-                                        </p>
-                                        <p className="text-gray-900 dark:text-white">
-                                          <span className="font-medium">Phone:</span> {order.customerPhone || order.customer?.phone}
-                                        </p>
-                                        <p className="text-gray-900 dark:text-white">
-                                          <span className="font-medium">Total:</span> ৳{order.total || order.amounts?.total}
-                                        </p>
-                                      </div>
-                                    );
-                                  })()}
-                                </div>
-
-                                <div>
-                                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                                     Select Products & Barcodes ({selectedBarcodes.length} selected)
                                   </label>
                                   <div className="border border-gray-300 dark:border-gray-600 rounded-md max-h-64 overflow-y-auto">
                                     {customerOrders
                                       .find(o => o.id.toString() === selectedOrder)
-                                      ?.products.map((product, idx) => (
+                                      ?.items.map((item, idx) => (
                                         <div key={idx} className="p-3 border-b border-gray-200 dark:border-gray-700 last:border-b-0">
                                           <div className="mb-2">
                                             <p className="font-medium text-gray-900 dark:text-white text-sm">
-                                              {product.productName}
+                                              {item.product_name}
                                             </p>
                                             <p className="text-xs text-gray-600 dark:text-gray-400">
-                                              Qty: {product.qty} × ৳{product.price} = ৳{(product.qty * product.price).toFixed(2)}
+                                              Qty: {item.quantity} × ৳{item.unit_price} • Available for return: {item.available_for_return || item.quantity}
                                             </p>
                                           </div>
                                           <div className="space-y-1">
-                                            {product.barcodes && product.barcodes.length > 0 ? (
-                                              product.barcodes.map((barcode, bIdx) => (
+                                            {item.barcodes && item.barcodes.length > 0 ? (
+                                              item.barcodes.map((barcode, bIdx) => (
                                                 <label
                                                   key={bIdx}
                                                   className="flex items-center gap-2 p-2 hover:bg-gray-50 dark:hover:bg-gray-700 rounded cursor-pointer"
@@ -914,8 +824,8 @@ export default function DefectsPage() {
                                                 </label>
                                               ))
                                             ) : (
-                                              <p className="text-xs text-red-500 italic p-2">
-                                                No barcodes available for this product
+                                              <p className="text-xs text-orange-500 italic p-2">
+                                                No barcodes tracked for this item
                                               </p>
                                             )}
                                           </div>
@@ -929,7 +839,7 @@ export default function DefectsPage() {
                                   disabled={loading || selectedBarcodes.length === 0}
                                   className="w-full py-2 bg-gray-600 hover:bg-gray-700 disabled:bg-gray-400 text-white rounded-md"
                                 >
-                                  {loading ? 'Processing...' : `Return ${selectedBarcodes.length} Item(s) to ${stores.find(s => s.id === storeForReturn)?.name}`}
+                                  {loading ? 'Processing...' : `Return ${selectedBarcodes.length} Item(s)`}
                                 </button>
                               </>
                             )}
@@ -940,44 +850,18 @@ export default function DefectsPage() {
                   )}
                 </div>
 
-                {/* Right Panel - Defects List with Expandable Details */}
+                {/* Right Panel - Defects List */}
                 <div className="lg:col-span-2 space-y-6">
                   {/* Pending Defects */}
                   <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
                     <div className="p-4 border-b border-gray-200 dark:border-gray-700">
                       <div className="flex items-center justify-between mb-3">
-                        <div className="flex items-center gap-3">
-                          <h3 className="font-semibold text-gray-900 dark:text-white">
-                            Defective Items ({pendingDefects.length})
-                          </h3>
-                          {pendingDefects.length > 0 && (
-                            <label className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400 cursor-pointer">
-                              <input
-                                type="checkbox"
-                                checked={selectedDefectsForVendor.length === pendingDefects.length && pendingDefects.length > 0}
-                                onChange={toggleSelectAll}
-                                className="w-4 h-4"
-                              />
-                              Select All
-                            </label>
-                          )}
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <button
-                            onClick={() => setReturnToVendorModalOpen(true)}
-                            disabled={selectedDefectsForVendor.length === 0}
-                            className="px-3 py-1.5 bg-gray-900 hover:bg-gray-700 disabled:bg-gray-300 disabled:text-gray-500 disabled:cursor-not-allowed text-white text-sm rounded-md flex items-center gap-1.5 transition-colors"
-                          >
-                            <TruckIcon className="w-4 h-4" />
-                            {selectedDefectsForVendor.length > 0 
-                              ? `Return ${selectedDefectsForVendor.length} to Vendor`
-                              : 'Return to Vendor'
-                            }
-                          </button>
-                          <span className="text-sm text-gray-500 dark:text-gray-400">
-                            {selectedStore === 'all' ? 'All stores' : stores.find(s => s.id === selectedStore)?.name}
-                          </span>
-                        </div>
+                        <h3 className="font-semibold text-gray-900 dark:text-white">
+                          Defective Items ({pendingDefects.length})
+                        </h3>
+                        <span className="text-sm text-gray-500 dark:text-gray-400">
+                          {selectedStore === 'all' ? 'All stores' : stores.find(s => s.id.toString() === selectedStore)?.name}
+                        </span>
                       </div>
                       
                       {/* Filter Buttons */}
@@ -990,7 +874,7 @@ export default function DefectsPage() {
                               : 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
                           }`}
                         >
-                          All 
+                          All
                         </button>
                         <button
                           onClick={() => setFilterType('defects')}
@@ -1000,7 +884,7 @@ export default function DefectsPage() {
                               : 'bg-red-100 text-red-700 dark:bg-red-900/20 dark:text-red-400 hover:bg-red-200 dark:hover:bg-red-900/30'
                           }`}
                         >
-                          Defects 
+                          Defects
                         </button>
                         <button
                           onClick={() => setFilterType('used')}
@@ -1010,7 +894,7 @@ export default function DefectsPage() {
                               : 'bg-blue-100 text-blue-700 dark:bg-blue-900/20 dark:text-blue-400 hover:bg-blue-200 dark:hover:bg-blue-900/30'
                           }`}
                         >
-                          Used 
+                          Used
                         </button>
                       </div>
                     </div>
@@ -1024,46 +908,37 @@ export default function DefectsPage() {
                       ) : (
                         pendingDefects.map((defect) => (
                           <div key={defect.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
-                            {/* Main Row */}
                             <div className="px-4 py-3">
                               <div className="flex items-start justify-between gap-4">
-                                <div className="flex items-start gap-3 flex-1 min-w-0">
-                                  <input
-                                    type="checkbox"
-                                    checked={selectedDefectsForVendor.includes(defect.id)}
-                                    onChange={() => toggleDefectSelection(defect.id)}
-                                    className="mt-1 w-4 h-4 flex-shrink-0"
-                                  />
-                                  <div className="flex-1 min-w-0">
-                                    <div className="flex items-center gap-2 mb-1">
-                                      <h4 className="font-medium text-gray-900 dark:text-white text-sm truncate">
-                                        {defect.productName}
-                                      </h4>
-                                      {defect.returnReason === 'USED_ITEM' ? (
-                                        <span className="px-2 py-0.5 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 text-xs rounded font-medium">
-                                          Used
-                                        </span>
-                                      ) : defect.returnReason ? (
-                                        <span className="px-2 py-0.5 bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400 text-xs rounded">
-                                          Return
-                                        </span>
-                                      ) : null}
-                                    </div>
-                                    
-                                    <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-gray-600 dark:text-gray-400">
-                                      <span className="flex items-center gap-1">
-                                        <Barcode className="w-3 h-3" />
-                                        {defect.barcode}
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex items-center gap-2 mb-1">
+                                    <h4 className="font-medium text-gray-900 dark:text-white text-sm truncate">
+                                      {defect.productName}
+                                    </h4>
+                                    {defect.returnReason?.includes('USED_ITEM') ? (
+                                      <span className="px-2 py-0.5 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 text-xs rounded font-medium">
+                                        Used
                                       </span>
-                                      <span className="flex items-center gap-1">
-                                        <MapPin className="w-3 h-3" />
-                                        {defect.store || 'N/A'}
+                                    ) : (
+                                      <span className="px-2 py-0.5 bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400 text-xs rounded">
+                                        Defect
                                       </span>
-                                      <span className="flex items-center gap-1">
-                                        <Calendar className="w-3 h-3" />
-                                        {new Date(defect.addedAt).toLocaleDateString()}
-                                      </span>
-                                    </div>
+                                    )}
+                                  </div>
+                                  
+                                  <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-gray-600 dark:text-gray-400">
+                                    <span className="flex items-center gap-1">
+                                      <Barcode className="w-3 h-3" />
+                                      {defect.barcode}
+                                    </span>
+                                    <span className="flex items-center gap-1">
+                                      <MapPin className="w-3 h-3" />
+                                      {defect.store || 'N/A'}
+                                    </span>
+                                    <span className="flex items-center gap-1">
+                                      <Calendar className="w-3 h-3" />
+                                      {new Date(defect.addedAt).toLocaleDateString()}
+                                    </span>
                                   </div>
                                 </div>
 
@@ -1071,28 +946,12 @@ export default function DefectsPage() {
                                   <button
                                     onClick={() => toggleDefectDetails(defect.id)}
                                     className="p-1.5 hover:bg-gray-100 dark:hover:bg-gray-600 rounded transition-colors"
-                                    title="Toggle details"
                                   >
                                     {expandedDefect === defect.id ? (
                                       <ChevronUp className="w-4 h-4 text-gray-600 dark:text-gray-400" />
                                     ) : (
                                       <ChevronDown className="w-4 h-4 text-gray-600 dark:text-gray-400" />
                                     )}
-                                  </button>
-                                  <button
-                                    onClick={() => {
-                                      setSelectedDefectsForVendor([defect.id]);
-                                      setReturnNotes('');
-                                      setVendorName('');
-                                      setVendorContact('');
-                                      setVendorEmail('');
-                                      setExpectedReturnDate('');
-                                      setReturnToVendorModalOpen(true);
-                                    }}
-                                    className="p-1.5 text-gray-600 hover:bg-gray-50 dark:hover:bg-gray-900/20 rounded transition-colors"
-                                    title="Return to Vendor"
-                                  >
-                                    <TruckIcon className="w-4 h-4" />
                                   </button>
                                   <button
                                     onClick={() => handleSellClick(defect)}
@@ -1116,7 +975,6 @@ export default function DefectsPage() {
                             {expandedDefect === defect.id && (
                               <div className="px-4 pb-4 pt-2 bg-gray-50 dark:bg-gray-900/50">
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                  {/* Left: Image */}
                                   {defect.image ? (
                                     <div className="space-y-2">
                                       <h5 className="text-xs font-medium text-gray-700 dark:text-gray-300 flex items-center gap-1">
@@ -1135,12 +993,11 @@ export default function DefectsPage() {
                                     <div className="flex items-center justify-center aspect-video bg-gray-200 dark:bg-gray-700 rounded-lg">
                                       <div className="text-center">
                                         <ImageIcon className="w-8 h-8 mx-auto mb-1 text-gray-400" />
-                                        <p className="text-xs text-gray-500">No image available</p>
+                                        <p className="text-xs text-gray-500">No image</p>
                                       </div>
                                     </div>
                                   )}
 
-                                  {/* Right: Details */}
                                   <div className="space-y-3">
                                     <div className="grid grid-cols-2 gap-2 text-xs">
                                       <div>
@@ -1157,60 +1014,34 @@ export default function DefectsPage() {
                                       <div>
                                         <p className="text-xs text-gray-500 dark:text-gray-400 mb-1 flex items-center gap-1">
                                           <FileText className="w-3 h-3" />
-                                          {defect.returnReason === 'USED_ITEM' ? 'Item Status' : 'Return Reason'}
+                                          Reason
                                         </p>
                                         <p className="text-sm text-gray-900 dark:text-white bg-white dark:bg-gray-800 p-2 rounded border border-gray-200 dark:border-gray-600">
-                                          {defect.returnReason === 'USED_ITEM' ? (
-                                            <span className="flex items-center gap-1.5">
-                                              <span className="inline-block w-2 h-2 bg-blue-500 rounded-full"></span>
-                                              Used/Opened Item
-                                            </span>
-                                          ) : (
-                                            defect.returnReason
-                                          )}
+                                          {defect.returnReason}
                                         </p>
                                       </div>
                                     )}
 
-                                    {defect.customerPhone && (
-                                      <div>
-                                        <p className="text-xs text-gray-500 dark:text-gray-400 mb-1 flex items-center gap-1">
-                                          <Phone className="w-3 h-3" />
-                                          Customer Phone
-                                        </p>
-                                        <p className="text-sm text-gray-900 dark:text-white font-medium">
-                                          {defect.customerPhone}
-                                        </p>
+                                    {(defect.costPrice || defect.originalSellingPrice) && (
+                                      <div className="grid grid-cols-2 gap-2 pt-2 border-t border-gray-200 dark:border-gray-700">
+                                        {defect.costPrice && (
+                                          <div>
+                                            <p className="text-xs text-gray-500 dark:text-gray-400 mb-0.5">Cost Price</p>
+                                            <p className="text-sm text-gray-900 dark:text-white font-medium">
+                                              ৳{defect.costPrice.toFixed(2)}
+                                            </p>
+                                          </div>
+                                        )}
+                                        {defect.originalSellingPrice && (
+                                          <div>
+                                            <p className="text-xs text-gray-500 dark:text-gray-400 mb-0.5">Original Price</p>
+                                            <p className="text-sm text-gray-900 dark:text-white font-medium">
+                                              ৳{defect.originalSellingPrice.toFixed(2)}
+                                            </p>
+                                          </div>
+                                        )}
                                       </div>
                                     )}
-
-                                    {defect.originalOrderId && (
-                                      <div>
-                                        <p className="text-xs text-gray-500 dark:text-gray-400 mb-0.5">Original Order ID</p>
-                                        <p className="text-sm text-blue-600 dark:text-blue-400 font-medium">
-                                          #{defect.originalOrderId}
-                                        </p>
-                                      </div>
-                                    )}
-
-                                    <div className="grid grid-cols-2 gap-2 pt-2 border-t border-gray-200 dark:border-gray-700">
-                                      {defect.costPrice && (
-                                        <div>
-                                          <p className="text-xs text-gray-500 dark:text-gray-400 mb-0.5">Cost Price</p>
-                                          <p className="text-sm text-gray-900 dark:text-white font-medium">
-                                            ৳{defect.costPrice.toFixed(2)}
-                                          </p>
-                                        </div>
-                                      )}
-                                      {defect.originalSellingPrice && (
-                                        <div>
-                                          <p className="text-xs text-gray-500 dark:text-gray-400 mb-0.5">Original Price</p>
-                                          <p className="text-sm text-gray-900 dark:text-white font-medium">
-                                            ৳{defect.originalSellingPrice.toFixed(2)}
-                                          </p>
-                                        </div>
-                                      )}
-                                    </div>
                                   </div>
                                 </div>
                               </div>
@@ -1232,125 +1063,19 @@ export default function DefectsPage() {
 
                       <div className="divide-y divide-gray-200 dark:divide-gray-700">
                         {soldDefects.map((defect) => (
-                          <div key={defect.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
-                            {/* Main Row */}
-                            <div className="px-4 py-3">
-                              <div className="flex items-start justify-between gap-4">
-                                <div className="flex-1 min-w-0">
-                                  <div className="flex items-center gap-2 mb-1">
-                                    <h4 className="font-medium text-gray-900 dark:text-white text-sm truncate">
-                                      {defect.productName}
-                                    </h4>
-                                    <span className="px-2 py-0.5 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 text-xs rounded">
-                                      Sold
-                                    </span>
-                                  </div>
-                                  
-                                  <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-gray-600 dark:text-gray-400">
-                                    <span className="flex items-center gap-1">
-                                      <Barcode className="w-3 h-3" />
-                                      {defect.barcode}
-                                    </span>
-                                    <span className="flex items-center gap-1">
-                                      <MapPin className="w-3 h-3" />
-                                      {defect.store || 'N/A'}
-                                    </span>
-                                    <span className="flex items-center gap-1">
-                                      <DollarSign className="w-3 h-3" />
-                                      ৳{defect.sellingPrice?.toFixed(2) || '0.00'}
-                                    </span>
-                                  </div>
-                                </div>
-
-                                <button
-                                  onClick={() => toggleDefectDetails(defect.id)}
-                                  className="p-1.5 hover:bg-gray-100 dark:hover:bg-gray-600 rounded transition-colors"
-                                  title="Toggle details"
-                                >
-                                  {expandedDefect === defect.id ? (
-                                    <ChevronUp className="w-4 h-4 text-gray-600 dark:text-gray-400" />
-                                  ) : (
-                                    <ChevronDown className="w-4 h-4 text-gray-600 dark:text-gray-400" />
-                                  )}
-                                </button>
-                              </div>
+                          <div key={defect.id} className="px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-700/50">
+                            <div className="flex items-center gap-2 mb-1">
+                              <h4 className="font-medium text-gray-900 dark:text-white text-sm">
+                                {defect.productName}
+                              </h4>
+                              <span className="px-2 py-0.5 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 text-xs rounded">
+                                Sold
+                              </span>
                             </div>
-
-                            {/* Expanded Details for Sold Items */}
-                            {expandedDefect === defect.id && (
-                              <div className="px-4 pb-4 pt-2 bg-gray-50 dark:bg-gray-900/50">
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                  {/* Image */}
-                                  {defect.image ? (
-                                    <div className="space-y-2">
-                                      <h5 className="text-xs font-medium text-gray-700 dark:text-gray-300 flex items-center gap-1">
-                                        <ImageIcon className="w-3 h-3" />
-                                        Defect Image
-                                      </h5>
-                                      <div className="relative aspect-video bg-gray-200 dark:bg-gray-700 rounded-lg overflow-hidden">
-                                        <img
-                                          src={defect.image}
-                                          alt="Defect"
-                                          className="w-full h-full object-cover"
-                                        />
-                                      </div>
-                                    </div>
-                                  ) : (
-                                    <div className="flex items-center justify-center aspect-video bg-gray-200 dark:bg-gray-700 rounded-lg">
-                                      <div className="text-center">
-                                        <ImageIcon className="w-8 h-8 mx-auto mb-1 text-gray-400" />
-                                        <p className="text-xs text-gray-500">No image available</p>
-                                      </div>
-                                    </div>
-                                  )}
-
-                                  {/* Details */}
-                                  <div className="space-y-3">
-                                    <div className="grid grid-cols-2 gap-2 text-xs">
-                                      <div>
-                                        <p className="text-gray-500 dark:text-gray-400 mb-0.5">Product ID</p>
-                                        <p className="text-gray-900 dark:text-white font-medium">#{defect.productId}</p>
-                                      </div>
-                                      <div>
-                                        <p className="text-gray-500 dark:text-gray-400 mb-0.5">Sold Price</p>
-                                        <p className="text-green-600 dark:text-green-400 font-bold">
-                                          ৳{defect.sellingPrice?.toFixed(2) || '0.00'}
-                                        </p>
-                                      </div>
-                                    </div>
-
-                                    {defect.returnReason && (
-                                      <div>
-                                        <p className="text-xs text-gray-500 dark:text-gray-400 mb-1 flex items-center gap-1">
-                                          <FileText className="w-3 h-3" />
-                                          Return Reason
-                                        </p>
-                                        <p className="text-sm text-gray-900 dark:text-white bg-white dark:bg-gray-800 p-2 rounded border border-gray-200 dark:border-gray-600">
-                                          {defect.returnReason}
-                                        </p>
-                                      </div>
-                                    )}
-
-                                    <div className="grid grid-cols-2 gap-2 pt-2 border-t border-gray-200 dark:border-gray-700">
-                                      <div>
-                                        <p className="text-xs text-gray-500 dark:text-gray-400 mb-0.5">Added</p>
-                                        <p className="text-xs text-gray-900 dark:text-white">
-                                          {new Date(defect.addedAt).toLocaleDateString()}
-                                        </p>
-                                      </div>
-                                      {defect.originalSellingPrice && (
-                                        <div>
-                                          <p className="text-xs text-gray-500 dark:text-gray-400 mb-0.5">Original Price</p>
-                                          <p className="text-xs text-gray-900 dark:text-white">
-                                            ৳{defect.originalSellingPrice.toFixed(2)}
-                                          </p>
-                                        </div>
-                                      )}
-                                    </div>
-                                  </div>
-                                </div>
-                              </div>
-                            )}
+                            <div className="flex items-center gap-x-4 text-xs text-gray-600 dark:text-gray-400">
+                              <span>{defect.barcode}</span>
+                              <span>৳{defect.sellingPrice?.toFixed(2) || '0.00'}</span>
+                            </div>
                           </div>
                         ))}
                       </div>
@@ -1376,160 +1101,6 @@ export default function DefectsPage() {
           onSell={handleSell}
           loading={loading}
         />
-      )}
-
-      {/* Return to Vendor Modal */}
-      {returnToVendorModalOpen && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-3xl w-full border border-gray-200 dark:border-gray-700 max-h-[90vh] overflow-hidden flex flex-col">
-            <div className="p-6 border-b border-gray-200 dark:border-gray-700">
-              <div className="flex items-center gap-3">
-                <div className="p-2 bg-gray-100 dark:bg-gray-900/30 rounded-lg">
-                  <TruckIcon className="w-5 h-5 text-gray-600 dark:text-gray-400" />
-                </div>
-                <div>
-                  <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Return to Vendor</h3>
-                  <p className="text-sm text-gray-500 dark:text-gray-400">Mark {selectedDefectsForVendor.length} item(s) for vendor return</p>
-                </div>
-              </div>
-            </div>
-
-            <div className="p-6 space-y-6 overflow-y-auto flex-1">
-              {/* Selected Items */}
-              <div className="space-y-2">
-                <h4 className="text-sm font-semibold text-gray-900 dark:text-white">Selected Items:</h4>
-                <div className="space-y-2 max-h-40 overflow-y-auto">
-                  {defects
-                    .filter(d => selectedDefectsForVendor.includes(d.id))
-                    .map(defect => (
-                      <div key={defect.id} className="p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg border border-gray-200 dark:border-gray-600">
-                        <p className="text-sm font-medium text-gray-900 dark:text-white mb-1">{defect.productName}</p>
-                        <div className="grid grid-cols-2 gap-2 text-xs text-gray-600 dark:text-gray-400">
-                          <div>
-                            <span className="font-medium">Barcode:</span> {defect.barcode}
-                          </div>
-                          <div>
-                            <span className="font-medium">Store:</span> {defect.store || 'N/A'}
-                          </div>
-                        </div>
-                        {defect.returnReason && (
-                          <div className="mt-2 pt-2 border-t border-gray-200 dark:border-gray-600">
-                            <p className="text-xs text-gray-500 dark:text-gray-400">Reason: {defect.returnReason}</p>
-                          </div>
-                        )}
-                      </div>
-                    ))}
-                </div>
-              </div>
-
-              {/* Vendor Details Section */}
-              <div className="space-y-4 border-t border-gray-200 dark:border-gray-700 pt-4">
-                <h4 className="text-sm font-semibold text-gray-900 dark:text-white">Vendor Details:</h4>
-                
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                      Vendor Name <span className="text-red-500">*</span>
-                    </label>
-                    <input
-                      type="text"
-                      value={vendorName}
-                      onChange={(e) => setVendorName(e.target.value)}
-                      placeholder="Enter vendor name..."
-                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                      Contact Number
-                    </label>
-                    <input
-                      type="text"
-                      value={vendorContact}
-                      onChange={(e) => setVendorContact(e.target.value)}
-                      placeholder="Enter contact number..."
-                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                      Email Address
-                    </label>
-                    <input
-                      type="email"
-                      value={vendorEmail}
-                      onChange={(e) => setVendorEmail(e.target.value)}
-                      placeholder="vendor@example.com"
-                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                      Expected Return Date
-                    </label>
-                    <input
-                      type="date"
-                      value={expectedReturnDate}
-                      onChange={(e) => setExpectedReturnDate(e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              {/* Return Notes */}
-              <div className="border-t border-gray-200 dark:border-gray-700 pt-4">
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Return Notes (Optional)
-                </label>
-                <textarea
-                  value={returnNotes}
-                  onChange={(e) => setReturnNotes(e.target.value)}
-                  placeholder="Add notes about the vendor return..."
-                  rows={4}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm"
-                />
-              </div>
-            </div>
-
-            <div className="p-6 pt-0 flex gap-3 border-t border-gray-200 dark:border-gray-700">
-              <button
-                onClick={() => {
-                  setReturnToVendorModalOpen(false);
-                  setReturnNotes('');
-                  setVendorName('');
-                  setVendorContact('');
-                  setVendorEmail('');
-                  setExpectedReturnDate('');
-                }}
-                disabled={loading}
-                className="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-md hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors disabled:opacity-50"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleReturnToVendor}
-                disabled={loading || !vendorName.trim()}
-                className="flex-1 px-4 py-2 bg-gray-600 hover:bg-gray-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white rounded-md transition-colors flex items-center justify-center gap-2"
-              >
-                {loading ? (
-                  <>
-                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                    Processing...
-                  </>
-                ) : (
-                  <>
-                    <TruckIcon className="w-4 h-4" />
-                    Return {selectedDefectsForVendor.length} to Vendor
-                  </>
-                )}
-              </button>
-            </div>
-          </div>
-        </div>
       )}
     </div>
   );

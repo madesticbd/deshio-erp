@@ -1,8 +1,8 @@
 "use client";
 
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { useRouter } from 'next/navigation';
-import authService, { LoginCredentials, Employee } from '@/services/auth';
+import { useRouter, usePathname } from 'next/navigation';
+import authService, { LoginCredentials, Employee } from '@/services/authService';
 
 interface AuthContextType {
   user: Employee | null;
@@ -23,11 +23,39 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const [user, setUser] = useState<Employee | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const router = useRouter();
+  const pathname = usePathname();
 
   // Check if user is authenticated on mount
   useEffect(() => {
     checkAuth();
   }, []);
+
+  // Token refresh interval
+  useEffect(() => {
+    // Public routes that don't need token refresh
+    const publicRoutes = ['/login', '/signup', '/forgot-password'];
+    const isPublicRoute = publicRoutes.some(route => pathname?.startsWith(route));
+
+    // Don't run token refresh on public routes or if not authenticated
+    if (isPublicRoute || !authService.isAuthenticated()) {
+      return;
+    }
+
+    // Refresh token every 50 minutes (assuming 60min expiry)
+    const interval = setInterval(async () => {
+      try {
+        await authService.refreshToken();
+        console.log('Token refreshed successfully');
+      } catch (error) {
+        console.error('Token refresh failed:', error);
+        // If refresh fails, logout user
+        await logout();
+      }
+    }, 50 * 60 * 1000); // 50 minutes
+
+    // Cleanup interval on unmount
+    return () => clearInterval(interval);
+  }, [pathname, user]);
 
   const checkAuth = async () => {
     try {

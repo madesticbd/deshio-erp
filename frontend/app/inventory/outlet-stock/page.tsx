@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Package, Truck, CheckCircle2, AlertCircle, X } from 'lucide-react';
+import { Package, TruckIcon, CheckCircle2, AlertCircle, X } from 'lucide-react';
 import Sidebar from '@/components/Sidebar';
 import Header from '@/components/Header';
 import { useSearchParams } from 'next/navigation';
@@ -25,7 +25,6 @@ export default function DispatchManagementPage() {
   const [darkMode, setDarkMode] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [store, setStore] = useState<Store | null>(null);
-  const [currentStoreId, setCurrentStoreId] = useState<number | null>(null); // NEW
   const [stores, setStores] = useState<Store[]>([]);
   const [dispatches, setDispatches] = useState<ProductDispatch[]>([]);
   const [statistics, setStatistics] = useState<DispatchStatistics | null>(null);
@@ -129,7 +128,7 @@ export default function DispatchManagementPage() {
 
       const dispatchId = dispatchResponse.data.id;
 
-      // Add items (works with existing backend)
+      // Add items
       for (const item of data.items) {
         await dispatchService.addItem(dispatchId, {
           batch_id: parseInt(item.batch_id),
@@ -137,8 +136,7 @@ export default function DispatchManagementPage() {
         });
       }
 
-      const totalItems = data.items.reduce((sum: number, item: any) => sum + parseInt(item.quantity), 0);
-      showToast(`Dispatch created successfully with ${totalItems} item${totalItems > 1 ? 's' : ''}`, 'success');
+      showToast('Dispatch created successfully', 'success');
       setShowCreateModal(false);
       fetchDispatches();
       fetchStatistics();
@@ -299,7 +297,7 @@ export default function DispatchManagementPage() {
                   onClick={() => setShowCreateModal(true)}
                   className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium transition-colors flex items-center gap-2"
                 >
-                  <Truck className="w-4 h-4" />
+                  <TruckIcon className="w-4 h-4" />
                   Create Dispatch
                 </button>
               </div>

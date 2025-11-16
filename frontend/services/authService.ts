@@ -20,7 +20,11 @@ export interface AuthResponse {
   access_token: string;
   token_type: string;
   expires_in: number;
-  employee?: {
+}
+
+export interface SignupResponse extends AuthResponse {
+  message: string;
+  employee: {
     id: number;
     name: string;
     email: string;
@@ -31,7 +35,6 @@ export interface AuthResponse {
     department?: string;
     is_active: boolean;
   };
-  message?: string;
 }
 
 export interface Employee {
@@ -58,6 +61,17 @@ class AuthService {
     // Store token in localStorage
     if (response.data.access_token) {
       this.setAuthToken(response.data.access_token);
+      
+      // Fetch and store user data after login
+      try {
+        const user = await this.getCurrentUser();
+        this.setUserData(user);
+      } catch (error) {
+        console.error('Failed to fetch user data:', error);
+        // Clear token if we can't fetch user data
+        this.clearAuth();
+        throw error;
+      }
     }
     
     return response.data;
@@ -66,12 +80,17 @@ class AuthService {
   /**
    * Register a new employee
    */
-  async signup(data: SignupData): Promise<AuthResponse> {
-    const response = await axiosInstance.post<AuthResponse>('/signup', data);
+  async signup(data: SignupData): Promise<SignupResponse> {
+    const response = await axiosInstance.post<SignupResponse>('/signup', data);
     
-    // Store token in localStorage
+    // Store token and user data in localStorage
     if (response.data.access_token) {
       this.setAuthToken(response.data.access_token);
+      
+      // Store employee data from signup response
+      if (response.data.employee) {
+        this.setUserData(response.data.employee);
+      }
     }
     
     return response.data;
@@ -154,7 +173,7 @@ class AuthService {
   /**
    * Store user data in localStorage
    */
-  setUserData(employee: Employee): void {
+  setUserData(employee: Employee | SignupResponse['employee']): void {
     if (typeof window !== 'undefined') {
       localStorage.setItem('userId', employee.id.toString());
       localStorage.setItem('userName', employee.name);
