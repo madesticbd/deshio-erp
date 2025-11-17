@@ -7,6 +7,7 @@ import Sidebar from '@/components/Sidebar';
 import axios from '@/lib/axios';
 import storeService from '@/services/storeService';
 import productImageService from '@/services/productImageService';
+import batchService from '@/services/batchService';
 
 interface DefectItem {
   id: string;
@@ -35,7 +36,7 @@ export default function SocialCommercePage() {
   const [darkMode, setDarkMode] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [allProducts, setAllProducts] = useState<any[]>([]);
-  const [inventory, setInventory] = useState<any[]>([]);
+  const [batches, setBatches] = useState<any[]>([]);
   const [stores, setStores] = useState<any[]>([]);
   
   const [date, setDate] = useState(getTodayDate());
@@ -181,126 +182,107 @@ export default function SocialCommercePage() {
     }
   };
 
-  const fetchInventoryForStore = async (storeId: string) => {
+  // Fetch batches for the selected store
+  const fetchBatchesForStore = async (storeId: string) => {
     if (!storeId) return;
     
     try {
       setIsLoadingData(true);
-      console.log('📦 Fetching inventory for store:', storeId);
+      console.log('📦 Fetching batches for store:', storeId);
       
-      // First try: Use store-specific inventory endpoint
+      // Try method 1: getAvailableBatches
       try {
-        const response = await storeService.getStoreInventory(parseInt(storeId));
-        console.log('📦 Store inventory response:', response);
+        const batchesData = await batchService.getAvailableBatches(parseInt(storeId));
+        console.log('✅ Raw batches from getAvailableBatches:', batchesData);
         
-        let inventoryData: any[] = [];
-        
-        if (response?.success && response?.data) {
-          const rawInventory = Array.isArray(response.data) ? response.data : 
-                              Array.isArray(response.data.data) ? response.data.data : [];
+        if (batchesData && batchesData.length > 0) {
+          // Log first batch structure for debugging
+          console.log('📦 Sample raw batch structure:', batchesData[0]);
           
-          console.log('📦 Raw inventory items:', rawInventory.length);
-          
-          // Process inventory data
-          rawInventory.forEach((item: any) => {
-            // Check if this item has stores array
-            if (item.stores && Array.isArray(item.stores)) {
-              const storeData = item.stores.find((s: any) => String(s.store_id) === String(storeId));
-              
-              if (storeData && storeData.quantity > 0) {
-                console.log('✅ Found inventory for product:', item.product_name, 'Qty:', storeData.quantity, 'Price:', storeData.selling_price);
-                
-                // Get price from multiple possible sources
-                const price = storeData.selling_price || 
-                             storeData.sellingPrice || 
-                             item.selling_price || 
-                             item.price || 
-                             0;
-                
-                // Create inventory items for each unit
-                for (let i = 0; i < storeData.quantity; i++) {
-                  inventoryData.push({
-                    product_id: item.product_id,
-                    productId: item.product_id,
-                    batch_id: storeData.batch_id,
-                    batchId: storeData.batch_id,
-                    selling_price: price,
-                    sellingPrice: price,
-                    status: 'available',
-                    store_id: storeId,
-                    storeId: storeId
-                  });
-                }
-              }
-            }
+          const availableBatches = batchesData.filter(batch => {
+            console.log('🔍 Filtering batch:', {
+              id: batch.id,
+              batch_number: batch.batch_number,
+              quantity: batch.quantity,
+              availability: batch.availability,
+              is_active: batch.is_active,
+              status: batch.status
+            });
+            
+            // More lenient filtering - only check quantity > 0
+            return batch.quantity > 0;
           });
           
-          setInventory(inventoryData);
-          console.log('✅ Final inventory count:', inventoryData.length);
+          setBatches(availableBatches);
+          console.log('✅ Filtered available batches:', availableBatches.length);
+          
+          // Log first batch for debugging
+          if (availableBatches.length > 0) {
+            console.log('📦 Sample filtered batch:', availableBatches[0]);
+          } else if (batchesData.length > 0) {
+            console.log('⚠️ All batches filtered out! First batch was:', batchesData[0]);
+          }
           return;
         }
-      } catch (storeError) {
-        console.log('⚠️ Store inventory endpoint failed, trying global...');
+      } catch (err) {
+        console.warn('⚠️ getAvailableBatches failed, trying getBatchesArray...', err);
       }
       
-      // Fallback: Try global inventory endpoint filtered by store
+      // Try method 2: getBatchesArray with store filter
       try {
-        const globalResponse = await axios.get('/inventory/global');
-        console.log('🌐 Global inventory response:', globalResponse.data);
+        const batchesData = await batchService.getBatchesArray({ 
+          store_id: parseInt(storeId),
+          status: 'available'
+        });
+        console.log('✅ Raw batches from getBatchesArray:', batchesData);
         
-        let inventoryData: any[] = [];
-        
-        if (globalResponse.data?.success && globalResponse.data?.data) {
-          const allInventory = Array.isArray(globalResponse.data.data) ? globalResponse.data.data : [];
+        if (batchesData && batchesData.length > 0) {
+          const availableBatches = batchesData.filter(batch => batch.quantity > 0);
           
-          console.log('🌐 Total inventory items:', allInventory.length);
-          
-          allInventory.forEach((item: any) => {
-            if (item.stores && Array.isArray(item.stores)) {
-              const storeData = item.stores.find((s: any) => String(s.store_id) === String(storeId));
-              
-              if (storeData && storeData.quantity > 0) {
-                console.log('✅ Found inventory for product:', item.product_name, 'Qty:', storeData.quantity);
-                
-                for (let i = 0; i < storeData.quantity; i++) {
-                  inventoryData.push({
-                    product_id: item.product_id,
-                    productId: item.product_id,
-                    batch_id: storeData.batch_id,
-                    batchId: storeData.batch_id,
-                    selling_price: storeData.selling_price,
-                    sellingPrice: storeData.selling_price,
-                    status: 'available',
-                    store_id: storeId,
-                    storeId: storeId
-                  });
-                }
-              }
-            }
-          });
-          
-          setInventory(inventoryData);
-          console.log('✅ Final inventory count from global:', inventoryData.length);
+          setBatches(availableBatches);
+          console.log('✅ Filtered available batches:', availableBatches.length);
+          return;
         }
-      } catch (globalError) {
-        console.error('❌ Global inventory also failed:', globalError);
-        setInventory([]);
+      } catch (err) {
+        console.warn('⚠️ getBatchesArray failed, trying getBatchesByStore...', err);
       }
+      
+      // Try method 3: getBatchesByStore
+      try {
+        const batchesData = await batchService.getBatchesByStore(parseInt(storeId));
+        console.log('✅ Raw batches from getBatchesByStore:', batchesData);
+        
+        if (batchesData && batchesData.length > 0) {
+          const availableBatches = batchesData.filter(batch => batch.quantity > 0);
+          
+          setBatches(availableBatches);
+          console.log('✅ Filtered available batches:', availableBatches.length);
+          return;
+        }
+      } catch (err) {
+        console.error('⚠️ All batch fetch methods failed', err);
+      }
+      
+      // If we reach here, no batches found
+      setBatches([]);
+      console.log('⚠️ No batches found for store:', storeId);
       
     } catch (error: any) {
-      console.error('❌ Inventory fetch error:', error.message);
-      setInventory([]);
+      console.error('❌ Batch fetch error:', error);
+      setBatches([]);
     } finally {
       setIsLoadingData(false);
     }
   };
 
-  // Local search with primary images
+  // Local search with batches
   const performLocalSearch = async (query: string) => {
     const results: any[] = [];
     const queryLower = query.toLowerCase().trim();
     
     console.log('🔍 Local search for:', queryLower);
+    console.log('📦 Available batches count:', batches.length);
+    console.log('📦 Available products count:', allProducts.length);
 
     for (const prod of allProducts) {
       const productName = (prod.name || '').toLowerCase();
@@ -321,47 +303,51 @@ export default function SocialCommercePage() {
       }
       
       if (matches) {
-        const availableItems = inventory.filter((item: any) => {
-          const itemProductId = String(item.product_id || item.productId);
-          const prodId = String(prod.id);
-          return itemProductId === prodId && item.status === 'available';
+        console.log('✅ Product matched:', prod.name, '(ID:', prod.id, ')');
+        
+        // Find all batches for this product in the selected store
+        const productBatches = batches.filter(batch => {
+          const batchProductId = batch.product?.id || batch.product_id;
+          console.log('  Checking batch:', batch.id, 'Product ID:', batchProductId, 'vs', prod.id);
+          return batchProductId === prod.id && batch.quantity > 0;
         });
 
-        if (availableItems.length > 0) {
-          const groups: { [key: string]: { batchId: any; price: number; count: number } } = {};
+        console.log('  Found batches for', prod.name, ':', productBatches.length);
 
-          availableItems.forEach((item: any) => {
-            const bid = String(item.batch_id || item.batchId || 'default');
-            const price = item.selling_price || item.sellingPrice || prod.price || 0;
-            
-            if (!groups[bid]) {
-              groups[bid] = { batchId: bid, price: price, count: 0 };
-            }
-            groups[bid].count++;
-          });
-
-          // Fetch primary image
+        if (productBatches.length > 0) {
+          // Fetch primary image once for the product
           const imageUrl = await fetchPrimaryImage(prod.id);
 
-          for (const group of Object.values(groups)) {
+          // Create a result for each batch
+          for (const batch of productBatches) {
+            console.log('  Adding batch to results:', batch.batch_number, 'Price:', batch.sell_price, 'Qty:', batch.quantity);
             results.push({
               id: prod.id,
               name: prod.name,
               sku: prod.sku,
-              batchId: group.batchId,
+              batchId: batch.id,
+              batchNumber: batch.batch_number,
               attributes: { 
-                Price: group.price,
+               Price: Number(
+  String(batch.sell_price ?? "0").replace(/[^0-9.-]/g, "")
+),
+
                 mainImage: imageUrl
               },
-              available: group.count,
+              available: batch.quantity,
+              expiryDate: batch.expiry_date,
+              daysUntilExpiry: batch.days_until_expiry,
               relevance_score: relevanceScore,
               search_stage: 'local'
             });
           }
+        } else {
+          console.log('  ⚠️ No batches found for product:', prod.name);
         }
       }
     }
     
+    console.log('🔍 Total results found:', results.length);
     results.sort((a, b) => (b.relevance_score || 0) - (a.relevance_score || 0));
     return results;
   };
@@ -386,18 +372,26 @@ export default function SocialCommercePage() {
 
   useEffect(() => {
     if (selectedStore) {
-      fetchInventoryForStore(selectedStore);
+      fetchBatchesForStore(selectedStore);
     }
   }, [selectedStore]);
 
   useEffect(() => {
-    if (!searchQuery.trim() || !Array.isArray(inventory)) {
+    if (!searchQuery.trim() || !Array.isArray(batches)) {
       setSearchResults([]);
+      return;
+    }
+    
+    // Check if batches are loaded
+    if (batches.length === 0) {
+      console.log('⚠️ No batches available to search');
       return;
     }
 
     const delayDebounce = setTimeout(async () => {
       console.log('🔍 Searching for:', searchQuery);
+      console.log('📦 Batches available:', batches.length);
+      console.log('📦 First batch product:', batches[0]?.product);
       
       try {
         const response = await axios.post('/products/advanced-search', {
@@ -420,38 +414,39 @@ export default function SocialCommercePage() {
           const results: any[] = [];
 
           for (const prod of products) {
-            const availableItems = inventory.filter((item: any) => {
-              const itemProductId = String(item.product_id || item.productId);
-              return itemProductId === String(prod.id) && item.status === 'available';
+            console.log('  Checking product:', prod.name, 'ID:', prod.id);
+            
+            // Find all batches for this product in the selected store
+            const productBatches = batches.filter(batch => {
+              const batchProductId = batch.product?.id || batch.product_id;
+              console.log('    Comparing batch product ID:', batchProductId, 'with product ID:', prod.id, 'Match:', batchProductId === prod.id);
+              return batchProductId === prod.id && batch.quantity > 0;
             });
 
-            if (availableItems.length > 0) {
-              const groups: { [key: string]: { batchId: any; price: number; count: number } } = {};
+            console.log('  API: Product', prod.name, 'has', productBatches.length, 'batches');
 
-              availableItems.forEach((item: any) => {
-                const bid = String(item.batch_id || item.batchId || 'default');
-                const price = item.selling_price || item.sellingPrice || prod.price || 0;
-                
-                if (!groups[bid]) {
-                  groups[bid] = { batchId: bid, price: price, count: 0 };
-                }
-                groups[bid].count++;
-              });
-
-              // Fetch primary image
+            if (productBatches.length > 0) {
+              // Fetch primary image once for the product
               const imageUrl = await fetchPrimaryImage(prod.id);
 
-              for (const group of Object.values(groups)) {
+              // Create a result for each batch
+              for (const batch of productBatches) {
                 results.push({
                   id: prod.id,
                   name: prod.name,
                   sku: prod.sku,
-                  batchId: group.batchId,
+                  batchId: batch.id,
+                  batchNumber: batch.batch_number,
                   attributes: { 
-                    Price: group.price,
+                    Price: Number(
+  String(batch.sell_price ?? "0").replace(/[^0-9.-]/g, "")
+),
+
                     mainImage: imageUrl
                   },
-                  available: group.count,
+                  available: batch.quantity,
+                  expiryDate: batch.expiry_date,
+                  daysUntilExpiry: batch.days_until_expiry,
                   relevance_score: prod.relevance_score || 0,
                   search_stage: prod.search_stage || 'api'
                 });
@@ -459,6 +454,7 @@ export default function SocialCommercePage() {
             }
           }
 
+          console.log('✅ Total API results:', results.length);
           results.sort((a, b) => (b.relevance_score || 0) - (a.relevance_score || 0));
           setSearchResults(results);
           
@@ -480,7 +476,7 @@ export default function SocialCommercePage() {
     }, 300);
 
     return () => clearTimeout(delayDebounce);
-  }, [searchQuery, inventory, allProducts]);
+  }, [searchQuery, batches, allProducts]);
 
   useEffect(() => {
     if (!isInternational) {
@@ -568,10 +564,19 @@ export default function SocialCommercePage() {
       return;
     }
 
-    const price = parseFloat(String(selectedProduct.attributes?.Price || 0));
+    const price = Number(
+  String(selectedProduct.attributes?.Price ?? "0").replace(/[^0-9.-]/g, "")
+);
+
     const qty = parseInt(quantity);
     const discPer = parseFloat(discountPercent) || 0;
     const discTk = parseFloat(discountTk) || 0;
+    
+    // Check if quantity exceeds available
+    if (qty > selectedProduct.available && !selectedProduct.isDefective) {
+      alert(`Only ${selectedProduct.available} units available for this batch`);
+      return;
+    }
     
     const baseAmount = price * qty;
     const discountValue = discPer > 0 ? (baseAmount * discPer) / 100 : discTk;
@@ -581,7 +586,7 @@ export default function SocialCommercePage() {
       id: Date.now(),
       product_id: selectedProduct.id,
       batch_id: selectedProduct.batchId,
-      productName: selectedProduct.name,
+      productName: `${selectedProduct.name}${selectedProduct.batchNumber ? ` (Batch: ${selectedProduct.batchNumber})` : ''}`,
       barcode: selectedProduct.barcode,
       quantity: qty,
       unit_price: price,
@@ -721,10 +726,10 @@ export default function SocialCommercePage() {
                     ))}
                   </select>
                   {selectedStore && isLoadingData && (
-                    <p className="mt-1 text-xs text-blue-600">Loading inventory...</p>
+                    <p className="mt-1 text-xs text-blue-600">Loading batches...</p>
                   )}
-                  {selectedStore && !isLoadingData && inventory.length > 0 && (
-                    <p className="mt-1 text-xs text-green-600">{inventory.length} items in stock</p>
+                  {selectedStore && !isLoadingData && batches.length > 0 && (
+                    <p className="mt-1 text-xs text-green-600">{batches.length} batches available</p>
                   )}
                 </div>
               </div>
@@ -884,7 +889,7 @@ export default function SocialCommercePage() {
                     <div className="flex gap-2 mb-4">
                       <input
                         type="text"
-                        placeholder={!selectedStore ? "Select a store first..." : isLoadingData ? "Loading inventory..." : "Search product name..."}
+                        placeholder={!selectedStore ? "Select a store first..." : isLoadingData ? "Loading batches..." : "Search product name..."}
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
                         disabled={!selectedStore || isLoadingData}
@@ -906,7 +911,7 @@ export default function SocialCommercePage() {
 
                     {selectedStore && isLoadingData && (
                       <div className="text-center py-8 text-sm text-gray-500 dark:text-gray-400">
-                        Loading inventory for selected store...
+                        Loading batches for selected store...
                       </div>
                     )}
 
@@ -930,8 +935,16 @@ export default function SocialCommercePage() {
                               className="w-full h-24 sm:h-32 object-cover rounded mb-2" 
                             />
                             <p className="text-xs text-gray-900 dark:text-white font-medium truncate">{product.name}</p>
+                            {product.batchNumber && (
+                              <p className="text-xs text-blue-600 dark:text-blue-400 truncate">Batch: {product.batchNumber}</p>
+                            )}
                             <p className="text-xs text-gray-600 dark:text-gray-400">{product.attributes.Price} Tk</p>
                             <p className="text-xs text-green-600 dark:text-green-400 mt-1">Available: {product.available}</p>
+                            {product.daysUntilExpiry !== null && product.daysUntilExpiry < 30 && (
+                              <p className="text-xs text-orange-600 dark:text-orange-400 mt-1">
+                                Expires in {product.daysUntilExpiry} days
+                              </p>
+                            )}
                           </div>
                         ))}
                       </div>
@@ -956,6 +969,9 @@ export default function SocialCommercePage() {
                           </button>
                         </div>
                         <p className="text-sm font-medium text-gray-900 dark:text-white">{selectedProduct.name}</p>
+                        {selectedProduct.batchNumber && (
+                          <p className="text-sm text-blue-600 dark:text-blue-400">Batch: {selectedProduct.batchNumber}</p>
+                        )}
                         <p className="text-sm text-gray-600 dark:text-gray-400">Price: {selectedProduct.attributes.Price} Tk</p>
                         <p className="text-sm text-green-600 dark:text-green-400">Available: {selectedProduct.available}</p>
                       </div>
@@ -971,6 +987,7 @@ export default function SocialCommercePage() {
                           onChange={(e) => setQuantity(e.target.value)}
                           disabled={!selectedProduct || selectedProduct?.isDefective}
                           min="1"
+                          max={selectedProduct?.available || 1}
                           className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white disabled:opacity-50"
                         />
                       </div>

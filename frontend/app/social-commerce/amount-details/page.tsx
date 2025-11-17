@@ -36,10 +36,42 @@ export default function AmountDetailsPage() {
     return `${day}-${month}-${year}`;
   };
 
+  // Helper function to calculate item amount
+  const calculateItemAmount = (item: any): number => {
+    if (item.amount !== undefined && item.amount !== null) {
+      return parseFloat(item.amount);
+    }
+    
+    // Calculate from unit_price and quantity
+    const unitPrice = parseFloat(item.unit_price || 0);
+    const quantity = parseInt(item.quantity || 0);
+    const discountAmount = parseFloat(item.discount_amount || 0);
+    
+    return (unitPrice * quantity) - discountAmount;
+  };
+
   useEffect(() => {
     const storedOrder = sessionStorage.getItem('pendingOrder');
     if (storedOrder) {
-      setOrderData(JSON.parse(storedOrder));
+      const parsedOrder = JSON.parse(storedOrder);
+      console.log('📦 Loaded order data:', parsedOrder);
+      
+      // Ensure all items have amount calculated
+      if (parsedOrder.items) {
+        parsedOrder.items = parsedOrder.items.map((item: any) => ({
+          ...item,
+          amount: calculateItemAmount(item)
+        }));
+        
+        // Recalculate subtotal if needed
+        if (!parsedOrder.subtotal || parsedOrder.subtotal === 0) {
+          parsedOrder.subtotal = parsedOrder.items.reduce((sum: number, item: any) => 
+            sum + calculateItemAmount(item), 0
+          );
+        }
+      }
+      
+      setOrderData(parsedOrder);
     } else {
       window.location.href = '/social-commerce';
     }
@@ -74,7 +106,7 @@ export default function AmountDetailsPage() {
   }
 
   const subtotal = orderData.subtotal || 0;
-  const totalDiscount = orderData.items?.reduce((sum: number, item: any) => sum + (item.discount_amount || 0), 0) || 0;
+  const totalDiscount = orderData.items?.reduce((sum: number, item: any) => sum + (parseFloat(item.discount_amount) || 0), 0) || 0;
   const vat = (subtotal * parseFloat(vatRate)) / 100;
   const transport = parseFloat(transportCost) || 0;
   const total = subtotal + vat + transport;
@@ -223,33 +255,41 @@ export default function AmountDetailsPage() {
                   <div className="mb-4">
                     <p className="text-sm font-medium text-gray-900 dark:text-white mb-3">Products ({orderData.items?.length || 0})</p>
                     <div className="space-y-2 max-h-60 md:max-h-80 overflow-y-auto">
-                      {orderData.items?.map((item: any, index: number) => (
-                        <div key={index} className={`flex justify-between items-center p-2 rounded ${
-                          item.isDefective 
-                            ? 'bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-700' 
-                            : 'bg-gray-50 dark:bg-gray-700'
-                        }`}>
-                          <div className="min-w-0 flex-1">
-                            <p className="text-sm text-gray-900 dark:text-white truncate">
-                              {item.productName}
-                              {item.isDefective && (
-                                <span className="ml-2 px-2 py-0.5 bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400 text-xs rounded">
-                                  Defective
-                                </span>
-                              )}
-                            </p>
-                            <p className="text-xs text-gray-600 dark:text-gray-400">
-                              Qty: {item.quantity} × {item.unit_price.toFixed(2)} Tk
-                            </p>
-                            {item.barcode && (
-                              <p className="text-xs text-gray-500 dark:text-gray-400 font-mono">
-                                Barcode: {item.barcode}
+                      {orderData.items?.map((item: any, index: number) => {
+                        const itemAmount = calculateItemAmount(item);
+                        return (
+                          <div key={index} className={`flex justify-between items-center p-2 rounded ${
+                            item.isDefective 
+                              ? 'bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-700' 
+                              : 'bg-gray-50 dark:bg-gray-700'
+                          }`}>
+                            <div className="min-w-0 flex-1">
+                              <p className="text-sm text-gray-900 dark:text-white truncate">
+                                {item.productName}
+                                {item.isDefective && (
+                                  <span className="ml-2 px-2 py-0.5 bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400 text-xs rounded">
+                                    Defective
+                                  </span>
+                                )}
                               </p>
-                            )}
+                              <p className="text-xs text-gray-600 dark:text-gray-400">
+                                Qty: {item.quantity} × {parseFloat(item.unit_price || 0).toFixed(2)} Tk
+                              </p>
+                              {item.discount_amount > 0 && (
+                                <p className="text-xs text-red-600 dark:text-red-400">
+                                  Discount: -{parseFloat(item.discount_amount).toFixed(2)} Tk
+                                </p>
+                              )}
+                              {item.barcode && (
+                                <p className="text-xs text-gray-500 dark:text-gray-400 font-mono">
+                                  Barcode: {item.barcode}
+                                </p>
+                              )}
+                            </div>
+                            <p className="text-sm font-medium text-gray-900 dark:text-white ml-2">{itemAmount.toFixed(2)} Tk</p>
                           </div>
-                          <p className="text-sm font-medium text-gray-900 dark:text-white ml-2">{item.amount.toFixed(2)} Tk</p>
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   </div>
 
