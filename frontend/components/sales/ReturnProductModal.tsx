@@ -1,6 +1,20 @@
 import { useState } from 'react';
 import { X, RotateCcw, Calculator, ChevronDown } from 'lucide-react';
 
+interface OrderItem {
+  id: number;
+  product_id: number;
+  product_name: string;
+  product_sku: string;
+  batch_id: number;
+  batch_number?: string;
+  barcode_id?: number;
+  barcode?: string;
+  quantity: number;
+  unit_price: string;
+  total_amount: string;
+}
+
 interface Order {
   id: number;
   order_number: string;
@@ -8,20 +22,14 @@ interface Order {
     name: string;
     phone: string;
   };
-  items: Array<{
-    id: number;
-    product_id: number;
-    product_name: string;
-    quantity: number;
-    unit_price: string;
-    total_price: string;
-  }>;
+  items: OrderItem[];
   total_amount: string;
   paid_amount: string;
   outstanding_amount: string;
 }
 
-type ReturnType = 'defective' | 'damaged' | 'wrong_item' | 'unwanted' | 'other';
+type ReturnReason = 'defective_product' | 'wrong_item' | 'not_as_described' | 'customer_dissatisfaction' | 'size_issue' | 'color_issue' | 'quality_issue' | 'late_delivery' | 'changed_mind' | 'duplicate_order' | 'other';
+type ReturnType = 'customer_return' | 'store_return' | 'warehouse_return';
 
 interface ReturnProductModalProps {
   order: Order;
@@ -30,6 +38,7 @@ interface ReturnProductModalProps {
     selectedProducts: Array<{ 
       order_item_id: number; 
       quantity: number;
+      product_barcode_id?: number;
     }>;
     refundMethods: {
       cash: number;
@@ -38,8 +47,9 @@ interface ReturnProductModalProps {
       nagad: number;
       total: number;
     };
-    returnReason: string;
+    returnReason: ReturnReason;
     returnType: ReturnType;
+    customerNotes?: string;
   }) => Promise<void>;
 }
 
@@ -49,8 +59,9 @@ export default function ReturnProductModal({ order, onClose, onReturn }: ReturnP
   const [isProcessing, setIsProcessing] = useState(false);
   
   // Return info
-  const [returnType, setReturnType] = useState<ReturnType>('defective');
-  const [returnReason, setReturnReason] = useState('');
+  const [returnReason, setReturnReason] = useState<ReturnReason>('other');
+  const [returnType, setReturnType] = useState<ReturnType>('customer_return');
+  const [customerNotes, setCustomerNotes] = useState('');
 
   // Refund payment states
   const [refundCash, setRefundCash] = useState(0);
@@ -70,6 +81,26 @@ export default function ReturnProductModal({ order, onClose, onReturn }: ReturnP
   const [note5, setNote5] = useState(0);
   const [note2, setNote2] = useState(0);
   const [note1, setNote1] = useState(0);
+
+  const returnReasonOptions: Array<{ value: ReturnReason; label: string }> = [
+    { value: 'defective_product', label: 'Defective Product' },
+    { value: 'wrong_item', label: 'Wrong Item' },
+    { value: 'not_as_described', label: 'Not As Described' },
+    { value: 'customer_dissatisfaction', label: 'Customer Dissatisfaction' },
+    { value: 'size_issue', label: 'Size Issue' },
+    { value: 'color_issue', label: 'Color Issue' },
+    { value: 'quality_issue', label: 'Quality Issue' },
+    { value: 'late_delivery', label: 'Late Delivery' },
+    { value: 'changed_mind', label: 'Changed Mind' },
+    { value: 'duplicate_order', label: 'Duplicate Order' },
+    { value: 'other', label: 'Other' },
+  ];
+
+  const returnTypeOptions: Array<{ value: ReturnType; label: string }> = [
+    { value: 'customer_return', label: 'Customer Return' },
+    { value: 'store_return', label: 'Store Return' },
+    { value: 'warehouse_return', label: 'Warehouse Return' },
+  ];
 
   const handleProductCheckbox = (productId: number) => {
     setSelectedProducts(prev => {
@@ -119,17 +150,6 @@ export default function ReturnProductModal({ order, onClose, onReturn }: ReturnP
   const totalRefundProcessed = effectiveRefundCash + refundCard + refundBkash + refundNagad;
   const remainingRefund = totals.refundToCustomer - totalRefundProcessed;
 
-  const getReturnTypeLabel = (type: ReturnType): string => {
-    const labels: Record<ReturnType, string> = {
-      defective: 'Defective - Manufacturing defect',
-      damaged: 'Damaged - Damaged during shipping',
-      wrong_item: 'Wrong Item - Wrong product sent',
-      unwanted: 'Unwanted - Customer changed mind',
-      other: 'Other - Other reason',
-    };
-    return labels[type];
-  };
-
   const handleProcessReturn = async () => {
     if (selectedProducts.length === 0) {
       alert('Please select at least one product to return');
@@ -146,14 +166,9 @@ export default function ReturnProductModal({ order, onClose, onReturn }: ReturnP
       return;
     }
 
-    if (!returnReason.trim()) {
-      alert('Please enter a return reason');
-      return;
-    }
-
     let confirmMessage = `Process return?\n\n`;
-    confirmMessage += `Return Type: ${getReturnTypeLabel(returnType)}\n`;
-    confirmMessage += `Return Reason: ${returnReason}\n\n`;
+    confirmMessage += `Return Reason: ${returnReasonOptions.find(r => r.value === returnReason)?.label}\n`;
+    confirmMessage += `Return Type: ${returnTypeOptions.find(t => t.value === returnType)?.label}\n\n`;
     
     if (totals.refundToCustomer > 0) {
       if (remainingRefund > 0) {
@@ -169,11 +184,18 @@ export default function ReturnProductModal({ order, onClose, onReturn }: ReturnP
 
     setIsProcessing(true);
     try {
-      await onReturn({
-        selectedProducts: selectedProducts.map(id => ({
+      // Map selected products with barcode IDs
+      const selectedProductsWithBarcodes = selectedProducts.map(id => {
+        const product = order.items.find(p => p.id === id);
+        return {
           order_item_id: id,
           quantity: returnedQuantities[id],
-        })),
+          product_barcode_id: product?.barcode_id, // Include barcode ID if available
+        };
+      });
+
+      await onReturn({
+        selectedProducts: selectedProductsWithBarcodes,
         refundMethods: {
           cash: effectiveRefundCash,
           card: refundCard,
@@ -183,6 +205,7 @@ export default function ReturnProductModal({ order, onClose, onReturn }: ReturnP
         },
         returnReason,
         returnType,
+        customerNotes: customerNotes.trim() || undefined,
       });
     } catch (error: any) {
       console.error('Return failed:', error);
@@ -251,19 +274,29 @@ export default function ReturnProductModal({ order, onClose, onReturn }: ReturnP
                       onChange={(e) => setReturnType(e.target.value as ReturnType)}
                       className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                     >
-                      <option value="defective">Defective - Manufacturing defect</option>
-                      <option value="damaged">Damaged - Damaged during shipping</option>
-                      <option value="wrong_item">Wrong Item - Wrong product sent</option>
-                      <option value="unwanted">Unwanted - Customer changed mind</option>
-                      <option value="other">Other - Other reason</option>
+                      {returnTypeOptions.map(option => (
+                        <option key={option.value} value={option.value}>{option.label}</option>
+                      ))}
                     </select>
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Return Reason</label>
-                    <textarea
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Return Reason *</label>
+                    <select
                       value={returnReason}
-                      onChange={(e) => setReturnReason(e.target.value)}
-                      placeholder="Enter detailed reason for return..."
+                      onChange={(e) => setReturnReason(e.target.value as ReturnReason)}
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                    >
+                      {returnReasonOptions.map(option => (
+                        <option key={option.value} value={option.value}>{option.label}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Customer Notes (Optional)</label>
+                    <textarea
+                      value={customerNotes}
+                      onChange={(e) => setCustomerNotes(e.target.value)}
+                      placeholder="Additional notes from customer..."
                       rows={3}
                       className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white resize-none"
                     />
@@ -289,7 +322,24 @@ export default function ReturnProductModal({ order, onClose, onReturn }: ReturnP
                           />
                           <div className="flex-1">
                             <div className="flex items-center justify-between mb-2">
-                              <p className="font-medium text-gray-900 dark:text-white">{product.product_name}</p>
+                              <div>
+                                <p className="font-medium text-gray-900 dark:text-white">{product.product_name}</p>
+                                <div className="flex items-center gap-3 mt-1">
+                                  <span className="text-xs text-gray-500 dark:text-gray-400 font-mono">
+                                    SKU: {product.product_sku || 'N/A'}
+                                  </span>
+                                  {product.batch_number && (
+                                    <span className="text-xs text-gray-500 dark:text-gray-400">
+                                      Batch: {product.batch_number}
+                                    </span>
+                                  )}
+                                  {product.barcode && (
+                                    <span className="text-xs bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 px-2 py-0.5 rounded font-mono">
+                                      🏷️ {product.barcode}
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
                               <p className="font-bold text-gray-900 dark:text-white">
                                 ৳{(parseFloat(String(product.unit_price).replace(/[^0-9.-]/g, '')) * product.quantity).toFixed(2)}
                               </p>
@@ -306,14 +356,15 @@ export default function ReturnProductModal({ order, onClose, onReturn }: ReturnP
                                     <input type="number" value={product.quantity} readOnly className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-700 rounded-lg bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-white" />
                                   </div>
                                   <div>
-                                    <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Return Qty</label>
+                                    <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Return Qty *</label>
                                     <input
                                       type="number"
-                                      min="0"
+                                      min="1"
                                       max={product.quantity}
-                                      value={returnedQuantities[product.id] || 0}
+                                      value={returnedQuantities[product.id] || ''}
                                       onChange={(e) => handleQuantityChange(product.id, parseInt(e.target.value) || 0, product.quantity)}
                                       className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:ring-2 focus:ring-red-500 outline-none"
+                                      placeholder="Enter qty"
                                     />
                                   </div>
                                 </div>
@@ -401,7 +452,7 @@ export default function ReturnProductModal({ order, onClose, onReturn }: ReturnP
                       ) : (
                         <div>
                           <label className="block text-xs text-gray-700 dark:text-gray-300 mb-1">Cash Refund</label>
-                          <input type="number" value={cashFromNotes > 0 ? cashFromNotes : refundCash} onChange={(e) => { setRefundCash(Number(e.target.value)); setNote1000(0); setNote500(0); setNote200(0); setNote100(0); setNote50(0); setNote20(0); setNote10(0); setNote5(0); setNote2(0); setNote1(0); }} className="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm" />
+                          <input type="number" min="0" value={cashFromNotes > 0 ? cashFromNotes : refundCash} onChange={(e) => { setRefundCash(Number(e.target.value)); setNote1000(0); setNote500(0); setNote200(0); setNote100(0); setNote50(0); setNote20(0); setNote10(0); setNote5(0); setNote2(0); setNote1(0); }} className="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm" />
                         </div>
                       )}
                     </div>
@@ -409,15 +460,15 @@ export default function ReturnProductModal({ order, onClose, onReturn }: ReturnP
                     <div className="grid grid-cols-2 gap-2">
                       <div>
                         <label className="block text-xs text-gray-700 dark:text-gray-300 mb-1">Card Refund</label>
-                        <input type="number" value={refundCard} onChange={(e) => setRefundCard(Number(e.target.value))} className="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm" />
+                        <input type="number" min="0" value={refundCard} onChange={(e) => setRefundCard(Number(e.target.value))} className="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm" />
                       </div>
                       <div>
                         <label className="block text-xs text-gray-700 dark:text-gray-300 mb-1">Bkash Refund</label>
-                        <input type="number" value={refundBkash} onChange={(e) => setRefundBkash(Number(e.target.value))} className="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm" />
+                        <input type="number" min="0" value={refundBkash} onChange={(e) => setRefundBkash(Number(e.target.value))} className="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm" />
                       </div>
                       <div className="col-span-2">
                         <label className="block text-xs text-gray-700 dark:text-gray-300 mb-1">Nagad Refund</label>
-                        <input type="number" value={refundNagad} onChange={(e) => setRefundNagad(Number(e.target.value))} className="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm" />
+                        <input type="number" min="0" value={refundNagad} onChange={(e) => setRefundNagad(Number(e.target.value))} className="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm" />
                       </div>
                     </div>
                     

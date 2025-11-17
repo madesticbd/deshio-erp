@@ -152,7 +152,7 @@ class DefectIntegrationService {
         severity: formData.severity,
         original_price: originalPrice,
         product_batch_id: batchId,
-        defect_images: formData.defect_images, // Pass File[] directly
+        defect_images: formData.defect_images,
         internal_notes: formData.internal_notes,
       });
       
@@ -183,6 +183,71 @@ class DefectIntegrationService {
     }
   }
 
+  async inspectDefect(
+    id: string | number, 
+    data: {
+      severity?: 'minor' | 'moderate' | 'major' | 'critical';
+      internal_notes?: string;
+    }
+  ): Promise<DefectiveProduct> {
+    try {
+      console.log(`🔍 Inspecting defect ${id}...`);
+      console.log('Inspection data:', data);
+      
+      const response = await axiosInstance.post(`/defective-products/${id}/inspect`, data);
+      
+      console.log('Inspect response:', response.data);
+      
+      if (!response.data.success) {
+        throw new Error(response.data.message || 'Failed to inspect defect');
+      }
+      
+      console.log('✅ Defect inspected successfully');
+      return response.data.data;
+      
+    } catch (error: any) {
+      console.error('❌ Inspect defect error:', error);
+      console.error('Response:', error.response?.data);
+      
+      throw new Error(
+        error.response?.data?.message || 
+        error.message || 
+        'Failed to inspect defect'
+      );
+    }
+  }
+
+  /**
+   * Make defective product available for sale
+   * This activates the barcode so it can be sold
+   */
+  async makeAvailableForSale(id: string | number): Promise<DefectiveProduct> {
+    try {
+      console.log(`📦 Making defect ${id} available for sale...`);
+      
+      const response = await axiosInstance.post(`/defective-products/${id}/make-available`);
+      
+      console.log('Make available response:', response.data);
+      
+      if (!response.data.success) {
+        throw new Error(response.data.message || 'Failed to make available');
+      }
+      
+      console.log('✅ Defect made available for sale');
+      return response.data.data;
+      
+    } catch (error: any) {
+      console.error('❌ Make available error:', error);
+      console.error('Response data:', error.response?.data);
+      
+      const errorMessage = error.response?.data?.message || 
+                          error.message || 
+                          'Failed to make product available for sale';
+      
+      throw new Error(errorMessage);
+    }
+  }
+
   /**
    * Get product barcode ID from barcode string
    * This method queries the backend to get the actual product_barcode record ID
@@ -205,7 +270,6 @@ class DefectIntegrationService {
       }
 
       // Alternative: Try to get from product barcodes if we have product_id
-      // This is a fallback approach
       const scanResult = await barcodeService.scanBarcode(barcode);
       if (scanResult.success && scanResult.data.product?.id) {
         const productBarcodesResponse = await barcodeService.getProductBarcodes(scanResult.data.product.id);
@@ -227,6 +291,54 @@ class DefectIntegrationService {
   }
 
   /**
+ * Sell a defective product
+ * This is the CORRECT method that matches your backend
+ */
+async sellDefectiveProduct(data: {
+  defective_product_id: number;
+  order_id: number;
+  selling_price: number;
+  sale_notes?: string;
+}) {
+  try {
+    console.log('💰 Selling defective product:', data);
+    
+    // ✅ The API expects these exact fields
+    const payload = {
+      order_id: data.order_id,
+      selling_price: data.selling_price,
+      sale_notes: data.sale_notes,
+    };
+
+    console.log('📤 Sending to API:', payload);
+    
+    const response = await axiosInstance.post(
+      `/defective-products/${data.defective_product_id}/sell`,
+      payload
+    );
+
+    console.log('📥 API Response:', response.data);
+
+    if (!response.data.success) {
+      throw new Error(response.data.message || 'Failed to sell defective product');
+    }
+
+    console.log('✅ Defective product sold successfully');
+    return response.data.data;
+    
+  } catch (error: any) {
+    console.error('❌ Sell defective product error:', error);
+    console.error('Response:', error.response?.data);
+    
+    throw new Error(
+      error.response?.data?.message || 
+      error.message || 
+      'Failed to sell defective product'
+    );
+  }
+}
+
+  /**
    * Get all defective products with filtering
    */
   async getDefectiveProducts(filters?: DefectiveProductFilters) {
@@ -241,6 +353,28 @@ class DefectIntegrationService {
     } catch (error: any) {
       console.error('Get defective products error:', error);
       throw new Error(error.message || 'Failed to fetch defective products');
+    }
+  }
+
+  /**
+   * Get a single defective product by ID
+   * Used to fetch complete details including batch_id before selling
+   */
+  async getDefectiveById(id: string | number): Promise<DefectiveProduct> {
+    try {
+      console.log(`📋 Fetching defective product details for ID: ${id}`);
+      
+      const result = await defectiveProductService.getById(Number(id));
+      
+      if (!result.success) {
+        throw new Error(result.message || 'Defective product not found');
+      }
+
+      console.log('✅ Defective product details:', result.data);
+      return result.data;
+    } catch (error: any) {
+      console.error('Get defective product error:', error);
+      throw new Error(error.response?.data?.message || error.message || 'Failed to fetch defective product');
     }
   }
 
@@ -267,24 +401,36 @@ class DefectIntegrationService {
   }
 
   /**
-   * Sell a defective product
+   * Mark defective item as sold (called after order completion)
+   * This is used when selling defective items through POS or Social Commerce
    */
-  async sellDefectiveProduct(data: SellDefectiveData) {
+  async markDefectiveAsSold(
+    defectId: string | number, 
+    saleDetails: {
+      order_id: number;
+      selling_price: number;
+      sale_notes?: string;
+      sold_at?: string;
+    }
+  ) {
     try {
-      const result = await defectiveProductService.sell(data.defective_product_id, {
-        order_id: data.order_id,
-        selling_price: data.selling_price,
-        sale_notes: data.sale_notes,
+      console.log(`📋 Marking defective product ${defectId} as sold...`, saleDetails);
+      
+      const result = await defectiveProductService.sell(Number(defectId), {
+        order_id: saleDetails.order_id,
+        selling_price: saleDetails.selling_price,
+        sale_notes: `Sold via POS/Commerce at ${saleDetails.sold_at || new Date().toISOString()}`,
       });
 
       if (!result.success) {
-        throw new Error(result.message || 'Failed to sell defective product');
+        throw new Error(result.message || 'Failed to mark defective item as sold');
       }
 
+      console.log(`✅ Defective product ${defectId} marked as sold successfully`);
       return result.data;
     } catch (error: any) {
-      console.error('Sell defective product error:', error);
-      throw new Error(error.message || 'Failed to sell defective product');
+      console.error(`❌ Error marking defective ${defectId} as sold:`, error);
+      throw new Error(error.response?.data?.message || error.message || 'Failed to mark defective item as sold');
     }
   }
 
@@ -296,16 +442,12 @@ class DefectIntegrationService {
   async searchCustomerOrders(searchType: 'phone' | 'orderId', searchValue: string): Promise<Order[]> {
     try {
       if (searchType === 'phone') {
-        // Search by customer phone
         const result = await orderService.getAll({
           search: searchValue,
           per_page: 50,
         });
-        
-        // Return the data array from the paginated response
         return result.data;
       } else {
-        // Get single order by ID
         const order = await orderService.getById(parseInt(searchValue));
         return [order];
       }
@@ -320,7 +462,6 @@ class DefectIntegrationService {
    */
   async createCustomerReturn(formData: CustomerReturnFormData): Promise<ProductReturn> {
     try {
-      // Validate barcodes first
       const validation = await barcodeOrderMapper.validateBarcodesForReturn(
         formData.order_id,
         formData.selected_barcodes
@@ -334,7 +475,6 @@ class DefectIntegrationService {
         console.warn('Barcode validation warnings:', validation.warnings);
       }
 
-      // Convert validated barcodes to return items
       const returnItems = barcodeOrderMapper.convertToReturnItems(
         validation.mapped_items,
         formData.return_reason
@@ -344,7 +484,6 @@ class DefectIntegrationService {
         throw new Error('No valid items found for return');
       }
 
-      // Create return request
       const returnRequest: CreateReturnRequest = {
         order_id: formData.order_id,
         return_reason: formData.return_reason,
@@ -363,7 +502,6 @@ class DefectIntegrationService {
       }
 
       // After creating the return, mark each barcode as defective
-      // This integrates the return with the defect system
       for (const barcode of formData.selected_barcodes) {
         try {
           await this.markAsDefective({
@@ -377,7 +515,6 @@ class DefectIntegrationService {
           });
         } catch (error) {
           console.error(`Failed to mark barcode ${barcode} as defective:`, error);
-          // Continue even if marking as defective fails
         }
       }
 
@@ -419,14 +556,12 @@ class DefectIntegrationService {
 
       const returnData = returnResult.data;
 
-      // Get all refunds for this return
       const refundsResult = await refundService.getAll({
         search: returnData.return_number,
       });
 
       const refunds: Refund[] = refundsResult.success ? (refundsResult.data.data || []) : [];
 
-      // Calculate totals
       const totalRefunded = refunds
         .filter((r: Refund) => r.status === 'completed')
         .reduce((sum: number, r: Refund) => sum + parseFloat(r.refund_amount.toString()), 0);
@@ -458,7 +593,6 @@ class DefectIntegrationService {
     restore_inventory?: boolean;
   }) {
     try {
-      // Step 1: Quality Check
       await productReturnService.update(returnId, {
         quality_check_passed: options.quality_check_passed,
         quality_check_notes: options.quality_check_notes,
@@ -469,19 +603,16 @@ class DefectIntegrationService {
         throw new Error('Quality check failed. Cannot proceed with return.');
       }
 
-      // Step 2: Approve
       await productReturnService.approve(returnId, {
         total_refund_amount: options.total_refund_amount,
         processing_fee: options.processing_fee,
         internal_notes: options.internal_notes,
       });
 
-      // Step 3: Process (restore inventory)
       await productReturnService.process(returnId, {
         restore_inventory: options.restore_inventory ?? true,
       });
 
-      // Step 4: Complete
       const result = await productReturnService.complete(returnId);
 
       if (!result.success) {
@@ -524,10 +655,8 @@ class DefectIntegrationService {
     gateway_reference?: string;
   }) {
     try {
-      // Step 1: Process refund
       await refundService.process(refundId);
 
-      // Step 2: Complete refund
       const result = await refundService.complete(refundId, transactionDetails);
 
       if (!result.success) {
@@ -577,17 +706,14 @@ class DefectIntegrationService {
     payment_method_id: number;
   }) {
     try {
-      // Step 1: Create return for old product
       const returnResult = await this.createCustomerReturn(exchangeData.return_data);
 
-      // Step 2: Process return workflow (quality check, approve, process, complete)
       await this.processReturnWorkflow(returnResult.id, {
         quality_check_passed: true,
         quality_check_notes: 'Exchange - Quality approved',
         restore_inventory: true,
       });
 
-      // Step 3: Create full refund
       const refund = await this.createRefund({
         return_id: returnResult.id,
         refund_type: 'full',
@@ -595,12 +721,10 @@ class DefectIntegrationService {
         internal_notes: 'Exchange refund',
       });
 
-      // Step 4: Process refund
       await this.processAndCompleteRefund(refund.id, {
         transaction_reference: `EXCHANGE-${returnResult.return_number}`,
       });
 
-      // Step 5: Create new order for exchange item
       const newOrder = await orderService.create({
         order_type: 'counter',
         store_id: exchangeData.store_id,
@@ -617,7 +741,6 @@ class DefectIntegrationService {
         notes: `Exchange - Original return: ${returnResult.return_number}`,
       });
 
-      // Step 6: Complete new order
       await orderService.complete(newOrder.id);
 
       return {

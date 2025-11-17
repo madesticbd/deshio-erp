@@ -1,15 +1,78 @@
+
 'use client';
 
 import { useState, useEffect } from 'react';
 import { Search, ChevronDown, ChevronUp, Trash2, MoreVertical, ArrowRightLeft, RotateCcw } from 'lucide-react';
 import Header from '@/components/Header';
 import Sidebar from '@/components/Sidebar';
-import orderService, { type Order, type OrderFilters } from '@/services/orderService';
+import orderService, { type OrderFilters } from '@/services/orderService';
 import productReturnService, { type CreateReturnRequest } from '@/services/productReturnService';
 import refundService, { type CreateRefundRequest } from '@/services/refundService';
 import ReturnProductModal from '@/components/sales/ReturnProductModal';
 import ExchangeProductModal from '@/components/sales/ExchangeProductModal';
 import axiosInstance from '@/lib/axios';
+
+// Extended Order interface with product_barcode_id
+interface OrderItem {
+  id: number;
+  product_id: number;
+  product_name: string;
+  product_sku: string;
+  batch_number?: string;
+  product_barcode_id?: number;
+  quantity: number;
+  unit_price: string;
+  discount_amount: string;
+  tax_amount: string;
+  total_amount: string;
+  total_price: string;
+}
+
+interface Order {
+  id: number;
+  order_number: string;
+  order_type: string;
+  order_type_label: string;
+  status: string;
+  payment_status: string;
+  customer?: {
+    id: number;
+    name: string;
+    phone: string;
+    email?: string;
+    customer_code: string;
+  };
+  store: {
+    id: number;
+    name: string;
+  };
+  salesman?: {
+    id: number;
+    name: string;
+  };
+  subtotal: string;
+  subtotal_amount: string;
+  tax_amount: string;
+  discount_amount: string;
+  shipping_amount: string;
+  shipping_cost: string;
+  total_amount: string;
+  paid_amount: string;
+  outstanding_amount: string;
+  is_installment: boolean;
+  order_date: string;
+  created_at: string;
+  items?: OrderItem[];
+  payments?: Array<{
+    id: number;
+    amount: string;
+    payment_method: string;
+    payment_type: string;
+    status: string;
+    processed_by?: string;
+    created_at: string;
+  }>;
+}
 
 interface Store {
   id: number;
@@ -188,183 +251,217 @@ export default function PurchaseHistoryPage() {
     setShowExchangeModal(true);
   };
 
+// Updated handleReturnSubmit function for PurchaseHistoryPage.tsx
+// Replace the existing handleReturnSubmit function with this:
+
 const handleReturnSubmit = async (returnData: {
-    selectedProducts: Array<{ 
-      order_item_id: number; 
-      quantity: number;
-    }>;
-    refundMethods: {
-      cash: number;
-      card: number;
-      bkash: number;
-      nagad: number;
-      total: number;
-    };
-    returnReason: string;
-    returnType: 'defective' | 'damaged' | 'wrong_item' | 'unwanted' | 'other';
-  }) => {
-    try {
-      if (!selectedOrderForAction) return;
-
-      // Step 1: Create product return
-      const returnRequest: CreateReturnRequest = {
-        order_id: selectedOrderForAction.id,
-        return_reason: returnData.returnReason,
-        return_type: returnData.returnType,
-        items: returnData.selectedProducts,  // ✅ Already correct - no reason field
-        customer_notes: 'Customer initiated return',
-      };
-
-      const returnResponse = await productReturnService.create(returnRequest);
-      const returnId = returnResponse.data.id;
-
-      // Step 2: Auto-approve the return (quality check passed)
-      await productReturnService.update(returnId, {
-        quality_check_passed: true,
-        quality_check_notes: 'Auto-approved via POS',
-      });
-
-      await productReturnService.approve(returnId, {
-        internal_notes: 'Approved via POS system',
-      });
-
-      // Step 3: Process return (restore inventory)
-      await productReturnService.process(returnId, {
-        restore_inventory: true,
-      });
-
-      // Step 4: Complete return
-      await productReturnService.complete(returnId);
-
-      // Step 5: Create refund if there's a refund amount
-      if (returnData.refundMethods.total > 0) {
-        const refundRequest: CreateRefundRequest = {
-          return_id: returnId,
-          refund_type: 'full',
-          refund_method: 'cash', // Primary method
-          refund_method_details: {
-            cash: returnData.refundMethods.cash,
-            card: returnData.refundMethods.card,
-            bkash: returnData.refundMethods.bkash,
-            nagad: returnData.refundMethods.nagad,
-          },
-          internal_notes: 'Refund processed via POS',
-        };
-
-        const refundResponse = await refundService.create(refundRequest);
-        const refundId = refundResponse.data.id;
-
-        // Process and complete refund
-        await refundService.process(refundId);
-        await refundService.complete(refundId, {
-          transaction_reference: `POS-REFUND-${Date.now()}`,
-        });
-      }
-
-      // Refresh orders
-      await fetchOrders(userRole, userStoreId);
-      
-      alert('Return processed successfully!');
-      setShowReturnModal(false);
-      setSelectedOrderForAction(null);
-    } catch (error: any) {
-      console.error('Return processing failed:', error);
-      const errorMsg = error.response?.data?.message || error.message || 'Failed to process return';
-      alert(`Error: ${errorMsg}`);
-    }
+  selectedProducts: Array<{ 
+    order_item_id: number; 
+    quantity: number;
+    product_barcode_id?: number;
+  }>;
+  refundMethods: {
+    cash: number;
+    card: number;
+    bkash: number;
+    nagad: number;
+    total: number;
   };
+  returnReason: 'defective_product' | 'wrong_item' | 'not_as_described' | 'customer_dissatisfaction' | 'size_issue' | 'color_issue' | 'quality_issue' | 'late_delivery' | 'changed_mind' | 'duplicate_order' | 'other';
+  returnType: 'customer_return' | 'store_return' | 'warehouse_return';
+  customerNotes?: string;
+}) => {
+  try {
+    if (!selectedOrderForAction) return;
 
-const handleExchangeSubmit = async (exchangeData: {
-    removedProducts: Array<{
-      order_item_id: number;
-      quantity: number;
-    }>;
-    replacementProducts: Array<{
-      product_id: number;
-      batch_id: number;
-      quantity: number;
-      unit_price: number;
-    }>;
-    paymentRefund: {
-      type: 'payment' | 'refund' | 'none';
-      cash: number;
-      card: number;
-      bkash: number;
-      nagad: number;
-      total: number;
+    console.log('🔄 Processing return with data:', returnData);
+
+    // Step 1: Create product return with barcode IDs
+    const returnRequest: CreateReturnRequest = {
+      order_id: selectedOrderForAction.id,
+      return_reason: returnData.returnReason,
+      return_type: returnData.returnType,
+      items: returnData.selectedProducts.map(item => ({
+        order_item_id: item.order_item_id,
+        quantity: item.quantity,
+        product_barcode_id: item.product_barcode_id, // Pass barcode ID from modal
+      })),
+      customer_notes: returnData.customerNotes || 'Customer initiated return',
     };
-  }) => {
-    try {
-      if (!selectedOrderForAction) return;
 
-      // Step 1: Create return for old products
-      const returnRequest: CreateReturnRequest = {
-        order_id: selectedOrderForAction.id,
-        return_reason: 'Product exchange',
-        return_type: 'unwanted',
-        items: exchangeData.removedProducts,  // ✅ CHANGED - removed .map() that added reason field
-        customer_notes: 'Exchange transaction',
-      };
+    console.log('📤 Creating return request:', returnRequest);
+    const returnResponse = await productReturnService.create(returnRequest);
+    const returnId = returnResponse.data.id;
+    console.log('✅ Return created with ID:', returnId);
 
-      const returnResponse = await productReturnService.create(returnRequest);
-      const returnId = returnResponse.data.id;
+    // Step 2: Auto-approve the return (quality check passed)
+    console.log('⏳ Updating return quality check...');
+    await productReturnService.update(returnId, {
+      quality_check_passed: true,
+      quality_check_notes: 'Auto-approved via POS',
+    });
 
-      // Auto-approve and process return
-      await productReturnService.update(returnId, {
-        quality_check_passed: true,
-        quality_check_notes: 'Exchange - Auto-approved',
-      });
+    console.log('⏳ Approving return...');
+    await productReturnService.approve(returnId, {
+      internal_notes: 'Approved via POS system',
+    });
 
-      await productReturnService.approve(returnId);
-      await productReturnService.process(returnId, { restore_inventory: true });
-      await productReturnService.complete(returnId);
+    // Step 3: Process return (restore inventory)
+    console.log('⏳ Processing return (restoring inventory)...');
+    await productReturnService.process(returnId, {
+      restore_inventory: true,
+    });
 
-      // Create full refund for returned items
+    // Step 4: Complete return
+    console.log('⏳ Completing return...');
+    await productReturnService.complete(returnId);
+
+    // Step 5: Create refund if there's a refund amount
+    if (returnData.refundMethods.total > 0) {
+      console.log('💰 Creating refund...');
       const refundRequest: CreateRefundRequest = {
         return_id: returnId,
         refund_type: 'full',
-        refund_method: 'cash',
-        internal_notes: 'Full refund for exchange',
+        refund_method: 'cash', // Primary method
+        refund_method_details: {
+          cash: returnData.refundMethods.cash,
+          card: returnData.refundMethods.card,
+          bkash: returnData.refundMethods.bkash,
+          nagad: returnData.refundMethods.nagad,
+        },
+        internal_notes: 'Refund processed via POS',
       };
 
       const refundResponse = await refundService.create(refundRequest);
-      await refundService.process(refundResponse.data.id);
-      await refundService.complete(refundResponse.data.id);
+      const refundId = refundResponse.data.id;
 
-      // Step 2: Create new order for replacement products
-      const newOrderData = {
-        order_type: 'counter',
-        store_id: selectedOrderForAction.store.id,
-        customer_id: selectedOrderForAction.customer?.id,
-        items: exchangeData.replacementProducts.map(p => ({
-          product_id: p.product_id,
-          batch_id: p.batch_id,
-          quantity: p.quantity,
-          unit_price: p.unit_price,
-        })),
-        payment: {
-          payment_method_id: 1, // Cash
-          amount: exchangeData.paymentRefund.total,
-          payment_type: exchangeData.paymentRefund.total >= exchangeData.replacementProducts.reduce((sum, p) => sum + (p.unit_price * p.quantity), 0) ? 'full' : 'partial',
-        },
-        notes: `Exchange from order #${selectedOrderForAction.order_number}`,
-      };
-
-      const newOrder = await orderService.create(newOrderData);
-      await orderService.complete(newOrder.data.id);
-
-      // Refresh orders
-      await fetchOrders(userRole, userStoreId);
-      
-      alert('Exchange processed successfully!');
-      setShowExchangeModal(false);
-      setSelectedOrderForAction(null);
-    } catch (error: any) {
-      console.error('Exchange processing failed:', error);
-      const errorMsg = error.response?.data?.message || error.message || 'Failed to process exchange';
-      alert(`Error: ${errorMsg}`);
+      console.log('⏳ Processing and completing refund...');
+      // Process and complete refund
+      await refundService.process(refundId);
+      await refundService.complete(refundId, {
+        transaction_reference: `POS-REFUND-${Date.now()}`,
+      });
+      console.log('✅ Refund completed');
     }
+
+    // Refresh orders
+    console.log('🔄 Refreshing order list...');
+    await fetchOrders(userRole, userStoreId);
+    
+    alert('✅ Return processed successfully!');
+    setShowReturnModal(false);
+    setSelectedOrderForAction(null);
+  } catch (error: any) {
+    console.error('❌ Return processing failed:', error);
+    const errorMsg = error.response?.data?.message || error.message || 'Failed to process return';
+    alert(`Error: ${errorMsg}`);
+  }
+};
+
+// Updated handleExchangeSubmit function
+const handleExchangeSubmit = async (exchangeData: {
+  removedProducts: Array<{
+    order_item_id: number;
+    quantity: number;
+    product_barcode_id?: number;
+  }>;
+  replacementProducts: Array<{
+    product_id: number;
+    batch_id: number;
+    quantity: number;
+    unit_price: number;
+  }>;
+  paymentRefund: {
+    type: 'payment' | 'refund' | 'none';
+    cash: number;
+    card: number;
+    bkash: number;
+    nagad: number;
+    total: number;
   };
+}) => {
+  try {
+    if (!selectedOrderForAction) return;
+
+    console.log('🔄 Processing exchange with data:', exchangeData);
+
+    // Step 1: Create return for old products with barcode IDs
+    const returnRequest: CreateReturnRequest = {
+      order_id: selectedOrderForAction.id,
+      return_reason: 'other',
+      return_type: 'customer_return',
+      items: exchangeData.removedProducts.map(item => ({
+        order_item_id: item.order_item_id,
+        quantity: item.quantity,
+        product_barcode_id: item.product_barcode_id, // Include barcode ID
+      })),
+      customer_notes: 'Exchange transaction',
+    };
+
+    console.log('📤 Creating return for exchange:', returnRequest);
+    const returnResponse = await productReturnService.create(returnRequest);
+    const returnId = returnResponse.data.id;
+
+    // Auto-approve and process return
+    console.log('⏳ Auto-approving exchange return...');
+    await productReturnService.update(returnId, {
+      quality_check_passed: true,
+      quality_check_notes: 'Exchange - Auto-approved',
+    });
+
+    await productReturnService.approve(returnId);
+    await productReturnService.process(returnId, { restore_inventory: true });
+    await productReturnService.complete(returnId);
+
+    // Create full refund for returned items
+    console.log('💰 Creating refund for exchange...');
+    const refundRequest: CreateRefundRequest = {
+      return_id: returnId,
+      refund_type: 'full',
+      refund_method: 'cash',
+      internal_notes: 'Full refund for exchange',
+    };
+
+    const refundResponse = await refundService.create(refundRequest);
+    await refundService.process(refundResponse.data.id);
+    await refundService.complete(refundResponse.data.id);
+
+    // Step 2: Create new order for replacement products
+    console.log('🛒 Creating new order for replacement products...');
+    const newOrderData = {
+      order_type: 'counter' as const,
+      store_id: selectedOrderForAction.store.id,
+      customer_id: selectedOrderForAction.customer?.id,
+      items: exchangeData.replacementProducts.map(p => ({
+        product_id: p.product_id,
+        batch_id: p.batch_id,
+        quantity: p.quantity,
+        unit_price: p.unit_price,
+      })),
+      payment: {
+        payment_method_id: 1, // Cash
+        amount: exchangeData.paymentRefund.total,
+        payment_type: (exchangeData.paymentRefund.total >= exchangeData.replacementProducts.reduce((sum, p) => sum + (p.unit_price * p.quantity), 0) ? 'full' : 'partial') as 'full' | 'partial',
+      },
+      notes: `Exchange from order #${selectedOrderForAction.order_number}`,
+    };
+
+    const newOrder = await orderService.create(newOrderData);
+    await orderService.complete(newOrder.id);
+
+    // Refresh orders
+    console.log('🔄 Refreshing order list...');
+    await fetchOrders(userRole, userStoreId);
+    
+    alert('✅ Exchange processed successfully!');
+    setShowExchangeModal(false);
+    setSelectedOrderForAction(null);
+  } catch (error: any) {
+    console.error('❌ Exchange processing failed:', error);
+    const errorMsg = error.response?.data?.message || error.message || 'Failed to process exchange';
+    alert(`Error: ${errorMsg}`);
+  }
+};
 
   const getStoreName = (storeId: number) => {
     const store = stores.find(s => s.id === storeId);
