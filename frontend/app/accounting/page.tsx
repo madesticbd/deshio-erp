@@ -1,135 +1,249 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import {  FileText, BookOpen, TrendingUp, Download, Filter, Calendar, Search } from 'lucide-react';
+import { FileText, BookOpen, TrendingUp, Download, Search, RefreshCw } from 'lucide-react';
 import Header from '@/components/Header';
 import Sidebar from '@/components/Sidebar';
-
-// TypeScript interfaces
-interface AccountEntry {
-  account: string;
-  debit: number;
-  credit: number;
-}
-
-interface JournalEntry {
-  id: string;
-  date: string;
-  type: string;
-  description: string;
-  accounts: AccountEntry[];
-  createdAt?: string;
-}
-
-interface LedgerEntry {
-  date: string;
-  ref: string;
-  debit: number;
-  credit: number;
-  balance?: number;
-}
-
-interface LedgerAccount {
-  debit: number;
-  credit: number;
-  balance: number;
-  entries: LedgerEntry[];
-}
-
-interface IncomeStatement {
-  revenue: number;
-  cogs: number;
-  grossProfit: number;
-  expenses: number;
-  netIncome: number;
-}
+import accountingService, {
+  Account,
+  Transaction,
+  TrialBalanceData,
+  LedgerData,
+  TrialBalanceAccount,
+  JournalEntry
+} from '@/services/accountingService';
 
 export default function AccountingSystem() {
   const [darkMode, setDarkMode] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [activeTab, setActiveTab] = useState('journal');
-  const [dateRange, setDateRange] = useState({ start: '', end: '' });
-  const [searchTerm, setSearchTerm] = useState('');
-  
-  // State for accounting data with proper types
-  const [journalEntries, setJournalEntries] = useState<JournalEntry[]>([]);
-  const [ledgerAccounts, setLedgerAccounts] = useState<Record<string, LedgerAccount>>({});
-  const [incomeStatement, setIncomeStatement] = useState<IncomeStatement>({
-    revenue: 0,
-    cogs: 0,
-    grossProfit: 0,
-    expenses: 0,
-    netIncome: 0
+  const [dateRange, setDateRange] = useState({ 
+    start: new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0],
+    end: new Date().toISOString().split('T')[0]
   });
+  const [searchTerm, setSearchTerm] = useState('');
+  const [loading, setLoading] = useState(false);
+  
+  // State for accounting data
+  const [journalEntries, setJournalEntries] = useState<JournalEntry[]>([]);
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [trialBalance, setTrialBalance] = useState<TrialBalanceData | null>(null);
+  const [accounts, setAccounts] = useState<Account[]>([]);
+  const [selectedAccount, setSelectedAccount] = useState<number | null>(null);
+  const [ledgerData, setLedgerData] = useState<LedgerData | null>(null);
 
   useEffect(() => {
-    fetchAccountingData();
+    fetchInitialData();
   }, []);
 
-  const fetchAccountingData = async () => {
+  useEffect(() => {
+    if (activeTab === 'journal') {
+      fetchJournalEntries();
+    } else if (activeTab === 'trial-balance') {
+      fetchTrialBalance();
+    } else if (activeTab === 'transactions') {
+      fetchTransactions();
+    }
+  }, [activeTab, dateRange]);
+
+  useEffect(() => {
+    if (selectedAccount && activeTab === 'ledger') {
+      fetchLedger(selectedAccount);
+    }
+  }, [selectedAccount, dateRange]);
+
+  const fetchInitialData = async () => {
     try {
-      // Fetch from accounting API - it auto-regenerates from all sources
-      const response = await fetch('/api/accounting');
-      const data = await response.json();
+      setLoading(true);
       
-      if (data.journalEntries && data.ledgerAccounts) {
-        setJournalEntries(data.journalEntries);
-        setLedgerAccounts(data.ledgerAccounts);
-        
-        // Calculate income statement
-        const revenue = data.ledgerAccounts['Sales Revenue']?.credit || 0;
-        const cogs = data.ledgerAccounts['Cost of Goods Sold']?.debit || 0;
-        const returns = data.ledgerAccounts['Sales Returns']?.debit || 0;
-        const netRevenue = revenue - returns;
-        const grossProfit = netRevenue - cogs;
-        
-        setIncomeStatement({
-          revenue: netRevenue,
-          cogs,
-          grossProfit,
-          expenses: 0,
-          netIncome: grossProfit
-        });
+      // Fetch accounts using service
+      const accountsRes = await accountingService.accounts.getAccounts();
+      if (accountsRes.success) {
+        setAccounts(accountsRes.data);
       }
-    } catch (error) {
-      console.error('Error fetching accounting data:', error);
+      
+      // Fetch journal entries by default
+      await fetchJournalEntries();
+      
+    } catch (error: any) {
+      console.error('Error fetching initial data:', error);
+      alert(error.response?.data?.message || 'Failed to fetch accounting data');
+    } finally {
+      setLoading(false);
     }
   };
 
-  // Refresh button handler
+  const fetchJournalEntries = async () => {
+    try {
+      setLoading(true);
+      
+      const response = await accountingService.reports.getJournalEntries({
+        date_from: dateRange.start,
+        date_to: dateRange.end,
+        per_page: 100,
+      });
+      
+      if (response.success) {
+        setJournalEntries(response.data);
+      }
+    } catch (error: any) {
+      console.error('Error fetching journal entries:', error);
+      alert(error.response?.data?.message || 'Failed to fetch journal entries');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchTrialBalance = async () => {
+    try {
+      setLoading(true);
+      
+      const response = await accountingService.reports.getTrialBalance({
+        start_date: dateRange.start,
+        end_date: dateRange.end,
+      });
+      
+      if (response.success) {
+        setTrialBalance(response.data);
+      }
+    } catch (error: any) {
+      console.error('Error fetching trial balance:', error);
+      alert(error.response?.data?.message || 'Failed to fetch trial balance');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchTransactions = async () => {
+    try {
+      setLoading(true);
+      
+      const response = await accountingService.transactions.getTransactions({
+        date_from: dateRange.start,
+        date_to: dateRange.end,
+        search: searchTerm || undefined,
+        per_page: 100,
+      });
+      
+      if (response.success) {
+        setTransactions(response.data.data || response.data);
+      }
+    } catch (error: any) {
+      console.error('Error fetching transactions:', error);
+      alert(error.response?.data?.message || 'Failed to fetch transactions');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchLedger = async (accountId: number) => {
+    try {
+      setLoading(true);
+      
+      const response = await accountingService.reports.getAccountLedger(accountId, {
+        date_from: dateRange.start,
+        date_to: dateRange.end,
+      });
+      
+      if (response.success) {
+        setLedgerData(response.data);
+      }
+    } catch (error: any) {
+      console.error('Error fetching ledger:', error);
+      alert(error.response?.data?.message || 'Failed to fetch ledger');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleRefresh = async () => {
-    await fetchAccountingData();
+    if (activeTab === 'journal') {
+      await fetchJournalEntries();
+    } else if (activeTab === 'trial-balance') {
+      await fetchTrialBalance();
+    } else if (activeTab === 'transactions') {
+      await fetchTransactions();
+    } else if (activeTab === 'ledger' && selectedAccount) {
+      await fetchLedger(selectedAccount);
+    }
   };
 
   const formatCurrency = (amount: number): string => {
-    return new Intl.NumberFormat('en-BD', { style: 'currency', currency: 'BDT' }).format(amount);
+    return new Intl.NumberFormat('en-BD', { 
+      style: 'currency', 
+      currency: 'BDT',
+      minimumFractionDigits: 2 
+    }).format(amount);
   };
 
   const formatDate = (date: string | Date): string => {
-    return new Date(date).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+    return new Date(date).toLocaleDateString('en-US', { 
+      year: 'numeric', 
+      month: 'short', 
+      day: 'numeric' 
+    });
   };
 
-  const filteredJournalEntries = journalEntries.filter((entry: JournalEntry) => {
-    const matchesSearch = entry.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         entry.type.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesDate = (!dateRange.start || new Date(entry.date) >= new Date(dateRange.start)) &&
-                       (!dateRange.end || new Date(entry.date) <= new Date(dateRange.end));
-    return matchesSearch && matchesDate;
-  });
+  const handleExport = (type: 'journal' | 'trial-balance' | 'transactions' | 'ledger') => {
+    try {
+      if (type === 'journal') {
+        // Convert journal entries to flat format for CSV
+        const flatData = journalEntries.flatMap(entry => 
+          entry.lines.map(line => ({
+            date: entry.date,
+            reference: `${entry.reference_type}-${entry.reference_id}`,
+            description: entry.description,
+            account_code: line.account.account_code,
+            account_name: line.account.name,
+            debit: line.debit,
+            credit: line.credit
+          }))
+        );
+        accountingService.reports.exportTransactionsCSV(flatData as any, 'journal-entries');
+      } else if (type === 'trial-balance' && trialBalance) {
+        accountingService.reports.exportTrialBalanceCSV(
+          trialBalance.accounts,
+          'trial-balance'
+        );
+      } else if (type === 'transactions') {
+        accountingService.reports.exportTransactionsCSV(
+          transactions,
+          'transactions'
+        );
+      } else if (type === 'ledger' && ledgerData) {
+        accountingService.reports.exportLedgerCSV(
+          ledgerData.transactions,
+          ledgerData.account.name,
+          `ledger-${ledgerData.account.account_code}`
+        );
+      }
+    } catch (error) {
+      console.error('Error exporting:', error);
+      alert('Failed to export data');
+    }
+  };
 
   return (
     <div className={darkMode ? 'dark' : ''}>
       <div className="flex h-screen bg-gray-50 dark:bg-gray-900">
         <Sidebar isOpen={sidebarOpen} setIsOpen={setSidebarOpen} />
         <div className="flex-1 flex flex-col overflow-hidden">
-          <Header darkMode={darkMode} setDarkMode={setDarkMode} toggleSidebar={() => setSidebarOpen(!sidebarOpen)} />
+          <Header 
+            darkMode={darkMode} 
+            setDarkMode={setDarkMode} 
+            toggleSidebar={() => setSidebarOpen(!sidebarOpen)} 
+          />
           
           <main className="flex-1 overflow-auto p-6">
             <div className="max-w-7xl mx-auto">
               {/* Header */}
               <div className="mb-6">
-                <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">Accounting</h1>
-                <p className="text-gray-600 dark:text-gray-400">Manage journals, ledgers, and financial statements</p>
+                <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
+                  Accounting System
+                </h1>
+                <p className="text-gray-600 dark:text-gray-400">
+                  Double-entry bookkeeping with real-time financial reports
+                </p>
               </div>
 
               {/* Tabs */}
@@ -147,6 +261,28 @@ export default function AccountingSystem() {
                     Journal Entries
                   </button>
                   <button
+                    onClick={() => setActiveTab('trial-balance')}
+                    className={`flex items-center gap-2 px-6 py-3 font-medium transition-colors ${
+                      activeTab === 'trial-balance'
+                        ? 'text-blue-600 dark:text-blue-400 border-b-2 border-blue-600 dark:border-blue-400'
+                        : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
+                    }`}
+                  >
+                    <TrendingUp className="w-5 h-5" />
+                    Trial Balance
+                  </button>
+                  <button
+                    onClick={() => setActiveTab('transactions')}
+                    className={`flex items-center gap-2 px-6 py-3 font-medium transition-colors ${
+                      activeTab === 'transactions'
+                        ? 'text-blue-600 dark:text-blue-400 border-b-2 border-blue-600 dark:border-blue-400'
+                        : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
+                    }`}
+                  >
+                    <FileText className="w-5 h-5" />
+                    Transactions
+                  </button>
+                  <button
                     onClick={() => setActiveTab('ledger')}
                     className={`flex items-center gap-2 px-6 py-3 font-medium transition-colors ${
                       activeTab === 'ledger'
@@ -155,18 +291,7 @@ export default function AccountingSystem() {
                     }`}
                   >
                     <BookOpen className="w-5 h-5" />
-                    General Ledger
-                  </button>
-                  <button
-                    onClick={() => setActiveTab('income')}
-                    className={`flex items-center gap-2 px-6 py-3 font-medium transition-colors ${
-                      activeTab === 'income'
-                        ? 'text-blue-600 dark:text-blue-400 border-b-2 border-blue-600 dark:border-blue-400'
-                        : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
-                    }`}
-                  >
-                    <TrendingUp className="w-5 h-5" />
-                    Income Statement
+                    Account Ledger
                   </button>
                 </div>
               </div>
@@ -177,30 +302,51 @@ export default function AccountingSystem() {
                   <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300">Filters</h3>
                   <button 
                     onClick={handleRefresh}
-                    className="flex items-center gap-2 px-3 py-1.5 bg-black hover:bg-gray-900 text-white text-sm rounded-lg transition-colors"
+                    disabled={loading}
+                    className="flex items-center gap-2 px-3 py-1.5 bg-black hover:bg-gray-900 text-white text-sm rounded-lg transition-colors disabled:opacity-50"
                   >
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                    </svg>
-                    Refresh Data
+                    <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+                    Refresh
                   </button>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                      Search
-                    </label>
-                    <div className="relative">
-                      <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
-                      <input
-                        type="text"
-                        value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
-                        placeholder="Search entries..."
-                        className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                      />
+                  {activeTab === 'transactions' && (
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                        Search
+                      </label>
+                      <div className="relative">
+                        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+                        <input
+                          type="text"
+                          value={searchTerm}
+                          onChange={(e) => setSearchTerm(e.target.value)}
+                          onKeyDown={(e) => e.key === 'Enter' && fetchTransactions()}
+                          placeholder="Search transactions..."
+                          className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                        />
+                      </div>
                     </div>
-                  </div>
+                  )}
+                  {activeTab === 'ledger' && (
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                        Select Account
+                      </label>
+                      <select
+                        value={selectedAccount || ''}
+                        onChange={(e) => setSelectedAccount(Number(e.target.value))}
+                        className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                      >
+                        <option value="">Choose an account</option>
+                        {accounts.map((account) => (
+                          <option key={account.id} value={account.id}>
+                            {account.account_code} - {account.name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
                   <div>
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                       Start Date
@@ -227,66 +373,119 @@ export default function AccountingSystem() {
               </div>
 
               {/* Content */}
-              {activeTab === 'journal' && (
+              {loading && (
+                <div className="flex items-center justify-center py-12">
+                  <RefreshCw className="w-8 h-8 animate-spin text-blue-600" />
+                </div>
+              )}
+
+              {!loading && activeTab === 'journal' && (
                 <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
                   <div className="p-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
-                    <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Journal Entries</h2>
-                    <button className="flex items-center gap-2 px-4 py-2 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600">
+                    <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
+                      Journal Entries ({journalEntries.length})
+                    </h2>
+                    <button 
+                      onClick={() => handleExport('journal')}
+                      className="flex items-center gap-2 px-4 py-2 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600"
+                    >
                       <Download className="w-4 h-4" />
                       Export
                     </button>
                   </div>
-                  <div className="overflow-x-auto">
-                    {filteredJournalEntries.length === 0 ? (
+                  <div className="divide-y divide-gray-200 dark:divide-gray-700">
+                    {journalEntries.length === 0 ? (
                       <div className="p-8 text-center text-gray-500 dark:text-gray-400">
-                        No journal entries found
+                        No journal entries found for the selected period
                       </div>
                     ) : (
-                      filteredJournalEntries.map((entry: JournalEntry) => (
-                        <div key={entry.id} className="border-b border-gray-200 dark:border-gray-700 p-4 hover:bg-gray-50 dark:hover:bg-gray-750">
-                          <div className="flex items-center justify-between mb-2">
-                            <div className="flex items-center gap-3">
-                              <span className="text-sm font-medium text-gray-900 dark:text-white">{entry.id}</span>
-                              <span className="px-2 py-1 text-xs font-medium bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 rounded">
-                                {entry.type}
-                              </span>
+                      journalEntries.map((entry) => (
+                        <div key={entry.id} className="p-6 hover:bg-gray-50 dark:hover:bg-gray-750">
+                          {/* Entry Header */}
+                          <div className="flex items-center justify-between mb-4">
+                            <div className="flex items-center gap-4">
+                              <div>
+                                <div className="flex items-center gap-2">
+                                  <span className="text-sm font-semibold text-gray-900 dark:text-white">
+                                    {formatDate(entry.date)}
+                                  </span>
+                                  <span className="px-2 py-1 text-xs font-medium bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 rounded">
+                                    {entry.reference_type}
+                                  </span>
+                                  {!entry.balanced && (
+                                    <span className="px-2 py-1 text-xs font-medium bg-red-100 dark:bg-red-900 text-red-700 dark:text-red-300 rounded">
+                                      ⚠️ Unbalanced
+                                    </span>
+                                  )}
+                                </div>
+                                <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                                  {entry.description}
+                                </p>
+                              </div>
                             </div>
-                            <span className="text-sm text-gray-600 dark:text-gray-400">{formatDate(entry.date)}</span>
                           </div>
-                          <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">{entry.description}</p>
-                          <div className="overflow-x-auto">
+
+                          {/* Entry Lines */}
+                          <div className="bg-gray-50 dark:bg-gray-750 rounded-lg overflow-hidden">
                             <table className="w-full">
-                              <thead>
+                              <thead className="bg-gray-100 dark:bg-gray-700">
                                 <tr className="text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
-                                  <th className="pb-2">Account</th>
-                                  <th className="pb-2 text-right">Debit</th>
-                                  <th className="pb-2 text-right">Credit</th>
+                                  <th className="px-4 py-2">Account</th>
+                                  <th className="px-4 py-2 text-right">Debit</th>
+                                  <th className="px-4 py-2 text-right">Credit</th>
                                 </tr>
                               </thead>
                               <tbody>
-                                {entry.accounts.map((acc: AccountEntry, idx: number) => (
-                                  <tr key={idx} className="text-sm">
-                                    <td className="py-1 text-gray-900 dark:text-white">{acc.account}</td>
-                                    <td className="py-1 text-right text-gray-900 dark:text-white">
-                                      {acc.debit > 0 ? formatCurrency(acc.debit) : '-'}
+                                {entry.lines.map((line, idx) => (
+                                  <tr key={idx} className="border-t border-gray-200 dark:border-gray-600">
+                                    <td className="px-4 py-2 text-sm">
+                                      <div>
+                                        <span className="font-medium text-gray-900 dark:text-white">
+                                          {line.account.account_code}
+                                        </span>
+                                        <span className="text-gray-600 dark:text-gray-400 ml-2">
+                                          {line.account.name}
+                                        </span>
+                                      </div>
                                     </td>
-                                    <td className="py-1 text-right text-gray-900 dark:text-white">
-                                      {acc.credit > 0 ? formatCurrency(acc.credit) : '-'}
+                                    <td className="px-4 py-2 text-sm text-right font-medium text-gray-900 dark:text-white">
+                                      {line.debit > 0 ? formatCurrency(line.debit) : '—'}
+                                    </td>
+                                    <td className="px-4 py-2 text-sm text-right font-medium text-gray-900 dark:text-white">
+                                      {line.credit > 0 ? formatCurrency(line.credit) : '—'}
                                     </td>
                                   </tr>
                                 ))}
-                                <tr className="border-t border-gray-200 dark:border-gray-700 font-medium">
-                                  <td className="pt-2 text-sm text-gray-900 dark:text-white">Total</td>
-                                  <td className="pt-2 text-right text-sm text-gray-900 dark:text-white">
-                                    {formatCurrency(entry.accounts.reduce((sum: number, acc: AccountEntry) => sum + acc.debit, 0))}
+                                {/* Totals Row */}
+                                <tr className="border-t-2 border-gray-300 dark:border-gray-500 bg-gray-100 dark:bg-gray-700 font-semibold">
+                                  <td className="px-4 py-2 text-sm text-gray-900 dark:text-white">
+                                    TOTAL
                                   </td>
-                                  <td className="pt-2 text-right text-sm text-gray-900 dark:text-white">
-                                    {formatCurrency(entry.accounts.reduce((sum: number, acc: AccountEntry) => sum + acc.credit, 0))}
+                                  <td className="px-4 py-2 text-sm text-right text-gray-900 dark:text-white">
+                                    {formatCurrency(entry.total_debit)}
+                                  </td>
+                                  <td className="px-4 py-2 text-sm text-right text-gray-900 dark:text-white">
+                                    {formatCurrency(entry.total_credit)}
                                   </td>
                                 </tr>
                               </tbody>
                             </table>
                           </div>
+
+                          {/* Balance Check */}
+                          {entry.balanced ? (
+                            <div className="mt-2 text-xs text-green-600 dark:text-green-400 flex items-center gap-1">
+                              <span>✓</span>
+                              <span>Balanced Entry</span>
+                            </div>
+                          ) : (
+                            <div className="mt-2 text-xs text-red-600 dark:text-red-400 flex items-center gap-1">
+                              <span>⚠️</span>
+                              <span>
+                                Difference: {formatCurrency(Math.abs(entry.total_debit - entry.total_credit))}
+                              </span>
+                            </div>
+                          )}
                         </div>
                       ))
                     )}
@@ -294,168 +493,304 @@ export default function AccountingSystem() {
                 </div>
               )}
 
-              {activeTab === 'ledger' && (
+              {!loading && activeTab === 'trial-balance' && trialBalance && (
+                <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
+                  <div className="p-4 border-b border-gray-200 dark:border-gray-700">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Trial Balance</h2>
+                        <p className="text-sm text-gray-600 dark:text-gray-400">
+                          {formatDate(trialBalance.date_range.start_date)} - {formatDate(trialBalance.date_range.end_date)}
+                        </p>
+                      </div>
+                      <button 
+                        onClick={() => handleExport('trial-balance')}
+                        className="flex items-center gap-2 px-4 py-2 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600"
+                      >
+                        <Download className="w-4 h-4" />
+                        Export
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Summary Card */}
+                  <div className="p-4 bg-gray-50 dark:bg-gray-750">
+                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                      <div className="bg-white dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
+                        <p className="text-xs text-gray-500 dark:text-gray-400 uppercase mb-1">Total Debits</p>
+                        <p className="text-xl font-bold text-gray-900 dark:text-white">
+                          {formatCurrency(trialBalance.summary.total_debits)}
+                        </p>
+                      </div>
+                      <div className="bg-white dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
+                        <p className="text-xs text-gray-500 dark:text-gray-400 uppercase mb-1">Total Credits</p>
+                        <p className="text-xl font-bold text-gray-900 dark:text-white">
+                          {formatCurrency(trialBalance.summary.total_credits)}
+                        </p>
+                      </div>
+                      <div className="bg-white dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
+                        <p className="text-xs text-gray-500 dark:text-gray-400 uppercase mb-1">Difference</p>
+                        <p className={`text-xl font-bold ${trialBalance.summary.difference === 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
+                          {formatCurrency(Math.abs(trialBalance.summary.difference))}
+                        </p>
+                      </div>
+                      <div className="bg-white dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
+                        <p className="text-xs text-gray-500 dark:text-gray-400 uppercase mb-1">Status</p>
+                        <p className={`text-xl font-bold ${trialBalance.summary.balanced ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
+                          {trialBalance.summary.balanced ? '✓ Balanced' : '✗ Not Balanced'}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="overflow-x-auto">
+                    <table className="w-full">
+                      <thead className="bg-gray-50 dark:bg-gray-750">
+                        <tr className="text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
+                          <th className="px-4 py-3">Account Code</th>
+                          <th className="px-4 py-3">Account Name</th>
+                          <th className="px-4 py-3">Type</th>
+                          <th className="px-4 py-3 text-right">Debit</th>
+                          <th className="px-4 py-3 text-right">Credit</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {trialBalance.accounts.map((account) => (
+                          <tr key={account.id} className="border-t border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-750">
+                            <td className="px-4 py-3 text-sm font-medium text-gray-900 dark:text-white">
+                              {account.account_code}
+                            </td>
+                            <td className="px-4 py-3 text-sm text-gray-900 dark:text-white">
+                              {account.name || account.account_name}
+                            </td>
+                            <td className="px-4 py-3">
+                              <span className={`px-2 py-1 text-xs font-medium rounded ${
+                                account.type === 'asset' ? 'bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-300' :
+                                account.type === 'liability' ? 'bg-yellow-100 dark:bg-yellow-900 text-yellow-700 dark:text-yellow-300' :
+                                account.type === 'equity' ? 'bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300' :
+                                account.type === 'income' ? 'bg-purple-100 dark:bg-purple-900 text-purple-700 dark:text-purple-300' :
+                                'bg-red-100 dark:bg-red-900 text-red-700 dark:text-red-300'
+                              }`}>
+                                {account.type}
+                              </span>
+                            </td>
+                            <td className="px-4 py-3 text-sm text-right text-gray-900 dark:text-white">
+                              {account.debit && account.debit > 0 ? formatCurrency(account.debit) : '-'}
+                            </td>
+                            <td className="px-4 py-3 text-sm text-right text-gray-900 dark:text-white">
+                              {account.credit && account.credit > 0 ? formatCurrency(account.credit) : '-'}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                      <tfoot className="bg-gray-50 dark:bg-gray-750 border-t-2 border-gray-300 dark:border-gray-600">
+                        <tr>
+                          <td colSpan={3} className="px-4 py-3 text-sm font-bold text-gray-900 dark:text-white">
+                            TOTAL
+                          </td>
+                          <td className="px-4 py-3 text-sm text-right font-bold text-gray-900 dark:text-white">
+                            {formatCurrency(trialBalance.summary.total_debits)}
+                          </td>
+                          <td className="px-4 py-3 text-sm text-right font-bold text-gray-900 dark:text-white">
+                            {formatCurrency(trialBalance.summary.total_credits)}
+                          </td>
+                        </tr>
+                      </tfoot>
+                    </table>
+                  </div>
+                </div>
+              )}
+
+              {!loading && activeTab === 'transactions' && (
+                <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
+                  <div className="p-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
+                    <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
+                      Transactions ({transactions.length})
+                    </h2>
+                    <button 
+                      onClick={() => handleExport('transactions')}
+                      className="flex items-center gap-2 px-4 py-2 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600"
+                    >
+                      <Download className="w-4 h-4" />
+                      Export
+                    </button>
+                  </div>
+                  <div className="overflow-x-auto">
+                    {transactions.length === 0 ? (
+                      <div className="p-8 text-center text-gray-500 dark:text-gray-400">
+                        No transactions found for the selected period
+                      </div>
+                    ) : (
+                      <table className="w-full">
+                        <thead className="bg-gray-50 dark:bg-gray-750">
+                          <tr className="text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
+                            <th className="px-4 py-3">Transaction #</th>
+                            <th className="px-4 py-3">Date</th>
+                            <th className="px-4 py-3">Account</th>
+                            <th className="px-4 py-3">Description</th>
+                            <th className="px-4 py-3">Type</th>
+                            <th className="px-4 py-3 text-right">Amount</th>
+                            <th className="px-4 py-3">Status</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {transactions.map((txn) => (
+                            <tr key={txn.id} className="border-t border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-750">
+                              <td className="px-4 py-3 text-sm font-medium text-gray-900 dark:text-white">
+                                {txn.transaction_number}
+                              </td>
+                              <td className="px-4 py-3 text-sm text-gray-600 dark:text-gray-400">
+                                {formatDate(txn.transaction_date)}
+                              </td>
+                              <td className="px-4 py-3 text-sm text-gray-900 dark:text-white">
+                                {txn.account?.account_code} - {txn.account?.name}
+                              </td>
+                              <td className="px-4 py-3 text-sm text-gray-600 dark:text-gray-400">
+                                {txn.description}
+                              </td>
+                              <td className="px-4 py-3">
+                                <span className={`px-2 py-1 text-xs font-medium rounded ${
+                                  txn.type === 'debit' 
+                                    ? 'bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-300' 
+                                    : 'bg-red-100 dark:bg-red-900 text-red-700 dark:text-red-300'
+                                }`}>
+                                  {txn.type === 'debit' ? '+ Debit' : '- Credit'}
+                                </span>
+                              </td>
+                              <td className="px-4 py-3 text-sm text-right font-medium text-gray-900 dark:text-white">
+                                {formatCurrency(txn.amount)}
+                              </td>
+                              <td className="px-4 py-3">
+                                <span className={`px-2 py-1 text-xs font-medium rounded ${
+                                  txn.status === 'completed' ? 'bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-300' :
+                                  txn.status === 'pending' ? 'bg-yellow-100 dark:bg-yellow-900 text-yellow-700 dark:text-yellow-300' :
+                                  txn.status === 'failed' ? 'bg-red-100 dark:bg-red-900 text-red-700 dark:text-red-300' :
+                                  'bg-gray-100 dark:bg-gray-900 text-gray-700 dark:text-gray-300'
+                                }`}>
+                                  {txn.status}
+                                </span>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {!loading && activeTab === 'ledger' && (
                 <div className="space-y-4">
-                  {Object.entries(ledgerAccounts).map(([accountName, account]: [string, LedgerAccount]) => (
-                    <div key={accountName} className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
+                  {!selectedAccount ? (
+                    <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-8 text-center">
+                      <BookOpen className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+                      <p className="text-gray-600 dark:text-gray-400">
+                        Please select an account from the dropdown above to view its ledger
+                      </p>
+                    </div>
+                  ) : ledgerData ? (
+                    <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
                       <div className="p-4 bg-gray-50 dark:bg-gray-750 border-b border-gray-200 dark:border-gray-700">
-                        <div className="flex items-center justify-between">
-                          <h3 className="text-lg font-semibold text-gray-900 dark:text-white">{accountName}</h3>
-                          <div className="flex items-center gap-6">
-                            <div className="text-right">
-                              <p className="text-xs text-gray-500 dark:text-gray-400">Balance</p>
-                              <p className={`text-lg font-bold ${account.balance >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
-                                {formatCurrency(Math.abs(account.balance))}
-                              </p>
-                            </div>
+                        <div className="flex items-center justify-between mb-4">
+                          <div>
+                            <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                              {ledgerData.account.account_code} - {ledgerData.account.name}
+                            </h3>
+                            <p className="text-sm text-gray-600 dark:text-gray-400">
+                              {formatDate(ledgerData.date_range.date_from)} - {formatDate(ledgerData.date_range.date_to)}
+                            </p>
+                          </div>
+                          <button 
+                            onClick={() => handleExport('ledger')}
+                            className="flex items-center gap-2 px-4 py-2 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600"
+                          >
+                            <Download className="w-4 h-4" />
+                            Export
+                          </button>
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                          <div className="bg-white dark:bg-gray-800 rounded-lg p-3 border border-gray-200 dark:border-gray-700">
+                            <p className="text-xs text-gray-500 dark:text-gray-400 uppercase mb-1">Opening Balance</p>
+                            <p className="text-lg font-bold text-gray-900 dark:text-white">
+                              {formatCurrency(ledgerData.opening_balance)}
+                            </p>
+                          </div>
+                          <div className="bg-white dark:bg-gray-800 rounded-lg p-3 border border-gray-200 dark:border-gray-700">
+                            <p className="text-xs text-gray-500 dark:text-gray-400 uppercase mb-1">Closing Balance</p>
+                            <p className="text-lg font-bold text-gray-900 dark:text-white">
+                              {formatCurrency(ledgerData.closing_balance)}
+                            </p>
+                          </div>
+                          <div className="bg-white dark:bg-gray-800 rounded-lg p-3 border border-gray-200 dark:border-gray-700">
+                            <p className="text-xs text-gray-500 dark:text-gray-400 uppercase mb-1">Net Change</p>
+                            <p className={`text-lg font-bold ${
+                              (ledgerData.closing_balance - ledgerData.opening_balance) >= 0 
+                                ? 'text-green-600 dark:text-green-400' 
+                                : 'text-red-600 dark:text-red-400'
+                            }`}>
+                              {formatCurrency(Math.abs(ledgerData.closing_balance - ledgerData.opening_balance))}
+                            </p>
                           </div>
                         </div>
                       </div>
                       <div className="overflow-x-auto">
-                        <table className="w-full">
-                          <thead className="bg-gray-50 dark:bg-gray-750">
-                            <tr className="text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
-                              <th className="px-4 py-3">Date</th>
-                              <th className="px-4 py-3">Reference</th>
-                              <th className="px-4 py-3 text-right">Debit</th>
-                              <th className="px-4 py-3 text-right">Credit</th>
-                              <th className="px-4 py-3 text-right">Balance</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {account.entries.map((entry: LedgerEntry, idx: number) => {
-                              let runningBalance = 0;
-                              if (idx === 0) {
-                                runningBalance = entry.debit - entry.credit;
-                              } else {
-                                const prevBalance = account.entries.slice(0, idx).reduce((sum: number, e: LedgerEntry) => sum + e.debit - e.credit, 0);
-                                runningBalance = prevBalance + entry.debit - entry.credit;
-                              }
-                              
-                              return (
-                                <tr key={idx} className="border-t border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-750">
-                                  <td className="px-4 py-3 text-sm text-gray-900 dark:text-white">{formatDate(entry.date)}</td>
-                                  <td className="px-4 py-3 text-sm text-gray-600 dark:text-gray-400">{entry.ref}</td>
+                        {ledgerData.transactions.length === 0 ? (
+                          <div className="p-8 text-center text-gray-500 dark:text-gray-400">
+                            No transactions found for this account in the selected period
+                          </div>
+                        ) : (
+                          <table className="w-full">
+                            <thead className="bg-gray-50 dark:bg-gray-750">
+                              <tr className="text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
+                                <th className="px-4 py-3">Date</th>
+                                <th className="px-4 py-3">Transaction #</th>
+                                <th className="px-4 py-3">Description</th>
+                                <th className="px-4 py-3 text-right">Debit</th>
+                                <th className="px-4 py-3 text-right">Credit</th>
+                                <th className="px-4 py-3 text-right">Balance</th>
+                                <th className="px-4 py-3">Status</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {ledgerData.transactions.map((entry, idx) => (
+                                <tr key={entry.id} className="border-t border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-750">
+                                  <td className="px-4 py-3 text-sm text-gray-900 dark:text-white">
+                                    {formatDate(entry.transaction_date)}
+                                  </td>
+                                  <td className="px-4 py-3 text-sm font-medium text-gray-900 dark:text-white">
+                                    {entry.transaction_number}
+                                  </td>
+                                  <td className="px-4 py-3 text-sm text-gray-600 dark:text-gray-400">
+                                    {entry.description}
+                                  </td>
                                   <td className="px-4 py-3 text-sm text-right text-gray-900 dark:text-white">
                                     {entry.debit > 0 ? formatCurrency(entry.debit) : '-'}
                                   </td>
                                   <td className="px-4 py-3 text-sm text-right text-gray-900 dark:text-white">
                                     {entry.credit > 0 ? formatCurrency(entry.credit) : '-'}
                                   </td>
-                                  <td className={`px-4 py-3 text-sm text-right font-medium ${runningBalance >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
-                                    {formatCurrency(Math.abs(runningBalance))}
+                                  <td className={`px-4 py-3 text-sm text-right font-medium ${
+                                    entry.balance >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'
+                                  }`}>
+                                    {formatCurrency(Math.abs(entry.balance))}
+                                  </td>
+                                  <td className="px-4 py-3">
+                                    <span className={`px-2 py-1 text-xs font-medium rounded ${
+                                      entry.status === 'completed' ? 'bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-300' :
+                                      entry.status === 'pending' ? 'bg-yellow-100 dark:bg-yellow-900 text-yellow-700 dark:text-yellow-300' :
+                                      'bg-gray-100 dark:bg-gray-900 text-gray-700 dark:text-gray-300'
+                                    }`}>
+                                      {entry.status}
+                                    </span>
                                   </td>
                                 </tr>
-                              );
-                            })}
-                          </tbody>
-                        </table>
+                              ))}
+                            </tbody>
+                          </table>
+                        )}
                       </div>
                     </div>
-                  ))}
-                </div>
-              )}
-
-              {activeTab === 'income' && (
-                <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden relative">
-                  <div className="p-6 border-b border-gray-200 dark:border-gray-700">
-                    <h2 className="text-xl font-bold text-gray-900 dark:text-white">Income Statement</h2>
-                    <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">For the period</p>
-                  </div>
-                  <div className="p-6 space-y-6">
-                    {/* Revenue Section */}
-                    <div>
-                      <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Revenue</h3>
-                      <div className="space-y-3">
-                        <div className="flex justify-between items-center">
-                          <span className="text-gray-700 dark:text-gray-300">Sales Revenue</span>
-                          <span className="text-gray-900 dark:text-white font-medium">{formatCurrency(incomeStatement.revenue)}</span>
-                        </div>
-                        <div className="flex justify-between items-center pt-3 border-t border-gray-200 dark:border-gray-700">
-                          <span className="font-semibold text-gray-900 dark:text-white">Total Revenue</span>
-                          <span className="font-semibold text-gray-900 dark:text-white">{formatCurrency(incomeStatement.revenue)}</span>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Cost of Goods Sold Section */}
-                    <div>
-                      <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Cost of Goods Sold</h3>
-                      <div className="space-y-3">
-                        <div className="flex justify-between items-center">
-                          <span className="text-gray-700 dark:text-gray-300">Cost of Goods Sold</span>
-                          <span className="text-red-600 dark:text-red-400 font-medium">({formatCurrency(incomeStatement.cogs)})</span>
-                        </div>
-                        <div className="flex justify-between items-center pt-3 border-t border-gray-200 dark:border-gray-700">
-                          <span className="font-semibold text-gray-900 dark:text-white">Total COGS</span>
-                          <span className="font-semibold text-red-600 dark:text-red-400">({formatCurrency(incomeStatement.cogs)})</span>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Gross Profit */}
-                    <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
-                      <div className="flex justify-between items-center">
-                        <span className="text-lg font-bold text-gray-900 dark:text-white">Gross Profit</span>
-                        <span className="text-lg font-bold text-blue-600 dark:text-blue-400">{formatCurrency(incomeStatement.grossProfit)}</span>
-                      </div>
-                      <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
-                        Margin: {incomeStatement.revenue > 0 ? ((incomeStatement.grossProfit / incomeStatement.revenue) * 100).toFixed(2) : 0}%
-                      </p>
-                    </div>
-
-                    {/* Operating Expenses Section */}
-                    <div>
-                      <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Operating Expenses</h3>
-                      <div className="space-y-3">
-                        <div className="flex justify-between items-center">
-                          <span className="text-gray-700 dark:text-gray-300">Total Expenses</span>
-                          <span className="text-red-600 dark:text-red-400 font-medium">({formatCurrency(incomeStatement.expenses)})</span>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Net Income */}
-                    <div className={`${incomeStatement.netIncome >= 0 ? 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800' : 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800'} border rounded-lg p-6`}>
-                      <div className="flex justify-between items-center">
-                        <span className="text-xl font-bold text-gray-900 dark:text-white">Net Income</span>
-                        <span className={`text-2xl font-bold ${incomeStatement.netIncome >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
-                          {incomeStatement.netIncome >= 0 ? formatCurrency(incomeStatement.netIncome) : `(${formatCurrency(Math.abs(incomeStatement.netIncome))})`}
-                        </span>
-                      </div>
-                      <p className="text-sm text-gray-600 dark:text-gray-400 mt-2">
-                        Net Margin: {incomeStatement.revenue > 0 ? ((incomeStatement.netIncome / incomeStatement.revenue) * 100).toFixed(2) : 0}%
-                      </p>
-                    </div>
-
-                    {/* Summary Cards */}
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-6 border-t border-gray-200 dark:border-gray-700">
-                      <div className="bg-gray-50 dark:bg-gray-750 rounded-lg p-4">
-                        <p className="text-xs text-gray-500 dark:text-gray-400 uppercase mb-1">Total Revenue</p>
-                        <p className="text-2xl font-bold text-gray-900 dark:text-white">{formatCurrency(incomeStatement.revenue)}</p>
-                      </div>
-                      <div className="bg-gray-50 dark:bg-gray-750 rounded-lg p-4">
-                        <p className="text-xs text-gray-500 dark:text-gray-400 uppercase mb-1">Total COGS</p>
-                        <p className="text-2xl font-bold text-red-600 dark:text-red-400">{formatCurrency(incomeStatement.cogs)}</p>
-                      </div>
-                      <div className="bg-gray-50 dark:bg-gray-750 rounded-lg p-4">
-                        <p className="text-xs text-gray-500 dark:text-gray-400 uppercase mb-1">Gross Margin</p>
-                        <p className="text-2xl font-bold text-blue-600 dark:text-blue-400">
-                          {incomeStatement.revenue > 0 ? ((incomeStatement.grossProfit / incomeStatement.revenue) * 100).toFixed(1) : 0}%
-                        </p>
-                      </div>
-                    </div>
-
-                    {/* Export Button */}
-                    <div className="pt-6 border-t border-gray-200 dark:border-gray-700">
-                      <div>
-                        <button className="absolute bottom-6 right-6 z-50 flex items-center gap-2 px-3 py-2 bg-gray-900 dark:bg-white text-white dark:text-gray-900 text-sm rounded-md shadow hover:bg-gray-800 dark:hover:bg-gray-100">
-                          <Download className="w-4 h-4" />
-                          Export Income Statement
-                        </button>
-                      </div>
-                    </div>
-                  </div>
+                  ) : null}
                 </div>
               )}
             </div>
