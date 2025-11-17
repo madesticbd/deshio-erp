@@ -5,6 +5,8 @@ import { Search, X, Globe } from 'lucide-react';
 import Header from '@/components/Header';
 import Sidebar from '@/components/Sidebar';
 import axios from '@/lib/axios';
+import storeService from '@/services/storeService';
+import productImageService from '@/services/productImageService';
 
 interface DefectItem {
   id: string;
@@ -95,15 +97,57 @@ export default function SocialCommercePage() {
     }
   };
 
-  // Fetch functions
+  // Helper function to get image URL
+  const getImageUrl = (imagePath: string | null | undefined): string => {
+    if (!imagePath) return '/placeholder-image.jpg';
+    
+    if (imagePath.startsWith('http://') || imagePath.startsWith('https://')) {
+      return imagePath;
+    }
+    
+    const baseUrl = process.env.NEXT_PUBLIC_API_URL?.replace('/api', '') || '';
+    
+    if (imagePath.startsWith('/storage')) {
+      return `${baseUrl}${imagePath}`;
+    }
+    
+    return `${baseUrl}/storage/product-images/${imagePath}`;
+  };
+
+  // Fetch primary image for a product
+  const fetchPrimaryImage = async (productId: number): Promise<string> => {
+    try {
+      const images = await productImageService.getProductImages(productId);
+      
+      // Find primary image first
+      const primaryImage = images.find(img => img.is_primary && img.is_active);
+      
+      if (primaryImage) {
+        return getImageUrl(primaryImage.image_url || primaryImage.image_path);
+      }
+      
+      // Fallback to first active image
+      const firstActiveImage = images.find(img => img.is_active);
+      if (firstActiveImage) {
+        return getImageUrl(firstActiveImage.image_url || firstActiveImage.image_path);
+      }
+      
+      return '/placeholder-image.jpg';
+    } catch (error) {
+      console.error('Error fetching product images:', error);
+      return '/placeholder-image.jpg';
+    }
+  };
+
+  // Fetch stores
   const fetchStores = async () => {
     try {
-      const response = await axios.get('/stores', { params: { is_active: true } });
+      const response = await storeService.getStores({ is_active: true, per_page: 1000 });
       let storesData = [];
       
-      if (response.data?.success && response.data?.data) {
-        storesData = Array.isArray(response.data.data) ? response.data.data : 
-                     Array.isArray(response.data.data.data) ? response.data.data.data : [];
+      if (response?.success && response?.data) {
+        storesData = Array.isArray(response.data) ? response.data : 
+                     Array.isArray(response.data.data) ? response.data.data : [];
       } else if (Array.isArray(response.data)) {
         storesData = response.data;
       }
@@ -120,7 +164,7 @@ export default function SocialCommercePage() {
 
   const fetchProducts = async () => {
     try {
-      const response = await axios.get('/products');
+      const response = await axios.get('/products', { params: { per_page: 1000 } });
       let productsData = [];
       
       if (response.data?.success && response.data?.data) {
@@ -144,65 +188,103 @@ export default function SocialCommercePage() {
       setIsLoadingData(true);
       console.log('📦 Fetching inventory for store:', storeId);
       
-      // Try multiple inventory endpoints
-      let inventoryData: any[] = [];
-      let inventoryLoaded = false;
-      
-      // Try 1: Store-specific inventory
+      // First try: Use store-specific inventory endpoint
       try {
-        const response = await axios.get(`/stores/${storeId}/inventory`);
-        console.log('📦 Store inventory response:', response.data);
+        const response = await storeService.getStoreInventory(parseInt(storeId));
+        console.log('📦 Store inventory response:', response);
         
-        if (response.data?.success && response.data?.data) {
-          inventoryData = Array.isArray(response.data.data) ? response.data.data : 
-                         Array.isArray(response.data.data.data) ? response.data.data.data : [];
-        } else if (Array.isArray(response.data)) {
-          inventoryData = response.data;
-        }
+        let inventoryData: any[] = [];
         
-        if (inventoryData.length > 0) {
-          inventoryLoaded = true;
-          console.log('✅ Store inventory loaded:', inventoryData.length, 'items');
+        if (response?.success && response?.data) {
+          const rawInventory = Array.isArray(response.data) ? response.data : 
+                              Array.isArray(response.data.data) ? response.data.data : [];
+          
+          console.log('📦 Raw inventory items:', rawInventory.length);
+          
+          // Process inventory data
+          rawInventory.forEach((item: any) => {
+            // Check if this item has stores array
+            if (item.stores && Array.isArray(item.stores)) {
+              const storeData = item.stores.find((s: any) => String(s.store_id) === String(storeId));
+              
+              if (storeData && storeData.quantity > 0) {
+                console.log('✅ Found inventory for product:', item.product_name, 'Qty:', storeData.quantity, 'Price:', storeData.selling_price);
+                
+                // Get price from multiple possible sources
+                const price = storeData.selling_price || 
+                             storeData.sellingPrice || 
+                             item.selling_price || 
+                             item.price || 
+                             0;
+                
+                // Create inventory items for each unit
+                for (let i = 0; i < storeData.quantity; i++) {
+                  inventoryData.push({
+                    product_id: item.product_id,
+                    productId: item.product_id,
+                    batch_id: storeData.batch_id,
+                    batchId: storeData.batch_id,
+                    selling_price: price,
+                    sellingPrice: price,
+                    status: 'available',
+                    store_id: storeId,
+                    storeId: storeId
+                  });
+                }
+              }
+            }
+          });
+          
+          setInventory(inventoryData);
+          console.log('✅ Final inventory count:', inventoryData.length);
+          return;
         }
-      } catch (error) {
-        console.log('⚠️ Store inventory endpoint not available');
+      } catch (storeError) {
+        console.log('⚠️ Store inventory endpoint failed, trying global...');
       }
       
-      // Try 2: Global inventory filtered by store
-      if (!inventoryLoaded) {
-        try {
-          const globalResponse = await axios.get('/inventory/global');
-          console.log('🌐 Global inventory response:', globalResponse.data);
+      // Fallback: Try global inventory endpoint filtered by store
+      try {
+        const globalResponse = await axios.get('/inventory/global');
+        console.log('🌐 Global inventory response:', globalResponse.data);
+        
+        let inventoryData: any[] = [];
+        
+        if (globalResponse.data?.success && globalResponse.data?.data) {
+          const allInventory = Array.isArray(globalResponse.data.data) ? globalResponse.data.data : [];
           
-          let allInventory: any[] = [];
+          console.log('🌐 Total inventory items:', allInventory.length);
           
-          if (globalResponse.data?.success && globalResponse.data?.data) {
-            allInventory = Array.isArray(globalResponse.data.data) ? globalResponse.data.data : 
-                          Array.isArray(globalResponse.data.data.data) ? globalResponse.data.data.data : [];
-          } else if (Array.isArray(globalResponse.data)) {
-            allInventory = globalResponse.data;
-          }
+          allInventory.forEach((item: any) => {
+            if (item.stores && Array.isArray(item.stores)) {
+              const storeData = item.stores.find((s: any) => String(s.store_id) === String(storeId));
+              
+              if (storeData && storeData.quantity > 0) {
+                console.log('✅ Found inventory for product:', item.product_name, 'Qty:', storeData.quantity);
+                
+                for (let i = 0; i < storeData.quantity; i++) {
+                  inventoryData.push({
+                    product_id: item.product_id,
+                    productId: item.product_id,
+                    batch_id: storeData.batch_id,
+                    batchId: storeData.batch_id,
+                    selling_price: storeData.selling_price,
+                    sellingPrice: storeData.selling_price,
+                    status: 'available',
+                    store_id: storeId,
+                    storeId: storeId
+                  });
+                }
+              }
+            }
+          });
           
-          // Filter by store
-          inventoryData = allInventory.filter((item: any) => 
-            String(item.store_id || item.storeId) === String(storeId)
-          );
-          
-          if (inventoryData.length > 0) {
-            inventoryLoaded = true;
-            console.log('✅ Filtered inventory:', inventoryData.length, 'items');
-          }
-        } catch (error) {
-          console.log('⚠️ Global inventory endpoint not available');
+          setInventory(inventoryData);
+          console.log('✅ Final inventory count from global:', inventoryData.length);
         }
-      }
-      
-      // Set inventory (even if empty)
-      setInventory(inventoryData);
-      console.log('📊 Final inventory count:', inventoryData.length);
-      
-      if (inventoryData.length === 0) {
-        console.log('⚠️ No inventory found - products will be shown without stock info');
+      } catch (globalError) {
+        console.error('❌ Global inventory also failed:', globalError);
+        setInventory([]);
       }
       
     } catch (error: any) {
@@ -213,171 +295,75 @@ export default function SocialCommercePage() {
     }
   };
 
-  // Local search fallback with multi-language support
-  const performLocalSearch = (query: string) => {
+  // Local search with primary images
+  const performLocalSearch = async (query: string) => {
     const results: any[] = [];
     const queryLower = query.toLowerCase().trim();
     
     console.log('🔍 Local search for:', queryLower);
-    console.log('📦 Available products:', allProducts.length);
-    console.log('📊 Available inventory items:', inventory.length);
 
-    // If no inventory, show products anyway for debugging
-    const showProductsWithoutInventory = inventory.length === 0;
-
-    allProducts.forEach((prod: any) => {
-      // Get searchable text
+    for (const prod of allProducts) {
       const productName = (prod.name || '').toLowerCase();
       const productSku = (prod.sku || '').toLowerCase();
-      const productDesc = (prod.description || '').toLowerCase();
-      const categoryName = (prod.category?.name || prod.category?.title || '').toLowerCase();
       
-      // Calculate relevance score
-      let relevanceScore = 0;
       let matches = false;
+      let relevanceScore = 0;
       
-      // Exact match (highest priority)
       if (productName === queryLower || productSku === queryLower) {
         relevanceScore = 100;
         matches = true;
-      }
-      // Starts with (high priority)
-      else if (productName.startsWith(queryLower) || productSku.startsWith(queryLower)) {
+      } else if (productName.startsWith(queryLower) || productSku.startsWith(queryLower)) {
         relevanceScore = 80;
         matches = true;
-      }
-      // Contains in name or SKU (medium priority)
-      else if (productName.includes(queryLower) || productSku.includes(queryLower)) {
+      } else if (productName.includes(queryLower) || productSku.includes(queryLower)) {
         relevanceScore = 60;
         matches = true;
       }
-      // Contains in description or category (lower priority)
-      else if (productDesc.includes(queryLower) || categoryName.includes(queryLower)) {
-        relevanceScore = 40;
-        matches = true;
-      }
-      // Fuzzy match for misspellings (lowest priority)
-      else {
-        const similarity = calculateSimilarity(queryLower, productName);
-        if (similarity > 60) {
-          relevanceScore = similarity;
-          matches = true;
-        }
-      }
       
       if (matches) {
-        if (showProductsWithoutInventory) {
-          // Show product even without inventory for debugging
-          console.log('⚠️ Found product but no inventory check:', prod.name);
-          
-          const primaryImage = prod.images?.find((img: any) => img.is_primary) || prod.images?.[0];
-          const imageUrl = primaryImage?.image_url || 
-                         primaryImage?.url || 
-                         prod.main_image ||
-                         prod.image ||
-                         '';
+        const availableItems = inventory.filter((item: any) => {
+          const itemProductId = String(item.product_id || item.productId);
+          const prodId = String(prod.id);
+          return itemProductId === prodId && item.status === 'available';
+        });
 
-          results.push({
-            id: prod.id,
-            name: prod.name,
-            sku: prod.sku,
-            batchId: 'no-inventory',
-            attributes: { 
-              Price: prod.price || 0,
-              mainImage: imageUrl
-            },
-            available: 0,
-            relevance_score: relevanceScore,
-            search_stage: 'local-no-inventory'
-          });
-        } else {
-          // Get available inventory
-          const availableItems = inventory.filter((item: any) => {
-            const itemProductId = String(item.product_id || item.productId);
-            const prodId = String(prod.id);
-            const matches = itemProductId === prodId && item.status === 'available';
+        if (availableItems.length > 0) {
+          const groups: { [key: string]: { batchId: any; price: number; count: number } } = {};
+
+          availableItems.forEach((item: any) => {
+            const bid = String(item.batch_id || item.batchId || 'default');
+            const price = item.selling_price || item.sellingPrice || prod.price || 0;
             
-            if (matches) {
-              console.log('✅ Inventory match:', {
-                product: prod.name,
-                productId: prodId,
-                inventoryProductId: itemProductId,
-                status: item.status
-              });
+            if (!groups[bid]) {
+              groups[bid] = { batchId: bid, price: price, count: 0 };
             }
-            
-            return matches;
+            groups[bid].count++;
           });
 
-          console.log(`📊 Product "${prod.name}" (ID: ${prod.id}): ${availableItems.length} inventory items`);
+          // Fetch primary image
+          const imageUrl = await fetchPrimaryImage(prod.id);
 
-          if (availableItems.length > 0) {
-            const groups: { [key: string]: { batchId: any; price: number; count: number } } = {};
-
-            availableItems.forEach((item: any) => {
-              const bid = String(item.batch_id || item.batchId || 'default');
-              const price = item.selling_price || item.sellingPrice || prod.price || 0;
-              
-              if (!groups[bid]) {
-                groups[bid] = { batchId: bid, price: price, count: 0 };
-              }
-              groups[bid].count++;
-            });
-
-            Object.values(groups).forEach((group) => {
-              const primaryImage = prod.images?.find((img: any) => img.is_primary) || prod.images?.[0];
-              const imageUrl = primaryImage?.image_url || 
-                             primaryImage?.url || 
-                             prod.main_image ||
-                             prod.image ||
-                             '';
-
-              results.push({
-                id: prod.id,
-                name: prod.name,
-                sku: prod.sku,
-                batchId: group.batchId,
-                attributes: { 
-                  Price: group.price,
-                  mainImage: imageUrl
-                },
-                available: group.count,
-                relevance_score: relevanceScore,
-                search_stage: 'local'
-              });
+          for (const group of Object.values(groups)) {
+            results.push({
+              id: prod.id,
+              name: prod.name,
+              sku: prod.sku,
+              batchId: group.batchId,
+              attributes: { 
+                Price: group.price,
+                mainImage: imageUrl
+              },
+              available: group.count,
+              relevance_score: relevanceScore,
+              search_stage: 'local'
             });
           }
         }
       }
-    });
+    }
     
-    // Sort by relevance score
     results.sort((a, b) => (b.relevance_score || 0) - (a.relevance_score || 0));
-    
-    console.log('✅ Local search results:', results.length);
-    if (results.length > 0) {
-      console.log('📊 Sample result:', results[0]);
-    }
-    
     return results;
-  };
-
-  // Simple similarity calculation for fuzzy matching
-  const calculateSimilarity = (str1: string, str2: string): number => {
-    if (str1.length === 0 || str2.length === 0) return 0;
-    if (str1 === str2) return 100;
-    
-    const longer = str1.length > str2.length ? str1 : str2;
-    const shorter = str1.length > str2.length ? str2 : str1;
-    
-    let matches = 0;
-    for (let i = 0; i < shorter.length; i++) {
-      if (longer.includes(shorter[i])) {
-        matches++;
-      }
-    }
-    
-    return (matches / longer.length) * 100;
   };
 
   const calculateAmount = (basePrice: number, qty: number, discPer: number, discTk: number) => {
@@ -413,33 +399,27 @@ export default function SocialCommercePage() {
     const delayDebounce = setTimeout(async () => {
       console.log('🔍 Searching for:', searchQuery);
       
-      // Try advanced search API as per documentation
       try {
         const response = await axios.post('/products/advanced-search', {
           query: searchQuery,
           is_archived: false,
           enable_fuzzy: true,
           fuzzy_threshold: 60,
-          search_fields: ['name', 'sku', 'description', 'category', 'custom_fields'],
+          search_fields: ['name', 'sku', 'description', 'category'],
           per_page: 50
         });
 
-        console.log('📦 API Response:', response.data);
-
         if (response.data?.success) {
-          // Handle pagination structure from API
           const products = response.data.data?.items || 
                           response.data.data?.data?.items ||
                           response.data.data || 
                           [];
           
           console.log('✅ API search found:', products.length, 'products');
-          console.log('🔍 Search terms used:', response.data.search_terms);
           
           const results: any[] = [];
 
-          products.forEach((prod: any) => {
-            // Match with store inventory
+          for (const prod of products) {
             const availableItems = inventory.filter((item: any) => {
               const itemProductId = String(item.product_id || item.productId);
               return itemProductId === String(prod.id) && item.status === 'available';
@@ -458,16 +438,10 @@ export default function SocialCommercePage() {
                 groups[bid].count++;
               });
 
-              Object.values(groups).forEach((group) => {
-                // Get image from product
-                const primaryImage = prod.images?.find((img: any) => img.is_primary) || 
-                                    prod.images?.[0];
-                const imageUrl = primaryImage?.image_url || 
-                               primaryImage?.url || 
-                               prod.main_image ||
-                               prod.image ||
-                               '';
+              // Fetch primary image
+              const imageUrl = await fetchPrimaryImage(prod.id);
 
+              for (const group of Object.values(groups)) {
                 results.push({
                   id: prod.id,
                   name: prod.name,
@@ -481,36 +455,26 @@ export default function SocialCommercePage() {
                   relevance_score: prod.relevance_score || 0,
                   search_stage: prod.search_stage || 'api'
                 });
-              });
+              }
             }
-          });
+          }
 
-          console.log('✅ Matched with inventory:', results.length, 'results');
-          
-          // Sort by relevance score
           results.sort((a, b) => (b.relevance_score || 0) - (a.relevance_score || 0));
-          
           setSearchResults(results);
           
           if (results.length === 0 && products.length > 0) {
-            console.warn('⚠️ Products found but no inventory available in this store');
             showToast('Products found but not available in selected store', 'error');
           }
         } else {
-          console.warn('⚠️ API returned unsuccessful response');
           throw new Error('API search unsuccessful');
         }
       } catch (error: any) {
-        console.warn('❌ API search failed:', error.response?.data?.message || error.message);
-        
-        // Fallback to local search
-        console.log('🔄 Falling back to local search...');
-        const localResults = performLocalSearch(searchQuery);
-        console.log('✅ Local search found:', localResults.length, 'results');
+        console.warn('❌ API search failed, using local search');
+        const localResults = await performLocalSearch(searchQuery);
         setSearchResults(localResults);
         
         if (localResults.length === 0) {
-          showToast('No products found. Try a different search term.', 'error');
+          showToast('No products found', 'error');
         }
       }
     }, 300);

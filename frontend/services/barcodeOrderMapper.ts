@@ -13,10 +13,10 @@ class BarcodeOrderMapper {
    * This fetches the order and enriches it with barcode data for returns
    */
   async getOrderWithBarcodes(orderId: number): Promise<Order & {
-    items: Array<Order['items'][number] & {
+    items?: Array<Order['items'] extends Array<infer T> ? T & {
       barcodes: string[];
       available_for_return: number;
-    }>;
+    } : never>;
   }> {
     try {
       // Fetch order
@@ -26,7 +26,7 @@ class BarcodeOrderMapper {
         throw new Error('Order not found');
       }
 
-      const order = orderResponse.data.data;
+      const order: Order = orderResponse.data.data;
 
       // Enhance items with barcode information
       if (order.items && order.items.length > 0) {
@@ -36,21 +36,21 @@ class BarcodeOrderMapper {
             const barcodeResponse = await axiosInstance.get(`/orders/${orderId}/items/${item.id}/barcodes`);
             
             if (barcodeResponse.data.success) {
-              item.barcodes = barcodeResponse.data.data.barcodes || [];
-              item.available_for_return = barcodeResponse.data.data.available_for_return || item.quantity;
+              (item as any).barcodes = barcodeResponse.data.data.barcodes || [];
+              (item as any).available_for_return = barcodeResponse.data.data.available_for_return || item.quantity;
             } else {
-              item.barcodes = [];
-              item.available_for_return = item.quantity;
+              (item as any).barcodes = [];
+              (item as any).available_for_return = item.quantity;
             }
           } catch (error) {
             // If endpoint doesn't exist, generate placeholder barcodes
-            item.barcodes = this.generatePlaceholderBarcodes(item, order);
-            item.available_for_return = item.quantity;
+            (item as any).barcodes = this.generatePlaceholderBarcodes(item, order);
+            (item as any).available_for_return = item.quantity;
           }
         }
       }
 
-      return order;
+      return order as any;
     } catch (error: any) {
       console.error('Get order with barcodes error:', error);
       throw new Error(error.message || 'Failed to fetch order with barcodes');
@@ -62,7 +62,7 @@ class BarcodeOrderMapper {
    * This is a fallback for orders that don't have barcode tracking
    */
   private generatePlaceholderBarcodes(
-    item: Order['items'][number],
+    item: NonNullable<Order['items']>[number],
     order: Order
   ): string[] {
     const barcodes: string[] = [];
@@ -107,12 +107,11 @@ class BarcodeOrderMapper {
       for (const barcode of selectedBarcodes) {
         let found = false;
 
-        for (const item of order.items || []) {
-          if (item.barcodes.includes(barcode)) {
+        for (const item of (order.items || []) as any[]) {
+          if (item.barcodes && item.barcodes.includes(barcode)) {
             found = true;
 
             // Check if already returned
-            // (You'll need to implement this check based on your backend)
             const alreadyReturned = await this.isBarcodeReturned(orderId, barcode);
             
             if (alreadyReturned) {
@@ -145,7 +144,7 @@ class BarcodeOrderMapper {
 
       // Check for over-returns
       for (const [itemId, mapped] of mappedItems) {
-        const orderItem = order.items?.find(i => i.id === itemId);
+        const orderItem = (order.items || []).find((i: any) => i.id === itemId) as any;
         if (orderItem && mapped.quantity > orderItem.available_for_return) {
           warnings.push(
             `${mapped.product_name}: Trying to return ${mapped.quantity} but only ${orderItem.available_for_return} available`
@@ -195,7 +194,7 @@ class BarcodeOrderMapper {
     quantity: number;
     reason: string;
   }> {
-    return mappedItems.map(item => ({
+    return mappedItems.map((item) => ({
       order_item_id: item.order_item_id,
       quantity: item.quantity,
       reason: returnReason,
@@ -223,13 +222,13 @@ class BarcodeOrderMapper {
         // Fallback: fetch order and calculate manually
         const order = await this.getOrderWithBarcodes(orderId);
         
-        return (order.items || []).map(item => ({
+        return ((order.items || []) as any[]).map((item: any) => ({
           order_item_id: item.id,
           product_name: item.product_name,
           quantity_ordered: item.quantity,
           quantity_returned: item.quantity - (item.available_for_return || item.quantity),
           quantity_available: item.available_for_return || item.quantity,
-          barcodes: item.barcodes.map(b => ({
+          barcodes: (item.barcodes || []).map((b: string) => ({
             barcode: b,
             is_returned: false, // We don't know, so assume false
           })),
@@ -259,8 +258,8 @@ class BarcodeOrderMapper {
     try {
       const order = await this.getOrderWithBarcodes(orderId);
       
-      for (const item of order.items || []) {
-        if (item.barcodes.includes(barcode)) {
+      for (const item of ((order.items || []) as any[])) {
+        if (item.barcodes && item.barcodes.includes(barcode)) {
           // Check if already returned
           const alreadyReturned = await this.isBarcodeReturned(orderId, barcode);
           

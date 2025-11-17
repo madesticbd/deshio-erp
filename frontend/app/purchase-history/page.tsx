@@ -5,6 +5,10 @@ import { Search, ChevronDown, ChevronUp, Trash2, MoreVertical, ArrowRightLeft, R
 import Header from '@/components/Header';
 import Sidebar from '@/components/Sidebar';
 import orderService, { type Order, type OrderFilters } from '@/services/orderService';
+import productReturnService, { type CreateReturnRequest } from '@/services/productReturnService';
+import refundService, { type CreateRefundRequest } from '@/services/refundService';
+import ReturnProductModal from '@/components/sales/ReturnProductModal';
+import ExchangeProductModal from '@/components/sales/ExchangeProductModal';
 import axiosInstance from '@/lib/axios';
 
 interface Store {
@@ -25,60 +29,15 @@ export default function PurchaseHistoryPage() {
   const [expandedOrder, setExpandedOrder] = useState<number | null>(null);
   const [loadingDetails, setLoadingDetails] = useState<number | null>(null);
   const [errorDetails, setErrorDetails] = useState<{ [key: number]: string }>({});
-
-  const handleExpandOrder = async (orderId: number) => {
-    if (expandedOrder === orderId) {
-      setExpandedOrder(null);
-      return;
-    }
-
-    setExpandedOrder(orderId);
-
-    // Check if order already has items loaded
-    const order = orders.find(o => o.id === orderId);
-    
-    console.log('🔍 Expanding order:', orderId);
-    console.log('📦 Order data before fetch:', order);
-    console.log('🛒 Has items?', order?.items?.length || 0);
-    
-    if (order?.items && order.items.length > 0) {
-      console.log('✅ Items already loaded, skipping API call');
-      return; // Already loaded
-    }
-
-    // Load full order details
-    setLoadingDetails(orderId);
-    setErrorDetails(prev => ({ ...prev, [orderId]: '' })); // Clear previous error
-    
-    try {
-      console.log('📡 Fetching order details from API...');
-      const fullOrder = await orderService.getById(orderId);
-      console.log('✅ Received full order:', fullOrder);
-      console.log('📋 Items in response:', fullOrder.items?.length || 0);
-      
-      setOrders(orders.map(o => o.id === orderId ? fullOrder : o));
-    } catch (error: any) {
-      console.error('❌ Failed to load order details:', error);
-      console.error('📊 Error response:', error.response?.data);
-      console.error('🔢 Status code:', error.response?.status);
-      
-      const errorMessage = error.response?.data?.message || error.message || 'Failed to load order details';
-      setErrorDetails(prev => ({ ...prev, [orderId]: errorMessage }));
-      
-      // Log more details for debugging
-      console.error('Full error details:', {
-        status: error.response?.status,
-        data: error.response?.data,
-        message: error.message
-      });
-    } finally {
-      setLoadingDetails(null);
-    }
-  };
   const [loading, setLoading] = useState(true);
   const [userRole, setUserRole] = useState<string>('');
   const [userStoreId, setUserStoreId] = useState<string>('');
   const [activeMenu, setActiveMenu] = useState<number | null>(null);
+  
+  // Modal states
+  const [showReturnModal, setShowReturnModal] = useState(false);
+  const [showExchangeModal, setShowExchangeModal] = useState(false);
+  const [selectedOrderForAction, setSelectedOrderForAction] = useState<Order | null>(null);
 
   useEffect(() => {
     const role = localStorage.getItem('userRole') || '';
@@ -101,24 +60,16 @@ export default function PurchaseHistoryPage() {
       const resolvedRole = (role ?? localStorage.getItem('userRole')) || '';
       const resolvedStoreId = (storeId ?? localStorage.getItem('storeId')) || '';
       
-      console.log('🔐 User info:', { role: resolvedRole, storeId: resolvedStoreId });
-      
       const filters: OrderFilters = {
         order_type: 'counter',
         per_page: 50,
       };
       
-      // Store managers only see their store's orders
       if (resolvedRole === 'store_manager' && resolvedStoreId) {
         filters.store_id = parseInt(resolvedStoreId);
       }
       
-      console.log('📡 Fetching orders with filters:', filters);
       const result = await orderService.getAll(filters);
-      console.log('✅ Orders received:', result.data.length);
-      console.log('📦 First order sample:', result.data[0]);
-      
-      // Just set the orders without items - we'll load items on expand
       setOrders(result.data);
       
     } catch (error) {
@@ -158,6 +109,33 @@ export default function PurchaseHistoryPage() {
     }
   };
 
+  const handleExpandOrder = async (orderId: number) => {
+    if (expandedOrder === orderId) {
+      setExpandedOrder(null);
+      return;
+    }
+
+    setExpandedOrder(orderId);
+    const order = orders.find(o => o.id === orderId);
+    
+    if (order?.items && order.items.length > 0) {
+      return;
+    }
+
+    setLoadingDetails(orderId);
+    setErrorDetails(prev => ({ ...prev, [orderId]: '' }));
+    
+    try {
+      const fullOrder = await orderService.getById(orderId);
+      setOrders(orders.map(o => o.id === orderId ? fullOrder : o));
+    } catch (error: any) {
+      const errorMessage = error.response?.data?.message || error.message || 'Failed to load order details';
+      setErrorDetails(prev => ({ ...prev, [orderId]: errorMessage }));
+    } finally {
+      setLoadingDetails(null);
+    }
+  };
+
   const handleDelete = async (orderId: number) => {
     if (!confirm('Are you sure you want to delete this order?')) return;
     
@@ -167,6 +145,224 @@ export default function PurchaseHistoryPage() {
     } catch (error) {
       console.error('Error deleting order:', error);
       alert('Failed to delete order. Please try again.');
+    }
+  };
+
+  const handleReturnClick = async (order: Order) => {
+    setActiveMenu(null);
+    
+    // Load full order details if not already loaded
+    if (!order.items || order.items.length === 0) {
+      try {
+        const fullOrder = await orderService.getById(order.id);
+        setSelectedOrderForAction(fullOrder);
+      } catch (error) {
+        console.error('Failed to load order details:', error);
+        alert('Failed to load order details. Please try again.');
+        return;
+      }
+    } else {
+      setSelectedOrderForAction(order);
+    }
+    
+    setShowReturnModal(true);
+  };
+
+  const handleExchangeClick = async (order: Order) => {
+    setActiveMenu(null);
+    
+    // Load full order details if not already loaded
+    if (!order.items || order.items.length === 0) {
+      try {
+        const fullOrder = await orderService.getById(order.id);
+        setSelectedOrderForAction(fullOrder);
+      } catch (error) {
+        console.error('Failed to load order details:', error);
+        alert('Failed to load order details. Please try again.');
+        return;
+      }
+    } else {
+      setSelectedOrderForAction(order);
+    }
+    
+    setShowExchangeModal(true);
+  };
+
+const handleReturnSubmit = async (returnData: {
+    selectedProducts: Array<{ 
+      order_item_id: number; 
+      quantity: number;
+    }>;
+    refundMethods: {
+      cash: number;
+      card: number;
+      bkash: number;
+      nagad: number;
+      total: number;
+    };
+    returnReason: string;
+    returnType: 'defective' | 'damaged' | 'wrong_item' | 'unwanted' | 'other';
+  }) => {
+    try {
+      if (!selectedOrderForAction) return;
+
+      // Step 1: Create product return
+      const returnRequest: CreateReturnRequest = {
+        order_id: selectedOrderForAction.id,
+        return_reason: returnData.returnReason,
+        return_type: returnData.returnType,
+        items: returnData.selectedProducts,  // ✅ Already correct - no reason field
+        customer_notes: 'Customer initiated return',
+      };
+
+      const returnResponse = await productReturnService.create(returnRequest);
+      const returnId = returnResponse.data.id;
+
+      // Step 2: Auto-approve the return (quality check passed)
+      await productReturnService.update(returnId, {
+        quality_check_passed: true,
+        quality_check_notes: 'Auto-approved via POS',
+      });
+
+      await productReturnService.approve(returnId, {
+        internal_notes: 'Approved via POS system',
+      });
+
+      // Step 3: Process return (restore inventory)
+      await productReturnService.process(returnId, {
+        restore_inventory: true,
+      });
+
+      // Step 4: Complete return
+      await productReturnService.complete(returnId);
+
+      // Step 5: Create refund if there's a refund amount
+      if (returnData.refundMethods.total > 0) {
+        const refundRequest: CreateRefundRequest = {
+          return_id: returnId,
+          refund_type: 'full',
+          refund_method: 'cash', // Primary method
+          refund_method_details: {
+            cash: returnData.refundMethods.cash,
+            card: returnData.refundMethods.card,
+            bkash: returnData.refundMethods.bkash,
+            nagad: returnData.refundMethods.nagad,
+          },
+          internal_notes: 'Refund processed via POS',
+        };
+
+        const refundResponse = await refundService.create(refundRequest);
+        const refundId = refundResponse.data.id;
+
+        // Process and complete refund
+        await refundService.process(refundId);
+        await refundService.complete(refundId, {
+          transaction_reference: `POS-REFUND-${Date.now()}`,
+        });
+      }
+
+      // Refresh orders
+      await fetchOrders(userRole, userStoreId);
+      
+      alert('Return processed successfully!');
+      setShowReturnModal(false);
+      setSelectedOrderForAction(null);
+    } catch (error: any) {
+      console.error('Return processing failed:', error);
+      const errorMsg = error.response?.data?.message || error.message || 'Failed to process return';
+      alert(`Error: ${errorMsg}`);
+    }
+  };
+
+const handleExchangeSubmit = async (exchangeData: {
+    removedProducts: Array<{
+      order_item_id: number;
+      quantity: number;
+    }>;
+    replacementProducts: Array<{
+      product_id: number;
+      batch_id: number;
+      quantity: number;
+      unit_price: number;
+    }>;
+    paymentRefund: {
+      type: 'payment' | 'refund' | 'none';
+      cash: number;
+      card: number;
+      bkash: number;
+      nagad: number;
+      total: number;
+    };
+  }) => {
+    try {
+      if (!selectedOrderForAction) return;
+
+      // Step 1: Create return for old products
+      const returnRequest: CreateReturnRequest = {
+        order_id: selectedOrderForAction.id,
+        return_reason: 'Product exchange',
+        return_type: 'unwanted',
+        items: exchangeData.removedProducts,  // ✅ CHANGED - removed .map() that added reason field
+        customer_notes: 'Exchange transaction',
+      };
+
+      const returnResponse = await productReturnService.create(returnRequest);
+      const returnId = returnResponse.data.id;
+
+      // Auto-approve and process return
+      await productReturnService.update(returnId, {
+        quality_check_passed: true,
+        quality_check_notes: 'Exchange - Auto-approved',
+      });
+
+      await productReturnService.approve(returnId);
+      await productReturnService.process(returnId, { restore_inventory: true });
+      await productReturnService.complete(returnId);
+
+      // Create full refund for returned items
+      const refundRequest: CreateRefundRequest = {
+        return_id: returnId,
+        refund_type: 'full',
+        refund_method: 'cash',
+        internal_notes: 'Full refund for exchange',
+      };
+
+      const refundResponse = await refundService.create(refundRequest);
+      await refundService.process(refundResponse.data.id);
+      await refundService.complete(refundResponse.data.id);
+
+      // Step 2: Create new order for replacement products
+      const newOrderData = {
+        order_type: 'counter',
+        store_id: selectedOrderForAction.store.id,
+        customer_id: selectedOrderForAction.customer?.id,
+        items: exchangeData.replacementProducts.map(p => ({
+          product_id: p.product_id,
+          batch_id: p.batch_id,
+          quantity: p.quantity,
+          unit_price: p.unit_price,
+        })),
+        payment: {
+          payment_method_id: 1, // Cash
+          amount: exchangeData.paymentRefund.total,
+          payment_type: exchangeData.paymentRefund.total >= exchangeData.replacementProducts.reduce((sum, p) => sum + (p.unit_price * p.quantity), 0) ? 'full' : 'partial',
+        },
+        notes: `Exchange from order #${selectedOrderForAction.order_number}`,
+      };
+
+      const newOrder = await orderService.create(newOrderData);
+      await orderService.complete(newOrder.data.id);
+
+      // Refresh orders
+      await fetchOrders(userRole, userStoreId);
+      
+      alert('Exchange processed successfully!');
+      setShowExchangeModal(false);
+      setSelectedOrderForAction(null);
+    } catch (error: any) {
+      console.error('Exchange processing failed:', error);
+      const errorMsg = error.response?.data?.message || error.message || 'Failed to process exchange';
+      alert(`Error: ${errorMsg}`);
     }
   };
 
@@ -298,10 +494,10 @@ export default function PurchaseHistoryPage() {
                 </div>
               ) : (
                 <div className="space-y-4">
-                  {filteredOrders.map((order) => (
+                 {filteredOrders.map((order) => (
                     <div
                       key={order.id}
-                      className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden transition-all hover:shadow-md"
+                      className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 transition-all hover:shadow-md relative"
                     >
                       {/* Order Header */}
                       <div className="p-4">
@@ -368,22 +564,12 @@ export default function PurchaseHistoryPage() {
                           <div className="flex items-center gap-2">
                             <div className="text-right mr-4">
                               <div className="text-xs text-gray-600 dark:text-gray-400">Total</div>
-                                <div className="text-lg font-bold text-gray-900 dark:text-white">
-                                ৳{
-                  Number(
-                  String(order.total_amount ?? "0")
-                    .replace(/[^0-9.-]/g, "")
-                  ).toFixed(2)
-                }
-                                </div>
+                              <div className="text-lg font-bold text-gray-900 dark:text-white">
+                                ৳{Number(String(order.total_amount ?? "0").replace(/[^0-9.-]/g, "")).toFixed(2)}
+                              </div>
                               {parseFloat(order.outstanding_amount) > 0 && (
                                 <div className="text-xs text-red-600 dark:text-red-400">
-                                  Due:  ৳{
-                  Number(
-                  String(order.total_amount ?? "0")
-                    .replace(/[^0-9.-]/g, "")
-                  ).toFixed(2)
-                }
+                                  Due: ৳{Number(String(order.outstanding_amount ?? "0").replace(/[^0-9.-]/g, "")).toFixed(2)}
                                 </div>
                               )}
                             </div>
@@ -406,8 +592,7 @@ export default function PurchaseHistoryPage() {
                                     type="button"
                                     onClick={(e) => {
                                       e.stopPropagation();
-                                      alert('Exchange feature - connect to returns API');
-                                      setActiveMenu(null);
+                                      handleExchangeClick(order);
                                     }}
                                     className="w-full px-4 py-3 text-left text-sm font-medium text-gray-900 dark:text-white hover:bg-blue-50 dark:hover:bg-blue-900/20 flex items-center gap-3 rounded-t-lg transition-colors"
                                   >
@@ -419,8 +604,7 @@ export default function PurchaseHistoryPage() {
                                     type="button"
                                     onClick={(e) => {
                                       e.stopPropagation();
-                                      alert('Return feature - connect to returns API');
-                                      setActiveMenu(null);
+                                      handleReturnClick(order);
                                     }}
                                     className="w-full px-4 py-3 text-left text-sm font-medium text-gray-900 dark:text-white hover:bg-red-50 dark:hover:bg-red-900/20 flex items-center gap-3 rounded-b-lg transition-colors"
                                   >
@@ -476,9 +660,6 @@ export default function PurchaseHistoryPage() {
                                   >
                                     Try Again
                                   </button>
-                                  <div className="mt-3 text-xs text-gray-600 dark:text-gray-400">
-                                    <strong>Possible issue:</strong> Backend error - check Laravel logs for "Attempt to read property 'name' on null"
-                                  </div>
                                 </div>
                               ) : !order.items || order.items.length === 0 ? (
                                 <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-4 text-sm text-yellow-700 dark:text-yellow-400">
@@ -511,25 +692,10 @@ export default function PurchaseHistoryPage() {
                                             {item.batch_number || '-'}
                                           </td>
                                           <td className="px-3 py-2 text-gray-900 dark:text-white">{item.quantity}</td>
-                                          <td className="px-3 py-2 text-gray-900 dark:text-white"> ৳{
-                  Number(
-                  String(order.total_amount ?? "0")
-                    .replace(/[^0-9.-]/g, "")
-                  ).toFixed(2)
-                }</td>
-                                          <td className="px-3 py-2 text-gray-900 dark:text-white"> ৳{
-                  Number(
-                  String(order.total_amount ?? "0")
-                    .replace(/[^0-9.-]/g, "")
-                  ).toFixed(2)
-                }</td>
+                                          <td className="px-3 py-2 text-gray-900 dark:text-white">৳{Number(String(item.unit_price ?? "0").replace(/[^0-9.-]/g, "")).toFixed(2)}</td>
+                                          <td className="px-3 py-2 text-gray-900 dark:text-white">৳{Number(String(item.discount_amount ?? "0").replace(/[^0-9.-]/g, "")).toFixed(2)}</td>
                                           <td className="px-3 py-2 text-gray-900 dark:text-white font-medium">
-                                            ৳{
-                  Number(
-                  String(order.total_amount ?? "0")
-                    .replace(/[^0-9.-]/g, "")
-                  ).toFixed(2)
-                }
+                                            ৳{Number(String(item.total_price ?? "0").replace(/[^0-9.-]/g, "")).toFixed(2)}
                                           </td>
                                         </tr>
                                       ))}
@@ -546,48 +712,23 @@ export default function PurchaseHistoryPage() {
                                 <div className="space-y-2 text-sm">
                                   <div className="flex justify-between">
                                     <span className="text-gray-600 dark:text-gray-400">Subtotal</span>
-                                    <span className="text-gray-900 dark:text-white"> ৳{
-                  Number(
-                  String(order.total_amount ?? "0")
-                    .replace(/[^0-9.-]/g, "")
-                  ).toFixed(2)
-                }</span>
+                                    <span className="text-gray-900 dark:text-white">৳{Number(String(order.subtotal_amount ?? "0").replace(/[^0-9.-]/g, "")).toFixed(2)}</span>
                                   </div>
                                   <div className="flex justify-between">
                                     <span className="text-gray-600 dark:text-gray-400">Discount</span>
-                                    <span className="text-gray-900 dark:text-white">৳{
-                              Number(
-                              String(order.total_amount ?? "0")
-                              .replace(/[^0-9.-]/g, "")
-                              ).toFixed(2)
-                            }</span>
+                                    <span className="text-gray-900 dark:text-white">৳{Number(String(order.discount_amount ?? "0").replace(/[^0-9.-]/g, "")).toFixed(2)}</span>
                                   </div>
                                   <div className="flex justify-between">
                                     <span className="text-gray-600 dark:text-gray-400">Tax/VAT</span>
-                                    <span className="text-gray-900 dark:text-white"> ৳{
-                  Number(
-                  String(order.total_amount ?? "0")
-                    .replace(/[^0-9.-]/g, "")
-                  ).toFixed(2)
-                }</span>
+                                    <span className="text-gray-900 dark:text-white">৳{Number(String(order.tax_amount ?? "0").replace(/[^0-9.-]/g, "")).toFixed(2)}</span>
                                   </div>
                                   <div className="flex justify-between">
                                     <span className="text-gray-600 dark:text-gray-400">Shipping</span>
-                                    <span className="text-gray-900 dark:text-white"> ৳{
-                  Number(
-                  String(order.total_amount ?? "0")
-                    .replace(/[^0-9.-]/g, "")
-                  ).toFixed(2)
-                }</span>
+                                    <span className="text-gray-900 dark:text-white">৳{Number(String(order.shipping_cost ?? "0").replace(/[^0-9.-]/g, "")).toFixed(2)}</span>
                                   </div>
                                   <div className="flex justify-between pt-2 border-t border-gray-200 dark:border-gray-700 font-medium">
                                     <span className="text-gray-900 dark:text-white">Total</span>
-                                    <span className="text-gray-900 dark:text-white"> ৳{
-                  Number(
-                  String(order.total_amount ?? "0")
-                    .replace(/[^0-9.-]/g, "")
-                  ).toFixed(2)
-                }</span>
+                                    <span className="text-gray-900 dark:text-white">৳{Number(String(order.total_amount ?? "0").replace(/[^0-9.-]/g, "")).toFixed(2)}</span>
                                   </div>
                                 </div>
                               </div>
@@ -598,24 +739,14 @@ export default function PurchaseHistoryPage() {
                                   <div className="flex justify-between">
                                     <span className="text-gray-600 dark:text-gray-400">Total Paid</span>
                                     <span className="text-green-600 dark:text-green-400 font-medium">
-                                     ৳{
-                  Number(
-                  String(order.total_amount ?? "0")
-                    .replace(/[^0-9.-]/g, "")
-                  ).toFixed(2)
-                }
+                                      ৳{Number(String(order.paid_amount ?? "0").replace(/[^0-9.-]/g, "")).toFixed(2)}
                                     </span>
                                   </div>
                                   {parseFloat(order.outstanding_amount) > 0 && (
                                     <div className="flex justify-between">
                                       <span className="text-gray-600 dark:text-gray-400">Outstanding</span>
                                       <span className="text-red-600 dark:text-red-400 font-medium">
-                                        ৳{
-                  Number(
-                  String(order.total_amount ?? "0")
-                    .replace(/[^0-9.-]/g, "")
-                  ).toFixed(2)
-                }
+                                        ৳{Number(String(order.outstanding_amount ?? "0").replace(/[^0-9.-]/g, "")).toFixed(2)}
                                       </span>
                                     </div>
                                   )}
@@ -628,12 +759,7 @@ export default function PurchaseHistoryPage() {
                                             {payment.payment_method} ({payment.payment_type})
                                           </span>
                                           <span className="text-gray-900 dark:text-white">
-                                           ৳{
-                  Number(
-                  String(order.total_amount ?? "0")
-                    .replace(/[^0-9.-]/g, "")
-                  ).toFixed(2)
-                }
+                                            ৳{Number(String(payment.amount ?? "0").replace(/[^0-9.-]/g, "")).toFixed(2)}
                                           </span>
                                         </div>
                                       ))}
@@ -659,6 +785,30 @@ export default function PurchaseHistoryPage() {
         <div
           className="fixed inset-0 z-40"
           onClick={() => setActiveMenu(null)}
+        />
+      )}
+
+      {/* Return Modal */}
+      {showReturnModal && selectedOrderForAction && (
+        <ReturnProductModal
+          order={selectedOrderForAction}
+          onClose={() => {
+            setShowReturnModal(false);
+            setSelectedOrderForAction(null);
+          }}
+          onReturn={handleReturnSubmit}
+        />
+      )}
+
+      {/* Exchange Modal */}
+      {showExchangeModal && selectedOrderForAction && (
+        <ExchangeProductModal
+          order={selectedOrderForAction}
+          onClose={() => {
+            setShowExchangeModal(false);
+            setSelectedOrderForAction(null);
+          }}
+          onExchange={handleExchangeSubmit}
         />
       )}
     </div>

@@ -1,10 +1,17 @@
 import axiosInstance from '@/lib/axios';
-import defectiveProductService, { DefectiveProduct, MarkDefectiveRequest } from './defectiveProductService';
-import productReturnService, { ProductReturn, CreateReturnRequest } from './productReturnService';
-import refundService, { Refund, CreateRefundRequest } from './refundService';
+import defectiveProductService, { 
+  DefectiveProduct, 
+  MarkDefectiveRequest,
+  Severity,
+  AvailableForSaleFilters,
+  DefectiveProductFilters 
+} from './defectiveProductService';
+import productReturnService, { ProductReturn, CreateReturnRequest, ProductReturnFilters } from './productReturnService';
+import refundService, { Refund, CreateRefundRequest, RefundFilters } from './refundService';
 import barcodeService, { ScanResult } from './barcodeService';
 import storeService, { Store } from './storeService';
 import orderService, { Order } from './orderService';
+import barcodeOrderMapper from './barcodeOrderMapper';
 
 // Extended types for frontend integration
 export interface DefectFormData {
@@ -14,7 +21,7 @@ export interface DefectFormData {
   severity: 'minor' | 'moderate' | 'major' | 'critical';
   store_id: number;
   product_batch_id?: number;
-  defect_images?: string[];
+  defect_images?: File[];
   internal_notes?: string;
   is_used_item?: boolean;
 }
@@ -83,7 +90,7 @@ class DefectIntegrationService {
       return response.data;
     } catch (error: any) {
       console.error('Barcode scan error:', error);
-      throw new Error(error.message || 'Failed to scan barcode');
+      throw new Error(error.response?.data?.message || error.message || 'Failed to scan barcode');
     }
   }
 
@@ -92,24 +99,50 @@ class DefectIntegrationService {
    */
   async markAsDefective(formData: DefectFormData): Promise<DefectiveProduct> {
     try {
-      // First, scan barcode to get product_barcode_id
+      console.log('1. Scanning barcode:', formData.barcode);
+      
+      // First, scan barcode to get product_barcode_id and product details
       const scanResult = await this.scanBarcode(formData.barcode);
+      
+      console.log('2. Scan result:', scanResult);
       
       if (!scanResult.is_available) {
         throw new Error('Product is not available for marking as defective');
       }
 
-      // Get barcode ID from scan result (you may need to adjust based on actual response)
-      const barcodeId = scanResult.barcode_type === 'product_barcode' 
-        ? parseInt(formData.barcode) // Adjust based on your actual barcode ID mapping
-        : 0;
-
+      // Get barcode ID - need to fetch the actual product_barcode record
+      const barcodeId = await this.getProductBarcodeId(formData.barcode);
+      
       if (!barcodeId) {
-        throw new Error('Could not determine product barcode ID');
+        throw new Error('Could not determine product barcode ID. Please ensure the barcode is registered in the system.');
       }
 
-      // Prepare defective product request
-      const defectiveRequest: MarkDefectiveRequest = {
+      console.log('3. Barcode ID:', barcodeId);
+
+      // Get the original price from scan result
+      let originalPrice = 0;
+      if (scanResult.current_batch?.sell_price) {
+        originalPrice = parseFloat(scanResult.current_batch.sell_price.toString());
+      } else if (scanResult.product?.selling_price) {
+        originalPrice = parseFloat(scanResult.product.selling_price.toString());
+      } else if (scanResult.product?.price) {
+        originalPrice = parseFloat(scanResult.product.price.toString());
+      }
+
+      if (originalPrice === 0) {
+        throw new Error('Could not determine original price for the product');
+      }
+
+      // Get batch ID if available
+      let batchId: number | undefined = formData.product_batch_id;
+      if (!batchId && scanResult.current_batch?.id) {
+        batchId = scanResult.current_batch.id;
+      }
+
+      console.log('4. Sending request to mark as defective');
+
+      // Use the defectiveProductService which now properly handles FormData
+      const result = await defectiveProductService.markAsDefective({
         product_barcode_id: barcodeId,
         store_id: formData.store_id,
         defect_type: formData.is_used_item ? 'other' : formData.defect_type,
@@ -117,13 +150,13 @@ class DefectIntegrationService {
           ? 'USED_ITEM - Product has been used/opened by customer' 
           : formData.defect_description,
         severity: formData.severity,
-        original_price: parseFloat(scanResult.current_batch?.sell_price || '0'),
-        product_batch_id: formData.product_batch_id || scanResult.current_batch?.id,
-        defect_images: formData.defect_images,
+        original_price: originalPrice,
+        product_batch_id: batchId,
+        defect_images: formData.defect_images, // Pass File[] directly
         internal_notes: formData.internal_notes,
-      };
-
-      const result = await defectiveProductService.markAsDefective(defectiveRequest);
+      });
+      
+      console.log('5. Result:', result);
       
       if (!result.success) {
         throw new Error(result.message || 'Failed to mark as defective');
@@ -131,21 +164,72 @@ class DefectIntegrationService {
 
       return result.data;
     } catch (error: any) {
-      console.error('Mark as defective error:', error);
+      console.error('Mark as defective error:', {
+        message: error.message,
+        response: error.response?.data,
+        status: error.response?.status,
+        url: error.config?.url
+      });
+      
+      // Provide more detailed error message
+      if (error.response?.data?.message) {
+        throw new Error(error.response.data.message);
+      } else if (error.response?.data?.errors) {
+        const errors = Object.values(error.response.data.errors).flat();
+        throw new Error(errors.join(', '));
+      }
+      
       throw new Error(error.message || 'Failed to mark product as defective');
+    }
+  }
+
+  /**
+   * Get product barcode ID from barcode string
+   * This method queries the backend to get the actual product_barcode record ID
+   */
+  private async getProductBarcodeId(barcode: string): Promise<number | null> {
+    try {
+      // Query the barcodes endpoint to find the barcode record
+      const response = await axiosInstance.get('/barcodes', {
+        params: {
+          search: barcode,
+          per_page: 1
+        }
+      });
+
+      if (response.data.success && response.data.data?.data) {
+        const barcodes = response.data.data.data;
+        if (barcodes.length > 0) {
+          return barcodes[0].id;
+        }
+      }
+
+      // Alternative: Try to get from product barcodes if we have product_id
+      // This is a fallback approach
+      const scanResult = await barcodeService.scanBarcode(barcode);
+      if (scanResult.success && scanResult.data.product?.id) {
+        const productBarcodesResponse = await barcodeService.getProductBarcodes(scanResult.data.product.id);
+        if (productBarcodesResponse.success) {
+          const matchingBarcode = productBarcodesResponse.data.barcodes.find(
+            (b) => b.barcode === barcode
+          );
+          if (matchingBarcode) {
+            return matchingBarcode.id;
+          }
+        }
+      }
+
+      return null;
+    } catch (error: any) {
+      console.error('Error getting product barcode ID:', error);
+      return null;
     }
   }
 
   /**
    * Get all defective products with filtering
    */
-  async getDefectiveProducts(filters?: {
-    status?: string;
-    store_id?: number;
-    severity?: string;
-    defect_type?: string;
-    search?: string;
-  }) {
+  async getDefectiveProducts(filters?: DefectiveProductFilters) {
     try {
       const result = await defectiveProductService.getAll(filters);
       
@@ -209,14 +293,16 @@ class DefectIntegrationService {
   /**
    * Search customer orders by phone or order ID
    */
-  async searchCustomerOrders(searchType: 'phone' | 'orderId', searchValue: string) {
+  async searchCustomerOrders(searchType: 'phone' | 'orderId', searchValue: string): Promise<Order[]> {
     try {
       if (searchType === 'phone') {
         // Search by customer phone
         const result = await orderService.getAll({
-          search: searchValue, // Assuming backend supports phone search
+          search: searchValue,
           per_page: 50,
         });
+        
+        // Return the data array from the paginated response
         return result.data;
       } else {
         // Get single order by ID
@@ -234,33 +320,29 @@ class DefectIntegrationService {
    */
   async createCustomerReturn(formData: CustomerReturnFormData): Promise<ProductReturn> {
     try {
-      // Get order details to map barcodes to order items
-      const order = await orderService.getById(formData.order_id);
+      // Validate barcodes first
+      const validation = await barcodeOrderMapper.validateBarcodesForReturn(
+        formData.order_id,
+        formData.selected_barcodes
+      );
 
-      if (!order.items || order.items.length === 0) {
-        throw new Error('Order has no items');
+      if (!validation.valid) {
+        throw new Error('Validation errors: ' + validation.errors.join(', '));
       }
 
-      // Map selected barcodes to order items
-      // Note: This assumes your order items have barcode information
-      // You may need to adjust based on your actual data structure
-      const returnItems = formData.selected_barcodes.map(barcode => {
-        // Find matching order item (you'll need to adjust this logic)
-        const orderItem = order.items?.find(item => {
-          // This is a placeholder - adjust based on how barcodes are stored in order items
-          return item.id; // You need to map barcode to order_item_id
-        });
+      if (validation.warnings.length > 0) {
+        console.warn('Barcode validation warnings:', validation.warnings);
+      }
 
-        if (!orderItem) {
-          throw new Error(`No order item found for barcode: ${barcode}`);
-        }
+      // Convert validated barcodes to return items
+      const returnItems = barcodeOrderMapper.convertToReturnItems(
+        validation.mapped_items,
+        formData.return_reason
+      );
 
-        return {
-          order_item_id: orderItem.id,
-          quantity: 1, // Assuming 1 per barcode, adjust if needed
-          reason: formData.return_reason,
-        };
-      });
+      if (returnItems.length === 0) {
+        throw new Error('No valid items found for return');
+      }
 
       // Create return request
       const returnRequest: CreateReturnRequest = {
@@ -272,10 +354,31 @@ class DefectIntegrationService {
         attachments: formData.attachments,
       };
 
+      console.log('Creating return with items:', returnItems);
+
       const result = await productReturnService.create(returnRequest);
 
       if (!result.success) {
         throw new Error(result.message || 'Failed to create return');
+      }
+
+      // After creating the return, mark each barcode as defective
+      // This integrates the return with the defect system
+      for (const barcode of formData.selected_barcodes) {
+        try {
+          await this.markAsDefective({
+            barcode: barcode,
+            store_id: formData.store_id,
+            defect_type: formData.return_type === 'defective' ? 'physical_damage' : 'other',
+            defect_description: formData.return_reason,
+            severity: 'moderate',
+            is_used_item: formData.return_type === 'unwanted',
+            internal_notes: `Customer return - Return #${result.data.return_number}`,
+          });
+        } catch (error) {
+          console.error(`Failed to mark barcode ${barcode} as defective:`, error);
+          // Continue even if marking as defective fails
+        }
       }
 
       return result.data;
@@ -288,12 +391,7 @@ class DefectIntegrationService {
   /**
    * Get all returns with filtering
    */
-  async getReturns(filters?: {
-    status?: string;
-    store_id?: number;
-    customer_id?: number;
-    search?: string;
-  }) {
+  async getReturns(filters?: ProductReturnFilters) {
     try {
       const result = await productReturnService.getAll(filters);
 
@@ -323,16 +421,15 @@ class DefectIntegrationService {
 
       // Get all refunds for this return
       const refundsResult = await refundService.getAll({
-        // Assuming you can filter by return_id
         search: returnData.return_number,
       });
 
-      const refunds = refundsResult.success ? refundsResult.data.data || [] : [];
+      const refunds: Refund[] = refundsResult.success ? (refundsResult.data.data || []) : [];
 
       // Calculate totals
       const totalRefunded = refunds
-        .filter(r => r.status === 'completed')
-        .reduce((sum, r) => sum + parseFloat(r.refund_amount.toString()), 0);
+        .filter((r: Refund) => r.status === 'completed')
+        .reduce((sum: number, r: Refund) => sum + parseFloat(r.refund_amount.toString()), 0);
 
       const remainingAmount = parseFloat(returnData.total_refund_amount.toString()) - totalRefunded;
 
@@ -447,12 +544,7 @@ class DefectIntegrationService {
   /**
    * Get all refunds with filtering
    */
-  async getRefunds(filters?: {
-    status?: string;
-    refund_method?: string;
-    customer_id?: number;
-    search?: string;
-  }) {
+  async getRefunds(filters?: RefundFilters) {
     try {
       const result = await refundService.getAll(filters);
 
@@ -499,7 +591,7 @@ class DefectIntegrationService {
       const refund = await this.createRefund({
         return_id: returnResult.id,
         refund_type: 'full',
-        refund_method: 'cash', // Temporary, will be offset by new order
+        refund_method: 'cash',
         internal_notes: 'Exchange refund',
       });
 
@@ -556,36 +648,9 @@ class DefectIntegrationService {
   }
 
   /**
-   * Upload defect/return image
-   */
-  async uploadImage(file: File): Promise<string> {
-    try {
-      const formData = new FormData();
-      formData.append('image', file);
-
-      const response = await axiosInstance.post('/upload/image', formData, {
-        headers: { 'Content-Type': 'multipart/form-data' },
-      });
-
-      if (!response.data.success) {
-        throw new Error('Failed to upload image');
-      }
-
-      return response.data.data.url;
-    } catch (error: any) {
-      console.error('Upload image error:', error);
-      throw new Error(error.message || 'Failed to upload image');
-    }
-  }
-
-  /**
    * Get defective products available for sale
    */
-  async getAvailableForSale(filters?: {
-    store_id?: number;
-    severity?: string;
-    max_price?: number;
-  }) {
+  async getAvailableForSale(filters?: AvailableForSaleFilters) {
     try {
       const result = await defectiveProductService.getAvailableForSale(filters);
 

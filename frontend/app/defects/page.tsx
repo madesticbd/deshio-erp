@@ -11,7 +11,6 @@ import storeService from '@/services/storeService';
 import defectiveProductService from '@/services/defectiveProductService';
 import type { DefectiveProduct } from '@/services/defectiveProductService';
 import type { Store } from '@/services/storeService';
-
 interface DefectItem {
   id: string;
   barcode: string;
@@ -29,6 +28,14 @@ interface DefectItem {
   store?: string;
   image?: string;
 }
+
+// Helper function - ADD THIS RIGHT HERE
+const formatPrice = (price: number | undefined | null): string => {
+  if (price === undefined || price === null) return '0.00';
+  const numPrice = typeof price === 'string' ? parseFloat(price) : Number(price);
+  if (isNaN(numPrice)) return '0.00';
+  return numPrice.toFixed(2);
+};
 
 interface Order {
   id: number;
@@ -120,17 +127,76 @@ export default function DefectsPage() {
     }
   };
 
-  const fetchDefects = async () => {
-    try {
-      const filters: any = {};
-      if (selectedStore !== 'all') {
-        filters.store_id = parseInt(selectedStore);
+// Update the fetchDefects function in your React component
+
+// Updated fetchDefects function with debugging and fixes
+
+const fetchDefects = async () => {
+  try {
+    const filters: any = {};
+    if (selectedStore !== 'all') {
+      filters.store_id = parseInt(selectedStore);
+    }
+    
+    const result = await defectIntegrationService.getDefectiveProducts(filters);
+    
+    console.log('Raw API response:', result); // Debug log
+    
+    // Handle paginated response - extract the data array
+    const defectiveData = result.data?.data || result.data || [];
+    
+    console.log('Defective data:', defectiveData); // Debug log
+    
+    // Transform backend data to frontend format
+    const transformedDefects: DefectItem[] = defectiveData.map((d: DefectiveProduct) => {
+      // ✅ FIX: Construct full image URL from storage path
+      let imageUrl: string | undefined = undefined;
+      
+      console.log('Processing defect:', {
+        id: d.id,
+        defect_images: d.defect_images,
+        image_urls: (d as any).image_urls
+      }); // Debug log
+      
+      if (d.defect_images && Array.isArray(d.defect_images) && d.defect_images.length > 0) {
+        const imagePath = d.defect_images[0];
+        
+        // Check if it's already a full URL
+        if (imagePath.startsWith('http://') || imagePath.startsWith('https://')) {
+          imageUrl = imagePath;
+        } else {
+          // Construct the URL
+          // Remove any leading slashes from imagePath
+          const cleanPath = imagePath.replace(/^\/+/, '');
+          
+          // Get the API URL from environment or use relative path
+          let apiUrl = process.env.NEXT_PUBLIC_API_URL || '';
+          
+          // Remove /api from the end if it exists
+          apiUrl = apiUrl.replace(/\/api\/?$/, '');
+          
+          // Construct full URL
+          if (apiUrl) {
+            imageUrl = `${apiUrl}/storage/${cleanPath}`;
+          } else {
+            // If no API URL, use relative path
+            imageUrl = `/storage/${cleanPath}`;
+          }
+        }
+        
+        console.log('Constructed image URL:', imageUrl); // Debug log
       }
+
       
-      const result = await defectIntegrationService.getDefectiveProducts(filters);
-      
-      // Transform backend data to frontend format
-      const transformedDefects: DefectItem[] = (result.data || []).map((d: DefectiveProduct) => ({
+
+      // ✅ FIX: Handle decimal conversion properly
+      const parsePrice = (value: any): number | undefined => {
+        if (value === null || value === undefined) return undefined;
+        const parsed = typeof value === 'string' ? parseFloat(value) : Number(value);
+        return isNaN(parsed) ? undefined : parsed;
+      };
+
+      return {
         id: d.id.toString(),
         barcode: d.barcode?.barcode || '',
         productId: d.product_id,
@@ -139,21 +205,24 @@ export default function DefectsPage() {
                 d.status === 'sold' ? 'sold' : 'pending',
         addedBy: d.identifiedBy?.name || 'System',
         addedAt: d.identified_at,
-        originalSellingPrice: parseFloat(d.original_price.toString()),
-        costPrice: d.product?.cost_price ? parseFloat(d.product.cost_price.toString()) : undefined,
+        originalSellingPrice: parsePrice(d.original_price),
+        costPrice: parsePrice(d.product?.cost_price),
         returnReason: d.defect_description,
         store: d.store?.name,
-        image: d.defect_images?.[0],
-        sellingPrice: d.suggested_selling_price ? parseFloat(d.suggested_selling_price.toString()) : undefined,
-      }));
-      
-      setDefects(transformedDefects);
-    } catch (error: any) {
-      console.error('Error fetching defects:', error);
-      setErrorMessage(error.message || 'Failed to fetch defects');
-      setTimeout(() => setErrorMessage(''), 5000);
-    }
-  };
+        image: imageUrl,
+        sellingPrice: parsePrice(d.suggested_selling_price),
+      };
+    });
+    
+    console.log('Transformed defects:', transformedDefects); // Debug log
+    
+    setDefects(transformedDefects);
+  } catch (error: any) {
+    console.error('Error fetching defects:', error);
+    setErrorMessage(error.message || 'Failed to fetch defects');
+    setTimeout(() => setErrorMessage(''), 5000);
+  }
+};
 
   const handleBarcodeCheck = async (value: string) => {
     setBarcodeInput(value);
@@ -181,61 +250,53 @@ export default function DefectsPage() {
     }
   };
 
-  const handleMarkAsDefective = async () => {
-    if (!barcodeInput.trim()) {
-      alert('Please enter barcode');
-      return;
-    }
+const handleMarkAsDefective = async () => {
+  if (!barcodeInput.trim()) {
+    alert('Please enter barcode');
+    return;
+  }
 
-    if (!isUsedItem && !returnReason) {
-      alert('Please enter return reason or mark as used');
-      return;
-    }
+  if (!isUsedItem && !returnReason) {
+    alert('Please enter return reason or mark as used');
+    return;
+  }
 
-    if (!storeForDefect) {
-      alert('Please select the store location');
-      return;
-    }
+  if (!storeForDefect) {
+    alert('Please select the store location');
+    return;
+  }
 
-    setLoading(true);
-    try {
-      // Upload image first if exists
-      let imageUrl: string | undefined;
-      if (defectImage) {
-        imageUrl = await defectIntegrationService.uploadImage(defectImage);
-      }
+  setLoading(true);
+  try {
+    await defectIntegrationService.markAsDefective({
+      barcode: barcodeInput,
+      store_id: parseInt(storeForDefect),
+      defect_type: isUsedItem ? 'other' : 'physical_damage',
+      defect_description: isUsedItem 
+        ? 'USED_ITEM - Product has been used/opened by customer'
+        : returnReason,
+      severity: isUsedItem ? 'minor' : 'moderate',
+      is_used_item: isUsedItem,
+      defect_images: defectImage ? [defectImage] : undefined, // ✅ FIX: Pass the image file
+      internal_notes: `Identified by employee at store ${storeForDefect}`,
+    });
 
-      // Mark as defective
-      await defectIntegrationService.markAsDefective({
-        barcode: barcodeInput,
-        store_id: parseInt(storeForDefect),
-        defect_type: isUsedItem ? 'other' : 'physical_damage',
-        defect_description: isUsedItem 
-          ? 'USED_ITEM - Product has been used/opened by customer'
-          : returnReason,
-        severity: isUsedItem ? 'minor' : 'moderate',
-        is_used_item: isUsedItem,
-        defect_images: imageUrl ? [imageUrl] : undefined,
-        internal_notes: `Identified by employee at store ${storeForDefect}`,
-      });
-
-      setSuccessMessage(isUsedItem ? 'Item marked as used successfully!' : 'Item marked as defective successfully!');
-      setBarcodeInput('');
-      setReturnReason('');
-      setIsUsedItem(false);
-      setStoreForDefect('');
-      setScannedProduct(null);
-      setDefectImage(null);
-      fetchDefects();
-      setTimeout(() => setSuccessMessage(''), 3000);
-    } catch (error: any) {
-      console.error('Error:', error);
-      alert(error.message || 'Error processing defect');
-    } finally {
-      setLoading(false);
-    }
-  };
-
+    setSuccessMessage(isUsedItem ? 'Item marked as used successfully!' : 'Item marked as defective successfully!');
+    setBarcodeInput('');
+    setReturnReason('');
+    setIsUsedItem(false);
+    setStoreForDefect('');
+    setScannedProduct(null);
+    setDefectImage(null); // ✅ Clear the image state
+    fetchDefects();
+    setTimeout(() => setSuccessMessage(''), 3000);
+  } catch (error: any) {
+    console.error('Error:', error);
+    alert(error.message || 'Error processing defect');
+  } finally {
+    setLoading(false);
+  }
+};
   const handleSearchCustomer = async () => {
     if (!searchValue.trim()) {
       alert('Please enter search value');
@@ -1028,7 +1089,7 @@ export default function DefectsPage() {
                                           <div>
                                             <p className="text-xs text-gray-500 dark:text-gray-400 mb-0.5">Cost Price</p>
                                             <p className="text-sm text-gray-900 dark:text-white font-medium">
-                                              ৳{defect.costPrice.toFixed(2)}
+                                              ৳{formatPrice(defect.costPrice)}
                                             </p>
                                           </div>
                                         )}
@@ -1036,7 +1097,7 @@ export default function DefectsPage() {
                                           <div>
                                             <p className="text-xs text-gray-500 dark:text-gray-400 mb-0.5">Original Price</p>
                                             <p className="text-sm text-gray-900 dark:text-white font-medium">
-                                              ৳{defect.originalSellingPrice.toFixed(2)}
+                                              ৳{formatPrice(defect.originalSellingPrice)}
                                             </p>
                                           </div>
                                         )}
@@ -1074,7 +1135,7 @@ export default function DefectsPage() {
                             </div>
                             <div className="flex items-center gap-x-4 text-xs text-gray-600 dark:text-gray-400">
                               <span>{defect.barcode}</span>
-                              <span>৳{defect.sellingPrice?.toFixed(2) || '0.00'}</span>
+                              <span>৳{formatPrice(defect.sellingPrice)}</span>
                             </div>
                           </div>
                         ))}
