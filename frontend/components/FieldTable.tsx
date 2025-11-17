@@ -2,7 +2,8 @@ import { Trash2, Edit } from 'lucide-react';
 
 interface Field {
   id: number;
-  name: string;
+  title?: string;  // Backend uses 'title'
+  name?: string;   // Keep for compatibility
   type: string;
   mode?: string;
   description?: string;
@@ -35,9 +36,9 @@ export default function FieldTable({ fields, onDelete, onEdit }: FieldTableProps
                 className="border-b border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/50"
               >
                 <td className="px-4 py-2">{index + 1}</td>
-                <td className="px-4 py-2">{field.name}</td>
+                <td className="px-4 py-2">{field.title || field.name}</td>
                 <td className="px-4 py-2">{field.type}</td>
-                <td className="px-4 py-2">{field.mode ?? 'Single'}</td>
+                <td className="px-4 py-2">{field.mode ?? 'N/A'}</td>
                 <td className="px-4 py-2 text-right">
                   <div className="flex justify-end gap-2">
                     <button
@@ -60,7 +61,7 @@ export default function FieldTable({ fields, onDelete, onEdit }: FieldTableProps
             ))
           ) : (
             <tr>
-              <td colSpan={4} className="text-center py-6 text-gray-500">
+              <td colSpan={5} className="text-center py-6 text-gray-500">
                 No fields found.
               </td>
             </tr>
