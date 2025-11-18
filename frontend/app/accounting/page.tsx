@@ -73,75 +73,18 @@ export default function AccountingSystem() {
     }
   };
 
- const fetchJournalEntries = async () => {
+  const fetchJournalEntries = async () => {
     try {
       setLoading(true);
       
-      // Fetch all transactions for the date range
-      const response = await accountingService.transactions.getTransactions({
+      const response = await accountingService.reports.getJournalEntries({
         date_from: dateRange.start,
         date_to: dateRange.end,
-        status: 'completed',
-        per_page: 1000,
-        sort_by: 'transaction_date',
-        sort_order: 'desc'
+        per_page: 100,
       });
       
       if (response.success) {
-        const allTransactions = response.data.data || response.data;
-        
-        // Group transactions by reference to create journal entries
-        const entriesMap = new Map<string, JournalEntry>();
-        
-        allTransactions.forEach((txn: Transaction) => {
-          // Create a unique key for grouping (same reference = one journal entry)
-          const refType = txn.reference_type || 'Manual';
-          const refId = txn.reference_id || 0;
-          const key = `${refType}-${refId}-${txn.transaction_date}`;
-          
-          if (!entriesMap.has(key)) {
-            entriesMap.set(key, {
-              id: key,
-              date: txn.transaction_date,
-              reference_type: refType,
-              reference_id: refId,
-              description: txn.description || `${refType} Transaction`,
-              lines: [],
-              total_debit: 0,
-              total_credit: 0,
-              balanced: true,
-              created_at: txn.created_at
-            });
-          }
-          
-          const entry = entriesMap.get(key)!;
-          
-          // Add transaction line to entry
-          entry.lines.push({
-            account: txn.account!,
-            debit: txn.type === 'debit' ? txn.amount : 0,
-            credit: txn.type === 'credit' ? txn.amount : 0,
-            transaction: txn
-          });
-          
-          // Update totals
-          if (txn.type === 'debit') {
-            entry.total_debit += txn.amount;
-          } else {
-            entry.total_credit += txn.amount;
-          }
-        });
-        
-        // Check if each entry is balanced and convert to array
-        const entries = Array.from(entriesMap.values()).map(entry => ({
-          ...entry,
-          balanced: Math.abs(entry.total_debit - entry.total_credit) < 0.01
-        }));
-        
-        // Sort by date descending
-        entries.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-        
-        setJournalEntries(entries);
+        setJournalEntries(response.data);
       }
     } catch (error: any) {
       console.error('Error fetching journal entries:', error);
