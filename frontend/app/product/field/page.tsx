@@ -8,14 +8,7 @@ import FieldTable from '@/components/FieldTable';
 import SearchBar from '@/components/SearchBar';
 import PaginationControls from '@/components/PaginationControls';
 import AddItemModal from '@/components/AddItemModal';
-
-interface Field {
-  id: number;
-  name: string;
-  type: string;
-  mode?: string;
-  description?: string;
-}
+import { fieldService, Field } from '@/services/fieldService';
 
 export default function FieldPage() {
   const [darkMode, setDarkMode] = useState(false);
@@ -26,40 +19,38 @@ export default function FieldPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const [isLoading, setIsLoading] = useState(true);
   const [editingField, setEditingField] = useState<Field | null>(null);
+  const [error, setError] = useState<string | null>(null);
   const fieldsPerPage = 4;
 
   useEffect(() => {
-    const fetchFields = async () => {
-      try {
-        setIsLoading(true);
-        const res = await fetch('/api/fields');
-        
-        if (!res.ok) {
-          console.error('Failed to fetch fields:', res.status);
-          setFields([]);
-          return;
-        }
-        
-        const data = await res.json();
-        console.log('Fetched fields:', data);
-        setFields(Array.isArray(data) ? data : []);
-      } catch (error) {
-        console.error('Error fetching fields:', error);
-        setFields([]);
-      } finally {
-        setIsLoading(false);
-      }
-    };
     fetchFields();
   }, []);
 
+  const fetchFields = async () => {
+    try {
+      setIsLoading(true);
+      setError(null);
+      const data = await fieldService.getFields();
+      // Backend returns { success: true, data: { data: [...], ...pagination } }
+      const fieldsArray = data?.data?.data || data?.data || data || [];
+      setFields(Array.isArray(fieldsArray) ? fieldsArray : []);
+    } catch (error: any) {
+      console.error('Error fetching fields:', error);
+      setError(error.response?.data?.message || 'Failed to fetch fields');
+      setFields([]);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const filteredFields = useMemo(() => {
     if (!Array.isArray(fields)) {
-      console.warn('fields is not an array:', fields);
       return [];
     }
     
     return fields.filter((f) =>
+      // Backend uses 'title' field
+      f?.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       f?.name?.toLowerCase().includes(searchTerm.toLowerCase())
     );
   }, [fields, searchTerm]);
@@ -70,34 +61,39 @@ export default function FieldPage() {
 
   const handleAddField = async (data: Record<string, string | number>) => {
     try {
-      const newField = { 
-        id: Date.now(), 
-        name: data.name as string,
+      console.log('Form data received:', data);
+      
+      // Validate required fields
+      if (!data.name || !data.type) {
+        alert('Please fill in all required fields (Name and Type)');
+        return;
+      }
+
+      // Map frontend fields to backend fields
+      const newFieldData = { 
+        title: data.name as string,  // Backend expects 'title' not 'name'
         type: data.type as string,
-        mode: data.mode as string, 
+        is_active: true,
       };
 
-      console.log('Sending new field:', newField);
+      console.log('Sending to API:', newFieldData);
 
-      const res = await fetch('/api/fields', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(newField),
-      });
-
-      if (res.ok) {
-        const savedField = await res.json();
-        console.log('Saved field:', savedField);
-        setFields((prev) => [...prev, savedField]);
-        setShowForm(false);
-      } else {
-        const errorData = await res.json();
-        console.error('Server error:', errorData);
-        alert(`Failed to save field: ${errorData.details || errorData.error}`);
-      }
-    } catch (error) {
+      const response = await fieldService.createField(newFieldData);
+      console.log('API response:', response);
+      
+      // Extract the actual field from the response
+      const savedField = response?.data || response;
+      setFields((prev) => [...prev, savedField]);
+      setShowForm(false);
+      setError(null);
+    } catch (error: any) {
       console.error('Error saving field:', error);
-      alert('Network error: ' + (error instanceof Error ? error.message : String(error)));
+      const errorMessage = error.response?.data?.message || 
+                          error.response?.data?.error || 
+                          error.message ||
+                          'Failed to save field';
+      setError(errorMessage);
+      alert(errorMessage);
     }
   };
 
@@ -105,37 +101,42 @@ export default function FieldPage() {
     if (!editingField) return;
 
     try {
-      const updatedField = {
-        ...editingField,
-        name: data.name as string,
+      console.log('Form data received:', data);
+      
+      // Validate required fields
+      if (!data.name || !data.type) {
+        alert('Please fill in all required fields (Name and Type)');
+        return;
+      }
+
+      // Map frontend fields to backend fields
+      const updatedFieldData = {
+        id: editingField.id,
+        title: data.name as string,  // Backend expects 'title' not 'name'
         type: data.type as string,
-        mode: data.mode as string,
       };
 
-      console.log('Updating field:', updatedField);
+      console.log('Updating with data:', updatedFieldData);
 
-      const res = await fetch(`/api/fields/${editingField.id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(updatedField),
-      });
-
-      if (res.ok) {
-        const savedField = await res.json();
-        console.log('Updated field:', savedField);
-        setFields((prev) => 
-          prev.map((f) => (f.id === editingField.id ? savedField : f))
-        );
-        setShowForm(false);
-        setEditingField(null);
-      } else {
-        const errorData = await res.json();
-        console.error('Server error:', errorData);
-        alert(`Failed to update field: ${errorData.details || errorData.error}`);
-      }
-    } catch (error) {
+      const response = await fieldService.updateField(editingField.id, updatedFieldData);
+      console.log('API response:', response);
+      
+      // Extract the actual field from the response
+      const savedField = response?.data || response;
+      setFields((prev) => 
+        prev.map((f) => (f.id === editingField.id ? savedField : f))
+      );
+      setShowForm(false);
+      setEditingField(null);
+      setError(null);
+    } catch (error: any) {
       console.error('Error updating field:', error);
-      alert('Network error: ' + (error instanceof Error ? error.message : String(error)));
+      const errorMessage = error.response?.data?.message || 
+                          error.response?.data?.error || 
+                          error.message ||
+                          'Failed to update field';
+      setError(errorMessage);
+      alert(errorMessage);
     }
   };
 
@@ -143,20 +144,16 @@ export default function FieldPage() {
     if (!confirm('Are you sure you want to delete this field?')) return;
 
     try {
-      const res = await fetch(`/api/fields/${id}`, {
-        method: 'DELETE' 
-      });
-
-      if (res.ok) {
-        setFields(fields.filter((f) => f.id !== id));
-        console.log('Field deleted successfully');
-      } else {
-        const errorData = await res.json();
-        alert(`Failed to delete field: ${errorData.error}`);
-      }
-    } catch (error) {
+      await fieldService.deleteField(id);
+      setFields(fields.filter((f) => f.id !== id));
+      setError(null);
+    } catch (error: any) {
       console.error('Error deleting field:', error);
-      alert('Failed to delete field');
+      const errorMessage = error.response?.data?.message || 
+                          error.response?.data?.error || 
+                          'Failed to delete field';
+      setError(errorMessage);
+      alert(errorMessage);
     }
   };
 
@@ -183,11 +180,17 @@ export default function FieldPage() {
             </h2>
             <button
               onClick={() => setShowForm(true)}
-              className="flex items-center gap-2 px-3 py-2 bg-gray-900 hover:bg-gray-800 text-white text-sm rounded-lg"
+              className="flex items-center gap-2 px-3 py-2 bg-gray-900 hover:bg-gray-800 text-white text-sm rounded-lg transition-colors"
             >
               <Plus className="w-4 h-4" /> Add Field
             </button>
           </div>
+
+          {error && (
+            <div className="mb-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded-lg">
+              {error}
+            </div>
+          )}
 
           <SearchBar value={searchTerm} onChange={setSearchTerm} />
           
@@ -215,13 +218,20 @@ export default function FieldPage() {
             title={editingField ? 'Edit Field' : 'Add New Field'}
             fields={[
               { name: 'name', label: 'Field Name', type: 'text' },
-              { name: 'type', label: 'Type', type: 'select', options: ['Text', 'Number', 'Image'] },
-              { name: 'mode', label: 'Selection Mode', type: 'radio', options: ['Single', 'Multiple'] },
+              { 
+                name: 'type', 
+                label: 'Type', 
+                type: 'select', 
+                options: ['text', 'textarea', 'number', 'email', 'url', 'tel', 'date', 'datetime', 'time', 'select', 'radio', 'checkbox', 'file', 'image', 'color', 'range']
+              },
             ]}
             initialData={
               editingField
-                ? { name: editingField.name, type: editingField.type, mode: 'Single' }
-                : undefined
+                ? { 
+                    name: editingField.title || editingField.name, 
+                    type: editingField.type,
+                  }
+                : {}
             }
             onClose={handleCloseModal}
             onSave={editingField ? handleEditField : handleAddField}
