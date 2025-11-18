@@ -1,7 +1,7 @@
 'use client';
 import React from 'react';
 import { useRouter, usePathname } from 'next/navigation';
-import { useAuth } from '@/app/e-commerce/AuthContext';
+import { useAuth } from '@/contexts/AuthContext';
 import { 
   LayoutDashboard, 
   ShoppingBag, 

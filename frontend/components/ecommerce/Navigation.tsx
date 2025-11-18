@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { ShoppingCart, Heart, Search, User, Menu, X, ChevronRight } from 'lucide-react';
 import { useCart } from '@/app/e-commerce/CartContext';
-import { useAuth } from '@/app/e-commerce/AuthContext';
+import { useAuth } from '@/contexts/AuthContext';
 import CartSidebar from '@/components/ecommerce/cart/CartSidebar';
 import { useRouter } from 'next/navigation';
 import { wishlistUtils } from '@/lib/wishlistUtils';
