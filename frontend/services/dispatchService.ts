@@ -65,6 +65,13 @@ export interface DispatchItem {
   unit_price: string;
   total_cost: string;
   total_value: string;
+  barcode_scanning?: {
+    required_quantity: number;
+    scanned_count: number;
+    remaining_count: number;
+    all_scanned: boolean;
+    progress_percentage: number;
+  };
 }
 
 export interface DispatchStatistics {
@@ -121,6 +128,29 @@ export interface CreateShipmentData {
 export interface BulkCreateShipmentData {
   dispatch_ids: number[];
   send_to_pathao?: boolean;
+}
+
+export interface ScannedBarcode {
+  id: number;
+  barcode: string;
+  product: {
+    id: number;
+    name: string;
+  };
+  current_store: {
+    id: number;
+    name: string;
+  };
+  scanned_at: string;
+  scanned_by: string;
+}
+
+export interface ScannedBarcodesResponse {
+  dispatch_item_id: number;
+  required_quantity: number;
+  scanned_count: number;
+  remaining_count: number;
+  scanned_barcodes: ScannedBarcode[];
 }
 
 // ============================================================================
@@ -250,6 +280,27 @@ class DispatchService {
     const response = await axiosInstance.post(
       `${this.basePath}/bulk-create-shipment`,
       data
+    );
+    return response.data;
+  }
+
+  /**
+   * Scan barcode for dispatch item
+   */
+  async scanBarcode(dispatchId: number, itemId: number, barcode: string) {
+    const response = await axiosInstance.post(
+      `${this.basePath}/${dispatchId}/items/${itemId}/scan-barcode`,
+      { barcode }
+    );
+    return response.data;
+  }
+
+  /**
+   * Get scanned barcodes for dispatch item
+   */
+  async getScannedBarcodes(dispatchId: number, itemId: number) {
+    const response = await axiosInstance.get(
+      `${this.basePath}/${dispatchId}/items/${itemId}/scanned-barcodes`
     );
     return response.data;
   }

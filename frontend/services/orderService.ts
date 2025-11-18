@@ -12,8 +12,7 @@ export interface CreateOrderPayload {
   store_id: number;
   salesman_id?: number;
   items: Array<{
-    barcode?: string;
-    barcodes?: string[];
+    barcode?: string; // Single barcode for create
     product_id: number;
     batch_id: number;
     quantity: number;
@@ -40,6 +39,42 @@ export interface CreateOrderPayload {
       type: 'note' | 'coin';
     }>;
   };
+  installment_plan?: {
+    total_installments: number;
+    installment_amount: number;
+    start_date?: string;
+  };
+}
+
+export interface OrderItem {
+  id: number;
+  product_id: number;
+  product_name: string;
+  product_sku: string;
+  batch_id: number;
+  batch_number?: string;
+  barcode_id?: number;
+  barcode?: string;
+  quantity: number;
+  unit_price: string;
+  discount_amount: string;
+  tax_amount: string;
+  total_amount: string;
+}
+
+export interface OrderPayment {
+  id: number;
+  amount: string;
+  payment_method: string;
+  payment_type: string;
+  status: string;
+  processed_by?: string;
+  created_at: string;
+  splits?: Array<{
+    payment_method: string;
+    amount: string;
+    status: string;
+  }>;
 }
 
 export interface Order {
@@ -74,27 +109,19 @@ export interface Order {
   is_installment: boolean;
   order_date: string;
   created_at: string;
-  items?: Array<{
-    id: number;
-    product_id: number;
-    product_name: string;
-    product_sku: string;
-    batch_number?: string;
-    quantity: number;
-    unit_price: string;
-    discount_amount: string;
-    tax_amount: string;
-    total_amount: string;
-  }>;
-  payments?: Array<{
-    id: number;
-    amount: string;
-    payment_method: string;
-    payment_type: string;
-    status: string;
-    processed_by?: string;
-    created_at: string;
-  }>;
+  items?: OrderItem[];
+  payments?: OrderPayment[];
+  installment_info?: {
+    total_installments: number;
+    paid_installments: number;
+    installment_amount: string;
+    next_payment_due?: string;
+    is_overdue: boolean;
+    days_overdue: number;
+  };
+  notes?: string;
+  shipping_address?: any;
+  confirmed_at?: string;
 }
 
 export interface OrderFilters {
@@ -113,6 +140,36 @@ export interface OrderFilters {
   sort_order?: 'asc' | 'desc';
   per_page?: number;
   page?: number;
+}
+
+export interface OrderStatistics {
+  total_orders: number;
+  by_type: {
+    counter: number;
+    social_commerce: number;
+    ecommerce: number;
+  };
+  by_status: {
+    pending: number;
+    confirmed: number;
+    completed: number;
+    cancelled: number;
+  };
+  by_payment_status: {
+    pending: number;
+    partially_paid: number;
+    paid: number;
+    overdue: number;
+  };
+  total_revenue: string;
+  total_outstanding: string;
+  installment_orders: number;
+  top_salesmen?: Array<{
+    employee_id: number;
+    employee_name: string;
+    order_count: number;
+    total_sales: string;
+  }>;
 }
 
 const orderService = {
@@ -177,7 +234,7 @@ const orderService = {
     }
   },
 
-  /** Add item to order using barcode */
+  /** Add item to order using barcode (supports single or multiple barcodes) */
   async addItem(
     orderId: number,
     payload: {
@@ -185,8 +242,22 @@ const orderService = {
       barcodes?: string[];
       unit_price?: number;
       discount_amount?: number;
+      tax_amount?: number;
     }
-  ): Promise<any> {
+  ): Promise<{
+    item: {
+      id: number;
+      product_name: string;
+      quantity: number;
+      unit_price: string;
+      total: string;
+    };
+    order_totals: {
+      subtotal: string;
+      total_amount: string;
+      outstanding_amount: string;
+    };
+  }> {
     try {
       const response = await axiosInstance.post(`/orders/${orderId}/items`, payload);
       const result = response.data;
@@ -211,7 +282,17 @@ const orderService = {
       unit_price?: number;
       discount_amount?: number;
     }
-  ): Promise<any> {
+  ): Promise<{
+    item: {
+      id: number;
+      quantity: number;
+      unit_price: string;
+      total: string;
+    };
+    order_totals: {
+      total_amount: string;
+    };
+  }> {
     try {
       const response = await axiosInstance.put(`/orders/${orderId}/items/${itemId}`, payload);
       const result = response.data;
@@ -228,7 +309,12 @@ const orderService = {
   },
 
   /** Remove item from order */
-  async removeItem(orderId: number, itemId: number): Promise<void> {
+  async removeItem(orderId: number, itemId: number): Promise<{
+    order_totals: {
+      total_amount: string;
+      outstanding_amount: string;
+    };
+  }> {
     try {
       const response = await axiosInstance.delete(`/orders/${orderId}/items/${itemId}`);
       const result = response.data;
@@ -236,6 +322,8 @@ const orderService = {
       if (!result.success) {
         throw new Error(result.message || 'Failed to remove item');
       }
+      
+      return result.data;
     } catch (error: any) {
       console.error('Remove order item error:', error);
       throw new Error(error.response?.data?.message || 'Failed to remove item');
@@ -282,7 +370,7 @@ const orderService = {
     date_to?: string;
     store_id?: number;
     created_by?: number;
-  }): Promise<any> {
+  }): Promise<OrderStatistics> {
     try {
       const response = await axiosInstance.get('/orders/statistics', { params });
       const result = response.data;

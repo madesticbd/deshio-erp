@@ -85,7 +85,7 @@ export interface MarkDefectiveRequest {
   severity: Severity;
   original_price: number;
   product_batch_id?: number;
-  defect_images?: string[];
+  defect_images?: File[];
   internal_notes?: string;
 }
 
@@ -158,6 +158,21 @@ export interface ScanBarcodeResponse {
   product?: any;
 }
 
+export interface ImageUploadResponse {
+  id: number;
+  defect_images: string[];
+  image_urls: string[];
+}
+
+export interface ImageListResponse {
+  id: number;
+  images: Array<{
+    path: string;
+    url: string;
+  }>;
+  count: number;
+}
+
 // Service Class
 class DefectiveProductService {
   private basePath = '/defective-products';
@@ -182,7 +197,39 @@ class DefectiveProductService {
    * Mark a product barcode as defective
    */
   async markAsDefective(data: MarkDefectiveRequest) {
-    const response = await axiosInstance.post(`${this.basePath}/mark-defective`, data);
+    const formData = new FormData();
+    
+    // Append all required fields
+    formData.append('product_barcode_id', data.product_barcode_id.toString());
+    formData.append('store_id', data.store_id.toString());
+    formData.append('defect_type', data.defect_type);
+    formData.append('defect_description', data.defect_description);
+    formData.append('severity', data.severity);
+    formData.append('original_price', data.original_price.toString());
+    
+    // Append optional fields
+    if (data.product_batch_id) {
+      formData.append('product_batch_id', data.product_batch_id.toString());
+    }
+    
+    if (data.internal_notes) {
+      formData.append('internal_notes', data.internal_notes);
+    }
+    
+    // Append images if present
+    if (data.defect_images && data.defect_images.length > 0) {
+      data.defect_images.forEach((image, index) => {
+        formData.append(`defect_images[${index}]`, image);
+      });
+    }
+    
+    const response = await axiosInstance.post(
+      `${this.basePath}/mark-defective`,
+      formData,
+      {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      }
+    );
     return response.data;
   }
 
@@ -255,6 +302,49 @@ class DefectiveProductService {
    */
   async scanBarcode(data: ScanBarcodeRequest) {
     const response = await axiosInstance.post(`${this.basePath}/scan`, data);
+    return response.data;
+  }
+
+  /**
+   * Upload additional images for a defective product
+   */
+  async uploadImages(id: number, images: File[]) {
+    const formData = new FormData();
+    
+    images.forEach((image, index) => {
+      formData.append(`images[${index}]`, image);
+    });
+    
+    const response = await axiosInstance.post<{ success: boolean; data: ImageUploadResponse }>(
+      `${this.basePath}/${id}/images`,
+      formData,
+      {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      }
+    );
+    return response.data;
+  }
+
+  /**
+   * Get images for a defective product
+   */
+  async getImages(id: number) {
+    const response = await axiosInstance.get<{ success: boolean; data: ImageListResponse }>(
+      `${this.basePath}/${id}/images`
+    );
+    return response.data;
+  }
+
+  /**
+   * Delete an image from defective product
+   */
+  async deleteImage(id: number, imagePath: string) {
+    const response = await axiosInstance.delete(
+      `${this.basePath}/${id}/images`,
+      {
+        data: { image_path: imagePath },
+      }
+    );
     return response.data;
   }
 }

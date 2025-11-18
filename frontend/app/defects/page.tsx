@@ -1,14 +1,17 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Search, Barcode, User, Package, Trash2, ShoppingCart, AlertCircle, Store, ChevronDown, ChevronUp, Calendar, DollarSign, MapPin, Phone, FileText, Image as ImageIcon, TruckIcon } from 'lucide-react';
+import { Search, Barcode, User, Package, Trash2, ShoppingCart, AlertCircle, StoreIcon, ChevronDown, ChevronUp, Calendar, MapPin, Image as ImageIcon, Truck } from 'lucide-react';
 import Header from '@/components/Header';
 import Sidebar from '@/components/Sidebar';
 import SellDefectModal from '@/components/SellDefectModal';
+import ReturnToVendorModal from '@/components/ReturnToVendorModal';
+import Toast from '@/components/Toast';
 import defectIntegrationService from '@/services/defectIntegrationService';
 import barcodeOrderMapper from '@/services/barcodeOrderMapper';
 import storeService from '@/services/storeService';
 import defectiveProductService from '@/services/defectiveProductService';
+import { vendorService } from '@/services/vendorService';
 import type { DefectiveProduct } from '@/services/defectiveProductService';
 import type { Store } from '@/services/storeService';
 
@@ -17,7 +20,7 @@ interface DefectItem {
   barcode: string;
   productId: number;
   productName: string;
-  status: 'pending' | 'approved' | 'sold';
+  status: 'pending' | 'approved' | 'sold' | 'returned_to_vendor';
   addedBy: string;
   addedAt: string;
   originalOrderId?: number;
@@ -28,7 +31,15 @@ interface DefectItem {
   returnReason?: string;
   store?: string;
   image?: string;
+  batchId?: number;
 }
+
+const formatPrice = (price: number | undefined | null): string => {
+  if (price === undefined || price === null) return '0.00';
+  const numPrice = typeof price === 'string' ? parseFloat(price) : Number(price);
+  if (isNaN(numPrice)) return '0.00';
+  return numPrice.toFixed(2);
+};
 
 interface Order {
   id: number;
@@ -86,13 +97,24 @@ export default function DefectsPage() {
   const [successMessage, setSuccessMessage] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
   
+  // Toast state
+  const [toast, setToast] = useState<{
+    show: boolean;
+    message: string;
+    type: 'success' | 'error' | 'info' | 'warning';
+  }>({
+    show: false,
+    message: '',
+    type: 'success',
+  });
+  
   // Sell modal
   const [sellModalOpen, setSellModalOpen] = useState(false);
   const [selectedDefect, setSelectedDefect] = useState<DefectItem | null>(null);
   const [sellPrice, setSellPrice] = useState('');
   const [sellType, setSellType] = useState<'pos' | 'social'>('pos');
   
-  // Vendor return (will implement later)
+  // Vendor return
   const [returnToVendorModalOpen, setReturnToVendorModalOpen] = useState(false);
   const [selectedDefectsForVendor, setSelectedDefectsForVendor] = useState<string[]>([]);
 
@@ -109,7 +131,6 @@ export default function DefectsPage() {
     try {
       const result = await storeService.getStores({ is_active: true });
       if (result.success) {
-        // Handle paginated response - extract the data array
         const storesData = Array.isArray(result.data) 
           ? result.data 
           : (result.data?.data || []);
@@ -129,23 +150,66 @@ export default function DefectsPage() {
       
       const result = await defectIntegrationService.getDefectiveProducts(filters);
       
-      // Transform backend data to frontend format
-      const transformedDefects: DefectItem[] = (result.data || []).map((d: DefectiveProduct) => ({
-        id: d.id.toString(),
-        barcode: d.barcode?.barcode || '',
-        productId: d.product_id,
-        productName: d.product?.name || 'Unknown Product',
-        status: d.status === 'available_for_sale' ? 'approved' : 
-                d.status === 'sold' ? 'sold' : 'pending',
-        addedBy: d.identifiedBy?.name || 'System',
-        addedAt: d.identified_at,
-        originalSellingPrice: parseFloat(d.original_price.toString()),
-        costPrice: d.product?.cost_price ? parseFloat(d.product.cost_price.toString()) : undefined,
-        returnReason: d.defect_description,
-        store: d.store?.name,
-        image: d.defect_images?.[0],
-        sellingPrice: d.suggested_selling_price ? parseFloat(d.suggested_selling_price.toString()) : undefined,
-      }));
+      const defectiveData = result.data?.data || result.data || [];
+      
+      const transformedDefects: DefectItem[] = defectiveData.map((d: DefectiveProduct) => {
+        let imageUrl: string | undefined = undefined;
+        
+        if (d.defect_images && Array.isArray(d.defect_images) && d.defect_images.length > 0) {
+          const imagePath = d.defect_images[0];
+          
+          if (imagePath.startsWith('http://') || imagePath.startsWith('https://')) {
+            imageUrl = imagePath;
+          } else {
+            const cleanPath = imagePath.replace(/^\/+/, '');
+            let apiUrl = process.env.NEXT_PUBLIC_API_URL || '';
+            apiUrl = apiUrl.replace(/\/api\/?$/, '');
+            
+            if (apiUrl) {
+              imageUrl = `${apiUrl}/storage/${cleanPath}`;
+            } else {
+              imageUrl = `/storage/${cleanPath}`;
+            }
+          }
+        }
+
+        const parsePrice = (value: any): number | undefined => {
+          if (value === null || value === undefined) return undefined;
+          const parsed = typeof value === 'string' ? parseFloat(value) : Number(value);
+          return isNaN(parsed) ? undefined : parsed;
+        };
+
+        // Map status including returned_to_vendor
+        let mappedStatus: 'pending' | 'approved' | 'sold' | 'returned_to_vendor';
+        if (d.status === 'available_for_sale') {
+          mappedStatus = 'approved';
+        } else if (d.status === 'sold') {
+          mappedStatus = 'sold';
+        } else if (d.status === 'returned_to_vendor') {
+          mappedStatus = 'returned_to_vendor';
+        } else if (d.status === 'identified' || d.status === 'inspected') {
+          mappedStatus = 'pending';
+        } else {
+          mappedStatus = 'pending';
+        }
+
+        return {
+          id: d.id.toString(),
+          barcode: d.barcode?.barcode || '',
+          productId: d.product_id,
+          productName: d.product?.name || 'Unknown Product',
+          status: mappedStatus,
+          addedBy: d.identifiedBy?.name || 'System',
+          addedAt: d.identified_at,
+          originalSellingPrice: parsePrice(d.original_price),
+          costPrice: parsePrice(d.product?.cost_price),
+          returnReason: d.defect_description,
+          store: d.store?.name,
+          image: imageUrl,
+          sellingPrice: parsePrice(d.suggested_selling_price),
+          batchId: d.product_batch_id,
+        };
+      });
       
       setDefects(transformedDefects);
     } catch (error: any) {
@@ -199,13 +263,6 @@ export default function DefectsPage() {
 
     setLoading(true);
     try {
-      // Upload image first if exists
-      let imageUrl: string | undefined;
-      if (defectImage) {
-        imageUrl = await defectIntegrationService.uploadImage(defectImage);
-      }
-
-      // Mark as defective
       await defectIntegrationService.markAsDefective({
         barcode: barcodeInput,
         store_id: parseInt(storeForDefect),
@@ -215,7 +272,7 @@ export default function DefectsPage() {
           : returnReason,
         severity: isUsedItem ? 'minor' : 'moderate',
         is_used_item: isUsedItem,
-        defect_images: imageUrl ? [imageUrl] : undefined,
+        defect_images: defectImage ? [defectImage] : undefined,
         internal_notes: `Identified by employee at store ${storeForDefect}`,
       });
 
@@ -260,7 +317,6 @@ export default function DefectsPage() {
         return;
       }
 
-      // Enrich orders with barcode information
       const enrichedOrders = await Promise.all(
         orders.map(async (order) => {
           try {
@@ -305,7 +361,6 @@ export default function DefectsPage() {
 
     setLoading(true);
     try {
-      // Validate barcodes first
       const validation = await barcodeOrderMapper.validateBarcodesForReturn(
         parseInt(selectedOrder),
         selectedBarcodes
@@ -323,13 +378,11 @@ export default function DefectsPage() {
         if (!proceed) return;
       }
 
-      // Upload return image if exists
       let imageUrl: string | undefined;
       if (returnImage) {
         imageUrl = await defectIntegrationService.uploadImage(returnImage);
       }
 
-      // Create customer return
       await defectIntegrationService.createCustomerReturn({
         order_id: parseInt(selectedOrder),
         selected_barcodes: selectedBarcodes,
@@ -357,11 +410,61 @@ export default function DefectsPage() {
     }
   };
 
-  const handleSellClick = (defect: DefectItem) => {
-    setSelectedDefect(defect);
-    setSellPrice(defect.sellingPrice?.toString() || '');
-    setSellType('pos');
-    setSellModalOpen(true);
+  const handleSellClick = async (defect: DefectItem) => {
+    setLoading(true);
+    
+    try {
+      const fullDetails = await defectIntegrationService.getDefectiveById(defect.id);
+      
+      if (!fullDetails.product_batch_id) {
+        throw new Error('Missing batch_id - cannot proceed with sale');
+      }
+      
+      let currentStatus = fullDetails.status;
+      
+      if (currentStatus === 'identified') {
+        await defectIntegrationService.inspectDefect(defect.id, {
+          severity: fullDetails.severity || 'moderate',
+          internal_notes: 'Auto-inspected for sale preparation',
+        });
+        
+        setSuccessMessage('Product inspected');
+        currentStatus = 'inspected';
+      }
+      
+      if (currentStatus === 'inspected') {
+        await defectIntegrationService.makeAvailableForSale(defect.id);
+        setSuccessMessage('Product ready for sale');
+        currentStatus = 'available_for_sale';
+      } else if (currentStatus === 'sold') {
+        throw new Error('This product has already been sold');
+      } else if (currentStatus !== 'available_for_sale') {
+        throw new Error(`Cannot sell product with status: ${currentStatus}`);
+      }
+      
+      setSelectedDefect({
+        ...defect,
+        batchId: fullDetails.product_batch_id,
+      });
+      
+      const suggestedPrice = fullDetails.suggested_selling_price?.toString() || 
+                            defect.sellingPrice?.toString() || 
+                            '0';
+      
+      setSellPrice(suggestedPrice);
+      setSellType('pos');
+      setSellModalOpen(true);
+      
+    } catch (error: any) {
+      const errorMessage = error.response?.data?.message || 
+                          error.message || 
+                          'Unknown error occurred';
+      
+      setErrorMessage(`Failed: ${errorMessage}`);
+      
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleSell = async () => {
@@ -372,25 +475,34 @@ export default function DefectsPage() {
 
     setLoading(true);
     try {
-      setSellModalOpen(false);
-
-      // Store defect data for POS/Social Commerce
       const defectData = {
         id: selectedDefect.id,
         barcode: selectedDefect.barcode,
         productId: selectedDefect.productId,
         productName: selectedDefect.productName,
         sellingPrice: parseFloat(sellPrice),
-        store: selectedDefect.store
+        store: selectedDefect.store,
+        batchId: selectedDefect.batchId,
       };
 
+      if (!defectData.batchId) {
+        alert('Error: Missing batch information. Please try again.');
+        setLoading(false);
+        return;
+      }
+      
       sessionStorage.setItem('defectItem', JSON.stringify(defectData));
 
-      // Redirect to selling interface
       const url = sellType === 'pos'
         ? `/pos?defect=${selectedDefect.id}`
         : `/social-commerce?defect=${selectedDefect.id}`;
-      window.location.href = url;
+      
+      setSellModalOpen(false);
+      
+      setTimeout(() => {
+        window.location.href = url;
+      }, 100);
+      
     } catch (error: any) {
       console.error('Error:', error);
       alert(error.message || 'Error processing sale');
@@ -432,6 +544,75 @@ export default function DefectsPage() {
     }
   };
 
+  const handleReturnToVendor = async (vendorId: number, notes: string) => {
+    if (selectedDefectsForVendor.length === 0) {
+      alert('Please select items to return');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      let successCount = 0;
+      let errorCount = 0;
+      const errors: string[] = [];
+
+      for (const defectId of selectedDefectsForVendor) {
+        try {
+          await defectiveProductService.returnToVendor(parseInt(defectId), {
+            vendor_id: vendorId,
+            vendor_notes: notes,
+          });
+          successCount++;
+        } catch (error: any) {
+          errorCount++;
+          const errorMsg = error.response?.data?.message || error.message || 'Unknown error';
+          errors.push(`Item ${defectId}: ${errorMsg}`);
+        }
+      }
+
+      if (successCount > 0) {
+        const successMsg = errorCount === 0
+          ? `Successfully returned ${successCount} item${successCount > 1 ? 's' : ''} to vendor!`
+          : `Returned ${successCount} item${successCount > 1 ? 's' : ''} to vendor. ${errorCount} failed.`;
+        
+        // Show Toast notification
+        setToast({
+          show: true,
+          message: successMsg,
+          type: errorCount === 0 ? 'success' : 'warning',
+        });
+        
+        // Refresh and clear
+        await fetchDefects();
+        setSelectedDefectsForVendor([]);
+        
+        // Close modal
+        setReturnToVendorModalOpen(false);
+      }
+
+      if (errorCount > 0 && successCount === 0) {
+        const errorMessage = errors.join('\n');
+        setToast({
+          show: true,
+          message: `Failed to return ${errorCount} item${errorCount > 1 ? 's' : ''}`,
+          type: 'error',
+        });
+        setErrorMessage(errorMessage);
+        setTimeout(() => setErrorMessage(''), 8000);
+      }
+
+    } catch (error: any) {
+      console.error('Bulk return error:', error);
+      setToast({
+        show: true,
+        message: error.message || 'Failed to process returns',
+        type: 'error',
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const toggleDefectDetails = (defectId: string) => {
     setExpandedDefect(expandedDefect === defectId ? null : defectId);
   };
@@ -447,6 +628,7 @@ export default function DefectsPage() {
   });
   
   const soldDefects = defects.filter(d => d.status === 'sold');
+  const returnedDefects = defects.filter(d => d.status === 'returned_to_vendor');
 
   return (
     <div className={darkMode ? 'dark' : ''}>
@@ -484,7 +666,7 @@ export default function DefectsPage() {
               {errorMessage && (
                 <div className="mb-6 p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg flex items-center gap-3">
                   <AlertCircle className="w-5 h-5 text-red-600 dark:text-red-400" />
-                  <p className="text-red-800 dark:text-red-300">{errorMessage}</p>
+                  <p className="text-red-800 dark:text-red-300 whitespace-pre-line">{errorMessage}</p>
                 </div>
               )}
 
@@ -492,7 +674,7 @@ export default function DefectsPage() {
               <div className="mb-6 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
-                    <Store className="w-5 h-5 text-gray-600 dark:text-gray-400" />
+                    <StoreIcon className="w-5 h-5 text-gray-600 dark:text-gray-400" />
                     <div>
                       <h3 className="font-semibold text-gray-900 dark:text-white">Store Selection</h3>
                       <p className="text-sm text-gray-500 dark:text-gray-400">
@@ -574,7 +756,6 @@ export default function DefectsPage() {
                           )}
                         </div>
 
-                        {/* Used Item Checkbox */}
                         <div className="flex items-start gap-3 p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 rounded-lg">
                           <input
                             type="checkbox"
@@ -859,43 +1040,65 @@ export default function DefectsPage() {
                         <h3 className="font-semibold text-gray-900 dark:text-white">
                           Defective Items ({pendingDefects.length})
                         </h3>
-                        <span className="text-sm text-gray-500 dark:text-gray-400">
-                          {selectedStore === 'all' ? 'All stores' : stores.find(s => s.id.toString() === selectedStore)?.name}
-                        </span>
+                        <div className="flex items-center gap-2">
+                          {selectedDefectsForVendor.length > 0 && (
+                            <button
+                              onClick={() => setReturnToVendorModalOpen(true)}
+                              className="px-3 py-1.5 bg-orange-600 hover:bg-orange-700 text-white rounded-md text-sm font-medium flex items-center gap-2 transition-colors"
+                            >
+                              <Truck className="w-4 h-4" />
+                              Return to Vendor ({selectedDefectsForVendor.length})
+                            </button>
+                          )}
+                          <span className="text-sm text-gray-500 dark:text-gray-400">
+                            {selectedStore === 'all' ? 'All stores' : stores.find(s => s.id.toString() === selectedStore)?.name}
+                          </span>
+                        </div>
                       </div>
                       
                       {/* Filter Buttons */}
-                      <div className="flex gap-2">
-                        <button
-                          onClick={() => setFilterType('all')}
-                          className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
-                            filterType === 'all'
-                              ? 'bg-gray-900 text-white dark:bg-gray-100 dark:text-gray-900'
-                              : 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
-                          }`}
-                        >
-                          All
-                        </button>
-                        <button
-                          onClick={() => setFilterType('defects')}
-                          className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
-                            filterType === 'defects'
-                              ? 'bg-red-600 text-white'
-                              : 'bg-red-100 text-red-700 dark:bg-red-900/20 dark:text-red-400 hover:bg-red-200 dark:hover:bg-red-900/30'
-                          }`}
-                        >
-                          Defects
-                        </button>
-                        <button
-                          onClick={() => setFilterType('used')}
-                          className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
-                            filterType === 'used'
-                              ? 'bg-blue-600 text-white'
-                              : 'bg-blue-100 text-blue-700 dark:bg-blue-900/20 dark:text-blue-400 hover:bg-blue-200 dark:hover:bg-blue-900/30'
-                          }`}
-                        >
-                          Used
-                        </button>
+                      <div className="flex items-center justify-between">
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => setFilterType('all')}
+                            className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
+                              filterType === 'all'
+                                ? 'bg-gray-900 text-white dark:bg-gray-100 dark:text-gray-900'
+                                : 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
+                            }`}
+                          >
+                            All
+                          </button>
+                          <button
+                            onClick={() => setFilterType('defects')}
+                            className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
+                              filterType === 'defects'
+                                ? 'bg-red-600 text-white'
+                                : 'bg-red-100 text-red-700 dark:bg-red-900/20 dark:text-red-400 hover:bg-red-200 dark:hover:bg-red-900/30'
+                            }`}
+                          >
+                            Defects
+                          </button>
+                          <button
+                            onClick={() => setFilterType('used')}
+                            className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
+                              filterType === 'used'
+                                ? 'bg-blue-600 text-white'
+                                : 'bg-blue-100 text-blue-700 dark:bg-blue-900/20 dark:text-blue-400 hover:bg-blue-200 dark:hover:bg-blue-900/30'
+                            }`}
+                          >
+                            Used
+                          </button>
+                        </div>
+                        
+                        {pendingDefects.length > 0 && (
+                          <button
+                            onClick={toggleSelectAll}
+                            className="text-xs text-blue-600 dark:text-blue-400 hover:underline font-medium"
+                          >
+                            {selectedDefectsForVendor.length === pendingDefects.length ? 'Deselect All' : 'Select All'}
+                          </button>
+                        )}
                       </div>
                     </div>
 
@@ -910,35 +1113,45 @@ export default function DefectsPage() {
                           <div key={defect.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
                             <div className="px-4 py-3">
                               <div className="flex items-start justify-between gap-4">
-                                <div className="flex-1 min-w-0">
-                                  <div className="flex items-center gap-2 mb-1">
-                                    <h4 className="font-medium text-gray-900 dark:text-white text-sm truncate">
-                                      {defect.productName}
-                                    </h4>
-                                    {defect.returnReason?.includes('USED_ITEM') ? (
-                                      <span className="px-2 py-0.5 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 text-xs rounded font-medium">
-                                        Used
-                                      </span>
-                                    ) : (
-                                      <span className="px-2 py-0.5 bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400 text-xs rounded">
-                                        Defect
-                                      </span>
-                                    )}
-                                  </div>
+                                {/* Checkbox for selection */}
+                                <div className="flex items-start gap-3 flex-1 min-w-0">
+                                  <input
+                                    type="checkbox"
+                                    checked={selectedDefectsForVendor.includes(defect.id)}
+                                    onChange={() => toggleDefectSelection(defect.id)}
+                                    className="mt-1 w-4 h-4 text-orange-600 rounded focus:ring-orange-500"
+                                  />
                                   
-                                  <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-gray-600 dark:text-gray-400">
-                                    <span className="flex items-center gap-1">
-                                      <Barcode className="w-3 h-3" />
-                                      {defect.barcode}
-                                    </span>
-                                    <span className="flex items-center gap-1">
-                                      <MapPin className="w-3 h-3" />
-                                      {defect.store || 'N/A'}
-                                    </span>
-                                    <span className="flex items-center gap-1">
-                                      <Calendar className="w-3 h-3" />
-                                      {new Date(defect.addedAt).toLocaleDateString()}
-                                    </span>
+                                  <div className="flex-1 min-w-0">
+                                    <div className="flex items-center gap-2 mb-1">
+                                      <h4 className="font-medium text-gray-900 dark:text-white text-sm truncate">
+                                        {defect.productName}
+                                      </h4>
+                                      {defect.returnReason?.includes('USED_ITEM') ? (
+                                        <span className="px-2 py-0.5 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 text-xs rounded font-medium">
+                                          Used
+                                        </span>
+                                      ) : (
+                                        <span className="px-2 py-0.5 bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400 text-xs rounded">
+                                          Defect
+                                        </span>
+                                      )}
+                                    </div>
+                                    
+                                    <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-gray-600 dark:text-gray-400">
+                                      <span className="flex items-center gap-1">
+                                        <Barcode className="w-3 h-3" />
+                                        {defect.barcode}
+                                      </span>
+                                      <span className="flex items-center gap-1">
+                                        <MapPin className="w-3 h-3" />
+                                        {defect.store || 'N/A'}
+                                      </span>
+                                      <span className="flex items-center gap-1">
+                                        <Calendar className="w-3 h-3" />
+                                        {new Date(defect.addedAt).toLocaleDateString()}
+                                      </span>
+                                    </div>
                                   </div>
                                 </div>
 
@@ -952,6 +1165,16 @@ export default function DefectsPage() {
                                     ) : (
                                       <ChevronDown className="w-4 h-4 text-gray-600 dark:text-gray-400" />
                                     )}
+                                  </button>
+                                  <button
+                                    onClick={() => {
+                                      setSelectedDefectsForVendor([defect.id]);
+                                      setReturnToVendorModalOpen(true);
+                                    }}
+                                    className="p-1.5 text-purple-600 hover:bg-purple-50 dark:hover:bg-purple-900/20 rounded transition-colors"
+                                    title="Return to Vendor"
+                                  >
+                                    <Truck className="w-4 h-4" />
                                   </button>
                                   <button
                                     onClick={() => handleSellClick(defect)}
@@ -1013,7 +1236,6 @@ export default function DefectsPage() {
                                     {defect.returnReason && (
                                       <div>
                                         <p className="text-xs text-gray-500 dark:text-gray-400 mb-1 flex items-center gap-1">
-                                          <FileText className="w-3 h-3" />
                                           Reason
                                         </p>
                                         <p className="text-sm text-gray-900 dark:text-white bg-white dark:bg-gray-800 p-2 rounded border border-gray-200 dark:border-gray-600">
@@ -1028,7 +1250,7 @@ export default function DefectsPage() {
                                           <div>
                                             <p className="text-xs text-gray-500 dark:text-gray-400 mb-0.5">Cost Price</p>
                                             <p className="text-sm text-gray-900 dark:text-white font-medium">
-                                              ৳{defect.costPrice.toFixed(2)}
+                                              ৳{formatPrice(defect.costPrice)}
                                             </p>
                                           </div>
                                         )}
@@ -1036,7 +1258,7 @@ export default function DefectsPage() {
                                           <div>
                                             <p className="text-xs text-gray-500 dark:text-gray-400 mb-0.5">Original Price</p>
                                             <p className="text-sm text-gray-900 dark:text-white font-medium">
-                                              ৳{defect.originalSellingPrice.toFixed(2)}
+                                              ৳{formatPrice(defect.originalSellingPrice)}
                                             </p>
                                           </div>
                                         )}
@@ -1074,7 +1296,52 @@ export default function DefectsPage() {
                             </div>
                             <div className="flex items-center gap-x-4 text-xs text-gray-600 dark:text-gray-400">
                               <span>{defect.barcode}</span>
-                              <span>৳{defect.sellingPrice?.toFixed(2) || '0.00'}</span>
+                              <span>৳{formatPrice(defect.sellingPrice)}</span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Returned to Vendor Defects */}
+                  {returnedDefects.length > 0 && (
+                    <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
+                      <div className="p-4 border-b border-gray-200 dark:border-gray-700">
+                        <h3 className="font-semibold text-gray-900 dark:text-white flex items-center gap-2">
+                          <Truck className="w-5 h-5 text-purple-600 dark:text-purple-400" />
+                          Returned to Vendor ({returnedDefects.length})
+                        </h3>
+                      </div>
+
+                      <div className="divide-y divide-gray-200 dark:divide-gray-700">
+                        {returnedDefects.map((defect) => (
+                          <div key={defect.id} className="px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-700/50">
+                            <div className="flex items-center justify-between gap-4">
+                              <div className="flex-1">
+                                <div className="flex items-center gap-2 mb-1">
+                                  <h4 className="font-medium text-gray-900 dark:text-white text-sm">
+                                    {defect.productName}
+                                  </h4>
+                                  <span className="px-2 py-0.5 bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400 text-xs rounded flex items-center gap-1">
+                                    <Truck className="w-3 h-3" />
+                                    Returned
+                                  </span>
+                                </div>
+                                <div className="flex items-center gap-x-4 text-xs text-gray-600 dark:text-gray-400">
+                                  <span className="flex items-center gap-1">
+                                    <Barcode className="w-3 h-3" />
+                                    {defect.barcode}
+                                  </span>
+                                  <span className="flex items-center gap-1">
+                                    <MapPin className="w-3 h-3" />
+                                    {defect.store || 'N/A'}
+                                  </span>
+                                  {defect.costPrice && (
+                                    <span>Cost: ৳{formatPrice(defect.costPrice)}</span>
+                                  )}
+                                </div>
+                              </div>
                             </div>
                           </div>
                         ))}
@@ -1100,6 +1367,26 @@ export default function DefectsPage() {
           setSellType={setSellType}
           onSell={handleSell}
           loading={loading}
+        />
+      )}
+
+      {/* Return to Vendor Modal */}
+      <ReturnToVendorModal
+        isOpen={returnToVendorModalOpen}
+        onClose={() => setReturnToVendorModalOpen(false)}
+        selectedDefects={selectedDefectsForVendor}
+        allDefects={defects}
+        onReturn={handleReturnToVendor}
+        loading={loading}
+      />
+
+      {/* Toast Notification */}
+      {toast.show && (
+        <Toast
+          message={toast.message}
+          type={toast.type}
+          onClose={() => setToast({ ...toast, show: false })}
+          duration={5000}
         />
       )}
     </div>

@@ -1,13 +1,14 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Search, X, Globe } from 'lucide-react';
+import { Search, X, Globe, AlertCircle } from 'lucide-react';
 import Header from '@/components/Header';
 import Sidebar from '@/components/Sidebar';
 import axios from '@/lib/axios';
 import storeService from '@/services/storeService';
 import productImageService from '@/services/productImageService';
 import batchService from '@/services/batchService';
+import defectIntegrationService from '@/services/defectIntegrationService';
 
 interface DefectItem {
   id: string;
@@ -16,6 +17,7 @@ interface DefectItem {
   productName: string;
   sellingPrice?: number;
   store?: string;
+  batchId?: number; // ✅ Required
 }
 
 interface CartProduct {
@@ -28,8 +30,8 @@ interface CartProduct {
   unit_price: number;
   discount_amount: number;
   amount: number;
-  isDefective?: boolean;
-  defectId?: string;
+  isDefective?: boolean; // ✅ Flag for defective items
+  defectId?: string; // ✅ Link to defect record
 }
 
 export default function SocialCommercePage() {
@@ -76,7 +78,7 @@ export default function SocialCommercePage() {
   const [discountTk, setDiscountTk] = useState('');
   const [amount, setAmount] = useState('0.00');
 
-  const [defectiveProduct, setDefectiveProduct] = useState<DefectItem | null>(null);
+  const [defectiveProduct, setDefectiveProduct] = useState<DefectItem | null>(null); // ✅ Store defect data
   const [selectedStore, setSelectedStore] = useState('');
   const [isLoadingData, setIsLoadingData] = useState(false);
 
@@ -196,32 +198,9 @@ export default function SocialCommercePage() {
         console.log('✅ Raw batches from getAvailableBatches:', batchesData);
         
         if (batchesData && batchesData.length > 0) {
-          // Log first batch structure for debugging
-          console.log('📦 Sample raw batch structure:', batchesData[0]);
-          
-          const availableBatches = batchesData.filter(batch => {
-            console.log('🔍 Filtering batch:', {
-              id: batch.id,
-              batch_number: batch.batch_number,
-              quantity: batch.quantity,
-              availability: batch.availability,
-              is_active: batch.is_active,
-              status: batch.status
-            });
-            
-            // More lenient filtering - only check quantity > 0
-            return batch.quantity > 0;
-          });
-          
+          const availableBatches = batchesData.filter(batch => batch.quantity > 0);
           setBatches(availableBatches);
           console.log('✅ Filtered available batches:', availableBatches.length);
-          
-          // Log first batch for debugging
-          if (availableBatches.length > 0) {
-            console.log('📦 Sample filtered batch:', availableBatches[0]);
-          } else if (batchesData.length > 0) {
-            console.log('⚠️ All batches filtered out! First batch was:', batchesData[0]);
-          }
           return;
         }
       } catch (err) {
@@ -238,7 +217,6 @@ export default function SocialCommercePage() {
         
         if (batchesData && batchesData.length > 0) {
           const availableBatches = batchesData.filter(batch => batch.quantity > 0);
-          
           setBatches(availableBatches);
           console.log('✅ Filtered available batches:', availableBatches.length);
           return;
@@ -254,7 +232,6 @@ export default function SocialCommercePage() {
         
         if (batchesData && batchesData.length > 0) {
           const availableBatches = batchesData.filter(batch => batch.quantity > 0);
-          
           setBatches(availableBatches);
           console.log('✅ Filtered available batches:', availableBatches.length);
           return;
@@ -281,8 +258,6 @@ export default function SocialCommercePage() {
     const queryLower = query.toLowerCase().trim();
     
     console.log('🔍 Local search for:', queryLower);
-    console.log('📦 Available batches count:', batches.length);
-    console.log('📦 Available products count:', allProducts.length);
 
     for (const prod of allProducts) {
       const productName = (prod.name || '').toLowerCase();
@@ -303,24 +278,15 @@ export default function SocialCommercePage() {
       }
       
       if (matches) {
-        console.log('✅ Product matched:', prod.name, '(ID:', prod.id, ')');
-        
-        // Find all batches for this product in the selected store
         const productBatches = batches.filter(batch => {
           const batchProductId = batch.product?.id || batch.product_id;
-          console.log('  Checking batch:', batch.id, 'Product ID:', batchProductId, 'vs', prod.id);
           return batchProductId === prod.id && batch.quantity > 0;
         });
 
-        console.log('  Found batches for', prod.name, ':', productBatches.length);
-
         if (productBatches.length > 0) {
-          // Fetch primary image once for the product
           const imageUrl = await fetchPrimaryImage(prod.id);
 
-          // Create a result for each batch
           for (const batch of productBatches) {
-            console.log('  Adding batch to results:', batch.batch_number, 'Price:', batch.sell_price, 'Qty:', batch.quantity);
             results.push({
               id: prod.id,
               name: prod.name,
@@ -328,10 +294,7 @@ export default function SocialCommercePage() {
               batchId: batch.id,
               batchNumber: batch.batch_number,
               attributes: { 
-               Price: Number(
-  String(batch.sell_price ?? "0").replace(/[^0-9.-]/g, "")
-),
-
+                Price: Number(String(batch.sell_price ?? "0").replace(/[^0-9.-]/g, "")),
                 mainImage: imageUrl
               },
               available: batch.quantity,
@@ -341,13 +304,10 @@ export default function SocialCommercePage() {
               search_stage: 'local'
             });
           }
-        } else {
-          console.log('  ⚠️ No batches found for product:', prod.name);
         }
       }
     }
     
-    console.log('🔍 Total results found:', results.length);
     results.sort((a, b) => (b.relevance_score || 0) - (a.relevance_score || 0));
     return results;
   };
@@ -358,6 +318,66 @@ export default function SocialCommercePage() {
     const totalDiscount = percentDiscount + discTk;
     return Math.max(0, baseAmount - totalDiscount);
   };
+
+  // ✅ Load defect item from URL and sessionStorage
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const defectId = urlParams.get('defect');
+    
+    if (defectId) {
+      console.log('═══════════════════════════════════');
+      console.log('🔍 DEFECT ID IN URL:', defectId);
+      
+      const defectData = sessionStorage.getItem('defectItem');
+      console.log('📦 Checking sessionStorage:', defectData);
+      
+      if (defectData) {
+        try {
+          const defect = JSON.parse(defectData);
+          console.log('✅ Loaded defect from sessionStorage:', defect);
+          
+          // Validate required fields
+          if (!defect.batchId) {
+            console.error('❌ Missing batch_id in defect data');
+            showToast('Error: Defect item is missing batch information', 'error');
+            return;
+          }
+          
+          setDefectiveProduct(defect);
+          
+          // ✅ Auto-add to cart immediately
+          const defectCartItem: CartProduct = {
+            id: Date.now(),
+            product_id: defect.productId,
+            batch_id: defect.batchId,
+            productName: `${defect.productName} [DEFECTIVE]`,
+            barcode: defect.barcode,
+            quantity: 1,
+            unit_price: defect.sellingPrice || 0,
+            discount_amount: 0,
+            amount: defect.sellingPrice || 0,
+            isDefective: true,
+            defectId: defect.id
+          };
+          
+          setCart([defectCartItem]);
+          
+          showToast(`Defective item added to cart: ${defect.productName}`, 'success');
+          
+          // Clear from sessionStorage after adding
+          sessionStorage.removeItem('defectItem');
+          
+          console.log('═══════════════════════════════════');
+        } catch (error) {
+          console.error('❌ Error parsing defect data:', error);
+          showToast('Error loading defect item', 'error');
+        }
+      } else {
+        console.warn('⚠️ No defect data in sessionStorage');
+        showToast('Defect item data not found. Please return to defects page.', 'error');
+      }
+    }
+  }, []);
 
   // useEffects
   useEffect(() => {
@@ -382,17 +402,12 @@ export default function SocialCommercePage() {
       return;
     }
     
-    // Check if batches are loaded
     if (batches.length === 0) {
       console.log('⚠️ No batches available to search');
       return;
     }
 
     const delayDebounce = setTimeout(async () => {
-      console.log('🔍 Searching for:', searchQuery);
-      console.log('📦 Batches available:', batches.length);
-      console.log('📦 First batch product:', batches[0]?.product);
-      
       try {
         const response = await axios.post('/products/advanced-search', {
           query: searchQuery,
@@ -409,27 +424,17 @@ export default function SocialCommercePage() {
                           response.data.data || 
                           [];
           
-          console.log('✅ API search found:', products.length, 'products');
-          
           const results: any[] = [];
 
           for (const prod of products) {
-            console.log('  Checking product:', prod.name, 'ID:', prod.id);
-            
-            // Find all batches for this product in the selected store
             const productBatches = batches.filter(batch => {
               const batchProductId = batch.product?.id || batch.product_id;
-              console.log('    Comparing batch product ID:', batchProductId, 'with product ID:', prod.id, 'Match:', batchProductId === prod.id);
               return batchProductId === prod.id && batch.quantity > 0;
             });
 
-            console.log('  API: Product', prod.name, 'has', productBatches.length, 'batches');
-
             if (productBatches.length > 0) {
-              // Fetch primary image once for the product
               const imageUrl = await fetchPrimaryImage(prod.id);
 
-              // Create a result for each batch
               for (const batch of productBatches) {
                 results.push({
                   id: prod.id,
@@ -438,10 +443,7 @@ export default function SocialCommercePage() {
                   batchId: batch.id,
                   batchNumber: batch.batch_number,
                   attributes: { 
-                    Price: Number(
-  String(batch.sell_price ?? "0").replace(/[^0-9.-]/g, "")
-),
-
+                    Price: Number(String(batch.sell_price ?? "0").replace(/[^0-9.-]/g, "")),
                     mainImage: imageUrl
                   },
                   available: batch.quantity,
@@ -454,7 +456,6 @@ export default function SocialCommercePage() {
             }
           }
 
-          console.log('✅ Total API results:', results.length);
           results.sort((a, b) => (b.relevance_score || 0) - (a.relevance_score || 0));
           setSearchResults(results);
           
@@ -523,31 +524,6 @@ export default function SocialCommercePage() {
     }
   }, [selectedProduct, quantity, discountPercent, discountTk]);
 
-  useEffect(() => {
-    const defectData = sessionStorage.getItem('defectItem');
-    if (defectData) {
-      try {
-        const defect = JSON.parse(defectData);
-        setDefectiveProduct(defect);
-        setSelectedProduct({
-          id: defect.productId,
-          name: defect.productName,
-          batchId: 'defective',
-          attributes: { mainImage: '', Price: defect.sellingPrice || 0 },
-          available: 1,
-          isDefective: true,
-          defectId: defect.id,
-          barcode: defect.barcode
-        });
-        setQuantity('1');
-        setAmount((defect.sellingPrice || 0).toFixed(2));
-        alert('Defective product loaded.');
-      } catch (error) {
-        console.error('Error parsing defect:', error);
-      }
-    }
-  }, []);
-
   // Event handlers
   const handleProductSelect = (product: any) => {
     setSelectedProduct(product);
@@ -564,10 +540,7 @@ export default function SocialCommercePage() {
       return;
     }
 
-    const price = Number(
-  String(selectedProduct.attributes?.Price ?? "0").replace(/[^0-9.-]/g, "")
-);
-
+    const price = Number(String(selectedProduct.attributes?.Price ?? "0").replace(/[^0-9.-]/g, ""));
     const qty = parseInt(quantity);
     const discPer = parseFloat(discountPercent) || 0;
     const discTk = parseFloat(discountTk) || 0;
@@ -584,7 +557,7 @@ export default function SocialCommercePage() {
 
     const newItem: CartProduct = {
       id: Date.now(),
-      product_id: selectedProduct.id,
+      product_id: selectedProduct.id, // ✅ This is correct for search results
       batch_id: selectedProduct.batchId,
       productName: `${selectedProduct.name}${selectedProduct.batchNumber ? ` (Batch: ${selectedProduct.batchNumber})` : ''}`,
       barcode: selectedProduct.barcode,
@@ -595,6 +568,13 @@ export default function SocialCommercePage() {
       isDefective: selectedProduct.isDefective,
       defectId: selectedProduct.defectId
     };
+    
+    console.log('✅ Adding to cart:', {
+      product_id: newItem.product_id,
+      batch_id: newItem.batch_id,
+      isDefective: newItem.isDefective,
+      hasBarcode: !!newItem.barcode,
+    });
     
     setCart([...cart, newItem]);
     setSelectedProduct(null);
@@ -610,6 +590,7 @@ export default function SocialCommercePage() {
 
   const subtotal = cart.reduce((sum, item) => sum + item.amount, 0);
 
+  // ✅ Updated handleConfirmOrder to handle defective products
   const handleConfirmOrder = async () => {
     if (!userName || !userEmail || !userPhone) {
       alert('Please fill in customer information');
@@ -637,6 +618,12 @@ export default function SocialCommercePage() {
     }
     
     try {
+      console.log('═══════════════════════════════════');
+      console.log('📦 CREATING SOCIAL COMMERCE ORDER');
+      console.log('Cart items:', cart.length);
+      console.log('Defective items:', cart.filter(i => i.isDefective).length);
+      console.log('═══════════════════════════════════');
+
       const orderData = {
         order_type: 'social_commerce',
         store_id: parseInt(selectedStore),
@@ -648,18 +635,27 @@ export default function SocialCommercePage() {
             `${internationalCity}, ${state ? state + ', ' : ''}${country}` :
             `${city}, ${district}, ${division}`
         },
-        items: cart.map(item => ({
-          product_id: parseInt(String(item.product_id)),
-          batch_id: item.batch_id ? parseInt(String(item.batch_id)) : undefined,
-          barcode: item.barcode,
-          quantity: item.quantity,
-          unit_price: item.unit_price,
-          discount_amount: item.discount_amount
-        })),
+        items: cart.map(item => {
+          const itemPayload: any = {
+            product_id: parseInt(String(item.product_id)),
+            batch_id: item.batch_id ? parseInt(String(item.batch_id)) : undefined,
+            quantity: item.quantity,
+            unit_price: item.unit_price,
+            discount_amount: item.discount_amount
+          };
+
+          // ✅ CRITICAL: Only include barcode for NON-defective items
+          if (!item.isDefective && item.barcode) {
+            itemPayload.barcode = item.barcode;
+          }
+
+          return itemPayload;
+        }),
         shipping_amount: 0,
         notes: `Social Commerce. ${socialId ? `ID: ${socialId}. ` : ''}${isInternational ? 'International' : 'Domestic'} delivery.`
       };
       
+      // ✅ Store order with defective items info for next page
       sessionStorage.setItem('pendingOrder', JSON.stringify({
         ...orderData,
         salesBy,
@@ -672,12 +668,18 @@ export default function SocialCommercePage() {
           division, district, city, zone, area,
           address: deliveryAddress, postalCode
         },
-        subtotal
+        subtotal,
+        defectiveItems: cart.filter(item => item.isDefective).map(item => ({
+          defectId: item.defectId,
+          price: item.unit_price,
+          productName: item.productName
+        })) // ✅ Store defective items info
       }));
       
+      console.log('✅ Order data prepared, redirecting to amount details...');
       window.location.href = '/social-commerce/amount-details';
     } catch (error) {
-      console.error('Error:', error);
+      console.error('❌ Error:', error);
       alert('Failed to process order');
     }
   };
@@ -692,7 +694,19 @@ export default function SocialCommercePage() {
           
           <main className="flex-1 overflow-auto p-4 md:p-6">
             <div className="max-w-7xl mx-auto">
-              <h1 className="text-xl md:text-2xl font-semibold text-gray-900 dark:text-white mb-4 md:mb-6">Social Commerce</h1>
+              <div className="flex items-center justify-between mb-4 md:mb-6">
+                <h1 className="text-xl md:text-2xl font-semibold text-gray-900 dark:text-white">Social Commerce</h1>
+                
+                {/* ✅ Defect Item Indicator */}
+                {defectiveProduct && (
+                  <div className="flex items-center gap-2 px-4 py-2 bg-orange-100 dark:bg-orange-900/30 border border-orange-300 dark:border-orange-700 rounded-lg">
+                    <AlertCircle className="w-5 h-5 text-orange-600 dark:text-orange-400" />
+                    <span className="text-sm font-medium text-orange-900 dark:text-orange-300">
+                      Defective Item: {defectiveProduct.productName}
+                    </span>
+                  </div>
+                )}
+              </div>
               
               <div className="mb-4 md:mb-6 flex flex-col sm:flex-row items-start sm:items-center gap-3">
                 <div className="w-full sm:w-auto">
@@ -734,8 +748,13 @@ export default function SocialCommercePage() {
                 </div>
               </div>
 
+              {/* Rest of the component remains the same... */}
+              {/* Just make sure the cart table shows defective items with special styling */}
+              
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6">
+                {/* Left Column - Customer Info & Address */}
                 <div className="space-y-4 md:space-y-6">
+                  {/* Customer Information */}
                   <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4 md:p-5">
                     <h3 className="text-sm font-medium text-gray-900 dark:text-white mb-4">Customer Information</h3>
                     
@@ -772,6 +791,7 @@ export default function SocialCommercePage() {
                           className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400"
                         />
                       </div>
+                      
                       <div>
                         <label className="block text-xs text-gray-700 dark:text-gray-300 mb-1">Social ID</label>
                         <input
@@ -785,6 +805,7 @@ export default function SocialCommercePage() {
                     </div>
                   </div>
 
+                  {/* Delivery Address */}
                   <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4 md:p-5">
                     <div className="flex items-center justify-between mb-4">
                       <h3 className="text-sm font-medium text-gray-900 dark:text-white">Delivery Address</h3>
@@ -877,7 +898,9 @@ export default function SocialCommercePage() {
                   </div>
                 </div>
 
+                {/* Right Column - Product Search & Cart */}
                 <div className="space-y-4 md:space-y-6">
+                  {/* Product Search */}
                   <div className={`bg-white dark:bg-gray-800 rounded-lg border p-4 md:p-5 ${selectedProduct?.isDefective ? 'border-orange-300 dark:border-orange-700' : 'border-gray-200 dark:border-gray-700'}`}>
                     <div className="flex items-center justify-between mb-4">
                       <h3 className="text-sm font-medium text-gray-900 dark:text-white">Search Product</h3>
@@ -1036,6 +1059,7 @@ export default function SocialCommercePage() {
                     </div>
                   </div>
 
+                  {/* Cart */}
                   <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
                     <div className="p-4 border-b border-gray-200 dark:border-gray-700">
                       <h3 className="text-sm font-medium text-gray-900 dark:text-white">Cart ({cart.length} items)</h3>
@@ -1056,8 +1080,15 @@ export default function SocialCommercePage() {
                             <tr><td colSpan={5} className="px-4 py-8 text-center text-sm text-gray-500 dark:text-gray-400">No products in cart</td></tr>
                           ) : (
                             cart.map((item) => (
-                              <tr key={item.id} className={`border-b border-gray-200 dark:border-gray-700 ${item.isDefective ? 'bg-orange-50 dark:bg-orange-900/10' : ''}`}>
-                                <td className="px-3 py-2 text-sm text-gray-900 dark:text-white">{item.productName}</td>
+                              <tr key={item.id} className={`border-b border-gray-200 dark:border-gray-700 ${
+                                item.isDefective ? 'bg-orange-50 dark:bg-orange-900/10' : ''
+                              }`}>
+                                <td className="px-3 py-2 text-sm text-gray-900 dark:text-white">
+                                  {item.productName}
+                                  {item.isDefective && (
+                                    <span className="ml-2 px-2 py-0.5 bg-orange-500 text-white text-xs rounded">DEFECTIVE</span>
+                                  )}
+                                </td>
                                 <td className="px-3 py-2 text-sm text-gray-900 dark:text-white">{item.quantity}</td>
                                 <td className="px-3 py-2 text-sm text-gray-900 dark:text-white">{item.unit_price.toFixed(2)}</td>
                                 <td className="px-3 py-2 text-sm text-gray-900 dark:text-white">{item.amount.toFixed(2)}</td>

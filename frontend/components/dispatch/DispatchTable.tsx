@@ -1,6 +1,6 @@
 import React from 'react';
 import { ProductDispatch } from '@/services/dispatchService';
-import { Eye, Truck, CheckCircle, XCircle, Ban } from 'lucide-react';
+import { Eye, Truck, CheckCircle, XCircle, Ban, Scan } from 'lucide-react';
 
 interface DispatchTableProps {
   dispatches: ProductDispatch[];
@@ -10,6 +10,8 @@ interface DispatchTableProps {
   onMarkDispatched: (id: number) => void;
   onMarkDelivered: (id: number) => void;
   onCancel: (id: number) => void;
+  onScanBarcodes?: (dispatch: ProductDispatch) => void;
+  currentStoreId?: number; // Add current store context
 }
 
 const DispatchTable: React.FC<DispatchTableProps> = ({
@@ -20,6 +22,8 @@ const DispatchTable: React.FC<DispatchTableProps> = ({
   onMarkDispatched,
   onMarkDelivered,
   onCancel,
+  onScanBarcodes,
+  currentStoreId,
 }) => {
   const getStatusBadge = (status: string) => {
     const badges: Record<string, { bg: string; text: string; label: string }> = {
@@ -64,6 +68,40 @@ const DispatchTable: React.FC<DispatchTableProps> = ({
       month: 'short',
       day: 'numeric',
     });
+  };
+
+  const getScanningProgress = (dispatch: ProductDispatch) => {
+    if (!dispatch.items || dispatch.items.length === 0) {
+      return { scanned: 0, total: 0, percentage: 0, allScanned: false };
+    }
+
+    let totalScanned = 0;
+    let totalRequired = 0;
+
+    dispatch.items.forEach(item => {
+      if (item.barcode_scanning) {
+        totalScanned += item.barcode_scanning.scanned_count;
+        totalRequired += item.barcode_scanning.required_quantity;
+      } else {
+        totalRequired += item.quantity;
+      }
+    });
+
+    return {
+      scanned: totalScanned,
+      total: totalRequired,
+      percentage: totalRequired > 0 ? (totalScanned / totalRequired) * 100 : 0,
+      allScanned: totalScanned === totalRequired && totalRequired > 0,
+    };
+  };
+
+  // Check if current user/store is the source or destination
+  const isSourceStore = (dispatch: ProductDispatch) => {
+    return currentStoreId && dispatch.source_store.id === currentStoreId;
+  };
+
+  const isDestinationStore = (dispatch: ProductDispatch) => {
+    return currentStoreId && dispatch.destination_store.id === currentStoreId;
   };
 
   if (loading) {
@@ -122,113 +160,167 @@ const DispatchTable: React.FC<DispatchTableProps> = ({
                 </td>
               </tr>
             ) : (
-              dispatches.map((dispatch) => (
-                <tr
-                  key={dispatch.id}
-                  className="border-b border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/50"
-                >
-                  <td className="py-3 px-4">
-                    <div className="text-sm font-medium text-gray-900 dark:text-white">
-                      {dispatch.dispatch_number}
-                    </div>
-                    {dispatch.tracking_number && (
-                      <div className="text-xs text-gray-500 dark:text-gray-400">
-                        Track: {dispatch.tracking_number}
+              dispatches.map((dispatch) => {
+                const scanProgress = getScanningProgress(dispatch);
+                const atDestination = isDestinationStore(dispatch);
+                const atSource = isSourceStore(dispatch);
+                
+                return (
+                  <tr
+                    key={dispatch.id}
+                    className="border-b border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/50"
+                  >
+                    <td className="py-3 px-4">
+                      <div className="text-sm font-medium text-gray-900 dark:text-white">
+                        {dispatch.dispatch_number}
                       </div>
-                    )}
-                  </td>
-                  <td className="py-3 px-4">
-                    <div className="text-sm text-gray-900 dark:text-white">
-                      {dispatch.source_store.name}
-                    </div>
-                    <div className="text-xs text-gray-500 dark:text-gray-400">
-                      → {dispatch.destination_store.name}
-                    </div>
-                  </td>
-                  <td className="py-3 px-4 text-sm text-gray-900 dark:text-white">
-                    {dispatch.total_items}
-                  </td>
-                  <td className="py-3 px-4 text-sm font-medium text-gray-900 dark:text-white">
-                    ৳{parseFloat(dispatch.total_value).toLocaleString()}
-                  </td>
-                  <td className="py-3 px-4">
-                    <div className="text-sm text-gray-900 dark:text-white">
-                      {formatDate(dispatch.dispatch_date)}
-                    </div>
-                    {dispatch.expected_delivery_date && (
-                      <div className="text-xs text-gray-500 dark:text-gray-400">
-                        Due: {formatDate(dispatch.expected_delivery_date)}
+                      {dispatch.tracking_number && (
+                        <div className="text-xs text-gray-500 dark:text-gray-400">
+                          Track: {dispatch.tracking_number}
+                        </div>
+                      )}
+                      {dispatch.status === 'in_transit' && atDestination && (
+                        <div className="text-xs text-purple-600 dark:text-purple-400 font-medium mt-1">
+                          📦 Receiving Store
+                        </div>
+                      )}
+                    </td>
+                    <td className="py-3 px-4">
+                      <div className="text-sm text-gray-900 dark:text-white">
+                        {dispatch.source_store.name}
                       </div>
-                    )}
-                  </td>
-                  <td className="py-3 px-4">
-                    {getStatusBadge(dispatch.status)}
-                    {dispatch.is_overdue && (
-                      <span className="ml-2 px-2 py-1 bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300 text-xs rounded">
-                        Overdue
-                      </span>
-                    )}
-                  </td>
-                  <td className="py-3 px-4">
-                    <div className="flex gap-2">
-                      <button
-                        onClick={() => onViewDetails(dispatch)}
-                        className="p-1.5 hover:bg-gray-100 dark:hover:bg-gray-700 rounded"
-                        title="View Details"
-                      >
-                        <Eye className="w-4 h-4 text-gray-600 dark:text-gray-400" />
-                      </button>
-
-                      {dispatch.status === 'pending' && !dispatch.approved_by && (
-                        <>
-                          <button
-                            onClick={() => onApprove(dispatch.id)}
-                            className="p-1.5 hover:bg-green-100 dark:hover:bg-green-900/30 rounded"
-                            title="Approve"
-                          >
-                            <CheckCircle className="w-4 h-4 text-green-600 dark:text-green-400" />
-                          </button>
-                          <button
-                            onClick={() => onCancel(dispatch.id)}
-                            className="p-1.5 hover:bg-red-100 dark:hover:bg-red-900/30 rounded"
-                            title="Cancel"
-                          >
-                            <XCircle className="w-4 h-4 text-red-600 dark:text-red-400" />
-                          </button>
-                        </>
+                      <div className="text-xs text-gray-500 dark:text-gray-400">
+                        → {dispatch.destination_store.name}
+                      </div>
+                    </td>
+                    <td className="py-3 px-4">
+                      <div className="text-sm text-gray-900 dark:text-white">
+                        {dispatch.total_items}
+                      </div>
+                      {dispatch.status === 'in_transit' && scanProgress.total > 0 && (
+                        <div className="mt-1">
+                          <div className="w-16 bg-gray-200 dark:bg-gray-700 rounded-full h-1.5">
+                            <div
+                              className={`h-1.5 rounded-full transition-all duration-300 ${
+                                scanProgress.allScanned ? 'bg-green-500' : 'bg-blue-500'
+                              }`}
+                              style={{ width: `${scanProgress.percentage}%` }}
+                            />
+                          </div>
+                          <div className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                            {scanProgress.scanned}/{scanProgress.total} scanned
+                          </div>
+                        </div>
                       )}
-
-                      {dispatch.status === 'pending' && dispatch.approved_by &&(
-                        <>
-                          <button
-                            onClick={() => onMarkDispatched(dispatch.id)}
-                            className="p-1.5 hover:bg-blue-100 dark:hover:bg-blue-900/30 rounded"
-                            title="Mark as Dispatched"
-                          >
-                            <Truck className="w-4 h-4 text-blue-600 dark:text-blue-400" />
-                          </button>
-                          <button
-                            onClick={() => onCancel(dispatch.id)}
-                            className="p-1.5 hover:bg-red-100 dark:hover:bg-red-900/30 rounded"
-                            title="Cancel"
-                          >
-                            <Ban className="w-4 h-4 text-red-600 dark:text-red-400" />
-                          </button>
-                        </>
+                    </td>
+                    <td className="py-3 px-4 text-sm font-medium text-gray-900 dark:text-white">
+                      ৳{parseFloat(dispatch.total_value).toLocaleString()}
+                    </td>
+                    <td className="py-3 px-4">
+                      <div className="text-sm text-gray-900 dark:text-white">
+                        {formatDate(dispatch.dispatch_date)}
+                      </div>
+                      {dispatch.expected_delivery_date && (
+                        <div className="text-xs text-gray-500 dark:text-gray-400">
+                          Due: {formatDate(dispatch.expected_delivery_date)}
+                        </div>
                       )}
-
-                      {dispatch.status === 'in_transit' && (
+                    </td>
+                    <td className="py-3 px-4">
+                      {getStatusBadge(dispatch.status)}
+                      {dispatch.is_overdue && (
+                        <span className="ml-2 px-2 py-1 bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300 text-xs rounded">
+                          Overdue
+                        </span>
+                      )}
+                    </td>
+                    <td className="py-3 px-4">
+                      <div className="flex gap-2 flex-wrap">
                         <button
-                          onClick={() => onMarkDelivered(dispatch.id)}
-                          className="px-3 py-1 bg-green-600 hover:bg-green-700 text-white rounded text-xs font-medium"
+                          onClick={() => onViewDetails(dispatch)}
+                          className="p-1.5 hover:bg-gray-100 dark:hover:bg-gray-700 rounded"
+                          title="View Details"
                         >
-                          Mark Delivered
+                          <Eye className="w-4 h-4 text-gray-600 dark:text-gray-400" />
                         </button>
-                      )}
-                    </div>
-                  </td>
-                </tr>
-              ))
+
+                        {/* SOURCE STORE ACTIONS */}
+                        {atSource && dispatch.status === 'pending' && !dispatch.approved_by && (
+                          <>
+                            <button
+                              onClick={() => onApprove(dispatch.id)}
+                              className="p-1.5 hover:bg-green-100 dark:hover:bg-green-900/30 rounded"
+                              title="Approve"
+                            >
+                              <CheckCircle className="w-4 h-4 text-green-600 dark:text-green-400" />
+                            </button>
+                            <button
+                              onClick={() => onCancel(dispatch.id)}
+                              className="p-1.5 hover:bg-red-100 dark:hover:bg-red-900/30 rounded"
+                              title="Cancel"
+                            >
+                              <XCircle className="w-4 h-4 text-red-600 dark:text-red-400" />
+                            </button>
+                          </>
+                        )}
+
+                        {atSource && dispatch.status === 'pending' && dispatch.approved_by && (
+                          <>
+                            <button
+                              onClick={() => onMarkDispatched(dispatch.id)}
+                              className="px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded text-xs font-medium"
+                              title="Mark as Dispatched (Shipped)"
+                            >
+                              <Truck className="w-3 h-3 inline mr-1" />
+                              Mark Dispatched
+                            </button>
+                            <button
+                              onClick={() => onCancel(dispatch.id)}
+                              className="p-1.5 hover:bg-red-100 dark:hover:bg-red-900/30 rounded"
+                              title="Cancel"
+                            >
+                              <Ban className="w-4 h-4 text-red-600 dark:text-red-400" />
+                            </button>
+                          </>
+                        )}
+
+                        {/* DESTINATION STORE ACTIONS - SCAN WHEN RECEIVING */}
+                        {atDestination && dispatch.status === 'in_transit' && (
+                          <>
+                            {onScanBarcodes && (
+                              <button
+                                onClick={() => onScanBarcodes(dispatch)}
+                                className="px-3 py-1 bg-purple-600 hover:bg-purple-700 text-white rounded text-xs font-medium flex items-center gap-1"
+                                title="Scan Barcodes to Verify Receipt"
+                              >
+                                <Scan className="w-3 h-3" />
+                                Scan ({scanProgress.scanned}/{scanProgress.total})
+                              </button>
+                            )}
+                            <button
+                              onClick={() => onMarkDelivered(dispatch.id)}
+                              className={`px-3 py-1 rounded text-xs font-medium transition-colors ${
+                                scanProgress.allScanned
+                                  ? 'bg-green-600 hover:bg-green-700 text-white cursor-pointer'
+                                  : 'bg-gray-300 dark:bg-gray-600 text-gray-500 dark:text-gray-400'
+                              }`}
+                            >
+                              { '✓ Mark Delivered' }
+                            </button>
+                          </>
+                        )}
+
+                        {/* SHOW STATUS INFO WHEN NOT AT RELEVANT STORE */}
+                        {dispatch.status === 'in_transit' && !atSource && !atDestination && (
+                          <div className="text-xs text-gray-500 dark:text-gray-400 px-2 py-1">
+                            In Transit
+                          </div>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })
             )}
           </tbody>
         </table>
