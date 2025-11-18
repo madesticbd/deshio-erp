@@ -11,6 +11,7 @@ import DispatchStatisticsCards from '@/components/dispatch/DispatchStatisticsCar
 import DispatchFilters from '@/components/dispatch/DispatchFilters';
 import DispatchTable from '@/components/dispatch/DispatchTable';
 import CreateDispatchModal from '@/components/dispatch/CreateDispatchModal';
+import DispatchBarcodeScanModal from '@/components/dispatch/DispatchBarcodeScanModal';
 
 interface Toast {
   id: number;
@@ -33,6 +34,7 @@ export default function DispatchManagementPage() {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [selectedDispatch, setSelectedDispatch] = useState<ProductDispatch | null>(null);
   const [showDetailsModal, setShowDetailsModal] = useState(false);
+  const [showBarcodeScanModal, setShowBarcodeScanModal] = useState(false);
   
   const [filterStatus, setFilterStatus] = useState('');
   const [filterSourceStore, setFilterSourceStore] = useState('');
@@ -63,14 +65,15 @@ export default function DispatchManagementPage() {
       const foundStore = stores.find(s => s.id.toString() === storeId);
       if (foundStore) {
         setStore(foundStore);
-        setFilterSourceStore(storeId);
+        // Don't auto-set filters - let user see all relevant dispatches
+        // User can manually filter if needed
       }
     }
   }, [storeId, stores]);
 
   useEffect(() => {
     fetchDispatches();
-  }, [filterStatus, filterSourceStore, filterDestStore]);
+  }, [filterStatus, filterSourceStore, filterDestStore, storeId]);
 
   const fetchStores = async () => {
     try {
@@ -87,13 +90,35 @@ export default function DispatchManagementPage() {
     try {
       setLoading(true);
       const filters: any = {};
-      if (filterStatus) filters.status = filterStatus;
-      if (filterSourceStore) filters.source_store_id = parseInt(filterSourceStore);
-      if (filterDestStore) filters.destination_store_id = parseInt(filterDestStore);
-      if (searchTerm) filters.search = searchTerm;
       
-      const response = await dispatchService.getDispatches(filters);
-      setDispatches(response.data.data || []);
+      // If we have a storeId from URL, show dispatches where this store is involved
+      // (either as source or destination)
+      if (storeId && !filterSourceStore && !filterDestStore) {
+        // Show all dispatches where store is source OR destination
+        // We'll filter client-side since API doesn't support OR queries
+        const response = await dispatchService.getDispatches({
+          status: filterStatus || undefined,
+          search: searchTerm || undefined,
+        });
+        
+        // Filter to show only dispatches involving this store
+        const storeIdNum = parseInt(storeId);
+        const filteredDispatches = (response.data.data || []).filter((dispatch: ProductDispatch) => 
+          dispatch.source_store.id === storeIdNum || 
+          dispatch.destination_store.id === storeIdNum
+        );
+        
+        setDispatches(filteredDispatches);
+      } else {
+        // Use regular filters
+        if (filterStatus) filters.status = filterStatus;
+        if (filterSourceStore) filters.source_store_id = parseInt(filterSourceStore);
+        if (filterDestStore) filters.destination_store_id = parseInt(filterDestStore);
+        if (searchTerm) filters.search = searchTerm;
+        
+        const response = await dispatchService.getDispatches(filters);
+        setDispatches(response.data.data || []);
+      }
     } catch (error) {
       console.error('Error fetching dispatches:', error);
       showToast('Failed to load dispatches', 'error');
@@ -196,7 +221,7 @@ export default function DispatchManagementPage() {
       };
       
       await dispatchService.markDelivered(id, deliveryData);
-      showToast('Dispatch marked as delivered', 'success');
+      showToast('Dispatch marked as delivered successfully! 🎉', 'success');
       fetchDispatches();
       fetchStatistics();
     } catch (error: any) {
@@ -224,9 +249,47 @@ export default function DispatchManagementPage() {
     }
   };
 
-  const handleViewDetails = (dispatch: ProductDispatch) => {
-    setSelectedDispatch(dispatch);
-    setShowDetailsModal(true);
+  const handleViewDetails = async (dispatch: ProductDispatch) => {
+    try {
+      // Fetch full dispatch details including barcode scanning progress
+      const response = await dispatchService.getDispatch(dispatch.id);
+      setSelectedDispatch(response.data);
+      setShowDetailsModal(true);
+    } catch (error) {
+      console.error('Error fetching dispatch details:', error);
+      showToast('Failed to load dispatch details', 'error');
+    }
+  };
+
+  const handleScanBarcodes = async (dispatch: ProductDispatch) => {
+    try {
+      // Fetch full dispatch details including items
+      const response = await dispatchService.getDispatch(dispatch.id);
+      setSelectedDispatch(response.data);
+      setShowBarcodeScanModal(true);
+    } catch (error) {
+      console.error('Error fetching dispatch details:', error);
+      showToast('Failed to load dispatch details', 'error');
+    }
+  };
+
+  const handleBarcodeScanComplete = () => {
+    // Refresh the dispatches to show updated scanning progress
+    fetchDispatches();
+    fetchStatistics();
+  };
+
+  const handleMarkDeliveredFromScan = async () => {
+    if (!selectedDispatch) return;
+    
+    // Close the scan modal first
+    setShowBarcodeScanModal(false);
+    
+    // Then mark as delivered
+    await handleMarkDelivered(selectedDispatch.id);
+    
+    // Clear selected dispatch
+    setSelectedDispatch(null);
   };
 
   return (
@@ -288,9 +351,17 @@ export default function DispatchManagementPage() {
                 <div>
                   <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-1">
                     Dispatch Management
+                    {store && (
+                      <span className="ml-3 px-3 py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300 text-sm rounded-full font-normal">
+                        📍 {store.name}
+                      </span>
+                    )}
                   </h2>
                   <p className="text-sm text-gray-500 dark:text-gray-400">
-                    Manage inventory transfers between stores
+                    {store 
+                      ? `Showing dispatches from and to ${store.name}`
+                      : 'Manage inventory transfers between stores'
+                    }
                   </p>
                 </div>
                 <button
@@ -325,6 +396,8 @@ export default function DispatchManagementPage() {
               onMarkDispatched={handleMarkDispatched}
               onMarkDelivered={handleMarkDelivered}
               onCancel={handleCancel}
+              onScanBarcodes={handleScanBarcodes}
+              currentStoreId={store?.id}
             />
           </main>
         </div>
@@ -338,6 +411,17 @@ export default function DispatchManagementPage() {
         stores={stores}
         loading={loading}
       />
+
+      {/* Barcode Scan Modal */}
+      {showBarcodeScanModal && selectedDispatch && (
+        <DispatchBarcodeScanModal
+          isOpen={showBarcodeScanModal}
+          onClose={() => setShowBarcodeScanModal(false)}
+          dispatch={selectedDispatch}
+          onComplete={handleBarcodeScanComplete}
+          onMarkDelivered={handleMarkDeliveredFromScan}
+        />
+      )}
 
       {/* Details Modal */}
       {showDetailsModal && selectedDispatch && (
@@ -401,6 +485,9 @@ export default function DispatchManagementPage() {
                             Quantity
                           </th>
                           <th className="px-4 py-2 text-left text-gray-700 dark:text-gray-300">
+                            Scanning Progress
+                          </th>
+                          <th className="px-4 py-2 text-left text-gray-700 dark:text-gray-300">
                             Value
                           </th>
                         </tr>
@@ -419,6 +506,28 @@ export default function DispatchManagementPage() {
                             </td>
                             <td className="px-4 py-2 text-gray-900 dark:text-white">
                               {item.quantity}
+                            </td>
+                            <td className="px-4 py-2">
+                              {item.barcode_scanning && (
+                                <div className="flex items-center gap-2">
+                                  <div className="flex-1 max-w-[100px] bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+                                    <div
+                                      className={`h-2 rounded-full ${
+                                        item.barcode_scanning.all_scanned
+                                          ? 'bg-green-500'
+                                          : 'bg-blue-500'
+                                      }`}
+                                      style={{
+                                        width: `${item.barcode_scanning.progress_percentage}%`,
+                                      }}
+                                    />
+                                  </div>
+                                  <span className="text-xs text-gray-600 dark:text-gray-400">
+                                    {item.barcode_scanning.scanned_count}/
+                                    {item.barcode_scanning.required_quantity}
+                                  </span>
+                                </div>
+                              )}
                             </td>
                             <td className="px-4 py-2 text-gray-900 dark:text-white">
                               ৳{parseFloat(item.total_value).toLocaleString()}

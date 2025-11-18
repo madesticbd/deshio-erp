@@ -6,10 +6,12 @@ import Header from '@/components/Header';
 import Sidebar from '@/components/Sidebar';
 import SellDefectModal from '@/components/SellDefectModal';
 import ReturnToVendorModal from '@/components/ReturnToVendorModal';
+import Toast from '@/components/Toast';
 import defectIntegrationService from '@/services/defectIntegrationService';
 import barcodeOrderMapper from '@/services/barcodeOrderMapper';
 import storeService from '@/services/storeService';
 import defectiveProductService from '@/services/defectiveProductService';
+import { vendorService } from '@/services/vendorService';
 import type { DefectiveProduct } from '@/services/defectiveProductService';
 import type { Store } from '@/services/storeService';
 
@@ -18,7 +20,7 @@ interface DefectItem {
   barcode: string;
   productId: number;
   productName: string;
-  status: 'pending' | 'approved' | 'sold';
+  status: 'pending' | 'approved' | 'sold' | 'returned_to_vendor';
   addedBy: string;
   addedAt: string;
   originalOrderId?: number;
@@ -95,6 +97,17 @@ export default function DefectsPage() {
   const [successMessage, setSuccessMessage] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
   
+  // Toast state
+  const [toast, setToast] = useState<{
+    show: boolean;
+    message: string;
+    type: 'success' | 'error' | 'info' | 'warning';
+  }>({
+    show: false,
+    message: '',
+    type: 'success',
+  });
+  
   // Sell modal
   const [sellModalOpen, setSellModalOpen] = useState(false);
   const [selectedDefect, setSelectedDefect] = useState<DefectItem | null>(null);
@@ -166,13 +179,26 @@ export default function DefectsPage() {
           return isNaN(parsed) ? undefined : parsed;
         };
 
+        // Map status including returned_to_vendor
+        let mappedStatus: 'pending' | 'approved' | 'sold' | 'returned_to_vendor';
+        if (d.status === 'available_for_sale') {
+          mappedStatus = 'approved';
+        } else if (d.status === 'sold') {
+          mappedStatus = 'sold';
+        } else if (d.status === 'returned_to_vendor') {
+          mappedStatus = 'returned_to_vendor';
+        } else if (d.status === 'identified' || d.status === 'inspected') {
+          mappedStatus = 'pending';
+        } else {
+          mappedStatus = 'pending';
+        }
+
         return {
           id: d.id.toString(),
           barcode: d.barcode?.barcode || '',
           productId: d.product_id,
           productName: d.product?.name || 'Unknown Product',
-          status: d.status === 'available_for_sale' ? 'approved' : 
-                  d.status === 'sold' ? 'sold' : 'pending',
+          status: mappedStatus,
           addedBy: d.identifiedBy?.name || 'System',
           addedAt: d.identified_at,
           originalSellingPrice: parsePrice(d.original_price),
@@ -242,7 +268,7 @@ export default function DefectsPage() {
         store_id: parseInt(storeForDefect),
         defect_type: isUsedItem ? 'other' : 'physical_damage',
         defect_description: isUsedItem 
-          ? 'USED_ITEM - Product has been used'
+          ? 'USED_ITEM - Product has been used/opened by customer'
           : returnReason,
         severity: isUsedItem ? 'minor' : 'moderate',
         is_used_item: isUsedItem,
@@ -545,28 +571,43 @@ export default function DefectsPage() {
       }
 
       if (successCount > 0) {
-        setSuccessMessage(
-          errorCount === 0
-            ? `Successfully returned ${successCount} item(s) to vendor!`
-            : `Returned ${successCount} item(s). ${errorCount} failed.`
-        );
+        const successMsg = errorCount === 0
+          ? `Successfully returned ${successCount} item${successCount > 1 ? 's' : ''} to vendor!`
+          : `Returned ${successCount} item${successCount > 1 ? 's' : ''} to vendor. ${errorCount} failed.`;
         
-        fetchDefects();
+        // Show Toast notification
+        setToast({
+          show: true,
+          message: successMsg,
+          type: errorCount === 0 ? 'success' : 'warning',
+        });
+        
+        // Refresh and clear
+        await fetchDefects();
         setSelectedDefectsForVendor([]);
         
-        setTimeout(() => setSuccessMessage(''), 5000);
+        // Close modal
+        setReturnToVendorModalOpen(false);
       }
 
-      if (errorCount > 0) {
+      if (errorCount > 0 && successCount === 0) {
         const errorMessage = errors.join('\n');
-        setErrorMessage(`Failed to return ${errorCount} item(s):\n${errorMessage}`);
+        setToast({
+          show: true,
+          message: `Failed to return ${errorCount} item${errorCount > 1 ? 's' : ''}`,
+          type: 'error',
+        });
+        setErrorMessage(errorMessage);
         setTimeout(() => setErrorMessage(''), 8000);
       }
 
     } catch (error: any) {
       console.error('Bulk return error:', error);
-      setErrorMessage(error.message || 'Failed to process returns');
-      setTimeout(() => setErrorMessage(''), 5000);
+      setToast({
+        show: true,
+        message: error.message || 'Failed to process returns',
+        type: 'error',
+      });
     } finally {
       setLoading(false);
     }
@@ -587,6 +628,7 @@ export default function DefectsPage() {
   });
   
   const soldDefects = defects.filter(d => d.status === 'sold');
+  const returnedDefects = defects.filter(d => d.status === 'returned_to_vendor');
 
   return (
     <div className={darkMode ? 'dark' : ''}>
@@ -1125,6 +1167,16 @@ export default function DefectsPage() {
                                     )}
                                   </button>
                                   <button
+                                    onClick={() => {
+                                      setSelectedDefectsForVendor([defect.id]);
+                                      setReturnToVendorModalOpen(true);
+                                    }}
+                                    className="p-1.5 text-purple-600 hover:bg-purple-50 dark:hover:bg-purple-900/20 rounded transition-colors"
+                                    title="Return to Vendor"
+                                  >
+                                    <Truck className="w-4 h-4" />
+                                  </button>
+                                  <button
                                     onClick={() => handleSellClick(defect)}
                                     className="p-1.5 text-green-600 hover:bg-green-50 dark:hover:bg-green-900/20 rounded transition-colors"
                                     title="Sell"
@@ -1251,6 +1303,51 @@ export default function DefectsPage() {
                       </div>
                     </div>
                   )}
+
+                  {/* Returned to Vendor Defects */}
+                  {returnedDefects.length > 0 && (
+                    <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
+                      <div className="p-4 border-b border-gray-200 dark:border-gray-700">
+                        <h3 className="font-semibold text-gray-900 dark:text-white flex items-center gap-2">
+                          <Truck className="w-5 h-5 text-purple-600 dark:text-purple-400" />
+                          Returned to Vendor ({returnedDefects.length})
+                        </h3>
+                      </div>
+
+                      <div className="divide-y divide-gray-200 dark:divide-gray-700">
+                        {returnedDefects.map((defect) => (
+                          <div key={defect.id} className="px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-700/50">
+                            <div className="flex items-center justify-between gap-4">
+                              <div className="flex-1">
+                                <div className="flex items-center gap-2 mb-1">
+                                  <h4 className="font-medium text-gray-900 dark:text-white text-sm">
+                                    {defect.productName}
+                                  </h4>
+                                  <span className="px-2 py-0.5 bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400 text-xs rounded flex items-center gap-1">
+                                    <Truck className="w-3 h-3" />
+                                    Returned
+                                  </span>
+                                </div>
+                                <div className="flex items-center gap-x-4 text-xs text-gray-600 dark:text-gray-400">
+                                  <span className="flex items-center gap-1">
+                                    <Barcode className="w-3 h-3" />
+                                    {defect.barcode}
+                                  </span>
+                                  <span className="flex items-center gap-1">
+                                    <MapPin className="w-3 h-3" />
+                                    {defect.store || 'N/A'}
+                                  </span>
+                                  {defect.costPrice && (
+                                    <span>Cost: ৳{formatPrice(defect.costPrice)}</span>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
@@ -1282,6 +1379,16 @@ export default function DefectsPage() {
         onReturn={handleReturnToVendor}
         loading={loading}
       />
+
+      {/* Toast Notification */}
+      {toast.show && (
+        <Toast
+          message={toast.message}
+          type={toast.type}
+          onClose={() => setToast({ ...toast, show: false })}
+          duration={5000}
+        />
+      )}
     </div>
   );
 }

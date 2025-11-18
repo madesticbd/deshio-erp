@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { Eye, EyeOff, ArrowLeft, AlertCircle, CheckCircle } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-import { useAuth } from '@/app/e-commerce/AuthContext';
+import { useAuth } from '@/contexts/AuthContext';
 
 export default function LoginRegisterPage() {
   const router = useRouter();

@@ -122,15 +122,43 @@ export default function ReturnProductModal({ order, onClose, onReturn }: ReturnP
   };
 
   const calculateTotals = () => {
-    const returnAmount = selectedProducts.reduce((sum, productId) => {
+    // Helper to parse string prices to floats
+    const parseFloatValue = (value: string) => parseFloat(String(value).replace(/[^0-9.-]/g, ''));
+
+    // Step 1: Calculate order subtotal (pre-VAT sum of all item totals)
+    const orderSubtotal = order.items.reduce((sum, item) => {
+      const price = parseFloatValue(item.unit_price);
+      return sum + (price * item.quantity);
+    }, 0);
+
+    // Step 2: Parse order total (post-VAT)
+    const orderTotal = parseFloatValue(order.total_amount);
+
+    // Step 3: Derive total VAT (assuming total_amount = subtotal + VAT; adjust if discounts/shipping exist)
+    const orderVat = orderTotal - orderSubtotal;
+
+    // Step 4: Calculate VAT rate (for proration)
+    const vatRate = orderSubtotal > 0 ? orderVat / orderSubtotal : 0;
+
+    // Step 5: Calculate return subtotal (pre-VAT)
+    const returnSubtotal = selectedProducts.reduce((sum, productId) => {
       const product = order.items.find(p => p.id === productId);
       if (!product) return sum;
       const qty = returnedQuantities[productId] || 0;
-      const price = parseFloat(String(product.unit_price).replace(/[^0-9.-]/g, ''));
+      const price = parseFloatValue(product.unit_price);
       return sum + (price * qty);
     }, 0);
 
-    const totalPaid = parseFloat(String(order.paid_amount).replace(/[^0-9.-]/g, ''));
+    // Step 6: Calculate prorated VAT for return
+    const returnVat = returnSubtotal * vatRate;
+
+    // Step 7: Total return amount (including VAT)
+    const returnAmount = returnSubtotal + returnVat;
+
+    // Step 8: Parse total paid
+    const totalPaid = parseFloatValue(order.paid_amount);
+
+    // Step 9: Refund capped at paid amount
     const refundToCustomer = Math.min(returnAmount, totalPaid);
 
     return {

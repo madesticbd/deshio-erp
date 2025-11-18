@@ -264,7 +264,7 @@ export default function POSPage() {
 
     const newItem: ExtendedCartItem = {
       id: Date.now() + Math.random(),
-      productId: selectedBatch.product_id,
+      productId: selectedBatch.product.id,
       productName: product,
       batchId: selectedBatch.id,
       batchNumber: selectedBatch.batch_number,
@@ -357,155 +357,269 @@ export default function POSPage() {
 
   // ============ ORDER SUBMISSION ============
   
-  const handleSell = async () => {
-    // Validation
-    if (!selectedOutlet) {
-      showToast('Please select an outlet', 'error');
-      return;
-    }
-    if (cart.length === 0) {
-      showToast('Please add products to cart', 'error');
-      return;
-    }
-    if (!selectedEmployee) {
-      showToast('Please select an employee', 'error');
-      return;
-    }
-    if (due > 0 && !confirm(`Outstanding amount: ৳${due.toFixed(2)}. Continue?`)) {
-      return;
+// ============ COMPLETE handleSell FUNCTION - PASTE THIS INTO YOUR POS PAGE ============
+
+const handleSell = async () => {
+  // Validation
+  if (!selectedOutlet) {
+    showToast('Please select an outlet', 'error');
+    return;
+  }
+  if (cart.length === 0) {
+    showToast('Please add products to cart', 'error');
+    return;
+  }
+  if (!selectedEmployee) {
+    showToast('Please select an employee', 'error');
+    return;
+  }
+  if (due > 0 && !confirm(`Outstanding amount: ৳${due.toFixed(2)}. Continue?`)) {
+    return;
+  }
+
+  setIsProcessing(true);
+
+  try {
+    console.log('═══════════════════════════════════');
+    console.log('📦 PREPARING ORDER');
+    console.log('Cart items:', cart.length);
+    console.log('Defective items:', cart.filter(i => i.isDefective).length);
+    console.log('═══════════════════════════════════');
+
+    // ✅ Validate all cart items have required fields
+    for (const item of cart) {
+      if (!item.productId) {
+        throw new Error(`Missing product_id for ${item.productName}`);
+      }
+      if (!item.batchId) {
+        throw new Error(`Missing batch_id for ${item.productName}`);
+      }
+      if (!item.qty || item.qty <= 0) {
+        throw new Error(`Invalid quantity for ${item.productName}`);
+      }
+      if (item.price === undefined || item.price < 0) {
+        throw new Error(`Invalid price for ${item.productName}`);
+      }
     }
 
-    setIsProcessing(true);
-
-    try {
-      // Create order
-      const orderPayload = {
-        order_type: 'counter' as const,
-        customer: customerName || mobileNo ? {
+    // Create order payload
+    const orderPayload = {
+      order_type: 'counter' as const,
+      store_id: parseInt(selectedOutlet),
+      salesman_id: parseInt(selectedEmployee),
+      
+      // ✅ Only add customer if data is provided
+      ...(customerName || mobileNo ? {
+        customer: {
           name: customerName || 'Walk-in Customer',
           phone: mobileNo || '01XXXXXXXXX',
-          email: undefined,
-          address: address || undefined,
-        } : undefined,
-        store_id: parseInt(selectedOutlet),
-        salesman_id: parseInt(selectedEmployee),
-        items: cart.map(item => ({
-          product_id: item.productId,
-          batch_id: item.batchId,
-          quantity: item.qty,
-          unit_price: item.price,
-          discount_amount: item.discount || 0,
+          ...(address ? { address } : {}),
+        }
+      } : {}),
+      
+      // ✅ Map cart items with proper type conversion
+      items: cart.map(item => {
+        // Ensure all values are the correct type
+        const productId = parseInt(String(item.productId));
+        const batchId = parseInt(String(item.batchId));
+        const quantity = parseInt(String(item.qty));
+        const unitPrice = parseFloat(String(item.price));
+        const discountAmount = parseFloat(String(item.discount || 0));
+
+        // Validate after conversion
+        if (isNaN(productId)) {
+          throw new Error(`Invalid product_id for ${item.productName}`);
+        }
+        if (isNaN(batchId)) {
+          throw new Error(`Invalid batch_id for ${item.productName}`);
+        }
+        if (isNaN(quantity) || quantity <= 0) {
+          throw new Error(`Invalid quantity for ${item.productName}`);
+        }
+        if (isNaN(unitPrice) || unitPrice < 0) {
+          throw new Error(`Invalid unit_price for ${item.productName}`);
+        }
+
+        const itemPayload: any = {
+          product_id: productId,
+          batch_id: batchId,
+          quantity: quantity,
+          unit_price: unitPrice,
+          discount_amount: discountAmount,
           tax_amount: 0,
-          // ✅ CRITICAL FIX: Only include barcode for NON-defective items
-          ...(!item.isDefective && item.barcode ? { barcode: item.barcode } : {}),
-        })),
-        discount_amount: totalDiscount,
-        shipping_amount: transportCost,
-        notes: `VAT: ${vatRate}%${address ? `, Address: ${address}` : ''}`,
-      };
+        };
 
-      console.log('📦 Creating order...');
-      const order = await orderService.create(orderPayload);
-      console.log('✅ Order created:', order.order_number);
-      showToast(`Order #${order.order_number} created!`, 'success');
+        // ✅ CRITICAL: Only include barcode for NON-defective items
+        if (!item.isDefective && item.barcode) {
+          itemPayload.barcode = item.barcode;
+        }
 
-      // ✅ Check if cart contains defective items and mark them as sold
-      const defectiveItems = cart.filter(item => item.isDefective && item.defectId);
+        console.log(`Item ${item.productName}:`, {
+          ...itemPayload,
+          isDefective: item.isDefective,
+          hasBarcode: !!item.barcode,
+        });
+
+        return itemPayload;
+      }),
       
-      if (defectiveItems.length > 0) {
-        console.log('🏷️ Found defective items in order:', defectiveItems.length);
-        
-        for (const item of defectiveItems) {
-          try {
-            console.log(`📋 Marking defective ${item.defectId} as sold...`);
-            
-            await defectIntegrationService.markDefectiveAsSold(
-              item.defectId!,
-              {
-                order_id: order.id,
-                selling_price: item.price,
-                sale_notes: `Sold via POS - Order #${order.order_number}`,
-                sold_at: new Date().toISOString(),
-              }
-            );
-            
-            console.log(`✅ Defective ${item.defectId} marked as sold`);
-            showToast(`✓ Defective item recorded: ${item.productName}`, 'success');
-          } catch (error: any) {
-            console.error(`❌ Failed to mark defective ${item.defectId}:`, error);
-            // Don't fail the entire order, just log the error
-            showToast(`Warning: Could not update defect status for ${item.productName}`, 'error');
-          }
+      // ✅ Add totals
+      discount_amount: totalDiscount,
+      shipping_amount: transportCost,
+      
+      // ✅ Add notes if any
+      ...(address || vatRate > 0 ? {
+        notes: `${vatRate > 0 ? `VAT: ${vatRate}%` : ''}${address ? `, Address: ${address}` : ''}`.trim()
+      } : {}),
+    };
+
+    console.log('═══════════════════════════════════');
+    console.log('📤 ORDER PAYLOAD:');
+    console.log(JSON.stringify(orderPayload, null, 2));
+    console.log('═══════════════════════════════════');
+
+    // Create order
+    console.log('📦 Creating order...');
+    const order = await orderService.create(orderPayload);
+    
+    console.log('✅ Order created:', order.order_number);
+    showToast(`Order #${order.order_number} created!`, 'success');
+
+    // ✅ Handle defective items
+    const defectiveItems = cart.filter(item => item.isDefective && item.defectId);
+    
+    if (defectiveItems.length > 0) {
+      console.log('🏷️ Processing', defectiveItems.length, 'defective items...');
+      
+      for (const item of defectiveItems) {
+        try {
+          console.log(`📋 Marking defective ${item.defectId} as sold...`);
+          
+          await defectIntegrationService.markDefectiveAsSold(
+            item.defectId!,
+            {
+              order_id: order.id,
+              selling_price: item.price,
+              sale_notes: `Sold via POS - Order #${order.order_number}`,
+              sold_at: new Date().toISOString(),
+            }
+          );
+          
+          console.log(`✅ Defective ${item.defectId} marked as sold`);
+          showToast(`✓ Defective item recorded: ${item.productName}`, 'success');
+        } catch (defectError: any) {
+          console.error(`❌ Failed to mark defective ${item.defectId}:`, defectError);
+          // Don't fail the entire order, just log the error
+          showToast(`Warning: Could not update defect status for ${item.productName}`, 'error');
         }
       }
-
-      // Process payments
-      if (totalPaid > 0) {
-        const paymentSplits: any[] = [];
-        
-        if (cashPaid > 0) {
-          paymentSplits.push({
-            payment_method_id: paymentMethods.cash || 1,
-            amount: cashPaid,
-          });
-        }
-        
-        if (cardPaid > 0) {
-          paymentSplits.push({
-            payment_method_id: paymentMethods.card || 2,
-            amount: cardPaid,
-          });
-        }
-        
-        if (bkashPaid > 0) {
-          paymentSplits.push({
-            payment_method_id: paymentMethods.mobileWallet || 6,
-            amount: bkashPaid,
-          });
-        }
-        
-        if (nagadPaid > 0) {
-          paymentSplits.push({
-            payment_method_id: paymentMethods.mobileWallet || 6,
-            amount: nagadPaid,
-          });
-        }
-
-        if (paymentSplits.length === 1) {
-          await paymentService.process(order.id, {
-            payment_method_id: paymentSplits[0].payment_method_id,
-            amount: paymentSplits[0].amount,
-            payment_type: (due <= 0 ? 'full' : 'partial') as 'full' | 'partial',
-            auto_complete: true,
-          });
-        } else if (paymentSplits.length > 1) {
-          await paymentService.processSplit(order.id, {
-            total_amount: totalPaid,
-            payment_type: due <= 0 ? 'full' : 'partial',
-            auto_complete: true,
-            splits: paymentSplits,
-          });
-        }
-      }
-
-      // Complete order
-      console.log('🏁 Completing order...');
-      await orderService.complete(order.id);
-      console.log('✅ Order completed');
-
-      showToast(`Order #${order.order_number} completed successfully!`, 'success');
-      
-      // Reset form
-      resetForm();
-      fetchProducts();
-
-    } catch (error: any) {
-      console.error('❌ Sale error:', error);
-      showToast(error.message || 'Failed to complete sale', 'error');
-    } finally {
-      setIsProcessing(false);
     }
-  };
+
+    // ✅ Process payments if any
+    if (totalPaid > 0) {
+      console.log('💰 Processing payments...');
+      
+      const paymentSplits: any[] = [];
+      
+      if (cashPaid > 0) {
+        paymentSplits.push({
+          payment_method_id: paymentMethods.cash || 1,
+          amount: cashPaid,
+        });
+      }
+      
+      if (cardPaid > 0) {
+        paymentSplits.push({
+          payment_method_id: paymentMethods.card || 2,
+          amount: cardPaid,
+        });
+      }
+      
+      if (bkashPaid > 0) {
+        paymentSplits.push({
+          payment_method_id: paymentMethods.mobileWallet || 6,
+          amount: bkashPaid,
+        });
+      }
+      
+      if (nagadPaid > 0) {
+        paymentSplits.push({
+          payment_method_id: paymentMethods.mobileWallet || 6,
+          amount: nagadPaid,
+        });
+      }
+
+      if (paymentSplits.length === 1) {
+        await paymentService.process(order.id, {
+          payment_method_id: paymentSplits[0].payment_method_id,
+          amount: paymentSplits[0].amount,
+          payment_type: (due <= 0 ? 'full' : 'partial') as 'full' | 'partial',
+          auto_complete: true,
+        });
+      } else if (paymentSplits.length > 1) {
+        await paymentService.processSplit(order.id, {
+          total_amount: totalPaid,
+          payment_type: due <= 0 ? 'full' : 'partial',
+          auto_complete: true,
+          splits: paymentSplits,
+        });
+      }
+      
+      console.log('✅ Payments processed');
+    }
+
+    // Complete order
+    console.log('🏁 Completing order...');
+    await orderService.complete(order.id);
+    console.log('✅ Order completed');
+
+    showToast(`✓ Order #${order.order_number} completed successfully!`, 'success');
+    
+    console.log('═══════════════════════════════════');
+    console.log('✅ ORDER PROCESS COMPLETE');
+    console.log('═══════════════════════════════════');
+    
+    // Reset form
+    resetForm();
+    fetchProducts();
+
+  } catch (error: any) {
+    console.error('═══════════════════════════════════');
+    console.error('❌ ORDER CREATION FAILED');
+    console.error('Error:', error);
+    console.error('Error message:', error.message);
+    console.error('Error response:', error.response);
+    console.error('Error response data:', error.response?.data);
+    console.error('Validation errors:', error.response?.data?.errors);
+    console.error('═══════════════════════════════════');
+    
+    // Show detailed error
+    let errorMessage = 'Failed to complete sale';
+    
+    if (error.response?.data?.errors) {
+      // Laravel validation errors
+      const errors = error.response.data.errors;
+      const errorMessages = Object.entries(errors)
+        .map(([field, messages]: [string, any]) => {
+          const fieldName = field.replace(/_/g, ' ').replace(/\./g, ' ');
+          return `${fieldName}: ${Array.isArray(messages) ? messages.join(', ') : messages}`;
+        })
+        .join('\n');
+      
+      errorMessage = `Validation errors:\n${errorMessages}`;
+      console.error('📋 Formatted validation errors:\n', errorMessages);
+    } else if (error.response?.data?.message) {
+      errorMessage = error.response.data.message;
+    } else if (error.message) {
+      errorMessage = error.message;
+    }
+    
+    showToast(errorMessage, 'error');
+    alert(`Error: ${errorMessage}\n\nCheck console for details.`);
+  } finally {
+    setIsProcessing(false);
+  }
+};
 
   const resetForm = () => {
     setCart([]);
