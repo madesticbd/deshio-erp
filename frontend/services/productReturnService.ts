@@ -7,8 +7,8 @@ export interface ProductReturn {
   order_id: number;
   customer_id: number;
   store_id: number;
-  return_reason: string;
-  return_type: ReturnType;
+  return_reason: 'defective_product' | 'wrong_item' | 'not_as_described' | 'customer_dissatisfaction' | 'size_issue' | 'color_issue' | 'quality_issue' | 'late_delivery' | 'changed_mind' | 'duplicate_order' | 'other';
+  return_type?: 'customer_return' | 'store_return' | 'warehouse_return';
   status: ReturnStatus;
   return_date: string;
   total_return_value: number;
@@ -41,13 +41,6 @@ export interface ProductReturn {
   refunds?: any[];
 }
 
-export type ReturnType = 
-  | 'defective'
-  | 'damaged'
-  | 'wrong_item'
-  | 'unwanted'
-  | 'other';
-
 export type ReturnStatus = 
   | 'pending'
   | 'approved'
@@ -60,6 +53,7 @@ export interface ReturnItem {
   order_item_id: number;
   product_id: number;
   product_batch_id?: number;
+  product_barcode_id?: number; // NEW: Added barcode ID support
   product_name: string;
   quantity: number;
   unit_price: number;
@@ -82,11 +76,12 @@ export interface ProductReturnFilters {
 
 export interface CreateReturnRequest {
   order_id: number;
-  return_reason: string;
-  return_type: ReturnType;
+  return_reason: 'defective_product' | 'wrong_item' | 'not_as_described' | 'customer_dissatisfaction' | 'size_issue' | 'color_issue' | 'quality_issue' | 'late_delivery' | 'changed_mind' | 'duplicate_order' | 'other';
+  return_type?: 'customer_return' | 'store_return' | 'warehouse_return';
   items: Array<{
     order_item_id: number;
     quantity: number;
+    product_barcode_id?: number; // NEW: Support barcode ID in return items
     reason?: string;
   }>;
   customer_notes?: string;
@@ -160,9 +155,29 @@ class ProductReturnService {
 
   /**
    * Create a new product return
+   * NOW SUPPORTS: Barcode tracking for individual unit returns
    */
   async create(data: CreateReturnRequest) {
+    // Log barcode information for debugging
+    console.log('📤 ProductReturnService.create() called with:', {
+      order_id: data.order_id,
+      return_reason: data.return_reason,
+      return_type: data.return_type,
+      items: data.items.map(item => ({
+        order_item_id: item.order_item_id,
+        quantity: item.quantity,
+        product_barcode_id: item.product_barcode_id,
+        has_barcode: !!item.product_barcode_id,
+      })),
+    });
+
     const response = await axiosInstance.post(this.basePath, data);
+    
+    console.log('✅ Return created successfully:', {
+      return_id: response.data?.data?.id,
+      return_number: response.data?.data?.return_number,
+    });
+    
     return response.data;
   }
 
@@ -170,7 +185,9 @@ class ProductReturnService {
    * Update return (for receiving and quality check)
    */
   async update(id: number, data: UpdateReturnRequest) {
+    console.log(`⏳ Updating return ${id}:`, data);
     const response = await axiosInstance.patch(`${this.basePath}/${id}`, data);
+    console.log(`✅ Return ${id} updated successfully`);
     return response.data;
   }
 
@@ -178,7 +195,9 @@ class ProductReturnService {
    * Approve a return
    */
   async approve(id: number, data?: ApproveReturnRequest) {
+    console.log(`✅ Approving return ${id}:`, data);
     const response = await axiosInstance.post(`${this.basePath}/${id}/approve`, data || {});
+    console.log(`✅ Return ${id} approved successfully`);
     return response.data;
   }
 
@@ -186,15 +205,22 @@ class ProductReturnService {
    * Reject a return
    */
   async reject(id: number, data: RejectReturnRequest) {
+    console.log(`❌ Rejecting return ${id}:`, data);
     const response = await axiosInstance.post(`${this.basePath}/${id}/reject`, data);
+    console.log(`✅ Return ${id} rejected successfully`);
     return response.data;
   }
 
   /**
    * Process a return (restore inventory)
+   * IMPORTANT: This will restore inventory based on barcode tracking
+   * - If barcode_id exists: Reactivates the specific barcode
+   * - If no barcode_id: Just increases batch quantity
    */
   async process(id: number, data?: ProcessReturnRequest) {
+    console.log(`⚙️ Processing return ${id}:`, data);
     const response = await axiosInstance.post(`${this.basePath}/${id}/process`, data || {});
+    console.log(`✅ Return ${id} processed successfully (inventory restored)`);
     return response.data;
   }
 
@@ -202,7 +228,9 @@ class ProductReturnService {
    * Complete a return (final step before refund)
    */
   async complete(id: number) {
+    console.log(`🏁 Completing return ${id}`);
     const response = await axiosInstance.post(`${this.basePath}/${id}/complete`);
+    console.log(`✅ Return ${id} completed successfully`);
     return response.data;
   }
 
@@ -239,15 +267,34 @@ class ProductReturnService {
   }
 
   /**
+   * Helper: Get return reason label
+   */
+  getReturnReasonLabel(reason: string): string {
+    const labels: Record<string, string> = {
+      defective_product: 'Defective Product',
+      wrong_item: 'Wrong Item',
+      not_as_described: 'Not As Described',
+      customer_dissatisfaction: 'Customer Dissatisfaction',
+      size_issue: 'Size Issue',
+      color_issue: 'Color Issue',
+      quality_issue: 'Quality Issue',
+      late_delivery: 'Late Delivery',
+      changed_mind: 'Changed Mind',
+      duplicate_order: 'Duplicate Order',
+      other: 'Other',
+    };
+    return labels[reason] || reason;
+  }
+
+  /**
    * Helper: Get return type label
    */
-  getReturnTypeLabel(returnType: ReturnType): string {
-    const labels: Record<ReturnType, string> = {
-      defective: 'Defective',
-      damaged: 'Damaged',
-      wrong_item: 'Wrong Item',
-      unwanted: 'Unwanted',
-      other: 'Other',
+  getReturnTypeLabel(returnType?: string): string {
+    if (!returnType) return 'N/A';
+    const labels: Record<string, string> = {
+      customer_return: 'Customer Return',
+      store_return: 'Store Return',
+      warehouse_return: 'Warehouse Return',
     };
     return labels[returnType] || returnType;
   }

@@ -1,10 +1,11 @@
 'use client';
-
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Globe } from 'lucide-react';
 import Header from '@/components/Header';
 import Sidebar from '@/components/Sidebar';
 import axios from '@/lib/axios';
+import defectIntegrationService from '@/services/defectIntegrationService';
+import Toast from '@/components/Toast';
 
 interface PaymentMethod {
   id: number;
@@ -27,6 +28,10 @@ export default function AmountDetailsPage() {
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState('');
   const [transactionReference, setTransactionReference] = useState('');
   const [paymentNotes, setPaymentNotes] = useState('');
+
+  const [showToast, setShowToast] = useState(false);
+  const [toastMessage, setToastMessage] = useState('');
+  const [toastType, setToastType] = useState<'success' | 'error' | 'info' | 'warning'>('success');
 
   const getTodayDate = () => {
     const today = new Date();
@@ -113,21 +118,32 @@ export default function AmountDetailsPage() {
 
   const selectedMethod = paymentMethods.find(m => String(m.id) === selectedPaymentMethod);
 
+  const displayToast = (message: string, type: 'success' | 'error' | 'info' | 'warning' = 'success') => {
+    setToastMessage(message);
+    setToastType(type);
+    setShowToast(true);
+  };
+
   const handlePlaceOrder = async () => {
     if (!selectedPaymentMethod) {
-      alert('Please select a payment method');
+      displayToast('Please select a payment method', 'error');
       return;
     }
 
     if (selectedMethod?.requires_reference && !transactionReference.trim()) {
-      alert(`Please enter transaction reference for ${selectedMethod.name}`);
+      displayToast(`Please enter transaction reference for ${selectedMethod.name}`, 'error');
       return;
     }
 
     setIsProcessing(true);
 
     try {
+      console.log('═══════════════════════════════════');
+      console.log('📦 PLACING SOCIAL COMMERCE ORDER');
+      console.log('═══════════════════════════════════');
+
       // Step 1: Create the order
+      console.log('📦 Step 1: Creating order...');
       const createOrderResponse = await axios.post('/orders', orderData);
 
       if (!createOrderResponse.data.success) {
@@ -135,8 +151,39 @@ export default function AmountDetailsPage() {
       }
 
       const createdOrder = createOrderResponse.data.data;
+      console.log('✅ Order created:', createdOrder.order_number);
+
+      // ✅ Step 1.5: Handle defective products if any
+      const defectiveItems = orderData.defectiveItems || [];
+      
+      if (defectiveItems.length > 0) {
+        console.log('🏷️ Processing', defectiveItems.length, 'defective items...');
+        
+        for (const defectItem of defectiveItems) {
+          try {
+            console.log(`📋 Marking defective ${defectItem.defectId} as sold...`);
+            
+            await defectIntegrationService.markDefectiveAsSold(
+              defectItem.defectId,
+              {
+                order_id: createdOrder.id,
+                selling_price: defectItem.price,
+                sale_notes: `Sold via Social Commerce - Order #${createdOrder.order_number}`,
+                sold_at: new Date().toISOString(),
+              }
+            );
+            
+            console.log(`✅ Defective ${defectItem.defectId} marked as sold`);
+          } catch (defectError: any) {
+            console.error(`❌ Failed to mark defective ${defectItem.defectId}:`, defectError);
+            // Don't fail the entire order, just log
+            console.warn(`Warning: Could not update defect status for ${defectItem.productName}`);
+          }
+        }
+      }
 
       // Step 2: Process payment
+      console.log('💰 Step 2: Processing payment...');
       const paymentData: any = {
         payment_method_id: parseInt(selectedPaymentMethod),
         amount: total,
@@ -168,22 +215,35 @@ export default function AmountDetailsPage() {
       if (!paymentResponse.data.success) {
         throw new Error(paymentResponse.data.message || 'Failed to process payment');
       }
+      console.log('✅ Payment processed');
 
       // Step 3: Complete the order
+      console.log('🏁 Step 3: Completing order...');
       const completeResponse = await axios.patch(`/orders/${createdOrder.id}/complete`, {});
 
       if (!completeResponse.data.success) {
         throw new Error(completeResponse.data.message || 'Failed to complete order');
       }
+      console.log('✅ Order completed');
 
-      alert(`Order ${createdOrder.order_number} placed successfully!`);
+      console.log('═══════════════════════════════════');
+      console.log('✅ ORDER PROCESS COMPLETE');
+      console.log('═══════════════════════════════════');
+
+      displayToast(`Order ${createdOrder.order_number} placed successfully!`, 'success');
       sessionStorage.removeItem('pendingOrder');
-      window.location.href = '/orders';
+      setTimeout(() => {
+        window.location.href = '/orders';
+      }, 3000); // Redirect after toast duration
 
     } catch (error: any) {
+      console.error('═══════════════════════════════════');
+      console.error('❌ ORDER CREATION FAILED');
       console.error('Error:', error);
+      console.error('═══════════════════════════════════');
+      
       const errorMessage = error.response?.data?.message || error.message || 'Error placing order. Please try again.';
-      alert(errorMessage);
+      displayToast(errorMessage, 'error');
     } finally {
       setIsProcessing(false);
     }
@@ -257,16 +317,18 @@ export default function AmountDetailsPage() {
                     <div className="space-y-2 max-h-60 md:max-h-80 overflow-y-auto">
                       {orderData.items?.map((item: any, index: number) => {
                         const itemAmount = calculateItemAmount(item);
+                        const isDefective = orderData.defectiveItems?.some((d: any) => d.defectId === item.defectId);
+                        
                         return (
                           <div key={index} className={`flex justify-between items-center p-2 rounded ${
-                            item.isDefective 
+                            isDefective
                               ? 'bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-700' 
                               : 'bg-gray-50 dark:bg-gray-700'
                           }`}>
                             <div className="min-w-0 flex-1">
                               <p className="text-sm text-gray-900 dark:text-white truncate">
                                 {item.productName}
-                                {item.isDefective && (
+                                {isDefective && (
                                   <span className="ml-2 px-2 py-0.5 bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400 text-xs rounded">
                                     Defective
                                   </span>
@@ -280,7 +342,7 @@ export default function AmountDetailsPage() {
                                   Discount: -{parseFloat(item.discount_amount).toFixed(2)} Tk
                                 </p>
                               )}
-                              {item.barcode && (
+                              {item.barcode && !isDefective && (
                                 <p className="text-xs text-gray-500 dark:text-gray-400 font-mono">
                                   Barcode: {item.barcode}
                                 </p>
@@ -435,6 +497,13 @@ export default function AmountDetailsPage() {
           </main>
         </div>
       </div>
+      {showToast && (
+        <Toast 
+          message={toastMessage} 
+          type={toastType} 
+          onClose={() => setShowToast(false)} 
+        />
+      )}
     </div>
   );
 }

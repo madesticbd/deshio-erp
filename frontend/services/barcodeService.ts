@@ -18,6 +18,8 @@ export interface ProductInfo {
   name: string;
   sku: string;
   description?: string;
+  selling_price?: number;
+  price?: number;
   category?: {
     id: number;
     name: string;

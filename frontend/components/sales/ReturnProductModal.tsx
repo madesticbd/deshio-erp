@@ -1,45 +1,67 @@
 import { useState } from 'react';
 import { X, RotateCcw, Calculator, ChevronDown } from 'lucide-react';
 
-interface Sale {
-  id: string;
-  customer: {
-    name: string;
-    mobile: string;
-  };
-  items: Array<{
-    id: number;
-    productName: string;
-    size: string;
-    qty: number;
-    price: number;
-    discount: number;
-    amount: number;
-  }>;
-  amounts: {
-    subtotal: number;
-    totalDiscount: number;
-    vat: number;
-    vatRate: number;
-    transportCost: number;
-    total: number;
-  };
-  payments: {
-    totalPaid: number;
-    due: number;
-  };
+interface OrderItem {
+  id: number;
+  product_id: number;
+  product_name: string;
+  product_sku: string;
+  batch_id: number;
+  batch_number?: string;
+  barcode_id?: number;
+  barcode?: string;
+  quantity: number;
+  unit_price: string;
+  total_amount: string;
 }
+
+interface Order {
+  id: number;
+  order_number: string;
+  customer?: {
+    name: string;
+    phone: string;
+  };
+  items: OrderItem[];
+  total_amount: string;
+  paid_amount: string;
+  outstanding_amount: string;
+}
+
+type ReturnReason = 'defective_product' | 'wrong_item' | 'not_as_described' | 'customer_dissatisfaction' | 'size_issue' | 'color_issue' | 'quality_issue' | 'late_delivery' | 'changed_mind' | 'duplicate_order' | 'other';
+type ReturnType = 'customer_return' | 'store_return' | 'warehouse_return';
 
 interface ReturnProductModalProps {
-  sale: Sale;
+  order: Order;
   onClose: () => void;
-  onReturn: (returnData: any) => Promise<void>;
+  onReturn: (returnData: {
+    selectedProducts: Array<{ 
+      order_item_id: number; 
+      quantity: number;
+      product_barcode_id?: number;
+    }>;
+    refundMethods: {
+      cash: number;
+      card: number;
+      bkash: number;
+      nagad: number;
+      total: number;
+    };
+    returnReason: ReturnReason;
+    returnType: ReturnType;
+    customerNotes?: string;
+  }) => Promise<void>;
 }
 
-export default function ReturnProductModal({ sale, onClose, onReturn }: ReturnProductModalProps) {
+export default function ReturnProductModal({ order, onClose, onReturn }: ReturnProductModalProps) {
   const [selectedProducts, setSelectedProducts] = useState<number[]>([]);
   const [returnedQuantities, setReturnedQuantities] = useState<{ [key: number]: number }>({});
   const [isProcessing, setIsProcessing] = useState(false);
+  
+  // Return info
+  const [returnReason, setReturnReason] = useState<ReturnReason>('other');
+  const [returnType, setReturnType] = useState<ReturnType>('customer_return');
+  const [customerNotes, setCustomerNotes] = useState('');
 
   // Refund payment states
   const [refundCash, setRefundCash] = useState(0);
@@ -59,6 +81,26 @@ export default function ReturnProductModal({ sale, onClose, onReturn }: ReturnPr
   const [note5, setNote5] = useState(0);
   const [note2, setNote2] = useState(0);
   const [note1, setNote1] = useState(0);
+
+  const returnReasonOptions: Array<{ value: ReturnReason; label: string }> = [
+    { value: 'defective_product', label: 'Defective Product' },
+    { value: 'wrong_item', label: 'Wrong Item' },
+    { value: 'not_as_described', label: 'Not As Described' },
+    { value: 'customer_dissatisfaction', label: 'Customer Dissatisfaction' },
+    { value: 'size_issue', label: 'Size Issue' },
+    { value: 'color_issue', label: 'Color Issue' },
+    { value: 'quality_issue', label: 'Quality Issue' },
+    { value: 'late_delivery', label: 'Late Delivery' },
+    { value: 'changed_mind', label: 'Changed Mind' },
+    { value: 'duplicate_order', label: 'Duplicate Order' },
+    { value: 'other', label: 'Other' },
+  ];
+
+  const returnTypeOptions: Array<{ value: ReturnType; label: string }> = [
+    { value: 'customer_return', label: 'Customer Return' },
+    { value: 'store_return', label: 'Store Return' },
+    { value: 'warehouse_return', label: 'Warehouse Return' },
+  ];
 
   const handleProductCheckbox = (productId: number) => {
     setSelectedProducts(prev => {
@@ -80,47 +122,49 @@ export default function ReturnProductModal({ sale, onClose, onReturn }: ReturnPr
   };
 
   const calculateTotals = () => {
-    const returnAmount = selectedProducts.reduce((sum, productId) => {
-      const product = sale.items.find(p => p.id === productId);
+    // Helper to parse string prices to floats
+    const parseFloatValue = (value: string) => parseFloat(String(value).replace(/[^0-9.-]/g, ''));
+
+    // Step 1: Calculate order subtotal (pre-VAT sum of all item totals)
+    const orderSubtotal = order.items.reduce((sum, item) => {
+      const price = parseFloatValue(item.unit_price);
+      return sum + (price * item.quantity);
+    }, 0);
+
+    // Step 2: Parse order total (post-VAT)
+    const orderTotal = parseFloatValue(order.total_amount);
+
+    // Step 3: Derive total VAT (assuming total_amount = subtotal + VAT; adjust if discounts/shipping exist)
+    const orderVat = orderTotal - orderSubtotal;
+
+    // Step 4: Calculate VAT rate (for proration)
+    const vatRate = orderSubtotal > 0 ? orderVat / orderSubtotal : 0;
+
+    // Step 5: Calculate return subtotal (pre-VAT)
+    const returnSubtotal = selectedProducts.reduce((sum, productId) => {
+      const product = order.items.find(p => p.id === productId);
       if (!product) return sum;
       const qty = returnedQuantities[productId] || 0;
-      return sum + (product.price * qty);
+      const price = parseFloatValue(product.unit_price);
+      return sum + (price * qty);
     }, 0);
 
-    const newSubtotal = sale.items.reduce((sum, product) => {
-      if (selectedProducts.includes(product.id)) {
-        const returnQty = returnedQuantities[product.id] || 0;
-        const remainingQty = product.qty - returnQty;
-        if (remainingQty > 0) {
-          return sum + (product.price * remainingQty);
-        }
-        return sum;
-      }
-      return sum + product.amount;
-    }, 0);
+    // Step 6: Calculate prorated VAT for return
+    const returnVat = returnSubtotal * vatRate;
 
-    const vatRate = sale.amounts.vatRate || 0;
-    const vatAmount = Math.round(newSubtotal * (vatRate / 100));
-    const transportCost = sale.amounts.transportCost || 0;
-    const totalNewAmount = newSubtotal + vatAmount + transportCost;
-    const originalTotal = sale.amounts.total || 0;
-    const refundAmount = originalTotal - totalNewAmount;
-    const totalPaid = sale.payments.totalPaid || 0;
-    const refundToCustomer = totalPaid > totalNewAmount ? totalPaid - totalNewAmount : 0;
-    const newDue = totalPaid > totalNewAmount ? 0 : totalNewAmount - totalPaid;
+    // Step 7: Total return amount (including VAT)
+    const returnAmount = returnSubtotal + returnVat;
+
+    // Step 8: Parse total paid
+    const totalPaid = parseFloatValue(order.paid_amount);
+
+    // Step 9: Refund capped at paid amount
+    const refundToCustomer = Math.min(returnAmount, totalPaid);
 
     return {
       returnAmount,
-      newSubtotal,
-      vatRate,
-      vatAmount,
-      transportCost,
-      totalNewAmount,
-      originalTotal,
-      refundAmount,
       totalPaid,
       refundToCustomer,
-      newDue
     };
   };
 
@@ -151,53 +195,46 @@ export default function ReturnProductModal({ sale, onClose, onReturn }: ReturnPr
     }
 
     let confirmMessage = `Process return?\n\n`;
+    confirmMessage += `Return Reason: ${returnReasonOptions.find(r => r.value === returnReason)?.label}\n`;
+    confirmMessage += `Return Type: ${returnTypeOptions.find(t => t.value === returnType)?.label}\n\n`;
+    
     if (totals.refundToCustomer > 0) {
       if (remainingRefund > 0) {
-        confirmMessage += `Refund Required: ৳${totals.refundToCustomer.toLocaleString()}\nRefunded: ৳${totalRefundProcessed.toLocaleString()}\nRemaining: ৳${remainingRefund.toLocaleString()}\n\nCustomer can collect later.`;
+        confirmMessage += `Refund Required: ৳${totals.refundToCustomer.toLocaleString()}\nRefunded: ৳${totalRefundProcessed.toLocaleString()}\nRemaining: ৳${remainingRefund.toLocaleString()}\n\nCustomer can collect remaining later.`;
       } else {
         confirmMessage += `Refund ৳${totals.refundToCustomer.toLocaleString()} to customer (Fully processed)`;
       }
     } else {
-      confirmMessage += `Reduce sale total by ৳${totals.refundAmount.toLocaleString()}`;
+      confirmMessage += `Reduce order total by ৳${totals.returnAmount.toLocaleString()}`;
     }
 
     if (!confirm(confirmMessage)) return;
 
     setIsProcessing(true);
     try {
-      const response = await fetch('/api/sales/return', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          saleId: sale.id,
-          returnedProducts: selectedProducts.map(id => ({
-            productId: id,
-            productName: sale.items.find(p => p.id === id)?.productName,
-            quantity: returnedQuantities[id],
-            price: sale.items.find(p => p.id === id)?.price,
-            amount: (sale.items.find(p => p.id === id)?.price || 0) * returnedQuantities[id]
-          })),
-          refundAmount: totals.refundAmount,
-          refundMethods: {
-            cash: effectiveRefundCash,
-            card: refundCard,
-            bkash: refundBkash,
-            nagad: refundNagad,
-            total: totalRefundProcessed
-          }
-        }),
+      // Map selected products with barcode IDs
+      const selectedProductsWithBarcodes = selectedProducts.map(id => {
+        const product = order.items.find(p => p.id === id);
+        return {
+          order_item_id: id,
+          quantity: returnedQuantities[id],
+          product_barcode_id: product?.barcode_id, // Include barcode ID if available
+        };
       });
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to process return');
-      }
-
-      const result = await response.json();
-      await onReturn(result);
-
-      alert('Return processed successfully!');
-      onClose();
+      await onReturn({
+        selectedProducts: selectedProductsWithBarcodes,
+        refundMethods: {
+          cash: effectiveRefundCash,
+          card: refundCard,
+          bkash: refundBkash,
+          nagad: refundNagad,
+          total: totalRefundProcessed,
+        },
+        returnReason,
+        returnType,
+        customerNotes: customerNotes.trim() || undefined,
+      });
     } catch (error: any) {
       console.error('Return failed:', error);
       alert(error.message || 'Failed to process return');
@@ -228,7 +265,7 @@ export default function ReturnProductModal({ sale, onClose, onReturn }: ReturnPr
               <RotateCcw className="w-5 h-5 text-red-600 dark:text-red-400" />
             </div>
             <div>
-              <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Return Products - Sale #{sale.id}</h2>
+              <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Return Products - {order.order_number}</h2>
               <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">Select items to return and process refund</p>
             </div>
           </div>
@@ -244,15 +281,53 @@ export default function ReturnProductModal({ sale, onClose, onReturn }: ReturnPr
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-sm text-gray-600 dark:text-gray-400">Customer</p>
-                    <p className="font-semibold text-gray-900 dark:text-white">{sale.customer.name}</p>
-                    <p className="text-sm text-gray-600 dark:text-gray-400">{sale.customer.mobile}</p>
+                    <p className="font-semibold text-gray-900 dark:text-white">{order.customer?.name || 'N/A'}</p>
+                    <p className="text-sm text-gray-600 dark:text-gray-400">{order.customer?.phone || 'N/A'}</p>
                   </div>
                   <div className="text-right">
                     <p className="text-sm text-gray-600 dark:text-gray-400">Total Paid</p>
-                    <p className="text-lg font-bold text-gray-900 dark:text-white">৳{sale.payments.totalPaid.toLocaleString()}</p>
-                    {sale.payments.due > 0 && (
-                      <p className="text-sm text-orange-600 dark:text-orange-400">Due: ৳{sale.payments.due.toLocaleString()}</p>
-                    )}
+                    <p className="text-lg font-bold text-gray-900 dark:text-white">৳{totals.totalPaid.toFixed(2)}</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Return Reason & Type */}
+              <div className="bg-gray-50 dark:bg-gray-800 rounded-xl p-5 border border-gray-200 dark:border-gray-700">
+                <h3 className="font-semibold text-gray-900 dark:text-white text-lg mb-4">Return Information</h3>
+                <div className="space-y-3">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Return Type</label>
+                    <select
+                      value={returnType}
+                      onChange={(e) => setReturnType(e.target.value as ReturnType)}
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                    >
+                      {returnTypeOptions.map(option => (
+                        <option key={option.value} value={option.value}>{option.label}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Return Reason *</label>
+                    <select
+                      value={returnReason}
+                      onChange={(e) => setReturnReason(e.target.value as ReturnReason)}
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                    >
+                      {returnReasonOptions.map(option => (
+                        <option key={option.value} value={option.value}>{option.label}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Customer Notes (Optional)</label>
+                    <textarea
+                      value={customerNotes}
+                      onChange={(e) => setCustomerNotes(e.target.value)}
+                      placeholder="Additional notes from customer..."
+                      rows={3}
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white resize-none"
+                    />
                   </div>
                 </div>
               </div>
@@ -260,11 +335,11 @@ export default function ReturnProductModal({ sale, onClose, onReturn }: ReturnPr
               <div className="bg-gray-50 dark:bg-gray-800 rounded-xl p-5 border border-gray-200 dark:border-gray-700">
                 <h3 className="font-semibold text-gray-900 dark:text-white text-lg mb-4">Select Items to Return</h3>
                 
-                {sale.items.length === 0 ? (
-                  <div className="text-center py-8 text-gray-500 dark:text-gray-400">No products in this sale</div>
+                {order.items.length === 0 ? (
+                  <div className="text-center py-8 text-gray-500 dark:text-gray-400">No products in this order</div>
                 ) : (
                   <div className="space-y-3">
-                    {sale.items.map((product) => (
+                    {order.items.map((product) => (
                       <div key={product.id} className="bg-white dark:bg-gray-900 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
                         <div className="flex items-start gap-3">
                           <input
@@ -275,11 +350,30 @@ export default function ReturnProductModal({ sale, onClose, onReturn }: ReturnPr
                           />
                           <div className="flex-1">
                             <div className="flex items-center justify-between mb-2">
-                              <p className="font-medium text-gray-900 dark:text-white">{product.productName}</p>
-                              <p className="font-bold text-gray-900 dark:text-white">৳{(product.price * product.qty).toLocaleString()}</p>
+                              <div>
+                                <p className="font-medium text-gray-900 dark:text-white">{product.product_name}</p>
+                                <div className="flex items-center gap-3 mt-1">
+                                  <span className="text-xs text-gray-500 dark:text-gray-400 font-mono">
+                                    SKU: {product.product_sku || 'N/A'}
+                                  </span>
+                                  {product.batch_number && (
+                                    <span className="text-xs text-gray-500 dark:text-gray-400">
+                                      Batch: {product.batch_number}
+                                    </span>
+                                  )}
+                                  {product.barcode && (
+                                    <span className="text-xs bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 px-2 py-0.5 rounded font-mono">
+                                      🏷️ {product.barcode}
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+                              <p className="font-bold text-gray-900 dark:text-white">
+                                ৳{(parseFloat(String(product.unit_price).replace(/[^0-9.-]/g, '')) * product.quantity).toFixed(2)}
+                              </p>
                             </div>
                             <p className="text-xs text-gray-600 dark:text-gray-400 mb-3">
-                              Price: ৳{product.price.toLocaleString()} × Qty: {product.qty} = ৳{product.amount.toLocaleString()}
+                              Price: ৳{parseFloat(String(product.unit_price).replace(/[^0-9.-]/g, '')).toFixed(2)} × Qty: {product.quantity}
                             </p>
                             
                             {selectedProducts.includes(product.id) && (
@@ -287,17 +381,18 @@ export default function ReturnProductModal({ sale, onClose, onReturn }: ReturnPr
                                 <div className="grid grid-cols-2 gap-3">
                                   <div>
                                     <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Original Qty</label>
-                                    <input type="number" value={product.qty} readOnly className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-700 rounded-lg bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-white" />
+                                    <input type="number" value={product.quantity} readOnly className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-700 rounded-lg bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-white" />
                                   </div>
                                   <div>
-                                    <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Return Qty</label>
+                                    <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Return Qty *</label>
                                     <input
                                       type="number"
-                                      min="0"
-                                      max={product.qty}
-                                      value={returnedQuantities[product.id] || 0}
-                                      onChange={(e) => handleQuantityChange(product.id, parseInt(e.target.value) || 0, product.qty)}
+                                      min="1"
+                                      max={product.quantity}
+                                      value={returnedQuantities[product.id] || ''}
+                                      onChange={(e) => handleQuantityChange(product.id, parseInt(e.target.value) || 0, product.quantity)}
                                       className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:ring-2 focus:ring-red-500 outline-none"
+                                      placeholder="Enter qty"
                                     />
                                   </div>
                                 </div>
@@ -327,59 +422,22 @@ export default function ReturnProductModal({ sale, onClose, onReturn }: ReturnPr
                   
                   <div className="flex justify-between text-sm">
                     <span className="text-gray-600 dark:text-gray-400">Return Amount:</span>
-                    <span className="font-semibold text-red-600 dark:text-red-400">-৳{totals.returnAmount.toLocaleString()}</span>
-                  </div>
-
-                  <div className="pt-2 border-t border-gray-300 dark:border-gray-700">
-                    <div className="flex justify-between text-sm mb-2">
-                      <span className="text-gray-600 dark:text-gray-400">Original Total:</span>
-                      <span className="font-semibold text-gray-900 dark:text-white">৳{totals.originalTotal.toLocaleString()}</span>
-                    </div>
-                    
-                    <div className="flex justify-between text-sm mb-2">
-                      <span className="text-gray-600 dark:text-gray-400">New Subtotal:</span>
-                      <span className="font-semibold text-gray-900 dark:text-white">৳{totals.newSubtotal.toLocaleString()}</span>
-                    </div>
-                    
-                    <div className="flex justify-between text-sm mb-2">
-                      <span className="text-gray-600 dark:text-gray-400">VAT ({totals.vatRate}%):</span>
-                      <span className="font-semibold text-gray-900 dark:text-white">৳{totals.vatAmount.toLocaleString()}</span>
-                    </div>
-                    
-                    <div className="flex justify-between text-sm mb-2">
-                      <span className="text-gray-600 dark:text-gray-400">Transport:</span>
-                      <span className="font-semibold text-gray-900 dark:text-white">৳{totals.transportCost.toLocaleString()}</span>
-                    </div>
-                    
-                    <div className="flex justify-between items-center text-base font-bold pt-2 border-t border-gray-300 dark:border-gray-700">
-                      <span className="text-gray-900 dark:text-white">New Total:</span>
-                      <span className="text-gray-900 dark:text-white">৳{totals.totalNewAmount.toLocaleString()}</span>
-                    </div>
+                    <span className="font-semibold text-red-600 dark:text-red-400">৳{totals.returnAmount.toFixed(2)}</span>
                   </div>
 
                   <div className="pt-3 border-t-2 border-gray-300 dark:border-gray-700">
                     <div className="flex justify-between items-center mb-2">
                       <span className="text-gray-600 dark:text-gray-400">Customer Paid:</span>
-                      <span className="font-semibold text-gray-900 dark:text-white">৳{totals.totalPaid.toLocaleString()}</span>
+                      <span className="font-semibold text-gray-900 dark:text-white">৳{totals.totalPaid.toFixed(2)}</span>
                     </div>
 
-                    {totals.refundToCustomer > 0 ? (
-                      <div className="bg-green-50 dark:bg-green-900/20 border-2 border-green-500 dark:border-green-600 rounded-lg p-3">
-                        <div className="flex justify-between items-center">
-                          <span className="font-semibold text-green-900 dark:text-green-300">Refund to Customer:</span>
-                          <span className="font-bold text-lg text-green-600 dark:text-green-400">৳{totals.refundToCustomer.toLocaleString()}</span>
-                        </div>
-                        <p className="text-xs text-green-700 dark:text-green-400 mt-1">Customer overpaid - needs refund</p>
+                    <div className="bg-green-50 dark:bg-green-900/20 border-2 border-green-500 dark:border-green-600 rounded-lg p-3">
+                      <div className="flex justify-between items-center">
+                        <span className="font-semibold text-green-900 dark:text-green-300">Refund to Customer:</span>
+                        <span className="font-bold text-lg text-green-600 dark:text-green-400">৳{totals.refundToCustomer.toFixed(2)}</span>
                       </div>
-                    ) : (
-                      <div className="bg-orange-50 dark:bg-orange-900/20 border-2 border-orange-500 dark:border-orange-600 rounded-lg p-3">
-                        <div className="flex justify-between items-center">
-                          <span className="font-semibold text-orange-900 dark:text-orange-300">Remaining Due:</span>
-                          <span className="font-bold text-lg text-orange-600 dark:text-orange-400">৳{totals.newDue.toLocaleString()}</span>
-                        </div>
-                        <p className="text-xs text-orange-700 dark:text-orange-400 mt-1">Amount still owed after return</p>
-                      </div>
-                    )}
+                      <p className="text-xs text-green-700 dark:text-green-400 mt-1">Amount to be refunded</p>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -422,7 +480,7 @@ export default function ReturnProductModal({ sale, onClose, onReturn }: ReturnPr
                       ) : (
                         <div>
                           <label className="block text-xs text-gray-700 dark:text-gray-300 mb-1">Cash Refund</label>
-                          <input type="number" value={cashFromNotes > 0 ? cashFromNotes : refundCash} onChange={(e) => { setRefundCash(Number(e.target.value)); setNote1000(0); setNote500(0); setNote200(0); setNote100(0); setNote50(0); setNote20(0); setNote10(0); setNote5(0); setNote2(0); setNote1(0); }} className="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm" />
+                          <input type="number" min="0" value={cashFromNotes > 0 ? cashFromNotes : refundCash} onChange={(e) => { setRefundCash(Number(e.target.value)); setNote1000(0); setNote500(0); setNote200(0); setNote100(0); setNote50(0); setNote20(0); setNote10(0); setNote5(0); setNote2(0); setNote1(0); }} className="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm" />
                         </div>
                       )}
                     </div>
@@ -430,15 +488,15 @@ export default function ReturnProductModal({ sale, onClose, onReturn }: ReturnPr
                     <div className="grid grid-cols-2 gap-2">
                       <div>
                         <label className="block text-xs text-gray-700 dark:text-gray-300 mb-1">Card Refund</label>
-                        <input type="number" value={refundCard} onChange={(e) => setRefundCard(Number(e.target.value))} className="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm" />
+                        <input type="number" min="0" value={refundCard} onChange={(e) => setRefundCard(Number(e.target.value))} className="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm" />
                       </div>
                       <div>
                         <label className="block text-xs text-gray-700 dark:text-gray-300 mb-1">Bkash Refund</label>
-                        <input type="number" value={refundBkash} onChange={(e) => setRefundBkash(Number(e.target.value))} className="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm" />
+                        <input type="number" min="0" value={refundBkash} onChange={(e) => setRefundBkash(Number(e.target.value))} className="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm" />
                       </div>
                       <div className="col-span-2">
                         <label className="block text-xs text-gray-700 dark:text-gray-300 mb-1">Nagad Refund</label>
-                        <input type="number" value={refundNagad} onChange={(e) => setRefundNagad(Number(e.target.value))} className="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm" />
+                        <input type="number" min="0" value={refundNagad} onChange={(e) => setRefundNagad(Number(e.target.value))} className="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm" />
                       </div>
                     </div>
                     
@@ -449,10 +507,10 @@ export default function ReturnProductModal({ sale, onClose, onReturn }: ReturnPr
                       </div>
                       <div className="flex justify-between text-sm mb-1">
                         <span className="text-gray-700 dark:text-gray-300">Refund Required</span>
-                        <span className="text-gray-900 dark:text-white font-medium">৳{totals.refundToCustomer.toLocaleString()}</span>
+                        <span className="text-gray-900 dark:text-white font-medium">৳{totals.refundToCustomer.toFixed(2)}</span>
                       </div>
                       <div className="flex justify-between text-base">
-                        <span className="font-semibold text-gray-900 dark:text-white">Remaining to Refund</span>
+                        <span className="font-semibold text-gray-900 dark:text-white">Remaining</span>
                         <span className={`font-bold ${remainingRefund > 0 ? 'text-orange-600 dark:text-orange-400' : 'text-green-600 dark:text-green-400'}`}>৳{remainingRefund.toFixed(2)}</span>
                       </div>
                       {remainingRefund > 0 && <p className="text-xs text-orange-600 dark:text-orange-400 mt-1">Can refund later</p>}

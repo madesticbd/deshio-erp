@@ -1,6 +1,20 @@
 import axiosInstance from '@/lib/axios';
-import barcodeService from './barcodeService';
-import { Order } from './orderService';
+import { Order, OrderItem } from './orderService';
+
+/**
+ * Extended OrderItem with barcode information
+ */
+interface OrderItemWithBarcodes extends OrderItem {
+  barcodes: string[];
+  available_for_return: number;
+}
+
+/**
+ * Extended Order with enhanced barcode information
+ */
+interface OrderWithBarcodes extends Order {
+  items?: OrderItemWithBarcodes[];
+}
 
 /**
  * Helper service to map barcodes to order items
@@ -12,12 +26,7 @@ class BarcodeOrderMapper {
    * Get order with enhanced barcode information
    * This fetches the order and enriches it with barcode data for returns
    */
-  async getOrderWithBarcodes(orderId: number): Promise<Order & {
-    items: Array<Order['items'][number] & {
-      barcodes: string[];
-      available_for_return: number;
-    }>;
-  }> {
+  async getOrderWithBarcodes(orderId: number): Promise<OrderWithBarcodes> {
     try {
       // Fetch order
       const orderResponse = await axiosInstance.get(`/orders/${orderId}`);
@@ -26,31 +35,61 @@ class BarcodeOrderMapper {
         throw new Error('Order not found');
       }
 
-      const order = orderResponse.data.data;
+      const order: Order = orderResponse.data.data;
 
       // Enhance items with barcode information
       if (order.items && order.items.length > 0) {
+        const enhancedItems: OrderItemWithBarcodes[] = [];
+
         for (const item of order.items) {
-          // Try to get barcodes for this order item
-          try {
-            const barcodeResponse = await axiosInstance.get(`/orders/${orderId}/items/${item.id}/barcodes`);
-            
-            if (barcodeResponse.data.success) {
-              item.barcodes = barcodeResponse.data.data.barcodes || [];
-              item.available_for_return = barcodeResponse.data.data.available_for_return || item.quantity;
+          let barcodes: string[] = [];
+          let availableForReturn = item.quantity;
+
+          // If item has a single barcode, convert to array
+          if (item.barcode) {
+            // For items with quantity > 1, generate placeholder barcodes
+            if (item.quantity > 1) {
+              barcodes = this.generateBarcodesFromBase(item.barcode, item.quantity);
             } else {
-              item.barcodes = [];
-              item.available_for_return = item.quantity;
+              barcodes = [item.barcode];
             }
-          } catch (error) {
-            // If endpoint doesn't exist, generate placeholder barcodes
-            item.barcodes = this.generatePlaceholderBarcodes(item, order);
-            item.available_for_return = item.quantity;
+          } else {
+            // Try to get barcodes from backend endpoint
+            try {
+              const barcodeResponse = await axiosInstance.get(
+                `/orders/${orderId}/items/${item.id}/barcodes`
+              );
+              
+              if (barcodeResponse.data.success) {
+                barcodes = barcodeResponse.data.data.barcodes || [];
+                availableForReturn = barcodeResponse.data.data.available_for_return ?? item.quantity;
+              } else {
+                // Generate placeholder barcodes
+                barcodes = this.generatePlaceholderBarcodes(item, order);
+              }
+            } catch (error) {
+              // If endpoint doesn't exist, generate placeholder barcodes
+              barcodes = this.generatePlaceholderBarcodes(item, order);
+            }
           }
+
+          enhancedItems.push({
+            ...item,
+            barcodes,
+            available_for_return: availableForReturn,
+          });
         }
+
+        return {
+          ...order,
+          items: enhancedItems,
+        };
       }
 
-      return order;
+      return {
+        ...order,
+        items: [],
+      };
     } catch (error: any) {
       console.error('Get order with barcodes error:', error);
       throw new Error(error.message || 'Failed to fetch order with barcodes');
@@ -58,13 +97,29 @@ class BarcodeOrderMapper {
   }
 
   /**
+   * Generate barcodes from a base barcode for items with quantity > 1
+   */
+  private generateBarcodesFromBase(baseBarcode: string, quantity: number): string[] {
+    const barcodes: string[] = [];
+    
+    for (let i = 0; i < quantity; i++) {
+      // If quantity is 1, just use the base barcode
+      if (quantity === 1) {
+        barcodes.push(baseBarcode);
+      } else {
+        // Add suffix for multiple quantities
+        barcodes.push(`${baseBarcode}-${i + 1}`);
+      }
+    }
+    
+    return barcodes;
+  }
+
+  /**
    * Generate placeholder barcodes if backend doesn't provide them
    * This is a fallback for orders that don't have barcode tracking
    */
-  private generatePlaceholderBarcodes(
-    item: Order['items'][number],
-    order: Order
-  ): string[] {
+  private generatePlaceholderBarcodes(item: OrderItem, order: Order): string[] {
     const barcodes: string[] = [];
     
     // Generate placeholder barcodes based on quantity
@@ -107,12 +162,11 @@ class BarcodeOrderMapper {
       for (const barcode of selectedBarcodes) {
         let found = false;
 
-        for (const item of order.items || []) {
-          if (item.barcodes.includes(barcode)) {
+        for (const item of (order.items || [])) {
+          if (item.barcodes && item.barcodes.includes(barcode)) {
             found = true;
 
             // Check if already returned
-            // (You'll need to implement this check based on your backend)
             const alreadyReturned = await this.isBarcodeReturned(orderId, barcode);
             
             if (alreadyReturned) {
@@ -145,7 +199,7 @@ class BarcodeOrderMapper {
 
       // Check for over-returns
       for (const [itemId, mapped] of mappedItems) {
-        const orderItem = order.items?.find(i => i.id === itemId);
+        const orderItem = (order.items || []).find(i => i.id === itemId);
         if (orderItem && mapped.quantity > orderItem.available_for_return) {
           warnings.push(
             `${mapped.product_name}: Trying to return ${mapped.quantity} but only ${orderItem.available_for_return} available`
@@ -185,20 +239,25 @@ class BarcodeOrderMapper {
   /**
    * Convert validated barcodes to return items format
    */
-  convertToReturnItems(mappedItems: Array<{
-    order_item_id: number;
-    product_name: string;
-    barcodes: string[];
-    quantity: number;
-  }>, returnReason: string): Array<{
+  convertToReturnItems(
+    mappedItems: Array<{
+      order_item_id: number;
+      product_name: string;
+      barcodes: string[];
+      quantity: number;
+    }>,
+    returnReason: string
+  ): Array<{
     order_item_id: number;
     quantity: number;
     reason: string;
+    barcodes?: string[];
   }> {
-    return mappedItems.map(item => ({
+    return mappedItems.map((item) => ({
       order_item_id: item.order_item_id,
       quantity: item.quantity,
       reason: returnReason,
+      barcodes: item.barcodes, // Include barcodes for backend tracking
     }));
   }
 
@@ -220,26 +279,30 @@ class BarcodeOrderMapper {
       const response = await axiosInstance.get(`/orders/${orderId}/return-eligible-items`);
       
       if (!response.data.success) {
-        // Fallback: fetch order and calculate manually
-        const order = await this.getOrderWithBarcodes(orderId);
-        
-        return (order.items || []).map(item => ({
-          order_item_id: item.id,
-          product_name: item.product_name,
-          quantity_ordered: item.quantity,
-          quantity_returned: item.quantity - (item.available_for_return || item.quantity),
-          quantity_available: item.available_for_return || item.quantity,
-          barcodes: item.barcodes.map(b => ({
-            barcode: b,
-            is_returned: false, // We don't know, so assume false
-          })),
-        }));
+        throw new Error('Failed to fetch return eligible items');
       }
 
       return response.data.data;
     } catch (error: any) {
-      console.error('Get return eligible items error:', error);
-      throw new Error(error.message || 'Failed to fetch return eligible items');
+      // Fallback: fetch order and calculate manually
+      try {
+        const order = await this.getOrderWithBarcodes(orderId);
+        
+        return (order.items || []).map((item) => ({
+          order_item_id: item.id,
+          product_name: item.product_name,
+          quantity_ordered: item.quantity,
+          quantity_returned: item.quantity - item.available_for_return,
+          quantity_available: item.available_for_return,
+          barcodes: item.barcodes.map((b) => ({
+            barcode: b,
+            is_returned: false, // We don't know, so assume false
+          })),
+        }));
+      } catch (fallbackError: any) {
+        console.error('Get return eligible items fallback error:', fallbackError);
+        throw new Error(fallbackError.message || 'Failed to fetch return eligible items');
+      }
     }
   }
 
@@ -259,8 +322,8 @@ class BarcodeOrderMapper {
     try {
       const order = await this.getOrderWithBarcodes(orderId);
       
-      for (const item of order.items || []) {
-        if (item.barcodes.includes(barcode)) {
+      for (const item of (order.items || [])) {
+        if (item.barcodes && item.barcodes.includes(barcode)) {
           // Check if already returned
           const alreadyReturned = await this.isBarcodeReturned(orderId, barcode);
           
@@ -271,8 +334,12 @@ class BarcodeOrderMapper {
               product_name: item.product_name,
               unit_price: item.unit_price,
             },
-            can_return: !alreadyReturned,
-            reason: alreadyReturned ? 'Already returned' : undefined,
+            can_return: !alreadyReturned && item.available_for_return > 0,
+            reason: alreadyReturned 
+              ? 'Already returned' 
+              : item.available_for_return === 0
+              ? 'No items available for return'
+              : undefined,
           };
         }
       }
@@ -286,6 +353,20 @@ class BarcodeOrderMapper {
       console.error('Scan barcode for order error:', error);
       throw new Error(error.message || 'Failed to scan barcode');
     }
+  }
+
+  /**
+   * Extract all barcodes from an order item
+   * Handles both single barcode and barcode arrays
+   */
+  extractBarcodesFromItem(item: OrderItem, order: Order): string[] {
+    if (item.barcode) {
+      // Single barcode case - generate array based on quantity
+      return this.generateBarcodesFromBase(item.barcode, item.quantity);
+    }
+    
+    // Fallback to placeholder generation
+    return this.generatePlaceholderBarcodes(item, order);
   }
 }
 
