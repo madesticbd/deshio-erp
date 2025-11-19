@@ -356,7 +356,7 @@ export default function PurchaseHistoryPage() {
     }
   };
 
-  // Exchange product handler
+// Exchange product handler
   const handleExchangeSubmit = async (exchangeData: {
     removedProducts: Array<{
       order_item_id: number;
@@ -368,6 +368,7 @@ export default function PurchaseHistoryPage() {
       batch_id: number;
       quantity: number;
       unit_price: number;
+      barcode?: string;
     }>;
     paymentRefund: {
       type: 'payment' | 'refund' | 'none';

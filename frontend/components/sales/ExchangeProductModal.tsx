@@ -1,9 +1,5 @@
 import { useState, useEffect } from 'react';
-import { X, Search, ArrowRightLeft, Calculator, ChevronDown, Loader2, Package, Scan } from 'lucide-react';
-import axiosInstance from '@/lib/axios';
-import productImageService from '@/services/productImageService';
-import batchService, { Batch } from '@/services/batchService';
-import productService from '@/services/productService';
+import { X, ArrowRightLeft, Calculator, ChevronDown, Loader2 } from 'lucide-react';
 import BarcodeScanner, { ScannedProduct } from '@/components/pos/BarcodeScanner';
 
 interface OrderItem {
@@ -68,20 +64,12 @@ interface ExchangeProductModalProps {
   }) => Promise<void>;
 }
 
-interface Product {
-  id: number;
-  name: string;
-  sku: string;
-  batches?: Batch[];
-}
-
 interface ReplacementProduct {
   id: number | string;
   product_id: number;
   batch_id: number;
   name: string;
   batchNumber?: string;
-  mainImage?: string;
   price: number;
   quantity: number;
   amount: number;
@@ -94,28 +82,6 @@ export default function ExchangeProductModal({ order, onClose, onExchange }: Exc
   const [exchangeQuantities, setExchangeQuantities] = useState<{ [key: number]: number }>({});
   const [replacementProducts, setReplacementProducts] = useState<ReplacementProduct[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
-
-  // Entry mode: 'search' | 'barcode' | 'manual'
-  const [entryMode, setEntryMode] = useState<'search' | 'barcode' | 'manual'>('barcode');
-
-  // Search mode states
-  const [searchQuery, setSearchQuery] = useState('');
-  const [searchResults, setSearchResults] = useState<any[]>([]);
-  const [selectedReplacement, setSelectedReplacement] = useState<any>(null);
-  const [replacementQuantity, setReplacementQuantity] = useState('1');
-  const [isSearching, setIsSearching] = useState(false);
-  const [allProducts, setAllProducts] = useState<any[]>([]);
-  const [batches, setBatches] = useState<any[]>([]);
-
-  // Manual entry states
-  const [products, setProducts] = useState<Product[]>([]);
-  const [selectedProduct, setSelectedProduct] = useState('');
-  const [selectedBatch, setSelectedBatch] = useState<Batch | null>(null);
-  const [manualPrice, setManualPrice] = useState(0);
-  const [manualQuantity, setManualQuantity] = useState(1);
-  const [manualDiscount, setManualDiscount] = useState(0);
-
-  const [isLoadingData, setIsLoadingData] = useState(false);
 
   // Payment/Refund states
   const [cashAmount, setCashAmount] = useState(0);
@@ -136,287 +102,6 @@ export default function ExchangeProductModal({ order, onClose, onExchange }: Exc
   const [note2, setNote2] = useState(0);
   const [note1, setNote1] = useState(0);
 
-  // Helper function to get image URL
-  const getImageUrl = (imagePath: string | null | undefined): string => {
-    if (!imagePath) return '/placeholder-image.jpg';
-    if (imagePath.startsWith('http://') || imagePath.startsWith('https://')) return imagePath;
-    const baseUrl = process.env.NEXT_PUBLIC_API_URL?.replace('/api', '') || '';
-    if (imagePath.startsWith('/storage')) return `${baseUrl}${imagePath}`;
-    return `${baseUrl}/storage/product-images/${imagePath}`;
-  };
-
-  // Fetch primary image for a product
-  const fetchPrimaryImage = async (productId: number): Promise<string> => {
-    try {
-      const images = await productImageService.getProductImages(productId);
-      const primaryImage = images.find(img => img.is_primary && img.is_active);
-      if (primaryImage) return getImageUrl(primaryImage.image_url || primaryImage.image_path);
-      const firstActiveImage = images.find(img => img.is_active);
-      if (firstActiveImage) return getImageUrl(firstActiveImage.image_url || firstActiveImage.image_path);
-      return '/placeholder-image.jpg';
-    } catch (error) {
-      return '/placeholder-image.jpg';
-    }
-  };
-
-  // Fetch products for search mode
-  const fetchProducts = async () => {
-    try {
-      const response = await axiosInstance.get('/products', { params: { per_page: 1000 } });
-      let productsData = [];
-      
-      if (response.data?.success && response.data?.data) {
-        productsData = Array.isArray(response.data.data) ? response.data.data : 
-                      Array.isArray(response.data.data.data) ? response.data.data.data : [];
-      } else if (Array.isArray(response.data)) {
-        productsData = response.data;
-      }
-      
-      setAllProducts(productsData);
-      console.log('✅ Loaded products:', productsData.length);
-    } catch (error) {
-      console.error('Error fetching products:', error);
-      setAllProducts([]);
-    }
-  };
-
-  // Fetch batches for the store
-  const fetchBatchesForStore = async (storeId: number) => {
-    try {
-      setIsLoadingData(true);
-      console.log('📦 Fetching batches for store:', storeId);
-      
-      try {
-        const batchesData = await batchService.getAvailableBatches(storeId);
-        if (batchesData && batchesData.length > 0) {
-          const availableBatches = batchesData.filter(batch => batch.quantity > 0);
-          setBatches(availableBatches);
-          console.log('✅ Filtered available batches:', availableBatches.length);
-          return;
-        }
-      } catch (err) {
-        console.warn('⚠️ getAvailableBatches failed, trying getBatchesArray...', err);
-      }
-      
-      try {
-        const batchesData = await batchService.getBatchesArray({ 
-          store_id: storeId,
-          status: 'available'
-        });
-        if (batchesData && batchesData.length > 0) {
-          const availableBatches = batchesData.filter(batch => batch.quantity > 0);
-          setBatches(availableBatches);
-          console.log('✅ Filtered available batches:', availableBatches.length);
-          return;
-        }
-      } catch (err) {
-        console.warn('⚠️ getBatchesArray failed, trying getBatchesByStore...', err);
-      }
-      
-      try {
-        const batchesData = await batchService.getBatchesByStore(storeId);
-        if (batchesData && batchesData.length > 0) {
-          const availableBatches = batchesData.filter(batch => batch.quantity > 0);
-          setBatches(availableBatches);
-          console.log('✅ Filtered available batches:', availableBatches.length);
-          return;
-        }
-      } catch (err) {
-        console.error('⚠️ All batch fetch methods failed', err);
-      }
-      
-      setBatches([]);
-      console.log('⚠️ No batches found for store:', storeId);
-      
-    } catch (error: any) {
-      console.error('❌ Batch fetch error:', error);
-      setBatches([]);
-    } finally {
-      setIsLoadingData(false);
-    }
-  };
-
-  // Fetch products with batches for manual mode
-  const fetchProductsWithBatches = async () => {
-    if (!order.store.id) return;
-
-    try {
-      const result = await productService.getAll({
-        is_archived: false,
-        per_page: 1000,
-      });
-      
-      let productsList: Product[] = [];
-      
-      if (Array.isArray(result)) {
-        productsList = result;
-      } else if (result?.data) {
-        productsList = Array.isArray(result.data) ? result.data : (result.data.data || []);
-      }
-      
-      const productsWithBatches = await Promise.all(
-        productsList.map(async (product: Product) => {
-          try {
-            const batchResponse = await batchService.getBatches({
-              product_id: product.id,
-              store_id: order.store.id,
-              status: 'available',
-              per_page: 100
-            });
-            
-            const batches = batchResponse.success && batchResponse.data?.data 
-              ? batchResponse.data.data.filter((batch: Batch) => batch.quantity > 0)
-              : [];
-            
-            return { ...product, batches };
-          } catch (error) {
-            return { ...product, batches: [] };
-          }
-        })
-      );
-      
-      setProducts(productsWithBatches);
-    } catch (error) {
-      console.error('Error fetching products:', error);
-      setProducts([]);
-    }
-  };
-
-  // Local search with batches
-  const performLocalSearch = async (query: string): Promise<any[]> => {
-    const results: any[] = [];
-    const queryLower = query.toLowerCase().trim();
-
-    for (const prod of allProducts) {
-      const productName = (prod.name || '').toLowerCase();
-      const productSku = (prod.sku || '').toLowerCase();
-      
-      let matches = false;
-      let relevanceScore = 0;
-      
-      if (productName === queryLower || productSku === queryLower) {
-        relevanceScore = 100;
-        matches = true;
-      } else if (productName.startsWith(queryLower) || productSku.startsWith(queryLower)) {
-        relevanceScore = 80;
-        matches = true;
-      } else if (productName.includes(queryLower) || productSku.includes(queryLower)) {
-        relevanceScore = 60;
-        matches = true;
-      }
-      
-      if (matches) {
-        const productBatches = batches.filter(batch => {
-          const batchProductId = batch.product?.id || batch.product_id;
-          return batchProductId === prod.id && batch.quantity > 0;
-        });
-
-        if (productBatches.length > 0) {
-          const imageUrl = await fetchPrimaryImage(prod.id);
-
-          for (const batch of productBatches) {
-            results.push({
-              id: prod.id,
-              name: prod.name,
-              sku: prod.sku,
-              batchId: batch.id,
-              batchNumber: batch.batch_number,
-              mainImage: imageUrl,
-              price: Number(String(batch.sell_price ?? "0").replace(/[^0-9.-]/g, "")),
-              available: batch.quantity,
-              relevance_score: relevanceScore,
-              search_stage: 'local'
-            });
-          }
-        }
-      }
-    }
-    
-    results.sort((a, b) => (b.relevance_score || 0) - (a.relevance_score || 0));
-    return results;
-  };
-
-  // Load initial data
-  useEffect(() => {
-    const loadData = async () => {
-      await fetchProducts();
-      await fetchBatchesForStore(order.store.id);
-      await fetchProductsWithBatches();
-    };
-    loadData();
-  }, [order.store.id]);
-
-  // Search products with debounce (for search mode)
-  useEffect(() => {
-    if (entryMode !== 'search' || !searchQuery.trim() || !Array.isArray(batches)) {
-      setSearchResults([]);
-      return;
-    }
-    
-    if (batches.length === 0) return;
-
-    const delayDebounce = setTimeout(async () => {
-      setIsSearching(true);
-      try {
-        const response = await axiosInstance.post('/products/advanced-search', {
-          query: searchQuery,
-          is_archived: false,
-          enable_fuzzy: true,
-          fuzzy_threshold: 60,
-          search_fields: ['name', 'sku', 'description', 'category'],
-          per_page: 50
-        });
-
-        if (response.data?.success) {
-          const products = response.data.data?.items || 
-                          response.data.data?.data?.items ||
-                          response.data.data || [];
-          
-          const results: any[] = [];
-
-          for (const prod of products) {
-            const productBatches = batches.filter(batch => {
-              const batchProductId = batch.product?.id || batch.product_id;
-              return batchProductId === prod.id && batch.quantity > 0;
-            });
-
-            if (productBatches.length > 0) {
-              const imageUrl = await fetchPrimaryImage(prod.id);
-
-              for (const batch of productBatches) {
-                results.push({
-                  id: prod.id,
-                  name: prod.name,
-                  sku: prod.sku,
-                  batchId: batch.id,
-                  batchNumber: batch.batch_number,
-                  mainImage: imageUrl,
-                  price: Number(String(batch.sell_price ?? "0").replace(/[^0-9.-]/g, "")),
-                  available: batch.quantity,
-                  relevance_score: prod.relevance_score || 0,
-                  search_stage: prod.search_stage || 'api'
-                });
-              }
-            }
-          }
-
-          results.sort((a, b) => (b.relevance_score || 0) - (a.relevance_score || 0));
-          setSearchResults(results);
-        } else {
-          throw new Error('API search unsuccessful');
-        }
-      } catch (error: any) {
-        console.warn('❌ API search failed, using local search');
-        const localResults = await performLocalSearch(searchQuery);
-        setSearchResults(localResults);
-      } finally {
-        setIsSearching(false);
-      }
-    }, 300);
-
-    return () => clearTimeout(delayDebounce);
-  }, [searchQuery, batches, allProducts, entryMode]);
-
   // Handle barcode scanned
   const handleProductScanned = (scannedProduct: ScannedProduct) => {
     const newItem: ReplacementProduct = {
@@ -433,111 +118,6 @@ export default function ExchangeProductModal({ order, onClose, onExchange }: Exc
     };
 
     setReplacementProducts(prev => [...prev, newItem]);
-  };
-
-  // Handle manual product selection
-  const handleProductSelect = (productName: string) => {
-    setSelectedProduct(productName);
-    const selectedProd = products.find(p => p.name === productName);
-    
-    if (selectedProd && selectedProd.batches && selectedProd.batches.length > 0) {
-      const firstBatch = selectedProd.batches[0];
-      setSelectedBatch(firstBatch);
-      
-      const priceString = String(firstBatch.sell_price).replace(/,/g, '');
-      const price = parseFloat(priceString) || 0;
-      setManualPrice(price);
-    } else {
-      setSelectedBatch(null);
-      setManualPrice(0);
-    }
-  };
-
-  // Add manual product to cart
-  const addManualProductToCart = () => {
-    if (!selectedProduct || !selectedBatch) {
-      alert('Please select a product and batch');
-      return;
-    }
-
-    if (manualPrice <= 0 || manualQuantity <= 0) {
-      alert('Please enter valid price and quantity');
-      return;
-    }
-
-    if (manualQuantity > selectedBatch.quantity) {
-      alert(`Only ${selectedBatch.quantity} units available`);
-      return;
-    }
-
-    const baseAmount = manualPrice * manualQuantity;
-    const discountValue = manualDiscount;
-
-    const newItem: ReplacementProduct = {
-      id: Date.now() + Math.random(),
-      product_id: selectedBatch.product.id,
-      batch_id: selectedBatch.id,
-      name: selectedProduct,
-      batchNumber: selectedBatch.batch_number,
-      price: manualPrice,
-      quantity: manualQuantity,
-      amount: baseAmount - discountValue,
-      available: selectedBatch.quantity,
-    };
-
-    setReplacementProducts(prev => [...prev, newItem]);
-
-    // Reset form
-    setSelectedProduct('');
-    setSelectedBatch(null);
-    setManualPrice(0);
-    setManualQuantity(1);
-    setManualDiscount(0);
-  };
-
-  // Handle search product select
-  const handleSearchProductSelect = (product: any) => {
-    setSelectedReplacement(product);
-    setReplacementQuantity('1');
-  };
-
-  // Add from search
-  const handleAddFromSearch = () => {
-    if (!selectedReplacement) {
-      alert('Please select a product');
-      return;
-    }
-
-    const qty = parseInt(replacementQuantity);
-    if (isNaN(qty) || qty < 1) {
-      alert('Please enter a valid quantity');
-      return;
-    }
-
-    if (qty > selectedReplacement.available) {
-      alert(`Only ${selectedReplacement.available} units available`);
-      return;
-    }
-
-    const newItem: ReplacementProduct = {
-      id: Date.now() + Math.random(),
-      product_id: selectedReplacement.id,
-      batch_id: selectedReplacement.batchId,
-      name: selectedReplacement.name,
-      batchNumber: selectedReplacement.batchNumber,
-      mainImage: selectedReplacement.mainImage,
-      price: selectedReplacement.price,
-      quantity: qty,
-      amount: selectedReplacement.price * qty,
-      available: selectedReplacement.available,
-    };
-
-    setReplacementProducts(prev => [...prev, newItem]);
-
-    setSelectedReplacement(null);
-    setReplacementQuantity('1');
-    setSearchQuery('');
-    setSearchResults([]);
   };
 
   const handleProductCheckbox = (itemId: number) => {
@@ -590,6 +170,7 @@ export default function ExchangeProductModal({ order, onClose, onExchange }: Exc
   const calculateTotals = () => {
     const parsePrice = (value: string) => parseFloat(String(value).replace(/[^0-9.-]/g, ''));
 
+    // Calculate original amount for exchanged items
     const originalAmount = selectedProducts.reduce((sum, itemId) => {
       const item = order.items.find(i => i.id === itemId);
       if (!item) return sum;
@@ -598,8 +179,10 @@ export default function ExchangeProductModal({ order, onClose, onExchange }: Exc
       return sum + (price * qty);
     }, 0);
 
+    // Calculate new products subtotal
     const newSubtotal = replacementProducts.reduce((sum, p) => sum + p.amount, 0);
 
+    // Calculate VAT based on order's VAT rate
     const orderSubtotal = parsePrice(order.subtotal_amount);
     const orderTotal = parsePrice(order.total_amount);
     const orderVat = orderTotal - orderSubtotal;
@@ -628,7 +211,13 @@ export default function ExchangeProductModal({ order, onClose, onExchange }: Exc
 
   const effectiveCash = cashFromNotes > 0 ? cashFromNotes : cashAmount;
   const totalPaymentRefund = effectiveCash + cardAmount + bkashAmount + nagadAmount;
-  const remainingBalance = Math.abs(totals.difference) - totalPaymentRefund;
+  
+  // ✅ Fixed: Calculate due correctly
+  // If difference > 0 (customer owes), due = difference - totalPaid
+  // If difference < 0 (customer gets refund), due = abs(difference) - totalRefunded
+  const due = totals.difference > 0 
+    ? Math.max(0, totals.difference - totalPaymentRefund)  // Payment scenario
+    : Math.max(0, Math.abs(totals.difference) - totalPaymentRefund); // Refund scenario
 
   const handleProcessExchange = async () => {
     if (selectedProducts.length === 0) {
@@ -658,8 +247,8 @@ export default function ExchangeProductModal({ order, onClose, onExchange }: Exc
     if (totals.difference > 0) {
       confirmMessage += `Customer owes: ৳${totals.difference.toLocaleString()}\n`;
       confirmMessage += `Collected: ৳${totalPaymentRefund.toLocaleString()}\n`;
-      if (remainingBalance > 0) {
-        confirmMessage += `Remaining: ৳${remainingBalance.toLocaleString()} (can pay later)`;
+      if (due > 0) {
+        confirmMessage += `Remaining: ৳${due.toLocaleString()} (can pay later)`;
       } else {
         confirmMessage += `✓ Fully paid`;
       }
@@ -667,8 +256,8 @@ export default function ExchangeProductModal({ order, onClose, onExchange }: Exc
       const refundRequired = Math.abs(totals.difference);
       confirmMessage += `Refund required: ৳${refundRequired.toLocaleString()}\n`;
       confirmMessage += `Refunded: ৳${totalPaymentRefund.toLocaleString()}\n`;
-      if (remainingBalance > 0) {
-        confirmMessage += `Remaining: ৳${remainingBalance.toLocaleString()} (can refund later)`;
+      if (due > 0) {
+        confirmMessage += `Remaining: ৳${due.toLocaleString()} (can refund later)`;
       } else {
         confirmMessage += `✓ Fully refunded`;
       }
@@ -869,227 +458,19 @@ export default function ExchangeProductModal({ order, onClose, onExchange }: Exc
                 )}
               </div>
 
-              {/* Replacement Products Entry */}
+              {/* Barcode Scanner for Replacement Products */}
               {selectedProducts.length > 0 && (
                 <div className="bg-gray-50 dark:bg-gray-800 rounded-xl p-5 border border-gray-200 dark:border-gray-700">
                   <h3 className="font-semibold text-gray-900 dark:text-white text-lg mb-4">
-                    Add Replacement Products
+                    Scan Replacement Products
                   </h3>
 
-                  {/* Entry Mode Selector */}
-                  <div className="flex gap-2 mb-4">
-                    <button
-                      onClick={() => setEntryMode('barcode')}
-                      className={`flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg border-2 transition-all ${
-                        entryMode === 'barcode'
-                          ? 'bg-blue-500 text-white border-blue-500'
-                          : 'bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-300 border-gray-300 dark:border-gray-600'
-                      }`}
-                    >
-                      <Scan className="w-4 h-4" />
-                      <span className="font-medium text-sm">Barcode</span>
-                    </button>
-                    <button
-                      onClick={() => setEntryMode('manual')}
-                      className={`flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg border-2 transition-all ${
-                        entryMode === 'manual'
-                          ? 'bg-blue-500 text-white border-blue-500'
-                          : 'bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-300 border-gray-300 dark:border-gray-600'
-                      }`}
-                    >
-                      <Package className="w-4 h-4" />
-                      <span className="font-medium text-sm">Manual</span>
-                    </button>
-                    <button
-                      onClick={() => setEntryMode('search')}
-                      className={`flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg border-2 transition-all ${
-                        entryMode === 'search'
-                          ? 'bg-blue-500 text-white border-blue-500'
-                          : 'bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-300 border-gray-300 dark:border-gray-600'
-                      }`}
-                    >
-                      <Search className="w-4 h-4" />
-                      <span className="font-medium text-sm">Search</span>
-                    </button>
-                  </div>
-
-                  {/* Barcode Scanner Mode */}
-                  {entryMode === 'barcode' && (
-                    <BarcodeScanner
-                      isEnabled={true}
-                      selectedOutlet={String(order.store.id)}
-                      onProductScanned={handleProductScanned}
-                      onError={(msg) => alert(msg)}
-                    />
-                  )}
-
-                  {/* Manual Entry Mode */}
-                  {entryMode === 'manual' && (
-                    <div className="space-y-3">
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                          Product
-                        </label>
-                        <select
-                          value={selectedProduct}
-                          onChange={(e) => handleProductSelect(e.target.value)}
-                          className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                        >
-                          <option value="">Select Product</option>
-                          {products.filter(p => p.batches && p.batches.length > 0).map((prod) => (
-                            <option key={prod.id} value={prod.name}>
-                              {prod.name} ({prod.batches?.length || 0} batches)
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-
-                      <div className="grid grid-cols-2 gap-3">
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                            Price
-                          </label>
-                          <input
-                            type="number"
-                            value={manualPrice}
-                            onChange={(e) => setManualPrice(Number(e.target.value))}
-                            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                          />
-                        </div>
-
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                            Quantity
-                          </label>
-                          <input
-                            type="number"
-                            min="1"
-                            value={manualQuantity}
-                            onChange={(e) => setManualQuantity(Number(e.target.value))}
-                            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                          />
-                        </div>
-                      </div>
-
-                      <button
-                        onClick={addManualProductToCart}
-                        disabled={!selectedProduct}
-                        className="w-full px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-medium"
-                      >
-                        Add to Replacements
-                      </button>
-                    </div>
-                  )}
-
-                  {/* Search Mode */}
-                  {entryMode === 'search' && (
-                    <div className="space-y-3">
-                      <div className="flex gap-2">
-                        <div className="relative flex-1">
-                          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
-                          <input
-                            type="text"
-                            placeholder={isLoadingData ? "Loading..." : "Search by product name, SKU..."}
-                            value={searchQuery}
-                            onChange={(e) => setSearchQuery(e.target.value)}
-                            disabled={isLoadingData}
-                            className="w-full pl-10 pr-3 py-2 text-sm border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-900 text-gray-900 dark:text-white placeholder-gray-400 focus:ring-2 focus:ring-blue-500 outline-none disabled:opacity-50"
-                          />
-                        </div>
-                        {isSearching && (
-                          <div className="flex items-center justify-center px-4">
-                            <Loader2 className="w-5 h-5 animate-spin text-blue-600" />
-                          </div>
-                        )}
-                      </div>
-
-                      {/* Search Results */}
-                      {searchResults.length > 0 && !selectedReplacement && (
-                        <div className="grid grid-cols-3 gap-3 max-h-48 overflow-y-auto p-2 bg-white dark:bg-gray-900 rounded border border-gray-200 dark:border-gray-700">
-                          {searchResults.map((product, index) => (
-                            <div
-                              key={`${product.id}-${product.batchId}-${index}`}
-                              onClick={() => handleSearchProductSelect(product)}
-                              className="border-2 border-gray-200 dark:border-gray-600 rounded-lg p-2 hover:border-blue-500 dark:hover:border-blue-400 hover:shadow-lg transition-all cursor-pointer"
-                            >
-                              <img
-                                src={product.mainImage}
-                                alt={product.name}
-                                className="w-full h-20 object-cover rounded mb-2"
-                              />
-                              <p className="text-xs text-gray-900 dark:text-white font-medium truncate">
-                                {product.name}
-                              </p>
-                              <p className="text-xs text-gray-600 dark:text-gray-400">৳{product.price}</p>
-                              <p className="text-xs text-green-600 dark:text-green-400">Stock: {product.available}</p>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-
-                      {/* Selected Product */}
-                      {selectedReplacement && (
-                        <div className="p-4 bg-blue-50 dark:bg-blue-900/20 border-2 border-blue-500 rounded-lg">
-                          <div className="flex items-center justify-between mb-3">
-                            <span className="text-sm font-semibold text-blue-900 dark:text-blue-300">
-                              ✓ Selected Product
-                            </span>
-                            <button
-                              onClick={() => {
-                                setSelectedReplacement(null);
-                                setReplacementQuantity('1');
-                              }}
-                              className="text-gray-500 hover:text-gray-700"
-                            >
-                              <X size={18} />
-                            </button>
-                          </div>
-
-                          <div className="flex gap-3 mb-3">
-                            <img
-                              src={selectedReplacement.mainImage}
-                              alt={selectedReplacement.name}
-                              className="w-16 h-16 object-cover rounded"
-                            />
-                            <div className="flex-1">
-                              <p className="text-sm font-medium text-gray-900 dark:text-white">
-                                {selectedReplacement.name}
-                              </p>
-                              <p className="text-xs text-gray-600 dark:text-gray-400">
-                                Price: ৳{selectedReplacement.price}
-                              </p>
-                              <p className="text-xs text-green-600 dark:text-green-400">
-                                Available: {selectedReplacement.available}
-                              </p>
-                            </div>
-                          </div>
-
-                          <div className="space-y-2">
-                            <div>
-                              <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-                                Quantity
-                              </label>
-                              <input
-                                type="number"
-                                min="1"
-                                max={selectedReplacement.available}
-                                value={replacementQuantity}
-                                onChange={(e) => setReplacementQuantity(e.target.value)}
-                                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-900 text-gray-900 dark:text-white"
-                              />
-                            </div>
-
-                            <button
-                              onClick={handleAddFromSearch}
-                              className="w-full px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium"
-                            >
-                              Add to Replacements
-                            </button>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  )}
+                  <BarcodeScanner
+                    isEnabled={true}
+                    selectedOutlet={String(order.store.id)}
+                    onProductScanned={handleProductScanned}
+                    onError={(msg) => alert(msg)}
+                  />
 
                   {/* Replacement Products List */}
                   {replacementProducts.length > 0 && (
@@ -1103,32 +484,34 @@ export default function ExchangeProductModal({ order, onClose, onExchange }: Exc
                           className="bg-white dark:bg-gray-900 rounded-lg p-3 border border-gray-200 dark:border-gray-700"
                         >
                           <div className="flex items-center gap-3">
-                            {product.mainImage && (
-                              <img
-                                src={product.mainImage}
-                                alt={product.name}
-                                className="w-12 h-12 object-cover rounded"
-                              />
-                            )}
                             <div className="flex-1">
                               <p className="text-sm font-medium text-gray-900 dark:text-white">
                                 {product.name}
                               </p>
-                              <p className="text-xs text-gray-600 dark:text-gray-400">
-                                ৳{product.price.toLocaleString()} × {product.quantity}
-                              </p>
+                              <div className="flex items-center gap-2 mt-1">
+                                <p className="text-xs text-gray-600 dark:text-gray-400">
+                                  ৳{product.price.toLocaleString()} × {product.quantity}
+                                </p>
+                                {product.barcode && (
+                                  <span className="text-xs bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 px-2 py-0.5 rounded font-mono">
+                                    {product.barcode}
+                                  </span>
+                                )}
+                              </div>
                             </div>
                             <div className="flex items-center gap-2">
                               <button
                                 onClick={() => handleUpdateReplacementQty(product.id, product.quantity - 1)}
-                                className="w-7 h-7 flex items-center justify-center border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-800"
+                                className="w-7 h-7 flex items-center justify-center border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
                               >
                                 −
                               </button>
-                              <span className="w-8 text-center text-sm font-semibold">{product.quantity}</span>
+                              <span className="w-8 text-center text-sm font-semibold text-gray-900 dark:text-white">
+                                {product.quantity}
+                              </span>
                               <button
                                 onClick={() => handleUpdateReplacementQty(product.id, product.quantity + 1)}
-                                className="w-7 h-7 flex items-center justify-center border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-800"
+                                className="w-7 h-7 flex items-center justify-center border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
                               >
                                 +
                               </button>
@@ -1350,23 +733,25 @@ export default function ExchangeProductModal({ order, onClose, onExchange }: Exc
                         </span>
                       </div>
                       <div className="flex justify-between text-base">
-                        <span className="font-semibold text-gray-900 dark:text-white">Remaining</span>
+                        <span className="font-semibold text-gray-900 dark:text-white">
+                          {totals.difference > 0 ? 'Outstanding' : 'Remaining Refund'}
+                        </span>
                         <span
                           className={`font-bold ${
-                            remainingBalance > 0
+                            due > 0
                               ? 'text-orange-600 dark:text-orange-400'
                               : 'text-green-600 dark:text-green-400'
                           }`}
                         >
-                          ৳{remainingBalance.toFixed(2)}
+                          ৳{due.toFixed(2)}
                         </span>
                       </div>
-                      {remainingBalance > 0 && (
+                      {due > 0 && (
                         <p className="text-xs text-orange-600 dark:text-orange-400 mt-1">
                           Can {totals.difference > 0 ? 'pay' : 'refund'} later
                         </p>
                       )}
-                      {remainingBalance <= 0 && totalPaymentRefund > 0 && (
+                      {due === 0 && totalPaymentRefund > 0 && (
                         <p className="text-xs text-green-600 dark:text-green-400 mt-1">
                           ✓ Fully {totals.difference > 0 ? 'paid' : 'refunded'}
                         </p>
