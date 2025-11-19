@@ -1,40 +1,62 @@
 import { useState, useEffect } from 'react';
 import { X, Search, ArrowRightLeft, Calculator, ChevronDown } from 'lucide-react';
 
-interface Sale {
-  id: string;
-  items: Array<{
+interface OrderItem {
+  id: number;
+  product_id: number;
+  product_name: string;
+  product_sku: string;
+  batch_id: number;
+  batch_number?: string;
+  barcode_id?: number;
+  barcode?: string;
+  quantity: number;
+  unit_price: string;
+  discount_amount: string;
+  tax_amount: string;
+  total_amount: string;
+  total_price: string;
+}
+
+interface Order {
+  id: number;
+  order_number: string;
+  order_type: string;
+  status: string;
+  payment_status: string;
+  customer?: {
     id: number;
-    productName: string;
-    size: string;
-    qty: number;
-    price: number;
-    discount: number;
-    amount: number;
-  }>;
-  amounts: {
-    subtotal: number;
-    totalDiscount: number;
-    vat: number;
-    vatRate: number;
-    transportCost: number;
-    total: number;
+    name: string;
+    phone: string;
+    email?: string;
   };
-  payments: {
-    totalPaid: number;
-    due: number;
+  store: {
+    id: number;
+    name: string;
   };
+  salesman?: {
+    id: number;
+    name: string;
+  };
+  subtotal_amount: string;
+  tax_amount: string;
+  discount_amount: string;
+  shipping_cost: string;
+  total_amount: string;
+  paid_amount: string;
+  outstanding_amount: string;
+  items?: OrderItem[];
 }
 
 interface ExchangeProductModalProps {
-  sale: Sale;
+  order: Order;
   onClose: () => void;
   onExchange: (exchangeData: any) => Promise<void>;
 }
 
-export default function ExchangeProductModal({ sale, onClose, onExchange }: ExchangeProductModalProps) {
+export default function ExchangeProductModal({ order, onClose, onExchange }: ExchangeProductModalProps) {
   const [selectedProducts, setSelectedProducts] = useState<number[]>([]);
-  const [removedQuantities, setRemovedQuantities] = useState<{ [key: number]: number }>({});
+  const [returnedQuantities, setReturnedQuantities] = useState<{ [key: number]: number }>({});
   const [allProducts, setAllProducts] = useState<any[]>([]);
   const [inventory, setInventory] = useState<any[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
@@ -49,7 +71,6 @@ export default function ExchangeProductModal({ sale, onClose, onExchange }: Exch
   const [cardAmount, setCardAmount] = useState(0);
   const [bkashAmount, setBkashAmount] = useState(0);
   const [nagadAmount, setNagadAmount] = useState(0);
-  const [transactionFee, setTransactionFee] = useState(0);
   const [showNoteCounter, setShowNoteCounter] = useState(false);
 
   // Note counter states
@@ -184,9 +205,9 @@ export default function ExchangeProductModal({ sale, onClose, onExchange }: Exch
     setSelectedProducts(prev => {
       if (prev.includes(productId)) {
         const newSelected = prev.filter(id => id !== productId);
-        const newQuantities = { ...removedQuantities };
+        const newQuantities = { ...returnedQuantities };
         delete newQuantities[productId];
-        setRemovedQuantities(newQuantities);
+        setReturnedQuantities(newQuantities);
         return newSelected;
       } else {
         return [...prev, productId];
@@ -196,7 +217,7 @@ export default function ExchangeProductModal({ sale, onClose, onExchange }: Exch
 
   const handleQuantityChange = (productId: number, qty: number, maxQty: number) => {
     if (qty < 0 || qty > maxQty) return;
-    setRemovedQuantities(prev => ({ ...prev, [productId]: qty }));
+    setReturnedQuantities(prev => ({ ...prev, [productId]: qty }));
   };
 
   const handleProductImageClick = (product: any) => {
@@ -287,15 +308,27 @@ export default function ExchangeProductModal({ sale, onClose, onExchange }: Exch
   };
 
   const calculateTotals = () => {
+    // Helper to parse string prices
+    const parsePrice = (value: string) => parseFloat(String(value).replace(/[^0-9.-]/g, ''));
+
+    // Calculate original amount for returned items
     const originalAmount = selectedProducts.reduce((sum, productId) => {
-      const product = sale.items.find(p => p.id === productId);
+      const product = order.items?.find(p => p.id === productId);
       if (!product) return sum;
-      const qty = removedQuantities[productId] || 0;
-      return sum + (product.price * qty);
+      const qty = returnedQuantities[productId] || 0;
+      const price = parsePrice(product.unit_price);
+      return sum + (price * qty);
     }, 0);
 
+    // Calculate new products subtotal
     const newSubtotal = replacementProducts.reduce((sum, p) => sum + p.amount, 0);
-    const vatRate = sale.amounts.vatRate || 0;
+    
+    // Calculate VAT (extract from order)
+    const orderSubtotal = parsePrice(order.subtotal_amount);
+    const orderTotal = parsePrice(order.total_amount);
+    const orderVat = orderTotal - orderSubtotal;
+    const vatRate = orderSubtotal > 0 ? (orderVat / orderSubtotal) * 100 : 0;
+    
     const vatAmount = Math.round(newSubtotal * (vatRate / 100));
     const totalNewAmount = newSubtotal + vatAmount;
     const difference = totalNewAmount - originalAmount;
@@ -312,7 +345,7 @@ export default function ExchangeProductModal({ sale, onClose, onExchange }: Exch
   const effectiveCash = cashFromNotes > 0 ? cashFromNotes : cashAmount;
   const totalAmount = effectiveCash + cardAmount + bkashAmount + nagadAmount;
   const remainingBalance = totals.difference > 0 
-    ? Math.max(0, totals.difference - totalAmount + transactionFee)
+    ? Math.max(0, totals.difference - totalAmount)
     : Math.max(0, Math.abs(totals.difference) - totalAmount);
 
   const handleProcessExchange = async () => {
@@ -327,7 +360,7 @@ export default function ExchangeProductModal({ sale, onClose, onExchange }: Exch
     }
 
     const hasInvalidQuantities = selectedProducts.some(id => {
-      const qty = removedQuantities[id];
+      const qty = returnedQuantities[id];
       return !qty || qty <= 0;
     });
 
@@ -348,7 +381,7 @@ export default function ExchangeProductModal({ sale, onClose, onExchange }: Exch
     } else if (totals.difference < 0) {
       const refundRequired = Math.abs(totals.difference);
       confirmMsg += `Refund Required: ৳${refundRequired.toLocaleString()}\n`;
-      confirmMsg += `Refunded: ৳{totalAmount.toLocaleString()}\n`;
+      confirmMsg += `Refunded: ৳${totalAmount.toLocaleString()}\n`;
       if (remainingBalance > 0) {
         confirmMsg += `Remaining: ৳${remainingBalance.toLocaleString()}`;
       } else {
@@ -362,44 +395,34 @@ export default function ExchangeProductModal({ sale, onClose, onExchange }: Exch
 
     setIsProcessing(true);
     try {
-      const response = await fetch('/api/sales/exchange', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          saleId: sale.id,
-          removedProducts: selectedProducts.map(id => ({
-            productId: id,
-            quantity: removedQuantities[id]
-          })),
-          replacementProducts: replacementProducts.map(p => ({
-            id: p.id,
-            batchId: p.batchId,
-            name: p.name,
-            price: p.price,
-            quantity: p.quantity,
-            amount: p.amount,
-            size: p.size
-          })),
-          paymentRefund: {
-            type: totals.difference > 0 ? 'payment' : totals.difference < 0 ? 'refund' : 'none',
-            cash: effectiveCash,
-            card: cardAmount,
-            bkash: bkashAmount,
-            nagad: nagadAmount,
-            transactionFee: transactionFee,
-            total: totalAmount
-          }
+      // Build exchange data for parent component
+      const exchangeData = {
+        removedProducts: selectedProducts.map(id => {
+          const product = order.items?.find(p => p.id === id);
+          return {
+            order_item_id: id,
+            quantity: returnedQuantities[id],
+            product_barcode_id: product?.barcode_id,
+          };
         }),
-      });
+        replacementProducts: replacementProducts.map(p => ({
+          product_id: p.id,
+          batch_id: p.batchId,
+          quantity: p.quantity,
+          unit_price: p.price,
+        })),
+        paymentRefund: {
+          type: (totals.difference > 0 ? 'payment' : totals.difference < 0 ? 'refund' : 'none') as 'payment' | 'refund' | 'none',
+          cash: effectiveCash,
+          card: cardAmount,
+          bkash: bkashAmount,
+          nagad: nagadAmount,
+          total: totalAmount,
+        },
+      };
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to process exchange');
-      }
-
-      const result = await response.json();
-      await onExchange(result);
-
+      await onExchange(exchangeData);
+      
       alert('Exchange processed successfully!');
       onClose();
     } catch (error: any) {
@@ -432,7 +455,7 @@ export default function ExchangeProductModal({ sale, onClose, onExchange }: Exch
               <ArrowRightLeft className="w-5 h-5 text-blue-600 dark:text-blue-400" />
             </div>
             <div>
-              <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Exchange - Sale #{sale.id}</h2>
+              <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Exchange - Order #{order.order_number}</h2>
               <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">Select items to exchange</p>
             </div>
           </div>
@@ -448,7 +471,7 @@ export default function ExchangeProductModal({ sale, onClose, onExchange }: Exch
                 <h3 className="font-semibold text-gray-900 dark:text-white text-lg mb-4">Select Items to Exchange</h3>
                 
                 <div className="space-y-3">
-                  {sale.items.map((product) => (
+                  {order.items?.map((product) => (
                     <div key={product.id} className="bg-white dark:bg-gray-900 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
                       <div className="flex items-start gap-3">
                         <input
@@ -459,11 +482,30 @@ export default function ExchangeProductModal({ sale, onClose, onExchange }: Exch
                         />
                         <div className="flex-1">
                           <div className="flex items-center justify-between mb-2">
-                            <p className="font-medium text-gray-900 dark:text-white">{product.productName}</p>
-                            <p className="font-bold text-gray-900 dark:text-white">৳{(product.price * product.qty).toLocaleString()}</p>
+                            <div>
+                              <p className="font-medium text-gray-900 dark:text-white">{product.product_name}</p>
+                              <div className="flex items-center gap-3 mt-1">
+                                <span className="text-xs text-gray-500 dark:text-gray-400 font-mono">
+                                  SKU: {product.product_sku || 'N/A'}
+                                </span>
+                                {product.batch_number && (
+                                  <span className="text-xs text-gray-500 dark:text-gray-400">
+                                    Batch: {product.batch_number}
+                                  </span>
+                                )}
+                                {product.barcode && (
+                                  <span className="text-xs bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 px-2 py-0.5 rounded font-mono">
+                                    🏷️ {product.barcode}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                            <p className="font-bold text-gray-900 dark:text-white">
+                              ৳{(parseFloat(String(product.unit_price).replace(/[^0-9.-]/g, '')) * product.quantity).toFixed(2)}
+                            </p>
                           </div>
                           <p className="text-xs text-gray-600 dark:text-gray-400 mb-3">
-                            Price: ৳{product.price.toLocaleString()} × Qty: {product.qty}
+                            Price: ৳{parseFloat(String(product.unit_price).replace(/[^0-9.-]/g, '')).toFixed(2)} × Qty: {product.quantity}
                           </p>
                           
                           {selectedProducts.includes(product.id) && (
@@ -471,16 +513,16 @@ export default function ExchangeProductModal({ sale, onClose, onExchange }: Exch
                               <div className="grid grid-cols-2 gap-3">
                                 <div>
                                   <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Original Qty</label>
-                                  <input type="number" value={product.qty} readOnly className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-700 rounded-lg bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-white" />
+                                  <input type="number" value={product.quantity} readOnly className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-700 rounded-lg bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-white" />
                                 </div>
                                 <div>
-                                  <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Removed Qty</label>
+                                  <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Exchange Qty</label>
                                   <input
                                     type="number"
                                     min="0"
-                                    max={product.qty}
-                                    value={removedQuantities[product.id] || 0}
-                                    onChange={(e) => handleQuantityChange(product.id, parseInt(e.target.value) || 0, product.qty)}
+                                    max={product.quantity}
+                                    value={returnedQuantities[product.id] || 0}
+                                    onChange={(e) => handleQuantityChange(product.id, parseInt(e.target.value) || 0, product.quantity)}
                                     className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 outline-none"
                                   />
                                 </div>
@@ -606,7 +648,7 @@ export default function ExchangeProductModal({ sale, onClose, onExchange }: Exch
                   </div>
                   
                   <div className="flex justify-between items-center">
-                    <span className="text-sm text-gray-600 dark:text-gray-400">Original Amount (Removed):</span>
+                    <span className="text-sm text-gray-600 dark:text-gray-400">Original Amount (Returned):</span>
                     <span className="font-semibold text-gray-900 dark:text-white">৳{totals.originalAmount.toLocaleString()}</span>
                   </div>
                   
@@ -616,7 +658,7 @@ export default function ExchangeProductModal({ sale, onClose, onExchange }: Exch
                   </div>
                   
                   <div className="flex justify-between items-center text-sm">
-                    <span className="text-gray-600 dark:text-gray-400">VAT ({totals.vatRate}%):</span>
+                    <span className="text-gray-600 dark:text-gray-400">VAT ({totals.vatRate.toFixed(1)}%):</span>
                     <span className="font-semibold text-gray-900 dark:text-white">৳{totals.vatAmount.toLocaleString()}</span>
                   </div>
                   
@@ -697,13 +739,9 @@ export default function ExchangeProductModal({ sale, onClose, onExchange }: Exch
                         <label className="block text-xs text-gray-700 dark:text-gray-300 mb-1">Bkash</label>
                         <input type="number" value={bkashAmount} onChange={(e) => setBkashAmount(Number(e.target.value))} className="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm" />
                       </div>
-                      <div>
+                      <div className="col-span-2">
                         <label className="block text-xs text-gray-700 dark:text-gray-300 mb-1">Nagad</label>
                         <input type="number" value={nagadAmount} onChange={(e) => setNagadAmount(Number(e.target.value))} className="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm" />
-                      </div>
-                      <div>
-                        <label className="block text-xs text-gray-700 dark:text-gray-300 mb-1">Fee</label>
-                        <input type="number" value={transactionFee} onChange={(e) => setTransactionFee(Number(e.target.value))} className="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm" />
                       </div>
                     </div>
                     

@@ -84,9 +84,12 @@ export default function ProductPage() {
   };
 
   const getColorAndSize = (product: Product): { color?: string; size?: string } => {
-    const colorField = product.custom_fields?.find(cf => cf.field_id === 6);
-    const sizeField = product.custom_fields?.find(cf => cf.field_id === 7);
-    
+    const colorField = product.custom_fields?.find(cf => 
+      cf.field_title?.toLowerCase() === 'color'
+    );
+    const sizeField = product.custom_fields?.find(cf => 
+      cf.field_title?.toLowerCase() === 'size'
+    );
     return {
       color: colorField?.value,
       size: sizeField?.value,
