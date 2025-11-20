@@ -5,73 +5,21 @@ import { useState, useEffect } from 'react';
 import { Search, ChevronDown, ChevronUp, Trash2, MoreVertical, ArrowRightLeft, RotateCcw } from 'lucide-react';
 import Header from '@/components/Header';
 import Sidebar from '@/components/Sidebar';
-import orderService, { type OrderFilters } from '@/services/orderService';
 import productReturnService, { type CreateReturnRequest } from '@/services/productReturnService';
 import refundService, { type CreateRefundRequest } from '@/services/refundService';
 import ReturnProductModal from '@/components/sales/ReturnProductModal';
 import ExchangeProductModal from '@/components/sales/ExchangeProductModal';
 import axiosInstance from '@/lib/axios';
+import orderService, { 
+  type OrderFilters, 
+  type Order,
+  type OrderItem 
+} from '@/services/orderService';
 
-// Extended Order interface with product_barcode_id
-interface OrderItem {
-  id: number;
-  product_id: number;
-  product_name: string;
-  product_sku: string;
-  batch_number?: string;
-  product_barcode_id?: number;
-  quantity: number;
-  unit_price: string;
-  discount_amount: string;
-  tax_amount: string;
-  total_amount: string;
-  total_price: string;
-}
-
-interface Order {
-  id: number;
-  order_number: string;
-  order_type: string;
-  order_type_label: string;
-  status: string;
-  payment_status: string;
-  customer?: {
-    id: number;
-    name: string;
-    phone: string;
-    email?: string;
-    customer_code: string;
-  };
-  store: {
-    id: number;
-    name: string;
-  };
-  salesman?: {
-    id: number;
-    name: string;
-  };
-  subtotal: string;
-  subtotal_amount: string;
-  tax_amount: string;
-  discount_amount: string;
-  shipping_amount: string;
-  shipping_cost: string;
-  total_amount: string;
-  paid_amount: string;
-  outstanding_amount: string;
-  is_installment: boolean;
-  order_date: string;
-  created_at: string;
-  items?: OrderItem[];
-  payments?: Array<{
-    id: number;
-    amount: string;
-    payment_method: string;
-    payment_type: string;
-    status: string;
-    processed_by?: string;
-    created_at: string;
-  }>;
+declare module '@/services/orderService' {
+  interface OrderItem {
+    product_barcode_id?: number;
+  }
 }
 
 interface Store {
@@ -83,7 +31,6 @@ interface Store {
 export default function PurchaseHistoryPage() {
   const [darkMode, setDarkMode] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [orders, setOrders] = useState<Order[]>([]);
   const [stores, setStores] = useState<Store[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedStore, setSelectedStore] = useState('');
@@ -100,7 +47,12 @@ export default function PurchaseHistoryPage() {
   // Modal states
   const [showReturnModal, setShowReturnModal] = useState(false);
   const [showExchangeModal, setShowExchangeModal] = useState(false);
+
+
+  const [orders, setOrders] = useState<Order[]>([]);
   const [selectedOrderForAction, setSelectedOrderForAction] = useState<Order | null>(null);
+
+  
 
   useEffect(() => {
     const role = localStorage.getItem('userRole') || '';
@@ -792,7 +744,7 @@ const handleExchangeSubmit = async (exchangeData: {
                                           <td className="px-3 py-2 text-gray-900 dark:text-white">৳{Number(String(item.unit_price ?? "0").replace(/[^0-9.-]/g, "")).toFixed(2)}</td>
                                           <td className="px-3 py-2 text-gray-900 dark:text-white">৳{Number(String(item.discount_amount ?? "0").replace(/[^0-9.-]/g, "")).toFixed(2)}</td>
                                           <td className="px-3 py-2 text-gray-900 dark:text-white font-medium">
-                                            ৳{Number(String(item.total_price ?? "0").replace(/[^0-9.-]/g, "")).toFixed(2)}
+                                            ৳{Number(String(item.total_amount ?? "0").replace(/[^0-9.-]/g, "")).toFixed(2)}
                                           </td>
                                         </tr>
                                       ))}
@@ -809,7 +761,7 @@ const handleExchangeSubmit = async (exchangeData: {
                                 <div className="space-y-2 text-sm">
                                   <div className="flex justify-between">
                                     <span className="text-gray-600 dark:text-gray-400">Subtotal</span>
-                                    <span className="text-gray-900 dark:text-white">৳{Number(String(order.subtotal_amount ?? "0").replace(/[^0-9.-]/g, "")).toFixed(2)}</span>
+                                    <span className="text-gray-900 dark:text-white">৳{Number(String(order.total_amount ?? "0").replace(/[^0-9.-]/g, "")).toFixed(2)}</span>
                                   </div>
                                   <div className="flex justify-between">
                                     <span className="text-gray-600 dark:text-gray-400">Discount</span>
@@ -821,11 +773,11 @@ const handleExchangeSubmit = async (exchangeData: {
                                   </div>
                                   <div className="flex justify-between">
                                     <span className="text-gray-600 dark:text-gray-400">Shipping</span>
-                                    <span className="text-gray-900 dark:text-white">৳{Number(String(order.shipping_cost ?? "0").replace(/[^0-9.-]/g, "")).toFixed(2)}</span>
+                                    <span className="text-gray-900 dark:text-white">৳{Number(String(order.shipping_amount ?? "0").replace(/[^0-9.-]/g, "")).toFixed(2)}</span>
                                   </div>
                                   <div className="flex justify-between pt-2 border-t border-gray-200 dark:border-gray-700 font-medium">
                                     <span className="text-gray-900 dark:text-white">Total</span>
-                                    <span className="text-gray-900 dark:text-white">৳{Number(String(order.total_amount ?? "0").replace(/[^0-9.-]/g, "")).toFixed(2)}</span>
+                                    <span className="text-gray-900 dark:text-white">৳{Number(String(order.paid_amount ?? "0").replace(/[^0-9.-]/g, "")).toFixed(2)}</span>
                                   </div>
                                 </div>
                               </div>

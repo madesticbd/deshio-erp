@@ -123,7 +123,7 @@ export default function AddEditProductPage() {
         setProductImages(product.images);
       }
 
-      const hasColor = product.custom_fields?.some(cf => cf.field_id === 6 && cf.value);
+      const hasColor = product.custom_fields?.some(cf => cf.field_id === 6 && cf.value) ?? false;
       setIsVariationProduct(hasColor);
       setHasVariations(hasColor);
 
@@ -521,7 +521,9 @@ export default function AddEditProductPage() {
     );
   }
 
-  const showVariationsTab = !isEditMode || isVariationProduct;
+  const showVariationsTab = isEditMode 
+  ? isVariationProduct 
+  : hasVariations;
 
   return (
     <div className={`${darkMode ? 'dark' : ''} flex h-screen`}>
@@ -564,22 +566,22 @@ export default function AddEditProductPage() {
                 General Information
               </button>
               {showVariationsTab && (
-                <button
-                  onClick={() => setActiveTab('variations')}
-                  className={`px-6 py-3 font-medium border-b-2 transition-all ${
-                    activeTab === 'variations'
-                      ? 'border-gray-900 dark:border-white text-gray-900 dark:text-white'
-                      : 'border-transparent text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-300'
-                  }`}
-                >
-                  Product Variations
-                  {variations.length > 0 && (
-                    <span className="ml-2 px-2 py-0.5 text-xs bg-gray-900 dark:bg-white text-white dark:text-gray-900 rounded-full">
-                      {variations.length}
-                    </span>
-                  )}
-                </button>
+            <button
+              onClick={() => setActiveTab('variations')}
+              className={`px-6 py-3 font-medium border-b-2 transition-all ${
+                activeTab === 'variations'
+                  ? 'border-gray-900 dark:border-white text-gray-900 dark:text-white'
+                  : 'border-transparent text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-300'
+              }`}
+            >
+              Product Variations
+              {variations.length > 0 && (
+                <span className="ml-2 px-2 py-0.5 text-xs bg-gray-900 dark:bg-white text-white dark:text-gray-900 rounded-full">
+                  {variations.length}
+                </span>
               )}
+            </button>
+          )}
             </div>
 
             {activeTab === 'general' && (
