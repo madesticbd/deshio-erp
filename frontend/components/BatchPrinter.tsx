@@ -247,26 +247,73 @@ export default function BatchPrinter({ batch, product, barcodes: externalBarcode
                 <head>
                   <script src="https://cdnjs.cloudflare.com/ajax/libs/jsbarcode/3.11.5/JsBarcode.all.min.js"></script>
                   <style>
-                    body { margin: 0; padding: 10px; font-family: Arial, sans-serif; }
-                    .barcode-container { text-align: center; }
-                    .product-name { font-weight: bold; font-size: 14px; margin-bottom: 3px; }
-                    .price { font-size: 16px; font-weight: bold; color: #000; margin-bottom: 5px; }
+                    * { margin: 0; padding: 0; box-sizing: border-box; }
+                    @page { 
+                      size: 40mm 28mm;
+                      margin: 0;
+                    }
+                    body { 
+                      width: 40mm;
+                      height: 28mm;
+                      margin: 0;
+                      padding: 0.5mm 1mm;
+                      font-family: Arial, sans-serif;
+                      display: flex;
+                      flex-direction: column;
+                      justify-content: space-between;
+                      align-items: center;
+                    }
+                    .barcode-container { 
+                      width: 100%;
+                      text-align: center;
+                      display: flex;
+                      flex-direction: column;
+                      align-items: center;
+                      justify-content: center;
+                    }
+                    .product-name { 
+                      font-weight: bold; 
+                      font-size: 7pt;
+                      line-height: 1;
+                      margin-bottom: 0.5mm;
+                      max-width: 38mm;
+                      overflow: hidden;
+                      text-overflow: ellipsis;
+                      white-space: nowrap;
+                    }
+                    .price { 
+                      font-size: 9pt;
+                      font-weight: bold;
+                      color: #000;
+                      margin-bottom: 0.5mm;
+                      line-height: 1;
+                    }
+                    svg { 
+                      max-width: 38mm;
+                      height: auto;
+                      display: block;
+                    }
                   </style>
                 </head>
                 <body>
                   <div class="barcode-container">
-                    <div class="product-name">${product?.name || 'Product'}</div>
+                    <div class="product-name">${(product?.name || 'Product').substring(0, 25)}</div>
                     <div class="price">৳${batch.sellingPrice.toLocaleString('en-BD')}</div>
                     <svg id="barcode-${code.replace(/[^a-zA-Z0-9]/g, '')}-${i}"></svg>
-                    <script>
-                      JsBarcode("#barcode-${code.replace(/[^a-zA-Z0-9]/g, '')}-${i}", "${code}", {
-                        format:"CODE128",
-                        width: 2,
-                        height: 50,
-                        displayValue: true
-                      });
-                    </script>
                   </div>
+                  <script>
+                    JsBarcode("#barcode-${code.replace(/[^a-zA-Z0-9]/g, '')}-${i}", "${code}", {
+                      format: "CODE128",
+                      width: 1.3,
+                      height: 30,
+                      displayValue: true,
+                      fontSize: 9,
+                      margin: 0,
+                      marginTop: 1,
+                      marginBottom: 1,
+                      textMargin: 1
+                    });
+                  </script>
                 </body>
               </html>
             `,
