@@ -98,7 +98,7 @@ export default function Sidebar({ isOpen, setIsOpen }: SidebarProps) {
           lg:translate-x-0 lg:static lg:z-auto flex flex-col`}
       >
         {/* Header */}
-        <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700">
+        <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700 h-16">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 bg-black dark:bg-white rounded-lg flex items-center justify-center">
               <span className="text-white dark:text-black font-bold text-xl">E</span>

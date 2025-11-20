@@ -11,14 +11,13 @@ import ReturnProductModal from '@/components/sales/ReturnProductModal';
 import ExchangeProductModal from '@/components/sales/ExchangeProductModal';
 import axiosInstance from '@/lib/axios';
 
-// Extended Order interface with product_barcode_id
 interface OrderItem {
   id: number;
   product_id: number;
   product_name: string;
   product_sku: string;
+  batch_id: number;
   batch_number?: string;
-  product_barcode_id?: number;
   barcode_id?: number;
   barcode?: string;
   quantity: number;
@@ -215,7 +214,6 @@ export default function PurchaseHistoryPage() {
   const handleReturnClick = async (order: Order) => {
     setActiveMenu(null);
     
-    // Load full order details if not already loaded
     if (!order.items || order.items.length === 0) {
       try {
         const fullOrder = await orderService.getById(order.id);
@@ -235,7 +233,6 @@ export default function PurchaseHistoryPage() {
   const handleExchangeClick = async (order: Order) => {
     setActiveMenu(null);
     
-    // Load full order details if not already loaded
     if (!order.items || order.items.length === 0) {
       try {
         const fullOrder = await orderService.getById(order.id);
@@ -252,7 +249,6 @@ export default function PurchaseHistoryPage() {
     setShowExchangeModal(true);
   };
 
-  // Return product handler
   const handleReturnSubmit = async (returnData: {
     selectedProducts: Array<{ 
       order_item_id: number; 
@@ -275,7 +271,6 @@ export default function PurchaseHistoryPage() {
 
       console.log('🔄 Processing return with data:', returnData);
 
-      // Step 1: Create product return with barcode IDs
       const returnRequest: CreateReturnRequest = {
         order_id: selectedOrderForAction.id,
         return_reason: returnData.returnReason,
@@ -293,7 +288,6 @@ export default function PurchaseHistoryPage() {
       const returnId = returnResponse.data.id;
       console.log('✅ Return created with ID:', returnId);
 
-      // Step 2: Auto-approve the return (quality check passed)
       console.log('⏳ Updating return quality check...');
       await productReturnService.update(returnId, {
         quality_check_passed: true,
@@ -305,17 +299,14 @@ export default function PurchaseHistoryPage() {
         internal_notes: 'Approved via POS system',
       });
 
-      // Step 3: Process return (restore inventory)
       console.log('⏳ Processing return (restoring inventory)...');
       await productReturnService.process(returnId, {
         restore_inventory: true,
       });
 
-      // Step 4: Complete return
       console.log('⏳ Completing return...');
       await productReturnService.complete(returnId);
 
-      // Step 5: Create refund if there's a refund amount
       if (returnData.refundMethods.total > 0) {
         console.log('💰 Creating refund...');
         const refundRequest: CreateRefundRequest = {
@@ -342,7 +333,6 @@ export default function PurchaseHistoryPage() {
         console.log('✅ Refund completed');
       }
 
-      // Refresh orders
       console.log('🔄 Refreshing order list...');
       await fetchOrders(userRole, userStoreId);
       
@@ -356,7 +346,6 @@ export default function PurchaseHistoryPage() {
     }
   };
 
-// Exchange product handler
   const handleExchangeSubmit = async (exchangeData: {
     removedProducts: Array<{
       order_item_id: number;
@@ -369,6 +358,7 @@ export default function PurchaseHistoryPage() {
       quantity: number;
       unit_price: number;
       barcode?: string;
+      barcode_id?: number;
     }>;
     paymentRefund: {
       type: 'payment' | 'refund' | 'none';
@@ -385,9 +375,6 @@ export default function PurchaseHistoryPage() {
       console.log('🔄 Processing exchange with data:', exchangeData);
       console.log('📦 Original order:', selectedOrderForAction.order_number);
 
-      // =====================================================
-      // STEP 1: Create return for old products
-      // =====================================================
       console.log('\n📤 STEP 1: Creating return for old products...');
       const returnRequest: CreateReturnRequest = {
         order_id: selectedOrderForAction.id,
@@ -406,38 +393,28 @@ export default function PurchaseHistoryPage() {
       const returnNumber = returnResponse.data.return_number;
       console.log(`✅ Return created: #${returnNumber} (ID: ${returnId})`);
 
-      // =====================================================
-      // STEP 2: Auto-approve and process return
-      // =====================================================
       console.log('\n⚙️ STEP 2: Auto-approving and processing return...');
       
-      // Quality check
       await productReturnService.update(returnId, {
         quality_check_passed: true,
         quality_check_notes: 'Exchange - Auto-approved via POS',
       });
       console.log('✅ Quality check updated');
 
-      // Approve
       await productReturnService.approve(returnId, {
         internal_notes: 'Exchange - Auto-approved via POS',
       });
       console.log('✅ Return approved');
 
-      // Process (restore inventory for old products)
       await productReturnService.process(returnId, {
         restore_inventory: true,
       });
       console.log('✅ Return processed - Inventory restored for old products');
 
-      // Complete
       await productReturnService.complete(returnId);
       console.log('✅ Return completed');
 
-      // =====================================================
-      // STEP 3: Create full refund for returned items
-      // =====================================================
-      console.log('\n💰 STEP 3: Creating full refund for returned items...');
+      console.log('\n💰 STEP 3: Creating FULL refund for returned items...');
       const refundRequest: CreateRefundRequest = {
         return_id: returnId,
         refund_type: 'full',
@@ -449,27 +426,24 @@ export default function PurchaseHistoryPage() {
       const refundId = refundResponse.data.id;
       console.log(`✅ Refund created (ID: ${refundId})`);
 
-      // Process and complete refund
       await refundService.process(refundId);
       console.log('✅ Refund processed');
       
       await refundService.complete(refundId, {
         transaction_reference: `EXCHANGE-REFUND-${Date.now()}`,
       });
-      console.log('✅ Refund completed');
+      console.log('✅ Refund completed - Customer has full refund amount');
 
-      // =====================================================
-      // STEP 4: Create new order for replacement products
-      // =====================================================
       console.log('\n🛒 STEP 4: Creating new order for replacement products...');
       
-      // Calculate total for new products
       const newOrderTotal = exchangeData.replacementProducts.reduce(
         (sum, p) => sum + (p.unit_price * p.quantity), 
         0
       );
       console.log(`New order total: ৳${newOrderTotal.toLocaleString()}`);
 
+      // ✅ Per guidelines: New order payment = full new order amount
+      // Customer has full refund, uses it to "pay" for new items
       const newOrderData = {
         order_type: 'counter' as const,
         store_id: selectedOrderForAction.store.id,
@@ -479,29 +453,37 @@ export default function PurchaseHistoryPage() {
           batch_id: p.batch_id,
           quantity: p.quantity,
           unit_price: p.unit_price,
+          barcode: p.barcode,
+          barcode_id: p.barcode_id,
         })),
-        payment: exchangeData.paymentRefund.total > 0 ? {
+        payment: {
           payment_method_id: 1, // Cash
-          amount: exchangeData.paymentRefund.total,
-          payment_type: (exchangeData.paymentRefund.total >= newOrderTotal ? 'full' : 'partial') as 'full' | 'partial',
-        } : undefined,
+          amount: newOrderTotal, // Full amount of new items
+          payment_type: 'full' as const,
+        },
         notes: `Exchange from order #${selectedOrderForAction.order_number} | Return: #${returnNumber}`,
       };
 
+      console.log(`📝 Order includes payment: ৳${newOrderTotal.toLocaleString()} (customer "pays" with refund)`);
       console.log('Creating new order with data:', newOrderData);
       const newOrder = await orderService.create(newOrderData);
       console.log(`✅ New order created: #${newOrder.order_number} (ID: ${newOrder.id})`);
 
-      // =====================================================
-      // STEP 5: Complete new order (reduce inventory)
-      // =====================================================
+      // Log what happens with the money difference
+      if (exchangeData.paymentRefund.type === 'payment') {
+        console.log(`\n💳 Financial settlement: Customer collects ADDITIONAL ৳${exchangeData.paymentRefund.total.toLocaleString()}`);
+        console.log(`   (New items ৳${newOrderTotal} > Refund received, customer pays extra)`);
+      } else if (exchangeData.paymentRefund.type === 'refund') {
+        console.log(`\n💵 Financial settlement: Cashier gives back ৳${exchangeData.paymentRefund.total.toLocaleString()}`);
+        console.log(`   (Refund received > New items ৳${newOrderTotal}, customer gets difference)`);
+      } else {
+        console.log(`\n📊 Financial settlement: Even exchange (Refund = New items ৳${newOrderTotal})`);
+      }
+
       console.log('\n🏁 STEP 5: Completing new order...');
       await orderService.complete(newOrder.id);
       console.log('✅ New order completed - Inventory reduced for new products');
 
-      // =====================================================
-      // STEP 6: Refresh and show success
-      // =====================================================
       console.log('\n🔄 STEP 6: Refreshing order list...');
       await fetchOrders(userRole, userStoreId);
       
@@ -511,22 +493,57 @@ export default function PurchaseHistoryPage() {
       console.log(`Old Order: #${selectedOrderForAction.order_number}`);
       console.log(`Return: #${returnNumber}`);
       console.log(`New Order: #${newOrder.order_number}`);
-      console.log(`Payment Type: ${exchangeData.paymentRefund.type}`);
-      if (exchangeData.paymentRefund.total > 0) {
-        console.log(`Amount: ৳${exchangeData.paymentRefund.total.toLocaleString()}`);
+      console.log(`New Order Payment Status: PAID ✅`);
+      
+      // Build success message based on exchange type
+      const baseMessage = `✅ Exchange processed successfully!\n\n📦 Return: #${returnNumber}\n🛒 New Order: #${newOrder.order_number}\n💰 New Order Status: PAID\n\n`;
+      
+      let financialMessage = '';
+      if (exchangeData.paymentRefund.type === 'payment') {
+        console.log(`Financial: Customer paid additional ৳${exchangeData.paymentRefund.total.toLocaleString()}`);
+        financialMessage = `💳 Customer paid additional:\n   ৳${exchangeData.paymentRefund.total.toLocaleString()}\n\n✅ Payment collected successfully`;
+      } else if (exchangeData.paymentRefund.type === 'refund') {
+        console.log(`Financial: Customer gets back ৳${exchangeData.paymentRefund.total.toLocaleString()}`);
+        financialMessage = `💵 GIVE CUSTOMER:\n   ৳${exchangeData.paymentRefund.total.toLocaleString()}\n\n(Old items cost more than new items)`;
+      } else {
+        console.log(`Financial: Even exchange`);
+        financialMessage = `📊 Even exchange\nNo additional payment needed`;
       }
+      
       console.log('✅ ========================================\n');
       
-      alert(
-        `✅ Exchange processed successfully!\n\n` +
-        `Return: #${returnNumber}\n` +
-        `New Order: #${newOrder.order_number}\n\n` +
-        `${exchangeData.paymentRefund.type === 'payment' ? 
-          `Payment collected: ৳${exchangeData.paymentRefund.total.toLocaleString()}` : 
-          exchangeData.paymentRefund.type === 'refund' ? 
-          `Refund issued: ৳${exchangeData.paymentRefund.total.toLocaleString()}` : 
-          'Even exchange - no payment difference'}`
-      );
+      alert(baseMessage + financialMessage);
+      
+      console.log('\n✅ ========================================');
+      console.log('✅ EXCHANGE COMPLETED SUCCESSFULLY!');
+      console.log('✅ ========================================');
+      console.log(`Old Order: #${selectedOrderForAction.order_number}`);
+      console.log(`Return: #${returnNumber}`);
+      console.log(`New Order: #${newOrder.order_number}`);
+      
+      let successMessage = `✅ Exchange processed successfully!\n\n`;
+      successMessage += `Return: #${returnNumber}\n`;
+      successMessage += `New Order: #${newOrder.order_number}\n\n`;
+      
+      if (exchangeData.paymentRefund.type === 'payment') {
+        console.log(`Payment Type: Additional payment from customer`);
+        console.log(`Amount Collected: ৳${exchangeData.paymentRefund.total.toLocaleString()}`);
+        successMessage += `💳 Customer paid additional: ৳${exchangeData.paymentRefund.total.toLocaleString()}\n`;
+        successMessage += `(New items cost more than returned items)`;
+      } else if (exchangeData.paymentRefund.type === 'refund') {
+        console.log(`Payment Type: Additional refund to customer`);
+        console.log(`Amount Refunded: ৳${exchangeData.paymentRefund.total.toLocaleString()}`);
+        successMessage += `💵 Additional refund to customer: ৳${exchangeData.paymentRefund.total.toLocaleString()}\n`;
+        successMessage += `(Returned items cost more than new items)\n`;
+        successMessage += `Please give customer the refund difference in cash/selected method`;
+      } else {
+        console.log(`Payment Type: Even exchange`);
+        successMessage += `Even exchange - no payment difference`;
+      }
+      
+      console.log('✅ ========================================\n');
+      
+      alert(successMessage);
       
       setShowExchangeModal(false);
       setSelectedOrderForAction(null);
@@ -584,7 +601,6 @@ export default function PurchaseHistoryPage() {
 
           <main className="flex-1 overflow-auto p-4 md:p-6">
             <div className="max-w-7xl mx-auto">
-              {/* Header */}
               <div className="mb-6">
                 <h1 className="text-2xl md:text-3xl font-semibold text-gray-900 dark:text-white mb-2">
                   Purchase History
@@ -596,7 +612,6 @@ export default function PurchaseHistoryPage() {
                 </p>
               </div>
 
-              {/* Stats Cards */}
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
                 <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4">
                   <div className="text-sm text-gray-600 dark:text-gray-400 mb-1">Total Orders</div>
@@ -616,7 +631,6 @@ export default function PurchaseHistoryPage() {
                 </div>
               </div>
 
-              {/* Filters */}
               <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4 mb-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                   <div className="relative">
@@ -660,7 +674,6 @@ export default function PurchaseHistoryPage() {
                 </div>
               </div>
 
-              {/* Orders List */}
               {loading ? (
                 <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-12 text-center">
                   <div className="text-gray-500 dark:text-gray-400">Loading orders...</div>
@@ -676,7 +689,6 @@ export default function PurchaseHistoryPage() {
                       key={order.id}
                       className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 transition-all hover:shadow-md relative"
                     >
-                      {/* Order Header */}
                       <div className="p-4">
                         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                           <div className="flex-1">
@@ -812,11 +824,9 @@ export default function PurchaseHistoryPage() {
                         </div>
                       </div>
 
-                      {/* Expanded Details */}
                       {expandedOrder === order.id && (
                         <div className="border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/50">
                           <div className="p-4 space-y-4">
-                            {/* Items Table */}
                             <div>
                               <h3 className="text-sm font-medium text-gray-900 dark:text-white mb-2">Order Items</h3>
                               {loadingDetails === order.id ? (
@@ -850,6 +860,7 @@ export default function PurchaseHistoryPage() {
                                         <th className="px-3 py-2 text-left text-xs font-medium text-gray-700 dark:text-gray-300">Product</th>
                                         <th className="px-3 py-2 text-left text-xs font-medium text-gray-700 dark:text-gray-300">SKU</th>
                                         <th className="px-3 py-2 text-left text-xs font-medium text-gray-700 dark:text-gray-300">Batch</th>
+                                        <th className="px-3 py-2 text-left text-xs font-medium text-gray-700 dark:text-gray-300">Barcode</th>
                                         <th className="px-3 py-2 text-left text-xs font-medium text-gray-700 dark:text-gray-300">Qty</th>
                                         <th className="px-3 py-2 text-left text-xs font-medium text-gray-700 dark:text-gray-300">Price</th>
                                         <th className="px-3 py-2 text-left text-xs font-medium text-gray-700 dark:text-gray-300">Discount</th>
@@ -868,6 +879,9 @@ export default function PurchaseHistoryPage() {
                                           <td className="px-3 py-2 text-gray-600 dark:text-gray-400 text-xs">
                                             {item.batch_number || '-'}
                                           </td>
+                                          <td className="px-3 py-2 text-gray-600 dark:text-gray-400 text-xs font-mono">
+                                            {item.barcode || '-'}
+                                          </td>
                                           <td className="px-3 py-2 text-gray-900 dark:text-white">{item.quantity}</td>
                                           <td className="px-3 py-2 text-gray-900 dark:text-white">৳{Number(String(item.unit_price ?? "0").replace(/[^0-9.-]/g, "")).toFixed(2)}</td>
                                           <td className="px-3 py-2 text-gray-900 dark:text-white">৳{Number(String(item.discount_amount ?? "0").replace(/[^0-9.-]/g, "")).toFixed(2)}</td>
@@ -882,7 +896,6 @@ export default function PurchaseHistoryPage() {
                               )}
                             </div>
 
-                            {/* Amount & Payment Details */}
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                               <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4">
                                 <h3 className="text-sm font-medium text-gray-900 dark:text-white mb-3">Amount Details</h3>
@@ -957,7 +970,6 @@ export default function PurchaseHistoryPage() {
         </div>
       </div>
 
-      {/* Click outside to close menu */}
       {activeMenu !== null && (
         <div
           className="fixed inset-0 z-40"
@@ -965,7 +977,6 @@ export default function PurchaseHistoryPage() {
         />
       )}
 
-      {/* Return Modal */}
       {showReturnModal && selectedOrderForAction && (
         <ReturnProductModal
           order={selectedOrderForAction}
@@ -977,7 +988,6 @@ export default function PurchaseHistoryPage() {
         />
       )}
 
-      {/* Exchange Modal */}
       {showExchangeModal && selectedOrderForAction && (
         <ExchangeProductModal
           order={selectedOrderForAction}

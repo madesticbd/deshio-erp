@@ -27,7 +27,7 @@ export default function Header({ darkMode, setDarkMode, toggleSidebar }: HeaderP
   };
 
   return (
-    <header className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-6 py-3 flex items-center justify-between relative">
+    <header className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-6 flex items-center justify-between h-16 relative">
       {/* Left section */}
       <div className="flex items-center gap-4">
         <button
@@ -52,7 +52,7 @@ export default function Header({ darkMode, setDarkMode, toggleSidebar }: HeaderP
           )}
         </button>
 
-        {/* User Dropdown (fixed hover zone) */}
+        {/* User Dropdown */}
         <div
           className="relative group"
           onMouseEnter={() => setShowDropdown(true)}

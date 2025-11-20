@@ -336,19 +336,25 @@ export default function ReturnProductModal({ order, onClose, onReturn }: ReturnP
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                       Received At Store *
                     </label>
-                    <select
-                      value={receivedAtStoreId}
-                      onChange={(e) => setReceivedAtStoreId(Number(e.target.value))}
-                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                    >
-                      {stores.map(store => (
-                        <option key={store.id} value={store.id}>
-                          {store.name} {store.is_warehouse ? '(Warehouse)' : ''}
-                        </option>
-                      ))}
-                    </select>
+                    {stores.length === 0 ? (
+                      <div className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400">
+                        Loading stores...
+                      </div>
+                    ) : (
+                      <select
+                        value={receivedAtStoreId}
+                        onChange={(e) => setReceivedAtStoreId(Number(e.target.value))}
+                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                      >
+                        {stores.map(store => (
+                          <option key={store.id} value={store.id}>
+                            {store.name} {store.is_warehouse ? '(Warehouse)' : '(Store)'}
+                          </option>
+                        ))}
+                      </select>
+                    )}
                     <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                      Select where the returned items will be received
+                      Select where the returned items will be received ({stores.length} stores available)
                     </p>
                   </div>
 
@@ -465,9 +471,123 @@ export default function ReturnProductModal({ order, onClose, onReturn }: ReturnP
               </div>
             </div>
 
-            {/* Right sidebar - Keep existing refund processing code */}
+            {/* Right sidebar - Return Summary & Refund Processing */}
             <div className="space-y-4">
-              {/* ... existing return summary and refund sections ... */}
+              {/* Return Summary */}
+              <div className="bg-gray-50 dark:bg-gray-800 rounded-xl p-5 border border-gray-200 dark:border-gray-700">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="font-semibold text-gray-900 dark:text-white text-lg">Return Summary</h3>
+                  <ChevronDown className="w-4 h-4 text-gray-500" />
+                </div>
+                
+                <div className="space-y-3">
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-600 dark:text-gray-400">Items selected:</span>
+                    <span className="font-semibold text-gray-900 dark:text-white">{selectedProducts.length}</span>
+                  </div>
+                  
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-600 dark:text-gray-400">Return Amount:</span>
+                    <span className="font-semibold text-red-600 dark:text-red-400">৳{totals.returnAmount.toFixed(2)}</span>
+                  </div>
+
+                  <div className="pt-3 border-t-2 border-gray-300 dark:border-gray-700">
+                    <div className="flex justify-between items-center mb-2">
+                      <span className="text-gray-600 dark:text-gray-400">Customer Paid:</span>
+                      <span className="font-semibold text-gray-900 dark:text-white">৳{totals.totalPaid.toFixed(2)}</span>
+                    </div>
+
+                    <div className="bg-green-50 dark:bg-green-900/20 border-2 border-green-500 dark:border-green-600 rounded-lg p-3">
+                      <div className="flex justify-between items-center">
+                        <span className="font-semibold text-green-900 dark:text-green-300">Refund to Customer:</span>
+                        <span className="font-bold text-lg text-green-600 dark:text-green-400">৳{totals.refundToCustomer.toFixed(2)}</span>
+                      </div>
+                      <p className="text-xs text-green-700 dark:text-green-400 mt-1">Amount to be refunded</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Refund Processing Section */}
+              {totals.refundToCustomer > 0 && (
+                <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700">
+                  <div className="px-4 py-3 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
+                    <h3 className="text-sm font-medium text-gray-900 dark:text-white">Process Refund</h3>
+                    <ChevronDown className="w-4 h-4 text-gray-500" />
+                  </div>
+                  
+                  <div className="p-4 space-y-3">
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between">
+                        <label className="text-xs font-medium text-gray-700 dark:text-gray-300">Cash Refund</label>
+                        <button onClick={() => setShowNoteCounter(!showNoteCounter)} className="flex items-center gap-1 px-2 py-1 text-xs bg-green-50 dark:bg-green-900/20 text-green-600 dark:text-green-400 rounded hover:bg-green-100 dark:hover:bg-green-900/30">
+                          <Calculator className="w-3 h-3" />
+                          {showNoteCounter ? 'Hide' : 'Count Notes'}
+                        </button>
+                      </div>
+                      
+                      {showNoteCounter ? (
+                        <div className="bg-green-50 dark:bg-green-900/10 border border-green-200 dark:border-green-800 rounded-lg p-3 space-y-2">
+                          <div className="grid grid-cols-3 gap-2">
+                            <NoteInput value={1000} state={note1000} setState={setNote1000} />
+                            <NoteInput value={500} state={note500} setState={setNote500} />
+                            <NoteInput value={200} state={note200} setState={setNote200} />
+                            <NoteInput value={100} state={note100} setState={setNote100} />
+                            <NoteInput value={50} state={note50} setState={setNote50} />
+                            <NoteInput value={20} state={note20} setState={setNote20} />
+                            <NoteInput value={10} state={note10} setState={setNote10} />
+                            <NoteInput value={5} state={note5} setState={setNote5} />
+                            <NoteInput value={2} state={note2} setState={setNote2} />
+                          </div>
+                          <div className="flex justify-between items-center pt-2 border-t border-green-200 dark:border-green-800">
+                            <span className="text-xs font-medium text-gray-700 dark:text-gray-300">Total Cash:</span>
+                            <span className="text-sm font-bold text-green-600 dark:text-green-400">৳{cashFromNotes.toLocaleString()}</span>
+                          </div>
+                        </div>
+                      ) : (
+                        <div>
+                          <label className="block text-xs text-gray-700 dark:text-gray-300 mb-1">Cash Refund</label>
+                          <input type="number" min="0" value={cashFromNotes > 0 ? cashFromNotes : refundCash} onChange={(e) => { setRefundCash(Number(e.target.value)); setNote1000(0); setNote500(0); setNote200(0); setNote100(0); setNote50(0); setNote20(0); setNote10(0); setNote5(0); setNote2(0); setNote1(0); }} className="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm" />
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <label className="block text-xs text-gray-700 dark:text-gray-300 mb-1">Card Refund</label>
+                        <input type="number" min="0" value={refundCard} onChange={(e) => setRefundCard(Number(e.target.value))} className="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm" />
+                      </div>
+                      <div>
+                        <label className="block text-xs text-gray-700 dark:text-gray-300 mb-1">Bkash Refund</label>
+                        <input type="number" min="0" value={refundBkash} onChange={(e) => setRefundBkash(Number(e.target.value))} className="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm" />
+                      </div>
+                      <div className="col-span-2">
+                        <label className="block text-xs text-gray-700 dark:text-gray-300 mb-1">Nagad Refund</label>
+                        <input type="number" min="0" value={refundNagad} onChange={(e) => setRefundNagad(Number(e.target.value))} className="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm" />
+                      </div>
+                    </div>
+                    
+                    <div className="pt-3 border-t border-gray-200 dark:border-gray-700">
+                      <div className="flex justify-between text-sm mb-1">
+                        <span className="text-gray-700 dark:text-gray-300">Total Refunded</span>
+                        <span className="text-gray-900 dark:text-white font-medium">৳{totalRefundProcessed.toLocaleString()}</span>
+                      </div>
+                      <div className="flex justify-between text-sm mb-1">
+                        <span className="text-gray-700 dark:text-gray-300">Refund Required</span>
+                        <span className="text-gray-900 dark:text-white font-medium">৳{totals.refundToCustomer.toFixed(2)}</span>
+                      </div>
+                      <div className="flex justify-between text-base">
+                        <span className="font-semibold text-gray-900 dark:text-white">Remaining</span>
+                        <span className={`font-bold ${remainingRefund > 0 ? 'text-orange-600 dark:text-orange-400' : 'text-green-600 dark:text-green-400'}`}>৳{remainingRefund.toFixed(2)}</span>
+                      </div>
+                      {remainingRefund > 0 && <p className="text-xs text-orange-600 dark:text-orange-400 mt-1">Can refund later</p>}
+                      {remainingRefund <= 0 && totalRefundProcessed > 0 && <p className="text-xs text-green-600 dark:text-green-400 mt-1">✓ Full refund processed</p>}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Action Buttons */}
               <div className="flex gap-3">
                 <button type="button" onClick={onClose} className="flex-1 px-6 py-3 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors font-semibold">
                   Cancel
