@@ -9,8 +9,8 @@ import accountingService, {
   Transaction,
   TrialBalanceData,
   LedgerData,
-  TrialBalanceAccount,
-  JournalEntry
+  JournalEntry,
+  JournalEntryLine
 } from '@/services/accountingService';
 
 export default function AccountingSystem() {
@@ -59,7 +59,11 @@ export default function AccountingSystem() {
       // Fetch accounts using service
       const accountsRes = await accountingService.accounts.getAccounts();
       if (accountsRes.success) {
-        setAccounts(accountsRes.data);
+        const accountsData = Array.isArray(accountsRes.data) 
+          ? accountsRes.data 
+          : accountsRes.data?.data || [];
+        setAccounts(accountsData);
+        console.log('✅ Loaded accounts:', accountsData.length);
       }
       
       // Fetch journal entries by default
@@ -80,11 +84,15 @@ export default function AccountingSystem() {
       const response = await accountingService.reports.getJournalEntries({
         date_from: dateRange.start,
         date_to: dateRange.end,
-        per_page: 100,
       });
       
       if (response.success) {
-        setJournalEntries(response.data);
+        // Sort by date descending (most recent first)
+        const sortedEntries = response.data.sort((a: JournalEntry, b: JournalEntry) => 
+          new Date(b.date).getTime() - new Date(a.date).getTime()
+        );
+        setJournalEntries(sortedEntries);
+        console.log('✅ Loaded journal entries:', sortedEntries.length);
       }
     } catch (error: any) {
       console.error('Error fetching journal entries:', error);
@@ -98,17 +106,30 @@ export default function AccountingSystem() {
     try {
       setLoading(true);
       
+      console.log('🔄 Fetching trial balance with date range:', dateRange);
+      
       const response = await accountingService.reports.getTrialBalance({
         start_date: dateRange.start,
         end_date: dateRange.end,
       });
       
+      console.log('📊 Trial balance response:', response);
+      
       if (response.success) {
         setTrialBalance(response.data);
+        console.log('✅ Trial balance loaded:', {
+          accounts: response.data.accounts.length,
+          total_debits: response.data.summary.total_debits,
+          total_credits: response.data.summary.total_credits,
+          balanced: response.data.summary.balanced
+        });
+      } else {
+        console.error('❌ Trial balance fetch failed:', response);
+        alert('Failed to fetch trial balance');
       }
     } catch (error: any) {
-      console.error('Error fetching trial balance:', error);
-      alert(error.response?.data?.message || 'Failed to fetch trial balance');
+      console.error('❌ Error fetching trial balance:', error);
+      alert(error.response?.data?.message || error.message || 'Failed to fetch trial balance');
     } finally {
       setLoading(false);
     }
@@ -122,11 +143,22 @@ export default function AccountingSystem() {
         date_from: dateRange.start,
         date_to: dateRange.end,
         search: searchTerm || undefined,
-        per_page: 100,
+        sort_by: 'transaction_date',
+        sort_order: 'desc',
+        per_page: 1000,
       });
       
       if (response.success) {
-        setTransactions(response.data.data || response.data);
+        const txnData = response.data.data || response.data;
+        const txnArray = Array.isArray(txnData) ? txnData : (txnData?.data || []);
+        
+        // Sort by date descending (most recent first)
+        const sortedTransactions = txnArray.sort(
+          (a: Transaction, b: Transaction) => 
+            new Date(b.transaction_date).getTime() - new Date(a.transaction_date).getTime()
+        );
+        setTransactions(sortedTransactions);
+        console.log('✅ Loaded transactions:', sortedTransactions.length);
       }
     } catch (error: any) {
       console.error('Error fetching transactions:', error);
@@ -147,6 +179,10 @@ export default function AccountingSystem() {
       
       if (response.success) {
         setLedgerData(response.data);
+        console.log('✅ Loaded ledger:', {
+          account: response.data.account.name,
+          transactions: response.data.transactions.length
+        });
       }
     } catch (error: any) {
       console.error('Error fetching ledger:', error);
@@ -180,7 +216,9 @@ export default function AccountingSystem() {
     return new Date(date).toLocaleDateString('en-US', { 
       year: 'numeric', 
       month: 'short', 
-      day: 'numeric' 
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
     });
   };
 
@@ -436,7 +474,7 @@ export default function AccountingSystem() {
                                 </tr>
                               </thead>
                               <tbody>
-                                {entry.lines.map((line, idx) => (
+                                {entry.lines.map((line: JournalEntryLine, idx: number) => (
                                   <tr key={idx} className="border-t border-gray-200 dark:border-gray-600">
                                     <td className="px-4 py-2 text-sm">
                                       <div>
@@ -500,7 +538,7 @@ export default function AccountingSystem() {
                       <div>
                         <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Trial Balance</h2>
                         <p className="text-sm text-gray-600 dark:text-gray-400">
-                          {formatDate(trialBalance.date_range.start_date)} - {formatDate(trialBalance.date_range.end_date)}
+                          As of {formatDate(trialBalance.date_range.end_date)}
                         </p>
                       </div>
                       <button 
@@ -555,8 +593,8 @@ export default function AccountingSystem() {
                         </tr>
                       </thead>
                       <tbody>
-                        {trialBalance.accounts.map((account) => (
-                          <tr key={account.id} className="border-t border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-750">
+                        {trialBalance.accounts.map((account, idx) => (
+                          <tr key={account.id || idx} className="border-t border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-750">
                             <td className="px-4 py-3 text-sm font-medium text-gray-900 dark:text-white">
                               {account.account_code}
                             </td>
@@ -568,7 +606,7 @@ export default function AccountingSystem() {
                                 account.type === 'asset' ? 'bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-300' :
                                 account.type === 'liability' ? 'bg-yellow-100 dark:bg-yellow-900 text-yellow-700 dark:text-yellow-300' :
                                 account.type === 'equity' ? 'bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300' :
-                                account.type === 'income' ? 'bg-purple-100 dark:bg-purple-900 text-purple-700 dark:text-purple-300' :
+                                account.type === 'income' || account.type === 'revenue' ? 'bg-purple-100 dark:bg-purple-900 text-purple-700 dark:text-purple-300' :
                                 'bg-red-100 dark:bg-red-900 text-red-700 dark:text-red-300'
                               }`}>
                                 {account.type}
@@ -752,7 +790,7 @@ export default function AccountingSystem() {
                               </tr>
                             </thead>
                             <tbody>
-                              {ledgerData.transactions.map((entry, idx) => (
+                              {ledgerData.transactions.map((entry) => (
                                 <tr key={entry.id} className="border-t border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-750">
                                   <td className="px-4 py-3 text-sm text-gray-900 dark:text-white">
                                     {formatDate(entry.transaction_date)}

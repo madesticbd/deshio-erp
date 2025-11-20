@@ -26,7 +26,12 @@ export default function TransactionsPage() {
     setIsLoading(true);
     setError(null);
     try {
-      const data = await transactionService.getTransactions();
+      // Fetch transactions sorted by date in descending order (most recent first)
+      const data = await transactionService.getTransactions({
+        sort_by: 'transaction_date',
+        sort_order: 'desc',
+        per_page: 1000 // Adjust this based on your needs
+      });
       setTransactions(data.transactions || []);
     } catch (error: any) {
       console.error('Failed to load transactions:', error);
