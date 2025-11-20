@@ -76,12 +76,13 @@ export interface ProductReturnFilters {
 
 export interface CreateReturnRequest {
   order_id: number;
+  received_at_store_id?: number; // ✅ ADDED: Store where return is received
   return_reason: 'defective_product' | 'wrong_item' | 'not_as_described' | 'customer_dissatisfaction' | 'size_issue' | 'color_issue' | 'quality_issue' | 'late_delivery' | 'changed_mind' | 'duplicate_order' | 'other';
   return_type?: 'customer_return' | 'store_return' | 'warehouse_return';
   items: Array<{
     order_item_id: number;
     quantity: number;
-    product_barcode_id?: number; // NEW: Support barcode ID in return items
+    product_barcode_id?: number; // Support barcode ID in return items
     reason?: string;
   }>;
   customer_notes?: string;

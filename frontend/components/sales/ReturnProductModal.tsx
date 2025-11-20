@@ -1,5 +1,6 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { X, RotateCcw, Calculator, ChevronDown } from 'lucide-react';
+import storeService, { type Store } from '@/services/storeService';
 
 interface OrderItem {
   id: number;
@@ -18,6 +19,10 @@ interface OrderItem {
 interface Order {
   id: number;
   order_number: string;
+  store: {
+    id: number;
+    name: string;
+  };
   customer?: {
     name: string;
     phone: string;
@@ -49,6 +54,7 @@ interface ReturnProductModalProps {
     };
     returnReason: ReturnReason;
     returnType: ReturnType;
+    receivedAtStoreId: number; // ✅ NEW FIELD
     customerNotes?: string;
   }) => Promise<void>;
 }
@@ -62,6 +68,10 @@ export default function ReturnProductModal({ order, onClose, onReturn }: ReturnP
   const [returnReason, setReturnReason] = useState<ReturnReason>('other');
   const [returnType, setReturnType] = useState<ReturnType>('customer_return');
   const [customerNotes, setCustomerNotes] = useState('');
+  
+  // ✅ NEW: Store selection for where return is received
+  const [stores, setStores] = useState<Store[]>([]);
+  const [receivedAtStoreId, setReceivedAtStoreId] = useState<number>(order.store.id);
 
   // Refund payment states
   const [refundCash, setRefundCash] = useState(0);
@@ -81,6 +91,46 @@ export default function ReturnProductModal({ order, onClose, onReturn }: ReturnP
   const [note5, setNote5] = useState(0);
   const [note2, setNote2] = useState(0);
   const [note1, setNote1] = useState(0);
+
+  // ✅ NEW: Fetch stores on mount
+  useEffect(() => {
+    fetchStores();
+  }, []);
+
+  const fetchStores = async () => {
+    try {
+      const response = await storeService.getStores({ is_active: true });
+      console.log('🏪 Store service response:', response);
+      
+      // Handle different response formats
+      let storesData: Store[] = [];
+      if (response?.success && response?.data) {
+        // Format: { success: true, data: [...] }
+        if (Array.isArray(response.data.data)) {
+          storesData = response.data.data;
+        } else if (Array.isArray(response.data)) {
+          storesData = response.data;
+        }
+      } else if (response?.data && Array.isArray(response.data)) {
+        // Format: { data: [...] }
+        storesData = response.data;
+      } else if (Array.isArray(response)) {
+        // Format: [...]
+        storesData = response;
+      }
+      
+      console.log('✅ Parsed stores:', storesData);
+      setStores(storesData);
+      
+      // If no stores found, show warning
+      if (storesData.length === 0) {
+        console.warn('⚠️ No stores available');
+      }
+    } catch (error) {
+      console.error('❌ Failed to fetch stores:', error);
+      setStores([]);
+    }
+  };
 
   const returnReasonOptions: Array<{ value: ReturnReason; label: string }> = [
     { value: 'defective_product', label: 'Defective Product' },
@@ -122,25 +172,17 @@ export default function ReturnProductModal({ order, onClose, onReturn }: ReturnP
   };
 
   const calculateTotals = () => {
-    // Helper to parse string prices to floats
     const parseFloatValue = (value: string) => parseFloat(String(value).replace(/[^0-9.-]/g, ''));
 
-    // Step 1: Calculate order subtotal (pre-VAT sum of all item totals)
     const orderSubtotal = order.items.reduce((sum, item) => {
       const price = parseFloatValue(item.unit_price);
       return sum + (price * item.quantity);
     }, 0);
 
-    // Step 2: Parse order total (post-VAT)
     const orderTotal = parseFloatValue(order.total_amount);
-
-    // Step 3: Derive total VAT (assuming total_amount = subtotal + VAT; adjust if discounts/shipping exist)
     const orderVat = orderTotal - orderSubtotal;
-
-    // Step 4: Calculate VAT rate (for proration)
     const vatRate = orderSubtotal > 0 ? orderVat / orderSubtotal : 0;
 
-    // Step 5: Calculate return subtotal (pre-VAT)
     const returnSubtotal = selectedProducts.reduce((sum, productId) => {
       const product = order.items.find(p => p.id === productId);
       if (!product) return sum;
@@ -149,16 +191,9 @@ export default function ReturnProductModal({ order, onClose, onReturn }: ReturnP
       return sum + (price * qty);
     }, 0);
 
-    // Step 6: Calculate prorated VAT for return
     const returnVat = returnSubtotal * vatRate;
-
-    // Step 7: Total return amount (including VAT)
     const returnAmount = returnSubtotal + returnVat;
-
-    // Step 8: Parse total paid
     const totalPaid = parseFloatValue(order.paid_amount);
-
-    // Step 9: Refund capped at paid amount
     const refundToCustomer = Math.min(returnAmount, totalPaid);
 
     return {
@@ -196,7 +231,8 @@ export default function ReturnProductModal({ order, onClose, onReturn }: ReturnP
 
     let confirmMessage = `Process return?\n\n`;
     confirmMessage += `Return Reason: ${returnReasonOptions.find(r => r.value === returnReason)?.label}\n`;
-    confirmMessage += `Return Type: ${returnTypeOptions.find(t => t.value === returnType)?.label}\n\n`;
+    confirmMessage += `Return Type: ${returnTypeOptions.find(t => t.value === returnType)?.label}\n`;
+    confirmMessage += `Received At: ${stores.find(s => s.id === receivedAtStoreId)?.name || 'N/A'}\n\n`;
     
     if (totals.refundToCustomer > 0) {
       if (remainingRefund > 0) {
@@ -212,13 +248,12 @@ export default function ReturnProductModal({ order, onClose, onReturn }: ReturnP
 
     setIsProcessing(true);
     try {
-      // Map selected products with barcode IDs
       const selectedProductsWithBarcodes = selectedProducts.map(id => {
         const product = order.items.find(p => p.id === id);
         return {
           order_item_id: id,
           quantity: returnedQuantities[id],
-          product_barcode_id: product?.barcode_id, // Include barcode ID if available
+          product_barcode_id: product?.barcode_id,
         };
       });
 
@@ -233,6 +268,7 @@ export default function ReturnProductModal({ order, onClose, onReturn }: ReturnP
         },
         returnReason,
         returnType,
+        receivedAtStoreId, // ✅ NEW: Pass received_at_store_id
         customerNotes: customerNotes.trim() || undefined,
       });
     } catch (error: any) {
@@ -295,6 +331,33 @@ export default function ReturnProductModal({ order, onClose, onReturn }: ReturnP
               <div className="bg-gray-50 dark:bg-gray-800 rounded-xl p-5 border border-gray-200 dark:border-gray-700">
                 <h3 className="font-semibold text-gray-900 dark:text-white text-lg mb-4">Return Information</h3>
                 <div className="space-y-3">
+                  {/* ✅ NEW: Store Selection */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                      Received At Store *
+                    </label>
+                    {stores.length === 0 ? (
+                      <div className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400">
+                        Loading stores...
+                      </div>
+                    ) : (
+                      <select
+                        value={receivedAtStoreId}
+                        onChange={(e) => setReceivedAtStoreId(Number(e.target.value))}
+                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                      >
+                        {stores.map(store => (
+                          <option key={store.id} value={store.id}>
+                            {store.name} {store.is_warehouse ? '(Warehouse)' : '(Store)'}
+                          </option>
+                        ))}
+                      </select>
+                    )}
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                      Select where the returned items will be received ({stores.length} stores available)
+                    </p>
+                  </div>
+
                   <div>
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Return Type</label>
                     <select
@@ -332,6 +395,7 @@ export default function ReturnProductModal({ order, onClose, onReturn }: ReturnP
                 </div>
               </div>
 
+              {/* Product Selection - Keep existing code */}
               <div className="bg-gray-50 dark:bg-gray-800 rounded-xl p-5 border border-gray-200 dark:border-gray-700">
                 <h3 className="font-semibold text-gray-900 dark:text-white text-lg mb-4">Select Items to Return</h3>
                 
@@ -407,7 +471,9 @@ export default function ReturnProductModal({ order, onClose, onReturn }: ReturnP
               </div>
             </div>
 
+            {/* Right sidebar - Return Summary & Refund Processing */}
             <div className="space-y-4">
+              {/* Return Summary */}
               <div className="bg-gray-50 dark:bg-gray-800 rounded-xl p-5 border border-gray-200 dark:border-gray-700">
                 <div className="flex items-center justify-between mb-4">
                   <h3 className="font-semibold text-gray-900 dark:text-white text-lg">Return Summary</h3>
@@ -442,6 +508,7 @@ export default function ReturnProductModal({ order, onClose, onReturn }: ReturnP
                 </div>
               </div>
 
+              {/* Refund Processing Section */}
               {totals.refundToCustomer > 0 && (
                 <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700">
                   <div className="px-4 py-3 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
@@ -520,6 +587,7 @@ export default function ReturnProductModal({ order, onClose, onReturn }: ReturnP
                 </div>
               )}
 
+              {/* Action Buttons */}
               <div className="flex gap-3">
                 <button type="button" onClick={onClose} className="flex-1 px-6 py-3 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors font-semibold">
                   Cancel

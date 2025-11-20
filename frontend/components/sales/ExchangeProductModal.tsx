@@ -52,6 +52,8 @@ interface ExchangeProductModalProps {
       batch_id: number;
       quantity: number;
       unit_price: number;
+      barcode?: string;
+      barcode_id?: number;
     }>;
     paymentRefund: {
       type: 'payment' | 'refund' | 'none';
@@ -75,6 +77,7 @@ interface ReplacementProduct {
   amount: number;
   available: number;
   barcode?: string;
+  barcode_id?: number;
 }
 
 export default function ExchangeProductModal({ order, onClose, onExchange }: ExchangeProductModalProps) {
@@ -115,6 +118,7 @@ export default function ExchangeProductModal({ order, onClose, onExchange }: Exc
       amount: scannedProduct.price,
       available: scannedProduct.availableQty,
       barcode: scannedProduct.barcode,
+      barcode_id: scannedProduct.barcode_id,
     };
 
     setReplacementProducts(prev => [...prev, newItem]);
@@ -212,12 +216,9 @@ export default function ExchangeProductModal({ order, onClose, onExchange }: Exc
   const effectiveCash = cashFromNotes > 0 ? cashFromNotes : cashAmount;
   const totalPaymentRefund = effectiveCash + cardAmount + bkashAmount + nagadAmount;
   
-  // ✅ Fixed: Calculate due correctly
-  // If difference > 0 (customer owes), due = difference - totalPaid
-  // If difference < 0 (customer gets refund), due = abs(difference) - totalRefunded
   const due = totals.difference > 0 
-    ? Math.max(0, totals.difference - totalPaymentRefund)  // Payment scenario
-    : Math.max(0, Math.abs(totals.difference) - totalPaymentRefund); // Refund scenario
+    ? Math.max(0, totals.difference - totalPaymentRefund)
+    : Math.max(0, Math.abs(totals.difference) - totalPaymentRefund);
 
   const handleProcessExchange = async () => {
     if (selectedProducts.length === 0) {
@@ -283,6 +284,8 @@ export default function ExchangeProductModal({ order, onClose, onExchange }: Exc
           batch_id: p.batch_id,
           quantity: p.quantity,
           unit_price: p.price,
+          barcode: p.barcode,
+          barcode_id: p.barcode_id,
         })),
         paymentRefund: {
           type: (totals.difference > 0 ? 'payment' : totals.difference < 0 ? 'refund' : 'none') as 'payment' | 'refund' | 'none',
@@ -295,6 +298,7 @@ export default function ExchangeProductModal({ order, onClose, onExchange }: Exc
       };
 
       await onExchange(exchangeData);
+        
     } catch (error: any) {
       console.error('Exchange failed:', error);
       alert(error.message || 'Failed to process exchange');
