@@ -31,9 +31,7 @@ export default function FieldPage() {
       setIsLoading(true);
       setError(null);
       const data = await fieldService.getFields();
-      // Backend returns { success: true, data: { data: [...], ...pagination } }
-      const fieldsArray = data?.data?.data || data?.data || data || [];
-      setFields(Array.isArray(fieldsArray) ? fieldsArray : []);
+      setFields(Array.isArray(data) ? data : []);
     } catch (error: any) {
       console.error('Error fetching fields:', error);
       setError(error.response?.data?.message || 'Failed to fetch fields');
@@ -49,7 +47,6 @@ export default function FieldPage() {
     }
     
     return fields.filter((f) =>
-      // Backend uses 'title' field
       f?.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       f?.name?.toLowerCase().includes(searchTerm.toLowerCase())
     );
@@ -63,26 +60,23 @@ export default function FieldPage() {
     try {
       console.log('Form data received:', data);
       
-      // Validate required fields
       if (!data.name || !data.type) {
         alert('Please fill in all required fields (Name and Type)');
         return;
       }
 
-      // Map frontend fields to backend fields
       const newFieldData = { 
-        title: data.name as string,  // Backend expects 'title' not 'name'
+        title: data.name as string,
+        name: data.name as string,
         type: data.type as string,
         is_active: true,
       };
 
       console.log('Sending to API:', newFieldData);
 
-      const response = await fieldService.createField(newFieldData);
-      console.log('API response:', response);
+      const savedField = await fieldService.createField(newFieldData);
+      console.log('API response:', savedField);
       
-      // Extract the actual field from the response
-      const savedField = response?.data || response;
       setFields((prev) => [...prev, savedField]);
       setShowForm(false);
       setError(null);
@@ -103,26 +97,23 @@ export default function FieldPage() {
     try {
       console.log('Form data received:', data);
       
-      // Validate required fields
       if (!data.name || !data.type) {
         alert('Please fill in all required fields (Name and Type)');
         return;
       }
 
-      // Map frontend fields to backend fields
       const updatedFieldData = {
         id: editingField.id,
-        title: data.name as string,  // Backend expects 'title' not 'name'
+        title: data.name as string,
+        name: data.name as string,
         type: data.type as string,
       };
 
       console.log('Updating with data:', updatedFieldData);
 
-      const response = await fieldService.updateField(editingField.id, updatedFieldData);
-      console.log('API response:', response);
+      const savedField = await fieldService.updateField(editingField.id, updatedFieldData);
+      console.log('API response:', savedField);
       
-      // Extract the actual field from the response
-      const savedField = response?.data || response;
       setFields((prev) => 
         prev.map((f) => (f.id === editingField.id ? savedField : f))
       );
@@ -225,14 +216,10 @@ export default function FieldPage() {
                 options: ['text', 'textarea', 'number', 'email', 'url', 'tel', 'date', 'datetime', 'time', 'select', 'radio', 'checkbox', 'file', 'image', 'color', 'range']
               },
             ]}
-            initialData={
-              editingField
-                ? { 
-                    name: editingField.title || editingField.name, 
-                    type: editingField.type,
-                  }
-                : {}
-            }
+            initialData={{
+              name: editingField?.title || editingField?.name || '',
+              type: editingField?.type || ''
+            }}
             onClose={handleCloseModal}
             onSave={editingField ? handleEditField : handleAddField}
           />
