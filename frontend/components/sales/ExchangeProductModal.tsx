@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
-import { X, ArrowRightLeft, Calculator, ChevronDown, Loader2, AlertCircle } from 'lucide-react';
+import { X, ArrowRightLeft, Calculator, ChevronDown, Loader2 } from 'lucide-react';
 import BarcodeScanner, { ScannedProduct } from '@/components/pos/BarcodeScanner';
-import storeService, { type Store } from '@/services/storeService';
 
 interface OrderItem {
   id: number;
@@ -64,7 +63,6 @@ interface ExchangeProductModalProps {
       nagad: number;
       total: number;
     };
-    exchangeAtStoreId: number; // ✅ NEW FIELD
   }) => Promise<void>;
 }
 
@@ -79,7 +77,7 @@ interface ReplacementProduct {
   amount: number;
   available: number;
   barcode?: string;
-  barcode_id?: number; // Optional since it may not be available from scanner
+  barcode_id?: number;
 }
 
 export default function ExchangeProductModal({ order, onClose, onExchange }: ExchangeProductModalProps) {
@@ -87,12 +85,6 @@ export default function ExchangeProductModal({ order, onClose, onExchange }: Exc
   const [exchangeQuantities, setExchangeQuantities] = useState<{ [key: number]: number }>({});
   const [replacementProducts, setReplacementProducts] = useState<ReplacementProduct[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
-
-  // ✅ NEW: Store selection
-  const [stores, setStores] = useState<Store[]>([]);
-  const [exchangeAtStoreId, setExchangeAtStoreId] = useState<number>(order.store.id);
-  const [inventoryWarnings, setInventoryWarnings] = useState<{ [key: number]: string }>({});
-  const [isCheckingInventory, setIsCheckingInventory] = useState(false);
 
   // Payment/Refund states
   const [cashAmount, setCashAmount] = useState(0);
@@ -113,88 +105,6 @@ export default function ExchangeProductModal({ order, onClose, onExchange }: Exc
   const [note2, setNote2] = useState(0);
   const [note1, setNote1] = useState(0);
 
-  // ✅ NEW: Fetch stores on mount
-  useEffect(() => {
-    fetchStores();
-  }, []);
-
-  // ✅ NEW: Check inventory when store or selected products change
-  useEffect(() => {
-    if (selectedProducts.length > 0) {
-      checkInventoryAvailability();
-    } else {
-      setInventoryWarnings({});
-    }
-  }, [exchangeAtStoreId, selectedProducts, exchangeQuantities]);
-
-  const fetchStores = async () => {
-    try {
-      const response = await storeService.getStores({ is_active: true });
-      console.log('🏪 Store service response:', response);
-      
-      let storesData: Store[] = [];
-      if (response?.success && response?.data) {
-        if (Array.isArray(response.data.data)) {
-          storesData = response.data.data;
-        } else if (Array.isArray(response.data)) {
-          storesData = response.data;
-        }
-      } else if (response?.data && Array.isArray(response.data)) {
-        storesData = response.data;
-      } else if (Array.isArray(response)) {
-        storesData = response;
-      }
-      
-      console.log('✅ Parsed stores:', storesData);
-      setStores(storesData);
-      
-      if (storesData.length === 0) {
-        console.warn('⚠️ No stores available');
-      }
-    } catch (error) {
-      console.error('❌ Failed to fetch stores:', error);
-      setStores([]);
-    }
-  };
-
-  // ✅ NEW: Check if selected products have sufficient inventory in the selected store
-  const checkInventoryAvailability = async () => {
-    if (selectedProducts.length === 0) return;
-
-    setIsCheckingInventory(true);
-    const warnings: { [key: number]: string } = {};
-
-    try {
-      // Here you would call your inventory service to check availability
-      // For now, we'll show a placeholder implementation
-      
-      for (const itemId of selectedProducts) {
-        const item = order.items.find(i => i.id === itemId);
-        const exchangeQty = exchangeQuantities[itemId] || 0;
-        
-        if (!item || exchangeQty === 0) continue;
-
-        // TODO: Replace with actual API call to check inventory
-        // Example: const inventory = await inventoryService.checkStock({
-        //   store_id: exchangeAtStoreId,
-        //   product_id: item.product_id,
-        //   batch_id: item.batch_id
-        // });
-
-        // Placeholder: If exchange is at a different store, show warning
-        if (exchangeAtStoreId !== order.store.id) {
-          warnings[itemId] = `⚠️ Please verify inventory at ${stores.find(s => s.id === exchangeAtStoreId)?.name || 'selected store'}`;
-        }
-      }
-
-      setInventoryWarnings(warnings);
-    } catch (error) {
-      console.error('Failed to check inventory:', error);
-    } finally {
-      setIsCheckingInventory(false);
-    }
-  };
-
   // Handle barcode scanned
   const handleProductScanned = (scannedProduct: ScannedProduct) => {
     const newItem: ReplacementProduct = {
@@ -208,7 +118,7 @@ export default function ExchangeProductModal({ order, onClose, onExchange }: Exc
       amount: scannedProduct.price,
       available: scannedProduct.availableQty,
       barcode: scannedProduct.barcode,
-      // barcode_id will be handled by backend or can be omitted if not available
+      barcode_id: scannedProduct.barcode_id,
     };
 
     setReplacementProducts(prev => [...prev, newItem]);
@@ -331,17 +241,7 @@ export default function ExchangeProductModal({ order, onClose, onExchange }: Exc
       return;
     }
 
-    // ✅ NEW: Check for inventory warnings
-    const hasWarnings = Object.keys(inventoryWarnings).length > 0;
-    if (hasWarnings) {
-      const warningMessage = Object.values(inventoryWarnings).join('\n');
-      if (!confirm(`⚠️ INVENTORY WARNINGS:\n\n${warningMessage}\n\nDo you want to proceed anyway?`)) {
-        return;
-      }
-    }
-
     let confirmMessage = `Process exchange for order ${order.order_number}?\n\n`;
-    confirmMessage += `Exchange Location: ${stores.find(s => s.id === exchangeAtStoreId)?.name || 'N/A'}\n`;
     confirmMessage += `Exchanging ${selectedProducts.length} item(s)\n`;
     confirmMessage += `Adding ${replacementProducts.length} replacement item(s)\n\n`;
 
@@ -395,7 +295,6 @@ export default function ExchangeProductModal({ order, onClose, onExchange }: Exc
           nagad: nagadAmount,
           total: totalPaymentRefund,
         },
-        exchangeAtStoreId, // ✅ NEW: Pass the selected store ID
       };
 
       await onExchange(exchangeData);
@@ -468,51 +367,6 @@ export default function ExchangeProductModal({ order, onClose, onExchange }: Exc
                 </div>
               </div>
 
-              {/* ✅ NEW: Store Selection */}
-              <div className="bg-orange-50 dark:bg-orange-900/10 border border-orange-200 dark:border-orange-800 rounded-xl p-5">
-                <div className="flex items-start gap-3">
-                  <AlertCircle className="w-5 h-5 text-orange-600 dark:text-orange-400 mt-0.5" />
-                  <div className="flex-1">
-                    <h3 className="font-semibold text-gray-900 dark:text-white text-lg mb-2">
-                      Exchange Location
-                    </h3>
-                    <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">
-                      Select the store where this exchange will be processed. Items must be available at the selected location.
-                    </p>
-                    
-                    {stores.length === 0 ? (
-                      <div className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400">
-                        Loading stores...
-                      </div>
-                    ) : (
-                      <select
-                        value={exchangeAtStoreId}
-                        onChange={(e) => setExchangeAtStoreId(Number(e.target.value))}
-                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white font-medium"
-                      >
-                        {stores.map(store => (
-                          <option key={store.id} value={store.id}>
-                            {store.name} {store.is_warehouse ? '(Warehouse)' : '(Store)'}
-                            {store.id === order.store.id ? ' - Original Order Location' : ''}
-                          </option>
-                        ))}
-                      </select>
-                    )}
-                    
-                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
-                      {stores.length} store(s) available • Original order location: {order.store.name}
-                    </p>
-                    
-                    {isCheckingInventory && (
-                      <div className="flex items-center gap-2 mt-2 text-sm text-blue-600 dark:text-blue-400">
-                        <Loader2 className="w-4 h-4 animate-spin" />
-                        Checking inventory availability...
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
-
               {/* Select Items to Exchange */}
               <div className="bg-gray-50 dark:bg-gray-800 rounded-xl p-5 border border-gray-200 dark:border-gray-700">
                 <h3 className="font-semibold text-gray-900 dark:text-white text-lg mb-4">
@@ -521,105 +375,85 @@ export default function ExchangeProductModal({ order, onClose, onExchange }: Exc
 
                 {order.items && order.items.length > 0 ? (
                   <div className="space-y-3">
-                    {order.items.map((item) => {
-                      const hasWarning = inventoryWarnings[item.id];
-                      
-                      return (
-                        <div
-                          key={item.id}
-                          className={`bg-white dark:bg-gray-900 rounded-lg p-4 border ${
-                            hasWarning 
-                              ? 'border-orange-300 dark:border-orange-700' 
-                              : 'border-gray-200 dark:border-gray-700'
-                          }`}
-                        >
-                          <div className="flex items-start gap-3">
-                            <input
-                              type="checkbox"
-                              checked={selectedProducts.includes(item.id)}
-                              onChange={() => handleProductCheckbox(item.id)}
-                              className="mt-1 w-4 h-4 text-blue-600 rounded focus:ring-2 focus:ring-blue-500 cursor-pointer"
-                            />
-                            <div className="flex-1">
-                              <div className="flex items-center justify-between mb-2">
-                                <div>
-                                  <p className="font-medium text-gray-900 dark:text-white">
-                                    {item.product_name}
-                                  </p>
-                                  <div className="flex items-center gap-3 mt-1">
-                                    <span className="text-xs text-gray-500 dark:text-gray-400 font-mono">
-                                      SKU: {item.product_sku}
-                                    </span>
-                                    {item.batch_number && (
-                                      <span className="text-xs text-gray-500 dark:text-gray-400">
-                                        Batch: {item.batch_number}
-                                      </span>
-                                    )}
-                                    {item.barcode && (
-                                      <span className="text-xs bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 px-2 py-0.5 rounded font-mono">
-                                        🏷️ {item.barcode}
-                                      </span>
-                                    )}
-                                  </div>
-                                </div>
-                                <p className="font-bold text-gray-900 dark:text-white">
-                                  ৳{(parseFloat(item.unit_price.replace(/[^0-9.-]/g, '')) * item.quantity).toFixed(2)}
+                    {order.items.map((item) => (
+                      <div
+                        key={item.id}
+                        className="bg-white dark:bg-gray-900 rounded-lg p-4 border border-gray-200 dark:border-gray-700"
+                      >
+                        <div className="flex items-start gap-3">
+                          <input
+                            type="checkbox"
+                            checked={selectedProducts.includes(item.id)}
+                            onChange={() => handleProductCheckbox(item.id)}
+                            className="mt-1 w-4 h-4 text-blue-600 rounded focus:ring-2 focus:ring-blue-500 cursor-pointer"
+                          />
+                          <div className="flex-1">
+                            <div className="flex items-center justify-between mb-2">
+                              <div>
+                                <p className="font-medium text-gray-900 dark:text-white">
+                                  {item.product_name}
                                 </p>
+                                <div className="flex items-center gap-3 mt-1">
+                                  <span className="text-xs text-gray-500 dark:text-gray-400 font-mono">
+                                    SKU: {item.product_sku}
+                                  </span>
+                                  {item.batch_number && (
+                                    <span className="text-xs text-gray-500 dark:text-gray-400">
+                                      Batch: {item.batch_number}
+                                    </span>
+                                  )}
+                                  {item.barcode && (
+                                    <span className="text-xs bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 px-2 py-0.5 rounded font-mono">
+                                      🏷️ {item.barcode}
+                                    </span>
+                                  )}
+                                </div>
                               </div>
-                              <p className="text-xs text-gray-600 dark:text-gray-400 mb-3">
-                                Price: ৳{parseFloat(item.unit_price.replace(/[^0-9.-]/g, '')).toFixed(2)} × Qty: {item.quantity}
+                              <p className="font-bold text-gray-900 dark:text-white">
+                                ৳{(parseFloat(item.unit_price.replace(/[^0-9.-]/g, '')) * item.quantity).toFixed(2)}
                               </p>
-
-                              {/* ✅ NEW: Show inventory warning */}
-                              {hasWarning && selectedProducts.includes(item.id) && (
-                                <div className="mb-3 p-2 bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-700 rounded-lg">
-                                  <div className="flex items-start gap-2">
-                                    <AlertCircle className="w-4 h-4 text-orange-600 dark:text-orange-400 mt-0.5 flex-shrink-0" />
-                                    <p className="text-xs text-orange-700 dark:text-orange-300">
-                                      {hasWarning}
-                                    </p>
-                                  </div>
-                                </div>
-                              )}
-
-                              {selectedProducts.includes(item.id) && (
-                                <div className="mt-3 pt-3 border-t border-gray-200 dark:border-gray-700">
-                                  <div className="grid grid-cols-2 gap-3">
-                                    <div>
-                                      <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">
-                                        Available Qty
-                                      </label>
-                                      <input
-                                        type="number"
-                                        value={item.quantity}
-                                        readOnly
-                                        className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-700 rounded-lg bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-white"
-                                      />
-                                    </div>
-                                    <div>
-                                      <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">
-                                        Exchange Qty *
-                                      </label>
-                                      <input
-                                        type="number"
-                                        min="1"
-                                        max={item.quantity}
-                                        value={exchangeQuantities[item.id] || ''}
-                                        onChange={(e) =>
-                                          handleQuantityChange(item.id, parseInt(e.target.value) || 0, item.quantity)
-                                        }
-                                        className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 outline-none"
-                                        placeholder="Enter qty"
-                                      />
-                                    </div>
-                                  </div>
-                                </div>
-                              )}
                             </div>
+                            <p className="text-xs text-gray-600 dark:text-gray-400 mb-3">
+                              Price: ৳{parseFloat(item.unit_price.replace(/[^0-9.-]/g, '')).toFixed(2)} × Qty: {item.quantity}
+                            </p>
+
+                            {selectedProducts.includes(item.id) && (
+                              <div className="mt-3 pt-3 border-t border-gray-200 dark:border-gray-700">
+                                <div className="grid grid-cols-2 gap-3">
+                                  <div>
+                                    <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">
+                                      Available Qty
+                                    </label>
+                                    <input
+                                      type="number"
+                                      value={item.quantity}
+                                      readOnly
+                                      className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-700 rounded-lg bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-white"
+                                    />
+                                  </div>
+                                  <div>
+                                    <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">
+                                      Exchange Qty *
+                                    </label>
+                                    <input
+                                      type="number"
+                                      min="1"
+                                      max={item.quantity}
+                                      value={exchangeQuantities[item.id] || ''}
+                                      onChange={(e) =>
+                                        handleQuantityChange(item.id, parseInt(e.target.value) || 0, item.quantity)
+                                      }
+                                      className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 outline-none"
+                                      placeholder="Enter qty"
+                                    />
+                                  </div>
+                                </div>
+                              </div>
+                            )}
                           </div>
                         </div>
-                      );
-                    })}
+                      </div>
+                    ))}
                   </div>
                 ) : (
                   <div className="text-center py-8 text-gray-500 dark:text-gray-400">
@@ -637,7 +471,7 @@ export default function ExchangeProductModal({ order, onClose, onExchange }: Exc
 
                   <BarcodeScanner
                     isEnabled={true}
-                    selectedOutlet={String(exchangeAtStoreId)}
+                    selectedOutlet={String(order.store.id)}
                     onProductScanned={handleProductScanned}
                     onError={(msg) => alert(msg)}
                   />
@@ -714,14 +548,6 @@ export default function ExchangeProductModal({ order, onClose, onExchange }: Exc
                 </div>
 
                 <div className="space-y-3">
-                  {/* ✅ NEW: Show selected store */}
-                  <div className="flex justify-between text-sm pb-3 border-b border-gray-300 dark:border-gray-700">
-                    <span className="text-gray-600 dark:text-gray-400">Exchange at:</span>
-                    <span className="font-semibold text-gray-900 dark:text-white">
-                      {stores.find(s => s.id === exchangeAtStoreId)?.name || 'N/A'}
-                    </span>
-                  </div>
-
                   <div className="flex justify-between text-sm">
                     <span className="text-gray-600 dark:text-gray-400">Items to exchange:</span>
                     <span className="font-semibold text-gray-900 dark:text-white">{selectedProducts.length}</span>
