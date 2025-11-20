@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
-import { X, Scan, CheckCircle, AlertCircle, Package } from 'lucide-react';
+import { X, Scan, CheckCircle, AlertCircle, Package, Info } from 'lucide-react';
 import { ProductDispatch, DispatchItem } from '@/services/dispatchService';
 import dispatchService from '@/services/dispatchService';
 
@@ -52,22 +52,13 @@ const DispatchBarcodeScanModal: React.FC<DispatchBarcodeScanModalProps> = ({
     if (isOpen && dispatch.items) {
       // Load scanning progress for all items
       loadAllScanProgress();
-    }
-  }, [isOpen, dispatch]);
-
-  useEffect(() => {
-    if (isOpen && dispatch.items && Object.keys(scanProgress).length > 0) {
-      // Auto-select first incomplete item after progress loads
-      const firstIncomplete = dispatch.items.find(item => {
-        const progress = scanProgress[item.id];
-        return !progress || progress.remaining_count > 0;
-      });
       
-      if (firstIncomplete && !selectedItem) {
-        setSelectedItem(firstIncomplete);
+      // Auto-select first item
+      if (dispatch.items.length > 0 && !selectedItem) {
+        setSelectedItem(dispatch.items[0]);
       }
     }
-  }, [isOpen, dispatch, scanProgress]);
+  }, [isOpen, dispatch]);
 
   useEffect(() => {
     if (isOpen && selectedItem) {
@@ -136,51 +127,24 @@ const DispatchBarcodeScanModal: React.FC<DispatchBarcodeScanModalProps> = ({
       }
 
       // Show success message
-      setSuccess(response.message);
+      setSuccess(response.message || 'Barcode scanned successfully!');
       setBarcodeInput('');
 
       // Reload scan progress
       await loadItemScanProgress(selectedItem.id);
 
-      // Check if all items are complete
-      const allComplete = await checkAllItemsComplete();
-      
-      if (allComplete) {
-        setSuccess('🎉 All items scanned! You can now close this modal and mark the dispatch as delivered.');
-        // Don't auto-close, let user review and close manually
-      } else {
-        // Auto-select next incomplete item
-        const nextIncomplete = dispatch.items?.find(item => {
-          const progress = scanProgress[item.id];
-          return item.id !== selectedItem.id && (!progress || progress.remaining_count > 0);
-        });
-        
-        if (nextIncomplete) {
-          setSelectedItem(nextIncomplete);
-        }
-      }
-
-      // Clear success message after 3 seconds
-      setTimeout(() => setSuccess(''), 3000);
+      // Clear success message after 2 seconds
+      setTimeout(() => setSuccess(''), 2000);
 
     } catch (error: any) {
       setError(error.response?.data?.message || error.message || 'Failed to scan barcode');
+      
+      // Clear error after 3 seconds
+      setTimeout(() => setError(''), 3000);
     } finally {
       setScanning(false);
       barcodeInputRef.current?.focus();
     }
-  };
-
-  const checkAllItemsComplete = async () => {
-    if (!dispatch.items) return false;
-
-    // Reload all progress to ensure we have latest data
-    await loadAllScanProgress();
-
-    return dispatch.items.every(item => {
-      const progress = scanProgress[item.id];
-      return progress && progress.remaining_count === 0;
-    });
   };
 
   const getItemProgress = (item: DispatchItem) => {
@@ -197,34 +161,27 @@ const DispatchBarcodeScanModal: React.FC<DispatchBarcodeScanModalProps> = ({
     return {
       scanned: progress.scanned_count,
       total: progress.required_quantity,
-      percentage: (progress.scanned_count / progress.required_quantity) * 100,
+      percentage: progress.required_quantity > 0 ? (progress.scanned_count / progress.required_quantity) * 100 : 0,
       isComplete: progress.remaining_count === 0,
     };
   };
 
-  const getTotalProgress = () => {
-    if (!dispatch.items) return { scanned: 0, total: 0, percentage: 0 };
+  const getTotalScanned = () => {
+    if (!dispatch.items) return 0;
 
-    let totalScanned = 0;
-    let totalRequired = 0;
-
+    let total = 0;
     dispatch.items.forEach(item => {
-      const itemProgress = getItemProgress(item);
-      totalScanned += itemProgress.scanned;
-      totalRequired += itemProgress.total;
+      const progress = getItemProgress(item);
+      total += progress.scanned;
     });
 
-    return {
-      scanned: totalScanned,
-      total: totalRequired,
-      percentage: totalRequired > 0 ? (totalScanned / totalRequired) * 100 : 0,
-    };
+    return total;
   };
 
   if (!isOpen) return null;
 
-  const totalProgress = getTotalProgress();
   const currentItemProgress = selectedItem ? getItemProgress(selectedItem) : null;
+  const totalScanned = getTotalScanned();
 
   return (
     <div className="fixed inset-0 bg-gray-900 bg-opacity-50 z-50 flex items-center justify-center p-4">
@@ -233,8 +190,11 @@ const DispatchBarcodeScanModal: React.FC<DispatchBarcodeScanModalProps> = ({
         <div className="p-6 border-b border-gray-200 dark:border-gray-700">
           <div className="flex items-center justify-between">
             <div>
-              <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
-                Scan Barcodes for Delivery
+              <h2 className="text-xl font-semibold text-gray-900 dark:text-white flex items-center gap-2">
+                Barcode Verification (Optional)
+                <span className="px-2 py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 text-xs rounded font-normal">
+                  Optional
+                </span>
               </h2>
               <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
                 Dispatch: {dispatch.dispatch_number}
@@ -249,27 +209,21 @@ const DispatchBarcodeScanModal: React.FC<DispatchBarcodeScanModalProps> = ({
                 onClose();
               }}
               className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded"
-              title="Close and refresh"
+              title="Close"
             >
               <X className="w-5 h-5 text-gray-500 dark:text-gray-400" />
             </button>
           </div>
 
-          {/* Overall Progress */}
-          <div className="mt-4">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                Overall Progress
-              </span>
-              <span className="text-sm text-gray-600 dark:text-gray-400">
-                {totalProgress.scanned} / {totalProgress.total} items scanned
-              </span>
-            </div>
-            <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-3">
-              <div
-                className="bg-blue-600 h-3 rounded-full transition-all duration-300"
-                style={{ width: `${totalProgress.percentage}%` }}
-              />
+          {/* Info Banner */}
+          <div className="mt-4 p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
+            <div className="flex items-start gap-2">
+              <Info className="w-5 h-5 text-blue-600 dark:text-blue-400 flex-shrink-0 mt-0.5" />
+              <div className="text-sm text-blue-900 dark:text-blue-300">
+                <strong>Note:</strong> Scanning barcodes is optional for verification purposes. 
+                You can mark the dispatch as delivered without scanning all items.
+                {totalScanned > 0 && ` (${totalScanned} items scanned so far)`}
+              </div>
             </div>
           </div>
         </div>
@@ -301,27 +255,29 @@ const DispatchBarcodeScanModal: React.FC<DispatchBarcodeScanModalProps> = ({
                           {item.product.name}
                         </div>
                         <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                          SKU: {item.product.sku}
+                          SKU: {item.product.sku} | Qty: {item.quantity}
                         </div>
                       </div>
-                      {progress.isComplete && (
-                        <CheckCircle className="w-5 h-5 text-green-500 flex-shrink-0" />
+                      {progress.scanned > 0 && (
+                        <span className="px-2 py-1 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 text-xs rounded">
+                          {progress.scanned} scanned
+                        </span>
                       )}
                     </div>
 
-                    <div className="flex items-center gap-2">
-                      <div className="flex-1 bg-gray-200 dark:bg-gray-700 rounded-full h-2">
-                        <div
-                          className={`h-2 rounded-full transition-all duration-300 ${
-                            progress.isComplete ? 'bg-green-500' : 'bg-blue-500'
-                          }`}
-                          style={{ width: `${progress.percentage}%` }}
-                        />
+                    {progress.scanned > 0 && (
+                      <div className="flex items-center gap-2">
+                        <div className="flex-1 bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+                          <div
+                            className="bg-green-500 h-2 rounded-full transition-all duration-300"
+                            style={{ width: `${progress.percentage}%` }}
+                          />
+                        </div>
+                        <span className="text-xs text-gray-600 dark:text-gray-400 whitespace-nowrap">
+                          {progress.scanned}/{progress.total}
+                        </span>
                       </div>
-                      <span className="text-xs text-gray-600 dark:text-gray-400 whitespace-nowrap">
-                        {progress.scanned}/{progress.total}
-                      </span>
-                    </div>
+                    )}
                   </button>
                 );
               })}
@@ -343,24 +299,25 @@ const DispatchBarcodeScanModal: React.FC<DispatchBarcodeScanModalProps> = ({
                       <p className="text-sm text-gray-600 dark:text-gray-400">
                         SKU: {selectedItem.product.sku} | Batch: {selectedItem.batch.batch_number}
                       </p>
+                      <p className="text-sm text-gray-600 dark:text-gray-400">
+                        Expected Quantity: {selectedItem.quantity}
+                      </p>
                     </div>
                   </div>
 
-                  {currentItemProgress && (
+                  {currentItemProgress && currentItemProgress.scanned > 0 && (
                     <div>
                       <div className="flex items-center justify-between mb-2">
                         <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                          Scanning Progress
+                          Scanned
                         </span>
                         <span className="text-sm text-gray-600 dark:text-gray-400">
-                          {currentItemProgress.scanned} / {currentItemProgress.total} scanned
+                          {currentItemProgress.scanned} / {currentItemProgress.total}
                         </span>
                       </div>
                       <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-3">
                         <div
-                          className={`h-3 rounded-full transition-all duration-300 ${
-                            currentItemProgress.isComplete ? 'bg-green-500' : 'bg-blue-600'
-                          }`}
+                          className="bg-green-500 h-3 rounded-full transition-all duration-300"
                           style={{ width: `${currentItemProgress.percentage}%` }}
                         />
                       </div>
@@ -382,26 +339,19 @@ const DispatchBarcodeScanModal: React.FC<DispatchBarcodeScanModalProps> = ({
                         value={barcodeInput}
                         onChange={(e) => setBarcodeInput(e.target.value)}
                         placeholder="Scan or type barcode..."
-                        disabled={scanning || currentItemProgress?.isComplete}
-                        className="w-full pl-10 pr-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white disabled:opacity-50 disabled:cursor-not-allowed"
+                        disabled={scanning}
+                        className="w-full pl-10 pr-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white disabled:opacity-50"
                         autoComplete="off"
                       />
                     </div>
                     <button
                       type="submit"
-                      disabled={scanning || !barcodeInput.trim() || currentItemProgress?.isComplete}
+                      disabled={scanning || !barcodeInput.trim()}
                       className="px-6 py-3 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white rounded-lg font-medium transition-colors disabled:cursor-not-allowed"
                     >
                       {scanning ? 'Scanning...' : 'Scan'}
                     </button>
                   </div>
-
-                  {currentItemProgress?.isComplete && (
-                    <p className="mt-2 text-sm text-green-600 dark:text-green-400 flex items-center gap-2">
-                      <CheckCircle className="w-4 h-4" />
-                      All barcodes for this item have been scanned
-                    </p>
-                  )}
                 </form>
 
                 {/* Success/Error Messages */}
@@ -487,23 +437,22 @@ const DispatchBarcodeScanModal: React.FC<DispatchBarcodeScanModalProps> = ({
         <div className="p-6 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
           <div className="flex items-center justify-between">
             <div className="text-sm text-gray-600 dark:text-gray-400">
-              {totalProgress.percentage === 100 ? (
-                <span className="text-green-600 dark:text-green-400 font-medium flex items-center gap-2">
-                  <CheckCircle className="w-5 h-5" />
-                  All items scanned - Ready to mark as delivered
+              {totalScanned > 0 ? (
+                <span className="text-green-600 dark:text-green-400 font-medium">
+                  {totalScanned} items scanned for verification
                 </span>
               ) : (
                 <span>
-                  Scan all barcodes to complete delivery verification ({totalProgress.scanned}/{totalProgress.total})
+                  Scan items for optional verification
                 </span>
               )}
             </div>
             <div className="flex gap-3">
-              {totalProgress.percentage === 100 && onMarkDelivered && (
+              {onMarkDelivered && (
                 <button
                   onClick={() => {
-                    onMarkDelivered(); // Trigger mark delivered
-                    onClose(); // Then close modal
+                    onMarkDelivered();
+                    onClose();
                   }}
                   className="px-6 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg font-medium transition-colors flex items-center gap-2"
                 >
@@ -513,12 +462,12 @@ const DispatchBarcodeScanModal: React.FC<DispatchBarcodeScanModalProps> = ({
               )}
               <button
                 onClick={() => {
-                  onComplete(); // Refresh parent data
+                  onComplete();
                   onClose();
                 }}
                 className="px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
               >
-                {totalProgress.percentage === 100 ? 'Close' : 'Close & Continue Later'}
+                Close
               </button>
             </div>
           </div>
