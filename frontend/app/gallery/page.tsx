@@ -59,99 +59,122 @@ export default function GalleryPage() {
     return `/api/proxy-image?url=${encodeURIComponent(imageUrl)}`;
   };
 
-  const fetchInventoryData = async () => {
-    try {
-      setLoading(true);
-      
-      const [inventoryResponse, storesResponse] = await Promise.all([
-        inventoryService.getGlobalInventory(),
-        storeService.getStores({ per_page: 1000 })
-      ]);
-      
-      if (inventoryResponse.success && inventoryResponse.data) {
-        const storeMap = new Map();
-        if (storesResponse.success && storesResponse.data) {
-          const stores = Array.isArray(storesResponse.data) 
-            ? storesResponse.data 
-            : storesResponse.data.data || [];
-            
-          stores.forEach((store: any) => {
-            storeMap.set(store.id, {
-              is_online: store.is_online,
-              is_warehouse: store.is_warehouse,
-            });
-          });
+const fetchInventoryData = async () => {
+  try {
+    setLoading(true);
+
+    const [inventoryResponse, storesResponse] = await Promise.all([
+      inventoryService.getGlobalInventory(),
+      storeService.getStores({ per_page: 1000 })
+    ]);
+
+    if (!inventoryResponse.success || !inventoryResponse.data) {
+      setError('Failed to load inventory data');
+      return;
+    }
+
+    const inventoryItems = inventoryResponse.data;
+
+    // Build store map for online/offline detection
+    const storeMap = new Map<number, { is_online: boolean; is_warehouse: boolean }>();
+    if (storesResponse.success && storesResponse.data) {
+      const stores = Array.isArray(storesResponse.data)
+        ? storesResponse.data
+        : storesResponse.data.data || [];
+
+      stores.forEach((store: any) => {
+        storeMap.set(store.id, {
+          is_online: !!store.is_online,
+          is_warehouse: !!store.is_warehouse,
+        });
+      });
+    }
+
+    // Filter products with stock > 0 (or remove this filter if you want to show out-of-stock too)
+    const productsWithStock = inventoryItems.filter(item => item.total_quantity > 0);
+
+    if (productsWithStock.length === 0) {
+      setProducts([]);
+      setError(null);
+      return;
+    }
+
+    // Parallel fetch images only for products that have stock
+    const processedProducts = await Promise.all(
+      productsWithStock.map(async (item: GlobalInventoryItem) => {
+        let imageUrls: string[] = [];
+
+        try {
+          const images = await productImageService.getProductImages(item.product_id);
+
+          const baseUrl = process.env.NEXT_PUBLIC_API_URL?.replace('/api', '') || '';
+
+          imageUrls = images
+            .filter(img => img.is_active)
+            .sort((a, b) => {
+              if (a.is_primary && !b.is_primary) return -1;
+              if (!a.is_primary && b.is_primary) return 1;
+              return (a.sort_order || 0) - (b.sort_order || 0);
+            })
+            .map(img => {
+              const url = img.image_url || img.image_path;
+              if (!url) return null;
+
+              if (url.startsWith('http')) return url;
+              if (url.startsWith('/storage')) return `${baseUrl}${url}`;
+              return `${baseUrl}/storage/product-images/${url}`;
+            })
+            .filter(Boolean) as string[];
+
+          // Fallback: if no active images, use placeholder
+          if (imageUrls.length === 0) {
+            imageUrls = ['/placeholder-image.jpg'];
+          }
+        } catch (err) {
+          console.warn(`Failed to load images for product ${item.product_id} (${item.sku})`, err);
+          imageUrls = ['/placeholder-image.jpg']; // Graceful fallback
         }
 
-        const processedProducts = await Promise.all(
-          inventoryResponse.data.map(async (item: GlobalInventoryItem) => {
-            const images = await productImageService.getProductImages(item.product_id);
-            
-            const baseUrl = process.env.NEXT_PUBLIC_API_URL?.replace('/api', '') || '';
-            const imageUrls = images
-              .filter(img => img.is_active)
-              .sort((a, b) => {
-                if (a.is_primary && !b.is_primary) return -1;
-                if (!a.is_primary && b.is_primary) return 1;
-                return a.sort_order - b.sort_order;
-              })
-              .map(img => {
-                const imageUrl = img.image_url || img.image_path;
-                if (!imageUrl) return null;
-                
-                if (imageUrl.startsWith('http://') || imageUrl.startsWith('https://')) {
-                  return imageUrl;
-                }
-                
-                if (imageUrl.startsWith('/storage')) {
-                  return `${baseUrl}${imageUrl}`;
-                }
-                
-                return `${baseUrl}/storage/product-images/${imageUrl}`;
-              })
-              .filter(url => url !== null) as string[];
+        // Calculate online/offline quantities
+        let online_quantity = 0;
+        let offline_quantity = 0;
+        let is_available_online = false;
 
-            let online_quantity = 0;
-            let offline_quantity = 0;
-            let is_available_online = false;
+        item.stores.forEach(store => {
+          const storeInfo = storeMap.get(store.store_id);
+          if (storeInfo?.is_online) {
+            online_quantity += store.quantity;
+            if (store.quantity > 0) is_available_online = true;
+          } else {
+            offline_quantity += store.quantity;
+          }
+        });
 
-            item.stores.forEach(store => {
-              const storeDetails = storeMap.get(store.store_id);
-              
-              if (storeDetails && storeDetails.is_online) {
-                online_quantity += store.quantity;
-                is_available_online = true;
-              } else {
-                offline_quantity += store.quantity;
-              }
-            });
+        return {
+          product_id: item.product_id,
+          product_name: item.product_name,
+          sku: item.sku,
+          total_quantity: item.total_quantity,
+          online_quantity,
+          offline_quantity,
+          warehouse_quantity: 0, // You can enhance this later if needed
+          stores_count: item.stores_count,
+          is_available_online,
+          images: imageUrls,
+          stores: item.stores,
+        };
+      })
+    );
 
-            return {
-              product_id: item.product_id,
-              product_name: item.product_name,
-              sku: item.sku,
-              total_quantity: item.total_quantity,
-              online_quantity,
-              offline_quantity,
-              warehouse_quantity: 0,
-              stores_count: item.stores_count,
-              is_available_online,
-              images: imageUrls.length > 0 ? imageUrls : ['/placeholder-image.jpg'],
-              stores: item.stores,
-            };
-          })
-        );
-
-        setProducts(processedProducts);
-        setError(null);
-      }
-    } catch (err) {
-      console.error('Error fetching inventory:', err);
-      setError(err instanceof Error ? err.message : 'Failed to load inventory data');
-    } finally {
-      setLoading(false);
-    }
-  };
+    setProducts(processedProducts);
+    setError(null);
+  } catch (err) {
+    console.error('Error fetching inventory:', err);
+    setError(err instanceof Error ? err.message : 'Failed to load gallery data');
+  } finally {
+    setLoading(false);
+  }
+};
 
   const openLightbox = (image: string, productName: string, images: string[], index: number) => {
     setLightboxImage(image);

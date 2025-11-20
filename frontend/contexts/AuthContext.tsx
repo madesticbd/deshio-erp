@@ -25,37 +25,34 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const router = useRouter();
   const pathname = usePathname();
 
-  // Check if user is authenticated on mount
+  // Check if user is authenticated on mount and initialize token refresh
   useEffect(() => {
     checkAuth();
+    // Initialize token refresh timer if user has valid session
+    authService.initializeTokenRefresh();
   }, []);
 
-  // Token refresh interval
+  // Monitor token validity and redirect if expired
   useEffect(() => {
-    // Public routes that don't need token refresh
+    // Public routes that don't need authentication
     const publicRoutes = ['/login', '/signup', '/forgot-password'];
     const isPublicRoute = publicRoutes.some(route => pathname?.startsWith(route));
 
-    // Don't run token refresh on public routes or if not authenticated
-    if (isPublicRoute || !authService.isAuthenticated()) {
+    // Skip checks on public routes or during initial load
+    if (isPublicRoute || isLoading) {
       return;
     }
 
-    // Refresh token every 50 minutes (assuming 60min expiry)
-    const interval = setInterval(async () => {
-      try {
-        await authService.refreshToken();
-        console.log('Token refreshed successfully');
-      } catch (error) {
-        console.error('Token refresh failed:', error);
-        // If refresh fails, logout user
-        await logout();
+    // Check token validity periodically (every 30 seconds)
+    const interval = setInterval(() => {
+      if (!authService.isAuthenticated() && user) {
+        console.log('⏰ Token expired, logging out');
+        logout();
       }
-    }, 50 * 60 * 1000); // 50 minutes
+    }, 30000); // Check every 30 seconds
 
-    // Cleanup interval on unmount
     return () => clearInterval(interval);
-  }, [pathname, user]);
+  }, [pathname, user, isLoading]);
 
   const checkAuth = async () => {
     try {
@@ -63,10 +60,13 @@ export function AuthProvider({ children }: AuthProviderProps) {
         const employee = await authService.getCurrentUser();
         setUser(employee);
         authService.setUserData(employee);
+      } else {
+        // Token is expired or invalid
+        authService.clearAuth();
+        setUser(null);
       }
     } catch (error) {
       console.error('Auth check failed:', error);
-      // Token might be expired or invalid
       authService.clearAuth();
       setUser(null);
     } finally {
@@ -76,11 +76,12 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
   const login = async (credentials: LoginCredentials) => {
     try {
-      const response = await authService.login(credentials);
+      // Login handles token storage and auto-refresh setup
+      await authService.login(credentials);
       const employee = await authService.getCurrentUser();
       setUser(employee);
-      authService.setUserData(employee);
     } catch (error) {
+      console.error('Login failed:', error);
       throw error;
     }
   };

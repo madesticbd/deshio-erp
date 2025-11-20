@@ -12,7 +12,8 @@ export interface CreateOrderPayload {
   store_id: number;
   salesman_id?: number;
   items: Array<{
-    barcode?: string; // Single barcode for create
+    barcode?: string;
+    barcode_id?: number; // ✅ ADD THIS
     product_id: number;
     batch_id: number;
     quantity: number;
@@ -60,6 +61,7 @@ export interface OrderItem {
   discount_amount: string;
   tax_amount: string;
   total_amount: string;
+  shipping_amount: string;
 }
 
 export interface OrderPayment {

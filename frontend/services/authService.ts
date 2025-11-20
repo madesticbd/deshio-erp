@@ -52,15 +52,17 @@ export interface Employee {
 }
 
 class AuthService {
+  private refreshTimer: NodeJS.Timeout | null = null;
+
   /**
    * Login user with email and password
    */
   async login(credentials: LoginCredentials): Promise<AuthResponse> {
     const response = await axiosInstance.post<AuthResponse>('/login', credentials);
     
-    // Store token in localStorage
+    // Store token and setup auto-refresh
     if (response.data.access_token) {
-      this.setAuthToken(response.data.access_token);
+      this.setAuthToken(response.data.access_token, response.data.expires_in);
       
       // Fetch and store user data after login
       try {
@@ -68,7 +70,6 @@ class AuthService {
         this.setUserData(user);
       } catch (error) {
         console.error('Failed to fetch user data:', error);
-        // Clear token if we can't fetch user data
         this.clearAuth();
         throw error;
       }
@@ -83,11 +84,10 @@ class AuthService {
   async signup(data: SignupData): Promise<SignupResponse> {
     const response = await axiosInstance.post<SignupResponse>('/signup', data);
     
-    // Store token and user data in localStorage
+    // Store token, user data, and setup auto-refresh
     if (response.data.access_token) {
-      this.setAuthToken(response.data.access_token);
+      this.setAuthToken(response.data.access_token, response.data.expires_in);
       
-      // Store employee data from signup response
       if (response.data.employee) {
         this.setUserData(response.data.employee);
       }
@@ -112,6 +112,7 @@ class AuthService {
       await axiosInstance.post('/logout');
     } finally {
       this.clearAuth();
+      this.clearRefreshTimer();
     }
   }
 
@@ -119,21 +120,70 @@ class AuthService {
    * Refresh authentication token
    */
   async refreshToken(): Promise<AuthResponse> {
-    const response = await axiosInstance.post<AuthResponse>('/refresh');
-    
-    if (response.data.access_token) {
-      this.setAuthToken(response.data.access_token);
+    try {
+      const response = await axiosInstance.post<AuthResponse>('/refresh');
+      
+      if (response.data.access_token) {
+        this.setAuthToken(response.data.access_token, response.data.expires_in);
+      }
+      
+      return response.data;
+    } catch (error) {
+      console.error('Token refresh failed:', error);
+      this.clearAuth();
+      throw error;
     }
-    
-    return response.data;
   }
 
   /**
-   * Set authentication token
+   * Set authentication token and setup auto-refresh
    */
-  setAuthToken(token: string): void {
+  setAuthToken(token: string, expiresIn?: number): void {
     if (typeof window !== 'undefined') {
       localStorage.setItem('authToken', token);
+      
+      if (expiresIn) {
+        // Store expiration timestamp
+        const expiresAt = Date.now() + (expiresIn * 1000);
+        localStorage.setItem('tokenExpiresAt', expiresAt.toString());
+        
+        // Setup auto-refresh
+        this.scheduleTokenRefresh(expiresIn);
+      }
+    }
+  }
+
+  /**
+   * Schedule automatic token refresh
+   * Refreshes 5 minutes before expiration
+   */
+  private scheduleTokenRefresh(expiresIn: number): void {
+    // Clear any existing timer
+    this.clearRefreshTimer();
+
+    // Refresh 5 minutes (300 seconds) before token expires
+    // Minimum 1 minute to avoid issues with very short tokens
+    const refreshTime = Math.max((expiresIn - 300) * 1000, 60000);
+    
+    console.log(`Token will auto-refresh in ${(refreshTime / 1000 / 60).toFixed(1)} minutes`);
+
+    this.refreshTimer = setTimeout(async () => {
+      try {
+        await this.refreshToken();
+        console.log('✅ Token auto-refreshed successfully');
+      } catch (error) {
+        console.error('❌ Auto token refresh failed:', error);
+      }
+    }, refreshTime);
+  }
+
+  /**
+   * Clear refresh timer
+   */
+  private clearRefreshTimer(): void {
+    if (this.refreshTimer) {
+      clearTimeout(this.refreshTimer);
+      this.refreshTimer = null;
     }
   }
 
@@ -148,10 +198,26 @@ class AuthService {
   }
 
   /**
+   * Check if token is still valid based on expiration time
+   */
+  isTokenValid(): boolean {
+    if (typeof window === 'undefined') return false;
+    
+    const expiresAt = localStorage.getItem('tokenExpiresAt');
+    if (!expiresAt) {
+      // If no expiration stored but token exists, assume it's valid
+      // This handles backward compatibility
+      return !!this.getAuthToken();
+    }
+    
+    return Date.now() < parseInt(expiresAt);
+  }
+
+  /**
    * Check if user is authenticated
    */
   isAuthenticated(): boolean {
-    return !!this.getAuthToken();
+    return !!this.getAuthToken() && this.isTokenValid();
   }
 
   /**
@@ -160,6 +226,7 @@ class AuthService {
   clearAuth(): void {
     if (typeof window !== 'undefined') {
       localStorage.removeItem('authToken');
+      localStorage.removeItem('tokenExpiresAt');
       localStorage.removeItem('userRole');
       localStorage.removeItem('userId');
       localStorage.removeItem('userName');
@@ -168,6 +235,7 @@ class AuthService {
       localStorage.removeItem('storeName');
       localStorage.removeItem('platforms');
     }
+    this.clearRefreshTimer();
   }
 
   /**
@@ -183,6 +251,30 @@ class AuthService {
       if (employee.store_id) {
         localStorage.setItem('storeId', employee.store_id);
       }
+    }
+  }
+
+  /**
+   * Initialize token refresh on app load
+   * Call this when the app starts to restore session
+   */
+  initializeTokenRefresh(): void {
+    if (typeof window === 'undefined') return;
+
+    const token = this.getAuthToken();
+    const expiresAt = localStorage.getItem('tokenExpiresAt');
+    
+    if (!token || !expiresAt) return;
+
+    const timeLeft = parseInt(expiresAt) - Date.now();
+    
+    if (timeLeft > 0) {
+      const expiresInSeconds = Math.floor(timeLeft / 1000);
+      this.scheduleTokenRefresh(expiresInSeconds);
+      console.log('🔄 Token refresh timer restored from session');
+    } else {
+      console.log('⏰ Token expired, clearing auth');
+      this.clearAuth();
     }
   }
 }
