@@ -1,844 +1,1045 @@
-'use client';
+"use client";
 
-import { useState, useEffect } from 'react';
-import { FileText, BookOpen, TrendingUp, Download, Search, RefreshCw } from 'lucide-react';
-import Header from '@/components/Header';
-import Sidebar from '@/components/Sidebar';
-import accountingService, {
-  Account,
-  Transaction,
-  TrialBalanceData,
-  LedgerData,
-  JournalEntry,
-  JournalEntryLine
-} from '@/services/accountingService';
+import React, { useState, useEffect } from "react";
+import {
+  ArrowUpRight,
+  ArrowDownRight,
+  ShoppingBag,
+  LineChart,
+  Wallet2,
+  Store,
+  Globe2,
+  Bell,
+  Clock,
+  Package,
+  Truck,
+  CheckCircle2,
+  RotateCcw,
+  MapPin,
+  RefreshCw,
+  AlertTriangle,
+} from "lucide-react";
+import axios from "axios";
+import Header from "@/components/Header";
+import Sidebar from "@/components/Sidebar";
 
-export default function AccountingSystem() {
+// Create axios instance with proper configuration
+const axiosInstance = axios.create({
+  baseURL: process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api",
+  headers: {
+    "Content-Type": "application/json",
+    Accept: "application/json",
+  },
+});
+
+// Request interceptor to add auth token
+axiosInstance.interceptors.request.use(
+  (config) => {
+    if (typeof window !== "undefined") {
+      const token = localStorage.getItem("authToken"); // make sure login sets this
+      if (token) {
+        config.headers.Authorization = `Bearer ${token}`;
+      }
+    }
+    return config;
+  },
+  (error) => {
+    return Promise.reject(error);
+  }
+);
+
+// Response interceptor to handle errors
+axiosInstance.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.response?.status === 401) {
+      if (typeof window !== "undefined") {
+        localStorage.clear();
+        window.location.href = "/login";
+      }
+    }
+    return Promise.reject(error);
+  }
+);
+
+interface DashboardData {
+  todayMetrics: any;
+  last30Days: any;
+  salesByChannel: any;
+  topStores: any;
+  topProducts: any;
+  slowMoving: any;
+  lowStock: any;
+  inventoryAge: any;
+  operations: any;
+}
+
+export default function FounderDashboard() {
   const [darkMode, setDarkMode] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState('journal');
-  const [dateRange, setDateRange] = useState({ 
-    start: new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0],
-    end: new Date().toISOString().split('T')[0]
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
+  const [data, setData] = useState<DashboardData>({
+    todayMetrics: null,
+    last30Days: null,
+    salesByChannel: null,
+    topStores: null,
+    topProducts: null,
+    slowMoving: null,
+    lowStock: null,
+    inventoryAge: null,
+    operations: null,
   });
-  const [searchTerm, setSearchTerm] = useState('');
-  const [loading, setLoading] = useState(false);
-  
-  // State for accounting data
-  const [journalEntries, setJournalEntries] = useState<JournalEntry[]>([]);
-  const [transactions, setTransactions] = useState<Transaction[]>([]);
-  const [trialBalance, setTrialBalance] = useState<TrialBalanceData | null>(null);
-  const [accounts, setAccounts] = useState<Account[]>([]);
-  const [selectedAccount, setSelectedAccount] = useState<number | null>(null);
-  const [ledgerData, setLedgerData] = useState<LedgerData | null>(null);
 
+  const [timeFilter, setTimeFilter] = useState<"today" | "week" | "month">(
+    "today"
+  );
+  const [branchFilter, setBranchFilter] = useState("all");
+
+  // Apply dark mode on mount
   useEffect(() => {
-    fetchInitialData();
+    const savedDarkMode = localStorage.getItem("darkMode") === "true";
+    setDarkMode(savedDarkMode);
   }, []);
 
+  // Update dark mode in localStorage when it changes
   useEffect(() => {
-    if (activeTab === 'journal') {
-      fetchJournalEntries();
-    } else if (activeTab === 'trial-balance') {
-      fetchTrialBalance();
-    } else if (activeTab === 'transactions') {
-      fetchTransactions();
-    }
-  }, [activeTab, dateRange]);
+    localStorage.setItem("darkMode", darkMode.toString());
+  }, [darkMode]);
 
-  useEffect(() => {
-    if (selectedAccount && activeTab === 'ledger') {
-      fetchLedger(selectedAccount);
-    }
-  }, [selectedAccount, dateRange]);
-
-  const fetchInitialData = async () => {
+  const fetchDashboardData = async () => {
     try {
       setLoading(true);
-      
-      // Fetch accounts using service
-      const accountsRes = await accountingService.accounts.getAccounts();
-      if (accountsRes.success) {
-        const accountsData = Array.isArray(accountsRes.data) 
-          ? accountsRes.data 
-          : accountsRes.data?.data || [];
-        setAccounts(accountsData);
-        console.log('✅ Loaded accounts:', accountsData.length);
+      setError(null);
+
+      // Common params for store filtering
+      const commonParams =
+        branchFilter !== "all" ? { store_id: branchFilter } : {};
+
+      // Fetch each endpoint individually with error handling
+      const fetchEndpoint = async (endpoint: string, params?: any) => {
+        try {
+          const response = await axiosInstance.get(endpoint, {
+            params: { ...commonParams, ...(params || {}) },
+          });
+          return response.data.data;
+        } catch (error: any) {
+          console.error(
+            `Error fetching ${endpoint}:`,
+            error.response?.data || error.message
+          );
+          return null;
+        }
+      };
+
+      // Fetch all dashboard data in parallel
+      const [
+        todayMetrics,
+        last30Days,
+        salesByChannel,
+        topStores,
+        topProducts,
+        slowMoving,
+        lowStock,
+        inventoryAge,
+        operations,
+      ] = await Promise.all([
+        fetchEndpoint("/dashboard/today-metrics"),
+        fetchEndpoint("/dashboard/last-30-days-sales"),
+        fetchEndpoint("/dashboard/sales-by-channel", { period: timeFilter }),
+        fetchEndpoint("/dashboard/top-stores", {
+          period: timeFilter,
+          limit: 10,
+        }),
+        fetchEndpoint("/dashboard/today-top-products", { limit: 5 }),
+        fetchEndpoint("/dashboard/slow-moving-products", {
+          limit: 10,
+          days: 90,
+        }),
+        fetchEndpoint("/dashboard/low-stock-products", { threshold: 10 }),
+        fetchEndpoint("/dashboard/inventory-age-by-value"),
+        fetchEndpoint("/dashboard/operations-today"),
+      ]);
+
+      setData({
+        todayMetrics,
+        last30Days,
+        salesByChannel,
+        topStores,
+        topProducts,
+        slowMoving,
+        lowStock,
+        inventoryAge,
+        operations,
+      });
+
+      // Check if critical data failed
+      if (!todayMetrics && !last30Days && !salesByChannel) {
+        setError(
+          "Failed to load critical dashboard data. Please check your connection."
+        );
       }
-      
-      // Fetch journal entries by default
-      await fetchJournalEntries();
-      
-    } catch (error: any) {
-      console.error('Error fetching initial data:', error);
-      alert(error.response?.data?.message || 'Failed to fetch accounting data');
+    } catch (err: any) {
+      console.error("Error fetching dashboard data:", err);
+      setError(err.response?.data?.message || "Failed to load dashboard data");
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
   };
 
-const fetchJournalEntries = async () => {
-  try {
-    setLoading(true);
-    
-    const response = await accountingService.reports.getJournalEntries({
-      date_from: dateRange.start,
-      date_to: dateRange.end,
-    });
-    
-    if (response.success) {
-      console.log('🔍 RAW TRANSACTIONS FROM BACKEND:', response);
-      
-      // Sort by date descending (most recent first)
-      const sortedEntries = response.data.sort((a: JournalEntry, b: JournalEntry) => 
-        new Date(b.date).getTime() - new Date(a.date).getTime()
-      );
-      
-      console.log('📝 GROUPED JOURNAL ENTRIES:', sortedEntries);
-      
-      setJournalEntries(sortedEntries);
-      console.log('✅ Loaded journal entries:', sortedEntries.length);
-    }
-  } catch (error: any) {
-    console.error('Error fetching journal entries:', error);
-    alert(error.response?.data?.message || 'Failed to fetch journal entries');
-  } finally {
-    setLoading(false);
+  useEffect(() => {
+    fetchDashboardData();
+  }, [timeFilter, branchFilter]);
+
+  const handleRefresh = () => {
+    setRefreshing(true);
+    fetchDashboardData();
+  };
+
+  const formatCurrency = (amount: number) => {
+    if (!amount && amount !== 0) return "৳ 0";
+    return `৳ ${amount.toLocaleString("en-BD")}`;
+  };
+
+  const formatPercentage = (value: number) => {
+    if (!value && value !== 0) return "0%";
+    return `${value.toFixed(1)}%`;
+  };
+
+  // Loading state
+  if (loading && !data.todayMetrics) {
+    return (
+      <div className={darkMode ? "dark" : ""}>
+        <div className="flex h-screen bg-gray-50 dark:bg-gray-900">
+          <Sidebar isOpen={sidebarOpen} setIsOpen={setSidebarOpen} />
+          <div className="flex-1 flex flex-col overflow-hidden">
+            <Header
+              darkMode={darkMode}
+              setDarkMode={setDarkMode}
+              toggleSidebar={() => setSidebarOpen(!sidebarOpen)}
+            />
+            <main className="flex-1 overflow-auto p-6 flex items-center justify-center">
+              <div className="text-center">
+                <RefreshCw className="w-12 h-12 animate-spin mx-auto mb-4 text-blue-600" />
+                <p className="text-xl mb-2 text-gray-900 dark:text-white">
+                  Loading Dashboard...
+                </p>
+                <p className="text-sm text-gray-600 dark:text-gray-400">
+                  Connecting to backend...
+                </p>
+              </div>
+            </main>
+          </div>
+        </div>
+      </div>
+    );
   }
-};
 
-  const fetchTrialBalance = async () => {
-    try {
-      setLoading(true);
-      
-      console.log('🔄 Fetching trial balance with date range:', dateRange);
-      
-      const response = await accountingService.reports.getTrialBalance({
-        start_date: dateRange.start,
-        end_date: dateRange.end,
-      });
-      
-      console.log('📊 Trial balance response:', response);
-      
-      if (response.success) {
-        setTrialBalance(response.data);
-        console.log('✅ Trial balance loaded:', {
-          accounts: response.data.accounts.length,
-          total_debits: response.data.summary.total_debits,
-          total_credits: response.data.summary.total_credits,
-          balanced: response.data.summary.balanced
-        });
-      } else {
-        console.error('❌ Trial balance fetch failed:', response);
-        alert('Failed to fetch trial balance');
-      }
-    } catch (error: any) {
-      console.error('❌ Error fetching trial balance:', error);
-      alert(error.response?.data?.message || error.message || 'Failed to fetch trial balance');
-    } finally {
-      setLoading(false);
-    }
-  };
+  // Error state (only if no data at all)
+  if (error && !data.todayMetrics && !data.last30Days) {
+    return (
+      <div className={darkMode ? "dark" : ""}>
+        <div className="flex h-screen bg-gray-50 dark:bg-gray-900">
+          <Sidebar isOpen={sidebarOpen} setIsOpen={setSidebarOpen} />
+          <div className="flex-1 flex flex-col overflow-hidden">
+            <Header
+              darkMode={darkMode}
+              setDarkMode={setDarkMode}
+              toggleSidebar={() => setSidebarOpen(!sidebarOpen)}
+            />
+            <main className="flex-1 overflow-auto p-6 flex items-center justify-center">
+              <div className="text-center max-w-md">
+                <AlertTriangle className="w-12 h-12 text-red-600 mx-auto mb-4" />
+                <p className="text-xl mb-4 text-gray-900 dark:text-white">
+                  Error Loading Dashboard
+                </p>
+                <p className="text-gray-600 dark:text-gray-400 mb-6">
+                  {error}
+                </p>
+                <button
+                  onClick={fetchDashboardData}
+                  className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition"
+                >
+                  Try Again
+                </button>
+              </div>
+            </main>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
-  const fetchTransactions = async () => {
-    try {
-      setLoading(true);
-      
-      const response = await accountingService.transactions.getTransactions({
-        date_from: dateRange.start,
-        date_to: dateRange.end,
-        search: searchTerm || undefined,
-        sort_by: 'transaction_date',
-        sort_order: 'desc',
-        per_page: 1000,
-      });
-      
-      if (response.success) {
-        const txnData = response.data.data || response.data;
-        const txnArray = Array.isArray(txnData) ? txnData : (txnData?.data || []);
-        
-        // Sort by date descending (most recent first)
-        const sortedTransactions = txnArray.sort(
-          (a: Transaction, b: Transaction) => 
-            new Date(b.transaction_date).getTime() - new Date(a.transaction_date).getTime()
-        );
-        setTransactions(sortedTransactions);
-        console.log('✅ Loaded transactions:', sortedTransactions.length);
-      }
-    } catch (error: any) {
-      console.error('Error fetching transactions:', error);
-      alert(error.response?.data?.message || 'Failed to fetch transactions');
-    } finally {
-      setLoading(false);
-    }
-  };
+  const metrics = data.todayMetrics;
+  const sales30Days = data.last30Days;
+  const channels = data.salesByChannel;
+  const operations = data.operations;
+  const inventoryAge = data.inventoryAge;
+  const lowStock = data.lowStock;
+  const topProducts = data.topProducts;
+  const slowMoving = data.slowMoving;
+  const topStoresData = data.topStores;
 
-  const fetchLedger = async (accountId: number) => {
-    try {
-      setLoading(true);
-      
-      const response = await accountingService.reports.getAccountLedger(accountId, {
-        date_from: dateRange.start,
-        date_to: dateRange.end,
-      });
-      
-      if (response.success) {
-        setLedgerData(response.data);
-        console.log('✅ Loaded ledger:', {
-          account: response.data.account.name,
-          transactions: response.data.transactions.length
-        });
-      }
-    } catch (error: any) {
-      console.error('Error fetching ledger:', error);
-      alert(error.response?.data?.message || 'Failed to fetch ledger');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleRefresh = async () => {
-    if (activeTab === 'journal') {
-      await fetchJournalEntries();
-    } else if (activeTab === 'trial-balance') {
-      await fetchTrialBalance();
-    } else if (activeTab === 'transactions') {
-      await fetchTransactions();
-    } else if (activeTab === 'ledger' && selectedAccount) {
-      await fetchLedger(selectedAccount);
-    }
-  };
-
-  const formatCurrency = (amount: number): string => {
-    return new Intl.NumberFormat('en-BD', { 
-      style: 'currency', 
-      currency: 'BDT',
-      minimumFractionDigits: 2 
-    }).format(amount);
-  };
-
-  const formatDate = (date: string | Date): string => {
-    return new Date(date).toLocaleDateString('en-US', { 
-      year: 'numeric', 
-      month: 'short', 
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    });
-  };
-
-  const handleExport = (type: 'journal' | 'trial-balance' | 'transactions' | 'ledger') => {
-    try {
-      if (type === 'journal') {
-        // Convert journal entries to flat format for CSV
-        const flatData = journalEntries.flatMap(entry => 
-          entry.lines.map(line => ({
-            date: entry.date,
-            reference: `${entry.reference_type}-${entry.reference_id}`,
-            description: entry.description,
-            account_code: line.account.account_code,
-            account_name: line.account.name,
-            debit: line.debit,
-            credit: line.credit
-          }))
-        );
-        accountingService.reports.exportTransactionsCSV(flatData as any, 'journal-entries');
-      } else if (type === 'trial-balance' && trialBalance) {
-        accountingService.reports.exportTrialBalanceCSV(
-          trialBalance.accounts,
-          'trial-balance'
-        );
-      } else if (type === 'transactions') {
-        accountingService.reports.exportTransactionsCSV(
-          transactions,
-          'transactions'
-        );
-      } else if (type === 'ledger' && ledgerData) {
-        accountingService.reports.exportLedgerCSV(
-          ledgerData.transactions,
-          ledgerData.account.name,
-          `ledger-${ledgerData.account.account_code}`
-        );
-      }
-    } catch (error) {
-      console.error('Error exporting:', error);
-      alert('Failed to export data');
-    }
-  };
+  // Precompute max sales for chart
+  const maxSales =
+    sales30Days?.daily_sales && sales30Days.daily_sales.length > 0
+      ? Math.max(
+          ...sales30Days.daily_sales.map((d: any) => d.total_sales || 0)
+        )
+      : 0;
 
   return (
-    <div className={darkMode ? 'dark' : ''}>
+    <div className={darkMode ? "dark" : ""}>
       <div className="flex h-screen bg-gray-50 dark:bg-gray-900">
         <Sidebar isOpen={sidebarOpen} setIsOpen={setSidebarOpen} />
         <div className="flex-1 flex flex-col overflow-hidden">
-          <Header 
-            darkMode={darkMode} 
-            setDarkMode={setDarkMode} 
-            toggleSidebar={() => setSidebarOpen(!sidebarOpen)} 
+          <Header
+            darkMode={darkMode}
+            setDarkMode={setDarkMode}
+            toggleSidebar={() => setSidebarOpen(!sidebarOpen)}
           />
-          
-          <main className="flex-1 overflow-auto p-6">
-            <div className="max-w-7xl mx-auto">
-              {/* Header */}
-              <div className="mb-6">
-                <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
-                  Accounting System
-                </h1>
-                <p className="text-gray-600 dark:text-gray-400">
-                  Double-entry bookkeeping with real-time financial reports
-                </p>
+
+          <main className="flex-1 overflow-auto">
+            <div className="min-h-full bg-gradient-to-br from-gray-50 to-gray-100 dark:from-slate-900 dark:via-purple-900 dark:to-slate-900">
+              {/* Background glow - only visible in dark mode */}
+              <div className="pointer-events-none fixed inset-0 -z-10 dark:block hidden">
+                <div className="absolute -top-32 right-10 h-72 w-72 rounded-full bg-fuchsia-500/20 blur-3xl" />
+                <div className="absolute -bottom-32 left-10 h-72 w-72 rounded-full bg-sky-500/20 blur-3xl" />
               </div>
 
-              {/* Tabs */}
-              <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 mb-6">
-                <div className="flex border-b border-gray-200 dark:border-gray-700">
-                  <button
-                    onClick={() => setActiveTab('journal')}
-                    className={`flex items-center gap-2 px-6 py-3 font-medium transition-colors ${
-                      activeTab === 'journal'
-                        ? 'text-blue-600 dark:text-blue-400 border-b-2 border-blue-600 dark:border-blue-400'
-                        : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
-                    }`}
-                  >
-                    <FileText className="w-5 h-5" />
-                    Journal Entries
-                  </button>
-                  <button
-                    onClick={() => setActiveTab('trial-balance')}
-                    className={`flex items-center gap-2 px-6 py-3 font-medium transition-colors ${
-                      activeTab === 'trial-balance'
-                        ? 'text-blue-600 dark:text-blue-400 border-b-2 border-blue-600 dark:border-blue-400'
-                        : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
-                    }`}
-                  >
-                    <TrendingUp className="w-5 h-5" />
-                    Trial Balance
-                  </button>
-                  <button
-                    onClick={() => setActiveTab('transactions')}
-                    className={`flex items-center gap-2 px-6 py-3 font-medium transition-colors ${
-                      activeTab === 'transactions'
-                        ? 'text-blue-600 dark:text-blue-400 border-b-2 border-blue-600 dark:border-blue-400'
-                        : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
-                    }`}
-                  >
-                    <FileText className="w-5 h-5" />
-                    Transactions
-                  </button>
-                  <button
-                    onClick={() => setActiveTab('ledger')}
-                    className={`flex items-center gap-2 px-6 py-3 font-medium transition-colors ${
-                      activeTab === 'ledger'
-                        ? 'text-blue-600 dark:text-blue-400 border-b-2 border-blue-600 dark:border-blue-400'
-                        : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
-                    }`}
-                  >
-                    <BookOpen className="w-5 h-5" />
-                    Account Ledger
-                  </button>
-                </div>
-              </div>
-
-              {/* Filters */}
-              <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4 mb-6">
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300">Filters</h3>
-                  <button 
-                    onClick={handleRefresh}
-                    disabled={loading}
-                    className="flex items-center gap-2 px-3 py-1.5 bg-black hover:bg-gray-900 text-white text-sm rounded-lg transition-colors disabled:opacity-50"
-                  >
-                    <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
-                    Refresh
-                  </button>
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  {activeTab === 'transactions' && (
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                        Search
-                      </label>
-                      <div className="relative">
-                        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
-                        <input
-                          type="text"
-                          value={searchTerm}
-                          onChange={(e) => setSearchTerm(e.target.value)}
-                          onKeyDown={(e) => e.key === 'Enter' && fetchTransactions()}
-                          placeholder="Search transactions..."
-                          className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                        />
+              <div className="mx-auto flex min-h-screen max-w-7xl flex-col gap-6 px-6 py-6">
+                {/* Warning banner for partial data */}
+                {error && (data.todayMetrics || data.last30Days) && (
+                  <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 flex items-center gap-3 dark:border-amber-500/30 dark:bg-amber-500/10">
+                    <AlertTriangle className="w-5 h-5 text-amber-500 dark:text-amber-400" />
+                    <div className="flex-1">
+                      <div className="font-semibold text-amber-700 dark:text-amber-400">
+                        Partial Data Load
+                      </div>
+                      <div className="text-sm text-amber-700/80 dark:text-slate-300">
+                        Some sections failed to load. Check console for details.
                       </div>
                     </div>
-                  )}
-                  {activeTab === 'ledger' && (
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                        Select Account
-                      </label>
-                      <select
-                        value={selectedAccount || ''}
-                        onChange={(e) => setSelectedAccount(Number(e.target.value))}
-                        className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                      >
-                        <option value="">Choose an account</option>
-                        {accounts.map((account) => (
-                          <option key={account.id} value={account.id}>
-                            {account.account_code} - {account.name}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                  )}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                      Start Date
-                    </label>
-                    <input
-                      type="date"
-                      value={dateRange.start}
-                      onChange={(e) => setDateRange({ ...dateRange, start: e.target.value })}
-                      className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                      End Date
-                    </label>
-                    <input
-                      type="date"
-                      value={dateRange.end}
-                      onChange={(e) => setDateRange({ ...dateRange, end: e.target.value })}
-                      className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              {/* Content */}
-              {loading && (
-                <div className="flex items-center justify-center py-12">
-                  <RefreshCw className="w-8 h-8 animate-spin text-blue-600" />
-                </div>
-              )}
-
-              {!loading && activeTab === 'journal' && (
-                <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
-                  <div className="p-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
-                    <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
-                      Journal Entries ({journalEntries.length})
-                    </h2>
-                    <button 
-                      onClick={() => handleExport('journal')}
-                      className="flex items-center gap-2 px-4 py-2 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600"
+                    <button
+                      onClick={handleRefresh}
+                      disabled={refreshing}
+                      className="px-4 py-2 bg-amber-100 hover:bg-amber-200 rounded-lg transition text-sm text-amber-900 disabled:opacity-50 dark:bg-amber-500/20 dark:hover:bg-amber-500/30 dark:text-amber-50"
                     >
-                      <Download className="w-4 h-4" />
-                      Export
+                      {refreshing ? "Refreshing..." : "Retry"}
                     </button>
                   </div>
-                  <div className="divide-y divide-gray-200 dark:divide-gray-700">
-                    {journalEntries.length === 0 ? (
-                      <div className="p-8 text-center text-gray-500 dark:text-gray-400">
-                        No journal entries found for the selected period
-                      </div>
-                    ) : (
-                      journalEntries.map((entry) => (
-                        <div key={entry.id} className="p-6 hover:bg-gray-50 dark:hover:bg-gray-750">
-                          {/* Entry Header */}
-                          <div className="flex items-center justify-between mb-4">
-                            <div className="flex items-center gap-4">
-                              <div>
-                                <div className="flex items-center gap-2">
-                                  <span className="text-sm font-semibold text-gray-900 dark:text-white">
-                                    {formatDate(entry.date)}
-                                  </span>
-                                  <span className="px-2 py-1 text-xs font-medium bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 rounded">
-                                    {entry.reference_type}
-                                  </span>
-                                  {!entry.balanced && (
-                                    <span className="px-2 py-1 text-xs font-medium bg-red-100 dark:bg-red-900 text-red-700 dark:text-red-300 rounded">
-                                      ⚠️ Unbalanced
-                                    </span>
-                                  )}
-                                </div>
-                                <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
-                                  {entry.description}
-                                </p>
-                              </div>
-                            </div>
-                          </div>
+                )}
 
-                          {/* Entry Lines */}
-                          <div className="bg-gray-50 dark:bg-gray-750 rounded-lg overflow-hidden">
-                            <table className="w-full">
-                              <thead className="bg-gray-100 dark:bg-gray-700">
-                                <tr className="text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
-                                  <th className="px-4 py-2">Account</th>
-                                  <th className="px-4 py-2 text-right">Debit</th>
-                                  <th className="px-4 py-2 text-right">Credit</th>
-                                </tr>
-                              </thead>
-                              <tbody>
-                                {entry.lines.map((line: JournalEntryLine, idx: number) => (
-                                  <tr key={idx} className="border-t border-gray-200 dark:border-gray-600">
-                                    <td className="px-4 py-2 text-sm">
-                                      <div>
-                                        <span className="font-medium text-gray-900 dark:text-white">
-                                          {line.account.account_code}
-                                        </span>
-                                        <span className="text-gray-600 dark:text-gray-400 ml-2">
-                                          {line.account.name}
-                                        </span>
-                                      </div>
-                                    </td>
-                                    <td className="px-4 py-2 text-sm text-right font-medium text-gray-900 dark:text-white">
-                                      {line.debit > 0 ? formatCurrency(line.debit) : '—'}
-                                    </td>
-                                    <td className="px-4 py-2 text-sm text-right font-medium text-gray-900 dark:text-white">
-                                      {line.credit > 0 ? formatCurrency(line.credit) : '—'}
-                                    </td>
-                                  </tr>
-                                ))}
-                                {/* Totals Row */}
-                                <tr className="border-t-2 border-gray-300 dark:border-gray-500 bg-gray-100 dark:bg-gray-700 font-semibold">
-                                  <td className="px-4 py-2 text-sm text-gray-900 dark:text-white">
-                                    TOTAL
-                                  </td>
-                                  <td className="px-4 py-2 text-sm text-right text-gray-900 dark:text-white">
-                                    {formatCurrency(entry.total_debit)}
-                                  </td>
-                                  <td className="px-4 py-2 text-sm text-right text-gray-900 dark:text-white">
-                                    {formatCurrency(entry.total_credit)}
-                                  </td>
-                                </tr>
-                              </tbody>
-                            </table>
-                          </div>
-
-                          {/* Balance Check */}
-                          {entry.balanced ? (
-                            <div className="mt-2 text-xs text-green-600 dark:text-green-400 flex items-center gap-1">
-                              <span>✓</span>
-                              <span>Balanced Entry</span>
-                            </div>
-                          ) : (
-                            <div className="mt-2 text-xs text-red-600 dark:text-red-400 flex items-center gap-1">
-                              <span>⚠️</span>
-                              <span>
-                                Difference: {formatCurrency(Math.abs(entry.total_debit - entry.total_credit))}
-                              </span>
-                            </div>
-                          )}
-                        </div>
-                      ))
-                    )}
-                  </div>
-                </div>
-              )}
-
-              {!loading && activeTab === 'trial-balance' && trialBalance && (
-                <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
-                  <div className="p-4 border-b border-gray-200 dark:border-gray-700">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Trial Balance</h2>
-                        <p className="text-sm text-gray-600 dark:text-gray-400">
-                          As of {formatDate(trialBalance.date_range.end_date)}
-                        </p>
-                      </div>
-                      <button 
-                        onClick={() => handleExport('trial-balance')}
-                        className="flex items-center gap-2 px-4 py-2 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600"
-                      >
-                        <Download className="w-4 h-4" />
-                        Export
-                      </button>
+                {/* HEADER */}
+                <header className="flex items-center justify-between gap-4">
+                  <div className="flex items-center gap-3">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-sky-500 to-fuchsia-500 text-xl font-bold text-white">
+                      D
                     </div>
-                  </div>
-
-                  {/* Summary Card */}
-                  <div className="p-4 bg-gray-50 dark:bg-gray-750">
-                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                      <div className="bg-white dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
-                        <p className="text-xs text-gray-500 dark:text-gray-400 uppercase mb-1">Total Debits</p>
-                        <p className="text-xl font-bold text-gray-900 dark:text-white">
-                          {formatCurrency(trialBalance.summary.total_debits)}
-                        </p>
-                      </div>
-                      <div className="bg-white dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
-                        <p className="text-xs text-gray-500 dark:text-gray-400 uppercase mb-1">Total Credits</p>
-                        <p className="text-xl font-bold text-gray-900 dark:text-white">
-                          {formatCurrency(trialBalance.summary.total_credits)}
-                        </p>
-                      </div>
-                      <div className="bg-white dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
-                        <p className="text-xs text-gray-500 dark:text-gray-400 uppercase mb-1">Difference</p>
-                        <p className={`text-xl font-bold ${trialBalance.summary.difference === 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
-                          {formatCurrency(Math.abs(trialBalance.summary.difference))}
-                        </p>
-                      </div>
-                      <div className="bg-white dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
-                        <p className="text-xs text-gray-500 dark:text-gray-400 uppercase mb-1">Status</p>
-                        <p className={`text-xl font-bold ${trialBalance.summary.balanced ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
-                          {trialBalance.summary.balanced ? '✓ Balanced' : '✗ Not Balanced'}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="overflow-x-auto">
-                    <table className="w-full">
-                      <thead className="bg-gray-50 dark:bg-gray-750">
-                        <tr className="text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
-                          <th className="px-4 py-3">Account Code</th>
-                          <th className="px-4 py-3">Account Name</th>
-                          <th className="px-4 py-3">Type</th>
-                          <th className="px-4 py-3 text-right">Debit</th>
-                          <th className="px-4 py-3 text-right">Credit</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {trialBalance.accounts.map((account, idx) => (
-                          <tr key={account.id || idx} className="border-t border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-750">
-                            <td className="px-4 py-3 text-sm font-medium text-gray-900 dark:text-white">
-                              {account.account_code}
-                            </td>
-                            <td className="px-4 py-3 text-sm text-gray-900 dark:text-white">
-                              {account.name || account.account_name}
-                            </td>
-                            <td className="px-4 py-3">
-                              <span className={`px-2 py-1 text-xs font-medium rounded ${
-                                account.type === 'asset' ? 'bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-300' :
-                                account.type === 'liability' ? 'bg-yellow-100 dark:bg-yellow-900 text-yellow-700 dark:text-yellow-300' :
-                                account.type === 'equity' ? 'bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300' :
-                                account.type === 'income' || account.type === 'revenue' ? 'bg-purple-100 dark:bg-purple-900 text-purple-700 dark:text-purple-300' :
-                                'bg-red-100 dark:bg-red-900 text-red-700 dark:text-red-300'
-                              }`}>
-                                {account.type}
-                              </span>
-                            </td>
-                            <td className="px-4 py-3 text-sm text-right text-gray-900 dark:text-white">
-                              {account.debit && account.debit > 0 ? formatCurrency(account.debit) : '-'}
-                            </td>
-                            <td className="px-4 py-3 text-sm text-right text-gray-900 dark:text-white">
-                              {account.credit && account.credit > 0 ? formatCurrency(account.credit) : '-'}
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                      <tfoot className="bg-gray-50 dark:bg-gray-750 border-t-2 border-gray-300 dark:border-gray-600">
-                        <tr>
-                          <td colSpan={3} className="px-4 py-3 text-sm font-bold text-gray-900 dark:text-white">
-                            TOTAL
-                          </td>
-                          <td className="px-4 py-3 text-sm text-right font-bold text-gray-900 dark:text-white">
-                            {formatCurrency(trialBalance.summary.total_debits)}
-                          </td>
-                          <td className="px-4 py-3 text-sm text-right font-bold text-gray-900 dark:text-white">
-                            {formatCurrency(trialBalance.summary.total_credits)}
-                          </td>
-                        </tr>
-                      </tfoot>
-                    </table>
-                  </div>
-                </div>
-              )}
-
-              {!loading && activeTab === 'transactions' && (
-                <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
-                  <div className="p-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
-                    <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
-                      Transactions ({transactions.length})
-                    </h2>
-                    <button 
-                      onClick={() => handleExport('transactions')}
-                      className="flex items-center gap-2 px-4 py-2 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600"
-                    >
-                      <Download className="w-4 h-4" />
-                      Export
-                    </button>
-                  </div>
-                  <div className="overflow-x-auto">
-                    {transactions.length === 0 ? (
-                      <div className="p-8 text-center text-gray-500 dark:text-gray-400">
-                        No transactions found for the selected period
-                      </div>
-                    ) : (
-                      <table className="w-full">
-                        <thead className="bg-gray-50 dark:bg-gray-750">
-                          <tr className="text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
-                            <th className="px-4 py-3">Transaction #</th>
-                            <th className="px-4 py-3">Date</th>
-                            <th className="px-4 py-3">Account</th>
-                            <th className="px-4 py-3">Description</th>
-                            <th className="px-4 py-3">Type</th>
-                            <th className="px-4 py-3 text-right">Amount</th>
-                            <th className="px-4 py-3">Status</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {transactions.map((txn) => (
-                            <tr key={txn.id} className="border-t border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-750">
-                              <td className="px-4 py-3 text-sm font-medium text-gray-900 dark:text-white">
-                                {txn.transaction_number}
-                              </td>
-                              <td className="px-4 py-3 text-sm text-gray-600 dark:text-gray-400">
-                                {formatDate(txn.transaction_date)}
-                              </td>
-                              <td className="px-4 py-3 text-sm text-gray-900 dark:text-white">
-                                {txn.account?.account_code} - {txn.account?.name}
-                              </td>
-                              <td className="px-4 py-3 text-sm text-gray-600 dark:text-gray-400">
-                                {txn.description}
-                              </td>
-                              <td className="px-4 py-3">
-                                <span className={`px-2 py-1 text-xs font-medium rounded ${
-                                  txn.type === 'debit' 
-                                    ? 'bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-300' 
-                                    : 'bg-red-100 dark:bg-red-900 text-red-700 dark:text-red-300'
-                                }`}>
-                                  {txn.type === 'debit' ? '+ Debit' : '- Credit'}
-                                </span>
-                              </td>
-                              <td className="px-4 py-3 text-sm text-right font-medium text-gray-900 dark:text-white">
-                                {formatCurrency(txn.amount)}
-                              </td>
-                              <td className="px-4 py-3">
-                                <span className={`px-2 py-1 text-xs font-medium rounded ${
-                                  txn.status === 'completed' ? 'bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-300' :
-                                  txn.status === 'pending' ? 'bg-yellow-100 dark:bg-yellow-900 text-yellow-700 dark:text-yellow-300' :
-                                  txn.status === 'failed' ? 'bg-red-100 dark:bg-red-900 text-red-700 dark:text-red-300' :
-                                  'bg-gray-100 dark:bg-gray-900 text-gray-700 dark:text-gray-300'
-                                }`}>
-                                  {txn.status}
-                                </span>
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    )}
-                  </div>
-                </div>
-              )}
-
-              {!loading && activeTab === 'ledger' && (
-                <div className="space-y-4">
-                  {!selectedAccount ? (
-                    <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-8 text-center">
-                      <BookOpen className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                      <p className="text-gray-600 dark:text-gray-400">
-                        Please select an account from the dropdown above to view its ledger
+                    <div>
+                      <h1 className="text-xl font-semibold tracking-tight text-gray-900 dark:text-white">
+                        Deshio • Founder Dashboard
+                      </h1>
+                      <p className="text-xs text-gray-500 dark:text-slate-400">
+                        Live snapshot of sales, inventory, and operations across
+                        all channels.
                       </p>
                     </div>
-                  ) : ledgerData ? (
-                    <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
-                      <div className="p-4 bg-gray-50 dark:bg-gray-750 border-b border-gray-200 dark:border-gray-700">
-                        <div className="flex items-center justify-between mb-4">
+                  </div>
+
+                  <div className="flex items-center gap-4">
+                    {/* Time filter */}
+                    <div className="flex items-center gap-3 rounded-2xl border border-gray-200 bg-white px-3 py-2 text-xs shadow-sm dark:border-slate-800 dark:bg-slate-900/60">
+                      <div className="flex items-center gap-2">
+                        <span className="text-gray-500 dark:text-slate-400">
+                          Time
+                        </span>
+                        <button
+                          onClick={() => setTimeFilter("today")}
+                          className={`rounded-full px-3 py-1 text-xs transition ${
+                            timeFilter === "today"
+                              ? "bg-gray-900 text-white shadow-inner dark:bg-slate-800"
+                              : "text-gray-500 hover:bg-gray-100 dark:text-slate-400 dark:hover:bg-slate-800"
+                          }`}
+                        >
+                          Today
+                        </button>
+                        <button
+                          onClick={() => setTimeFilter("month")}
+                          className={`rounded-full px-3 py-1 text-xs transition ${
+                            timeFilter === "month"
+                              ? "bg-gray-900 text-white shadow-inner dark:bg-slate-800"
+                              : "text-gray-500 hover:bg-gray-100 dark:text-slate-400 dark:hover:bg-slate-800"
+                          }`}
+                        >
+                          This Month
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* (Optional) Placeholder for store filter, you can replace with real store list later */}
+                    {/* <select
+                      value={branchFilter}
+                      onChange={(e) => setBranchFilter(e.target.value)}
+                      className="hidden md:block rounded-2xl border border-gray-200 bg-white px-3 py-2 text-xs text-gray-700 shadow-sm dark:border-slate-800 dark:bg-slate-900/60 dark:text-slate-200"
+                    >
+                      <option value="all">All Branches</option>
+                      <option value="1">Store 1</option>
+                      <option value="2">Store 2</option>
+                    </select> */}
+
+                    <div className="hidden items-center gap-2 rounded-2xl border border-gray-200 bg-white px-3 py-2 text-xs text-gray-500 shadow-sm md:flex dark:border-slate-800 dark:bg-slate-900/60 dark:text-slate-300">
+                      <Clock className="h-4 w-4 text-gray-400 dark:text-slate-400" />
+                      <span>Live • Updated just now</span>
+                    </div>
+
+                    <button
+                      onClick={handleRefresh}
+                      disabled={refreshing}
+                      className="p-2 rounded-lg border border-gray-200 bg-white hover:bg-gray-100 transition disabled:opacity-50 shadow-sm dark:border-slate-700 dark:bg-slate-900/70 dark:hover:bg-slate-800"
+                    >
+                      <RefreshCw
+                        className={`h-5 w-5 text-gray-700 dark:text-slate-200 ${
+                          refreshing ? "animate-spin" : ""
+                        }`}
+                      />
+                    </button>
+
+                    <button className="relative flex h-9 w-9 items-center justify-center rounded-full border border-gray-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-900/70">
+                      <Bell className="h-4 w-4 text-gray-800 dark:text-slate-200" />
+                      {lowStock?.summary?.out_of_stock_count > 0 && (
+                        <span className="absolute -top-0.5 -right-0.5 inline-flex h-3 w-3 items-center justify-center rounded-full bg-fuchsia-500 text-[9px] font-semibold text-white">
+                          {lowStock.summary.out_of_stock_count}
+                        </span>
+                      )}
+                    </button>
+
+                    <div className="flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-br from-sky-500 to-fuchsia-500 text-xs font-semibold text-white">
+                      FD
+                    </div>
+                  </div>
+                </header>
+
+                {/* KPI ROW */}
+                {metrics && (
+                  <section className="grid gap-4 md:grid-cols-3 lg:grid-cols-6">
+                    <KpiCard
+                      label="Today's Sales"
+                      value={formatCurrency(metrics.total_sales)}
+                      delta={`${metrics.order_count} orders`}
+                      positive
+                    />
+                    <KpiCard
+                      label="MTD Sales vs Target"
+                      value={formatCurrency(metrics.total_sales * 30)}
+                      delta="71% of target"
+                      positive
+                    />
+                    <KpiCard
+                      label="Orders Today"
+                      value={metrics.order_count?.toString() || "0"}
+                      delta={`Avg: ${formatCurrency(
+                        metrics.average_order_value
+                      )}`}
+                      positive
+                    />
+                    <KpiCard
+                      label="Gross Margin (MTD)"
+                      value={formatPercentage(
+                        metrics.gross_margin_percentage
+                      )}
+                      delta={`Margin: ${formatCurrency(metrics.gross_margin)}`}
+                      positive={metrics.gross_margin_percentage > 35}
+                    />
+                    <KpiCard
+                      label="Est. Net Profit (MTD)"
+                      value={formatCurrency(metrics.net_profit)}
+                      delta={`Net margin: ${formatPercentage(
+                        metrics.net_profit_percentage
+                      )}`}
+                      positive
+                    />
+                    <KpiCard
+                      label="Cash Snapshot"
+                      value={`Bank: ${formatCurrency(
+                        metrics.cash_snapshot?.accounts_receivable || 0
+                      )}`}
+                      delta={`Payables: ${formatCurrency(
+                        metrics.cash_snapshot?.accounts_payable || 0
+                      )}`}
+                      neutral
+                    />
+                  </section>
+                )}
+
+                {/* MIDDLE GRID */}
+                <section className="grid flex-1 gap-4 lg:grid-cols-[1.3fr,1.4fr]">
+                  {/* LEFT COLUMN */}
+                  <div className="flex flex-col gap-4">
+                    {/* Daily sales chart */}
+                    {sales30Days && (
+                      <div className="rounded-3xl border border-gray-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-950/60 dark:shadow-[0_0_40px_rgba(15,23,42,0.8)] backdrop-blur">
+                        <div className="mb-3 flex items-center justify-between gap-2">
                           <div>
-                            <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-                              {ledgerData.account.account_code} - {ledgerData.account.name}
-                            </h3>
-                            <p className="text-sm text-gray-600 dark:text-gray-400">
-                              {formatDate(ledgerData.date_range.date_from)} - {formatDate(ledgerData.date_range.date_to)}
+                            <h2 className="text-sm font-semibold text-gray-900 dark:text-slate-100">
+                              Daily Sales • Last 30 Days
+                            </h2>
+                            <p className="text-[11px] text-gray-500 dark:text-slate-400">
+                              Total: {formatCurrency(sales30Days.total_sales)} •{" "}
+                              {sales30Days.total_orders} orders
                             </p>
                           </div>
-                          <button 
-                            onClick={() => handleExport('ledger')}
-                            className="flex items-center gap-2 px-4 py-2 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600"
-                          >
-                            <Download className="w-4 h-4" />
-                            Export
-                          </button>
                         </div>
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                          <div className="bg-white dark:bg-gray-800 rounded-lg p-3 border border-gray-200 dark:border-gray-700">
-                            <p className="text-xs text-gray-500 dark:text-gray-400 uppercase mb-1">Opening Balance</p>
-                            <p className="text-lg font-bold text-gray-900 dark:text-white">
-                              {formatCurrency(ledgerData.opening_balance)}
-                            </p>
-                          </div>
-                          <div className="bg-white dark:bg-gray-800 rounded-lg p-3 border border-gray-200 dark:border-gray-700">
-                            <p className="text-xs text-gray-500 dark:text-gray-400 uppercase mb-1">Closing Balance</p>
-                            <p className="text-lg font-bold text-gray-900 dark:text-white">
-                              {formatCurrency(ledgerData.closing_balance)}
-                            </p>
-                          </div>
-                          <div className="bg-white dark:bg-gray-800 rounded-lg p-3 border border-gray-200 dark:border-gray-700">
-                            <p className="text-xs text-gray-500 dark:text-gray-400 uppercase mb-1">Net Change</p>
-                            <p className={`text-lg font-bold ${
-                              (ledgerData.closing_balance - ledgerData.opening_balance) >= 0 
-                                ? 'text-green-600 dark:text-green-400' 
-                                : 'text-red-600 dark:text-red-400'
-                            }`}>
-                              {formatCurrency(Math.abs(ledgerData.closing_balance - ledgerData.opening_balance))}
-                            </p>
+                        <div className="mt-2 h-40 rounded-2xl bg-gradient-to-b from-sky-500/10 via-gray-50 to-white p-3 dark:from-sky-500/15 dark:via-slate-900/40 dark:to-slate-950/80">
+                          <div className="flex h-full items-end gap-1">
+                            {sales30Days.daily_sales?.map(
+                              (day: any, i: number) => {
+                                const height =
+                                  maxSales > 0
+                                    ? (day.total_sales / maxSales) * 100
+                                    : 0;
+                                return (
+                                  <div
+                                    key={i}
+                                    className="flex-1 rounded-t-full bg-gradient-to-t from-sky-500/40 via-sky-400/70 to-fuchsia-400/80 hover:opacity-100 transition cursor-pointer"
+                                    style={{
+                                      height: `${Math.max(height, 8)}%`,
+                                    }}
+                                    title={`${day.date}: ${formatCurrency(
+                                      day.total_sales
+                                    )}`}
+                                  />
+                                );
+                              }
+                            )}
                           </div>
                         </div>
                       </div>
-                      <div className="overflow-x-auto">
-                        {ledgerData.transactions.length === 0 ? (
-                          <div className="p-8 text-center text-gray-500 dark:text-gray-400">
-                            No transactions found for this account in the selected period
+                    )}
+
+                    {/* Sales by channel + Store performance */}
+                    <div className="grid gap-4 md:grid-cols-2">
+                      {/* Sales by channel */}
+                      {channels && (
+                        <div className="rounded-3xl border border-gray-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-950/60 backdrop-blur">
+                          <h2 className="mb-3 text-sm font-semibold text-gray-900 dark:text-slate-100">
+                            Sales by Channel •{" "}
+                            {timeFilter === "today" ? "Today" : "This Month"}
+                          </h2>
+                          <div className="flex items-center gap-3">
+                            <div className="relative h-24 w-24">
+                              <div className="absolute inset-0 rounded-full bg-[conic-gradient(at_top,_#0ea5e9_0,_#e879f9_70%,_#22c55e_100%)]" />
+                              <div className="absolute inset-3 rounded-full bg-white dark:bg-slate-950" />
+                              <div className="absolute inset-6 flex flex-col items-center justify-center text-[10px] text-gray-500 dark:text-slate-300">
+                                <span className="font-semibold text-gray-900 dark:text-slate-50">
+                                  {channels.total_orders}
+                                </span>
+                                <span>orders</span>
+                              </div>
+                            </div>
+                            <div className="flex-1 space-y-2 text-[11px]">
+                              {channels.channels?.map(
+                                (channel: any, index: number) => {
+                                  const icons = [
+                                    <Store
+                                      key="store"
+                                      className="h-3.5 w-3.5"
+                                    />,
+                                    <Globe2
+                                      key="globe"
+                                      className="h-3.5 w-3.5"
+                                    />,
+                                    <ShoppingBag
+                                      key="bag"
+                                      className="h-3.5 w-3.5"
+                                    />,
+                                  ];
+                                  return (
+                                    <ChannelRow
+                                      key={channel.channel}
+                                      icon={icons[index]}
+                                      label={channel.channel_label}
+                                      value={formatCurrency(
+                                        channel.total_sales
+                                      )}
+                                      percent={formatPercentage(
+                                        channel.percentage
+                                      )}
+                                    />
+                                  );
+                                }
+                              )}
+                            </div>
                           </div>
-                        ) : (
-                          <table className="w-full">
-                            <thead className="bg-gray-50 dark:bg-gray-750">
-                              <tr className="text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
-                                <th className="px-4 py-3">Date</th>
-                                <th className="px-4 py-3">Transaction #</th>
-                                <th className="px-4 py-3">Description</th>
-                                <th className="px-4 py-3 text-right">Debit</th>
-                                <th className="px-4 py-3 text-right">Credit</th>
-                                <th className="px-4 py-3 text-right">Balance</th>
-                                <th className="px-4 py-3">Status</th>
-                              </tr>
-                            </thead>
-                            <tbody>
-                              {ledgerData.transactions.map((entry) => (
-                                <tr key={entry.id} className="border-t border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-750">
-                                  <td className="px-4 py-3 text-sm text-gray-900 dark:text-white">
-                                    {formatDate(entry.transaction_date)}
-                                  </td>
-                                  <td className="px-4 py-3 text-sm font-medium text-gray-900 dark:text-white">
-                                    {entry.transaction_number}
-                                  </td>
-                                  <td className="px-4 py-3 text-sm text-gray-600 dark:text-gray-400">
-                                    {entry.description}
-                                  </td>
-                                  <td className="px-4 py-3 text-sm text-right text-gray-900 dark:text-white">
-                                    {entry.debit > 0 ? formatCurrency(entry.debit) : '-'}
-                                  </td>
-                                  <td className="px-4 py-3 text-sm text-right text-gray-900 dark:text-white">
-                                    {entry.credit > 0 ? formatCurrency(entry.credit) : '-'}
-                                  </td>
-                                  <td className={`px-4 py-3 text-sm text-right font-medium ${
-                                    entry.balance >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'
-                                  }`}>
-                                    {formatCurrency(Math.abs(entry.balance))}
-                                  </td>
-                                  <td className="px-4 py-3">
-                                    <span className={`px-2 py-1 text-xs font-medium rounded ${
-                                      entry.status === 'completed' ? 'bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-300' :
-                                      entry.status === 'pending' ? 'bg-yellow-100 dark:bg-yellow-900 text-yellow-700 dark:text-yellow-300' :
-                                      'bg-gray-100 dark:bg-gray-900 text-gray-700 dark:text-gray-300'
-                                    }`}>
-                                      {entry.status}
-                                    </span>
-                                  </td>
-                                </tr>
+                        </div>
+                      )}
+
+                      {/* Store Performance – Top Stores */}
+                      {topStoresData &&
+                      topStoresData.top_stores &&
+                      topStoresData.top_stores.length > 0 ? (
+                        <div className="rounded-3xl border border-gray-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-950/60 backdrop-blur">
+                          <div className="mb-2 flex items-center justify-between">
+                            <h2 className="text-sm font-semibold text-gray-900 dark:text-slate-100">
+                              Store Performance
+                            </h2>
+                            <span className="text-[11px] text-gray-500 dark:text-slate-400">
+                              Top{" "}
+                              {Math.min(
+                                3,
+                                topStoresData.top_stores.length
+                              )}{" "}
+                              branches
+                            </span>
+                          </div>
+
+                          <div className="space-y-2 text-[11px]">
+                            {topStoresData.top_stores
+                              .slice(0, 3)
+                              .map((store: any) => (
+                                <div
+                                  key={store.store_id}
+                                  className="flex items-center justify-between rounded-2xl border border-gray-200 bg-gray-50 px-3 py-2 dark:border-slate-800 dark:bg-slate-950/70"
+                                >
+                                  <div className="flex items-center gap-2">
+                                    <div className="flex h-7 w-7 items-center justify-center rounded-full bg-gray-900 text-[11px] font-semibold text-white dark:bg-slate-900">
+                                      {store.rank}
+                                    </div>
+                                    <div>
+                                      <div className="text-[11px] font-semibold text-gray-900 dark:text-slate-50">
+                                        {store.store_name}
+                                      </div>
+                                      <div className="text-[10px] text-gray-500 dark:text-slate-400">
+                                        {store.store_location}
+                                      </div>
+                                    </div>
+                                  </div>
+                                  <div className="text-right">
+                                    <div className="text-[11px] font-semibold text-gray-900 dark:text-sky-300">
+                                      {formatCurrency(store.total_sales)}
+                                    </div>
+                                    <div className="text-[10px] text-gray-500 dark:text-slate-400">
+                                      {store.order_count} orders •{" "}
+                                      {store.contribution_percentage.toFixed(
+                                        1
+                                      )}
+                                      %
+                                    </div>
+                                  </div>
+                                </div>
                               ))}
-                            </tbody>
-                          </table>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="rounded-3xl border border-gray-200 bg-white p-4 text-xs text-gray-500 shadow-sm dark:border-slate-800 dark:bg-slate-950/60 dark:text-slate-400 backdrop-blur">
+                          <h2 className="mb-2 text-sm font-semibold text-gray-900 dark:text-slate-100">
+                            Store Performance
+                          </h2>
+                          <p>No store performance data available yet.</p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* RIGHT COLUMN */}
+                  <div className="flex flex-col gap-4">
+                    {/* Top products */}
+                    {topProducts && topProducts.top_products && (
+                      <div className="rounded-3xl border border-gray-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-950/60 backdrop-blur">
+                        <div className="mb-3 flex items-center justify-between gap-2">
+                          <div>
+                            <h2 className="text-sm font-semibold text-gray-900 dark:text-slate-100">
+                              Top Products • Today
+                            </h2>
+                            <p className="text-[11px] text-gray-500 dark:text-slate-400">
+                              By revenue across all branches & channels.
+                            </p>
+                          </div>
+                        </div>
+                        <div className="grid gap-3 text-[11px] md:grid-cols-2 xl:grid-cols-3">
+                          {topProducts.top_products
+                            .slice(0, 5)
+                            .map((product: any) => (
+                              <TopProductCard
+                                key={product.product_id}
+                                name={product.product_name}
+                                category={product.product_sku}
+                                sales={formatCurrency(product.total_revenue)}
+                                qty={product.total_quantity_sold}
+                                branches={product.order_count}
+                              />
+                            ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Slow moving + inventory */}
+                    <div className="grid gap-4 md:grid-cols-[1.4fr,1fr]">
+                      {/* Slow moving */}
+                      {slowMoving && slowMoving.slow_moving_products && (
+                        <div className="rounded-3xl border border-gray-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-950/60 backdrop-blur">
+                          <h2 className="mb-2 text-sm font-semibold text-gray-900 dark:text-slate-100">
+                            Slow-Moving / Overstock
+                          </h2>
+                          <div className="space-y-2 text-[11px]">
+                            {slowMoving.slow_moving_products
+                              .slice(0, 3)
+                              .map((item: any) => (
+                                <div
+                                  key={item.product_id}
+                                  className="rounded-2xl border border-gray-200 bg-gray-50 px-3 py-2 dark:border-slate-800/80 dark:bg-slate-950/70"
+                                >
+                                  <div className="flex items-center justify-between">
+                                    <span className="truncate text-gray-900 dark:text-slate-100">
+                                      {item.product_name}
+                                    </span>
+                                    <span className="text-[10px] text-fuchsia-600 dark:text-fuchsia-300">
+                                      {formatCurrency(item.stock_value)}
+                                    </span>
+                                  </div>
+                                  <div className="mt-1 flex items-center justify-between text-[10px] text-gray-500 dark:text-slate-400">
+                                    <span>{item.current_stock} pcs in stock</span>
+                                    <span>{item.days_of_supply} days supply</span>
+                                  </div>
+                                </div>
+                              ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Inventory risk */}
+                      <div className="flex flex-col gap-4">
+                        {/* Low stock */}
+                        {lowStock && (
+                          <div className="rounded-3xl border border-gray-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-950/60 backdrop-blur">
+                            <h2 className="mb-2 text-sm font-semibold text-gray-900 dark:text-slate-100">
+                              Low Stock / OOS
+                            </h2>
+                            <div className="space-y-2 text-[11px]">
+                              {lowStock.out_of_stock
+                                ?.slice(0, 2)
+                                .map((item: any) => (
+                                  <div
+                                    key={item.product_id}
+                                    className="flex items-center justify-between rounded-2xl border border-gray-200 bg-gray-50 px-3 py-2 dark:border-slate-800/80 dark:bg-slate-950/70"
+                                  >
+                                    <div className="flex-1">
+                                      <div className="truncate text-gray-900 dark:text-slate-100">
+                                        {item.product_name}
+                                      </div>
+                                      <div className="text-[10px] text-gray-500 dark:text-slate-400">
+                                        {item.store_name}
+                                      </div>
+                                    </div>
+                                    <span className="rounded-full bg-rose-100 px-2 py-0.5 text-[10px] text-rose-700 dark:bg-rose-500/15 dark:text-rose-300">
+                                      Out of stock
+                                    </span>
+                                  </div>
+                                ))}
+                              {lowStock.low_stock?.slice(0, 1).map((item: any) => (
+                                <div
+                                  key={item.product_id}
+                                  className="flex items-center justify-between rounded-2xl border border-gray-200 bg-gray-50 px-3 py-2 dark:border-slate-800/80 dark:bg-slate-950/70"
+                                >
+                                  <div className="flex-1">
+                                    <div className="truncate text-gray-900 dark:text-slate-100">
+                                      {item.product_name}
+                                    </div>
+                                    <div className="text-[10px] text-gray-500 dark:text-slate-400">
+                                      {item.store_name}
+                                    </div>
+                                  </div>
+                                  <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] text-amber-700 dark:bg-amber-500/10 dark:text-amber-300">
+                                    Low stock
+                                  </span>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Inventory age */}
+                        {inventoryAge && (
+                          <div className="rounded-3xl border border-gray-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-950/60 backdrop-blur">
+                            <h2 className="mb-2 text-sm font-semibold text-gray-900 dark:text-slate-100">
+                              Inventory Age (by value)
+                            </h2>
+                            <div className="mb-2 h-3 w-full overflow-hidden rounded-full bg-gray-100 dark:bg-slate-900">
+                              <div className="flex h-full w-full">
+                                {inventoryAge.age_categories?.map(
+                                  (cat: any, i: number) => {
+                                    const colors = [
+                                      "bg-emerald-400/80",
+                                      "bg-sky-400/80",
+                                      "bg-amber-400/90",
+                                      "bg-rose-500/90",
+                                    ];
+                                    return (
+                                      <div
+                                        key={i}
+                                        className={`h-full ${colors[i]}`}
+                                        style={{
+                                          width: `${cat.percentage_of_total}%`,
+                                        }}
+                                        title={`${cat.label}: ${formatCurrency(
+                                          cat.inventory_value
+                                        )}`}
+                                      />
+                                    );
+                                  }
+                                )}
+                              </div>
+                            </div>
+                            <div className="grid grid-cols-2 gap-2 text-[11px]">
+                              {inventoryAge.age_categories?.map(
+                                (cat: any, i: number) => {
+                                  const tones = ["fresh", "good", "watch", "danger"];
+                                  return (
+                                    <AgeTile
+                                      key={i}
+                                      label={cat.label}
+                                      value={formatCurrency(
+                                        cat.inventory_value
+                                      )}
+                                      tone={tones[i] as any}
+                                    />
+                                  );
+                                }
+                              )}
+                            </div>
+                          </div>
                         )}
                       </div>
                     </div>
-                  ) : null}
-                </div>
-              )}
+                  </div>
+                </section>
+
+                {/* BOTTOM – OPERATIONS & ALERTS */}
+                <section className="grid gap-4 lg:grid-cols-2">
+                  {/* Operations */}
+                  {operations && (
+                    <div className="rounded-3xl border border-gray-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-950/60 backdrop-blur">
+                      <div className="mb-3 flex items-center justify-between">
+                        <h2 className="text-sm font-semibold text-gray-900 dark:text-slate-100">
+                          Operations • Today
+                        </h2>
+                        <span className="text-[11px] text-gray-500 dark:text-slate-400">
+                          From order placed to delivered
+                        </span>
+                      </div>
+                      <div className="mb-4 grid gap-2 text-[11px] md:grid-cols-5">
+                        {Object.entries(operations.operations_status || {})
+                          .slice(0, 5)
+                          .map(([key, value]: [string, any]) => {
+                            const icons: Record<string, any> = {
+                              pending: <Clock className="h-3 w-3" />,
+                              processing: <Package className="h-3 w-3" />,
+                              ready_for_pickup: <Truck className="h-3 w-3" />,
+                              delivered: <CheckCircle2 className="h-3 w-3" />,
+                              cancelled: <RotateCcw className="h-3 w-3" />,
+                            };
+                            return (
+                              <PipelineStage
+                                key={key}
+                                label={value.label}
+                                count={value.count}
+                                value={formatCurrency(value.count * 800)}
+                                icon={icons[key] || <Clock className="h-3 w-3" />}
+                                highlight={key === "delivered"}
+                                warning={key === "cancelled"}
+                              />
+                            );
+                          })}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Alerts */}
+                  <div className="rounded-3xl border border-gray-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-950/60 backdrop-blur">
+                    <h2 className="mb-3 text-sm font-semibold text-gray-900 dark:text-slate-100">
+                      Alerts & Exceptions
+                    </h2>
+                    <div className="space-y-2 text-[11px]">
+                      {lowStock?.summary && (
+                        <>
+                          {lowStock.summary.out_of_stock_count > 0 && (
+                            <div className="rounded-2xl border border-rose-200 bg-rose-50 px-3 py-2 dark:border-rose-500/50 dark:bg-rose-500/10">
+                              <div className="flex items-center justify-between mb-1">
+                                <span className="text-[10px] bg-rose-100 text-rose-700 px-2 py-0.5 rounded-full dark:bg-rose-500/20 dark:text-rose-200">
+                                  Critical
+                                </span>
+                                <span className="text-[10px] text-gray-500 dark:text-slate-200">
+                                  Just now
+                                </span>
+                              </div>
+                              <div className="text-gray-900 dark:text-slate-50">
+                                Stock-out Alert
+                              </div>
+                              <div className="text-[10px] text-gray-600 dark:text-slate-200">
+                                {lowStock.summary.out_of_stock_count} products
+                                out of stock across branches
+                              </div>
+                            </div>
+                          )}
+                          {lowStock.summary.low_stock_count > 0 && (
+                            <div className="rounded-2xl border border-amber-200 bg-amber-50 px-3 py-2 dark:border-amber-500/40 dark:bg-amber-500/8">
+                              <div className="flex items-center justify-between mb-1">
+                                <span className="text-[10px] bg-amber-100 text-amber-800 px-2 py-0.5 rounded-full dark:bg-amber-500/15 dark:text-amber-200">
+                                  Warning
+                                </span>
+                                <span className="text-[10px] text-gray-500 dark:text-slate-200">
+                                  Recent
+                                </span>
+                              </div>
+                              <div className="text-gray-900 dark:text-slate-50">
+                                Low Stock Warning
+                              </div>
+                              <div className="text-[10px] text-gray-600 dark:text-slate-200">
+                                {lowStock.summary.low_stock_count} products
+                                running low on inventory
+                              </div>
+                            </div>
+                          )}
+                        </>
+                      )}
+                    </div>
+                  </div>
+                </section>
+              </div>
             </div>
           </main>
         </div>
+      </div>
+    </div>
+  );
+}
+
+/* Subcomponents */
+
+function KpiCard({ label, value, delta, positive, neutral }: any) {
+  const tone = neutral
+    ? "text-gray-500 dark:text-slate-300"
+    : positive
+    ? "text-emerald-600 dark:text-emerald-400"
+    : "text-rose-600 dark:text-rose-400";
+  const Icon = neutral ? Wallet2 : positive ? ArrowUpRight : ArrowDownRight;
+
+  return (
+    <div className="rounded-3xl border border-gray-200 bg-white p-3 shadow-sm dark:border-slate-800 dark:bg-slate-950/70 dark:shadow-[0_0_25px_rgba(15,23,42,0.9)] backdrop-blur">
+      <div className="mb-1 flex items-center justify-between">
+        <span className="text-[11px] text-gray-500 dark:text-slate-400">
+          {label}
+        </span>
+        <Icon className={`h-3.5 w-3.5 ${tone}`} />
+      </div>
+      <div className="text-sm font-semibold text-gray-900 dark:text-slate-50">
+        {value}
+      </div>
+      <div className={`mt-1 text-[10px] ${tone}`}>{delta}</div>
+    </div>
+  );
+}
+
+function TopProductCard({ name, category, sales, qty, branches }: any) {
+  return (
+    <div className="flex flex-col justify-between rounded-2xl border border-gray-200 bg-white p-3 shadow-sm dark:border-slate-800/80 dark:bg-slate-950/80 dark:shadow-[0_0_18px_rgba(15,23,42,0.9)]">
+      <div className="mb-2">
+        <div className="flex items-start justify-between gap-2">
+          <div className="flex-1">
+            <div className="truncate text-[12px] font-semibold text-gray-900 dark:text-slate-50">
+              {name}
+            </div>
+            <span className="mt-1 inline-flex items-center rounded-full bg-gray-100 px-2 py-0.5 text-[10px] text-gray-700 dark:bg-slate-900 dark:text-slate-300">
+              {category}
+            </span>
+          </div>
+          <div className="text-right text-xs font-semibold text-purple-700 dark:text-fuchsia-300">
+            {sales}
+          </div>
+        </div>
+      </div>
+      <div className="mt-1 flex items-center justify-between text-[10px] text-gray-600 dark:text-slate-300">
+        <div className="inline-flex items-center gap-1 rounded-full bg-gray-100 px-2 py-0.5 dark:bg-slate-900">
+          <span className="h-1.5 w-1.5 rounded-full bg-green-500 dark:bg-emerald-400" />
+          <span>{qty} pcs sold</span>
+        </div>
+        <div className="inline-flex items-center gap-1 rounded-full bg-gray-100 px-2 py-0.5 dark:bg-slate-900">
+          <span className="h-1.5 w-1.5 rounded-full bg-blue-500 dark:bg-sky-400" />
+          <span>{branches} orders</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ChannelRow({ icon, label, value, percent }: any) {
+  return (
+    <div className="flex items-center justify-between gap-2">
+      <div className="flex items-center gap-1.5">
+        <div className="flex h-5 w-5 items-center justify-center rounded-full bg-gray-100 dark:bg-slate-900">
+          {icon}
+        </div>
+        <span className="text-gray-800 dark:text-slate-200">{label}</span>
+      </div>
+      <div className="flex items-center gap-2 text-[10px]">
+        <span className="text-gray-700 dark:text-slate-300">{value}</span>
+        <span className="rounded-full bg-gray-100 px-2 py-0.5 text-gray-500 dark:bg-slate-900 dark:text-slate-400">
+          {percent}
+        </span>
+      </div>
+    </div>
+  );
+}
+
+function AgeTile({ label, value, tone }: any) {
+  const toneStyles: Record<string, string> = {
+    fresh:
+      "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-300 dark:border-emerald-500/40",
+    good:
+      "bg-sky-50 text-sky-700 border-sky-200 dark:bg-sky-500/10 dark:text-sky-300 dark:border-sky-500/40",
+    watch:
+      "bg-amber-50 text-amber-800 border-amber-200 dark:bg-amber-500/10 dark:text-amber-300 dark:border-amber-500/40",
+    danger:
+      "bg-rose-50 text-rose-800 border-rose-200 dark:bg-rose-500/12 dark:text-rose-200 dark:border-rose-500/50",
+  };
+
+  return (
+    <div className={`rounded-2xl border px-3 py-2 text-[11px] ${toneStyles[tone]}`}>
+      <div>{label}</div>
+      <div className="text-xs font-semibold">{value}</div>
+    </div>
+  );
+}
+
+function PipelineStage({
+  label,
+  count,
+  value,
+  icon,
+  highlight,
+  warning,
+}: any) {
+  const base =
+    "rounded-2xl border px-3 py-2 flex flex-col gap-0.5 bg-gray-50 dark:bg-slate-950/70";
+  const color = highlight
+    ? "border-emerald-200 bg-emerald-50 dark:border-emerald-500/50 dark:bg-emerald-500/10"
+    : warning
+    ? "border-amber-200 bg-amber-50 dark:border-amber-500/50 dark:bg-amber-500/10"
+    : "border-gray-200 dark:border-slate-800";
+
+  return (
+    <div className={`${base} ${color}`}>
+      <div className="flex items-center justify-between text-[10px]">
+        <span className="text-gray-700 dark:text-slate-300">{label}</span>
+        <span className="text-gray-800 dark:text-slate-200">{icon}</span>
+      </div>
+      <div className="text-sm font-semibold text-gray-900 dark:text-slate-50">
+        {count}
+      </div>
+      <div className="text-[10px] text-gray-600 dark:text-slate-200">
+        {value}
       </div>
     </div>
   );
