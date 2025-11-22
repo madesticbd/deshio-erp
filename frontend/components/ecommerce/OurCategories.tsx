@@ -2,91 +2,56 @@
 
 import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-
-interface Product {
-  id: string | number;
-  name: string;
-  attributes: {
-    mainImage?: string;
-    category?: string;
-    subcategory?: string;
-    [key: string]: string | undefined;
-  };
-}
-
-interface InventoryItem {
-  productId: string | number;
-  status: string;
-}
+import categoryService, { CategoryTree } from '@/services/categoryService';
 
 interface CategoryData {
-  id: string;
+  id: number;
   title: string;
   slug: string;
-  image: string;
-  available: number;
+  image_url?: string;
+  productCount: number;
 }
 
 export default function OurCategories() {
   const [categories, setCategoriesData] = useState<CategoryData[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const router = useRouter();
 
   useEffect(() => {
     const fetchData = async () => {
       try {
-        // Fetch categories
-        const categoriesRes = await fetch('/api/categories');
-        const categoriesData = await categoriesRes.json();
+        setLoading(true);
+        setError(null);
 
-        // Fetch products
-        const productsRes = await fetch('/api/products');
-        const products: Product[] = await productsRes.json();
-
-        // Fetch inventory
-        const inventoryRes = await fetch('/api/inventory');
-        const inventory: InventoryItem[] = await inventoryRes.json();
+        // Fetch categories using the category service (automatically normalizes image URLs)
+        const categoriesData = await categoryService.getTree(true);
 
         // Flatten all categories and subcategories
         const allCategories: CategoryData[] = [];
 
-        const flattenCategories = (cats: any[]) => {
+        const flattenCategories = (cats: CategoryTree[]) => {
           cats.forEach(cat => {
             allCategories.push({
               id: cat.id,
               title: cat.title,
               slug: cat.slug,
-              image: cat.image,
-              available: 0,
+              image_url: cat.image_url, // Already normalized by service
+              productCount: cat.active_products?.length || 0,
             });
 
-            if (cat.subcategories && cat.subcategories.length > 0) {
-              flattenCategories(cat.subcategories);
+            if (cat.children && cat.children.length > 0) {
+              flattenCategories(cat.children);
             }
           });
         };
 
         flattenCategories(categoriesData);
 
-        // Calculate available stock for each category
-        const categoriesWithStock = allCategories.map(cat => {
-          const categoryProducts = products.filter(
-            p => p.attributes.category === cat.id || p.attributes.subcategory === cat.id
-          );
-
-          const available = categoryProducts.reduce((total, product) => {
-            const productInventory = inventory.filter(
-              item => item.productId === product.id || item.productId === Number(product.id)
-            );
-            return total + productInventory.filter(item => item.status === 'available').length;
-          }, 0);
-
-          return { ...cat, available };
-        });
-
-        setCategoriesData(categoriesWithStock);
-      } catch (err) {
-        console.error('Error fetching data:', err);
+        setCategoriesData(allCategories);
+      } catch (err: any) {
+        console.error('Error fetching categories:', err);
+        setError(err.message || 'Failed to load categories');
       } finally {
         setLoading(false);
       }
@@ -101,6 +66,30 @@ export default function OurCategories() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center">
             <p className="text-gray-600">Loading categories...</p>
+          </div>
+        </div>
+      </section>
+    );
+  }
+
+  if (error) {
+    return (
+      <section className="py-20 bg-white">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center">
+            <p className="text-red-600">Error: {error}</p>
+          </div>
+        </div>
+      </section>
+    );
+  }
+
+  if (categories.length === 0) {
+    return (
+      <section className="py-20 bg-white">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center">
+            <p className="text-gray-600">No categories available</p>
           </div>
         </div>
       </section>
@@ -122,12 +111,12 @@ export default function OurCategories() {
             <div 
               key={cat.id} 
               className="group text-center cursor-pointer"
-              onClick={() => router.push(`/e-commerce/${cat.slug}`)}
+              onClick={() => router.push(`/e-commerce/${encodeURIComponent(cat.title)}`)}
             >
               {/* Category Image */}
               <div className="relative aspect-square rounded-full overflow-hidden mb-5 border-4 border-gray-100 group-hover:border-red-700 transition-all duration-300 shadow-lg group-hover:shadow-2xl">
                 <img
-                  src={cat.image}
+                  src={cat.image_url || `data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="200" height="200"%3E%3Crect fill="%23f3f4f6" width="200" height="200"/%3E%3Ctext x="50%25" y="50%25" text-anchor="middle" dy=".3em" fill="%239ca3af" font-size="18"%3E${encodeURIComponent(cat.title)}%3C/text%3E%3C/svg%3E`}
                   alt={cat.title}
                   className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
                   onError={(e) => {
@@ -144,7 +133,7 @@ export default function OurCategories() {
               <h3 className="font-bold text-gray-900 mb-1 text-lg group-hover:text-red-700 transition-colors">
                 {cat.title}
               </h3>
-              <p className="text-sm text-gray-500">{cat.available} Products</p>
+              <p className="text-sm text-gray-500">{cat.productCount} Products</p>
             </div>
           ))}
         </div>

@@ -69,16 +69,14 @@ export default function Sidebar({ isOpen, setIsOpen }: SidebarProps) {
       ],
     },
     { icon: ShoppingCart, label: 'POS', href: '/pos' },
-    { icon: ShoppingCart, label: 'Social Commerce', href: '/social-commerce' },
-    {
-      icon: Package,
-      label: 'Orders',
-      subMenu: [
-        { label: 'Unpacked Orders', href: '/orders/unpacked' },
-        { label: 'Packed Orders', href: '/orders/packed' },
-        
-      ],
+    { icon: ShoppingCart,
+       label: 'Social Commerce',
+       subMenu:[
+        { label: 'Take Orders', href: '/social-commerce' },
+        { label: 'Pack Orders', href: '/social-commerce/package' },
+       ]
     },
+    {icon: Package, label: 'Orders', href: '/orders' },
     { icon: ClipboardList, label: 'Purchase History', href: '/purchase-history' },
     { icon: AlertTriangle, label: 'Defect Panel', href: '/defects' },
     { icon: CreditCard, label: 'Transaction', href: '/transaction' },
