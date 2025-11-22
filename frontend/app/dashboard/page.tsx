@@ -5,7 +5,6 @@ import {
   ArrowUpRight,
   ArrowDownRight,
   ShoppingBag,
-  LineChart,
   Wallet2,
   Store,
   Globe2,
@@ -15,37 +14,34 @@ import {
   Truck,
   CheckCircle2,
   RotateCcw,
-  MapPin,
   RefreshCw,
   AlertTriangle,
 } from "lucide-react";
-import axios from 'axios';
-import Header from '@/components/Header';
-import Sidebar from '@/components/Sidebar';
+import axios from "axios";
+import Header from "@/components/Header";
+import Sidebar from "@/components/Sidebar";
 
 // Create axios instance with proper configuration
 const axiosInstance = axios.create({
-  baseURL: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api',
+  baseURL: process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api",
   headers: {
-    'Content-Type': 'application/json',
-    'Accept': 'application/json',
+    "Content-Type": "application/json",
+    Accept: "application/json",
   },
 });
 
 // Request interceptor to add auth token
 axiosInstance.interceptors.request.use(
   (config) => {
-    if (typeof window !== 'undefined') {
-      const token = localStorage.getItem('authToken');
+    if (typeof window !== "undefined") {
+      const token = localStorage.getItem("authToken");
       if (token) {
         config.headers.Authorization = `Bearer ${token}`;
       }
     }
     return config;
   },
-  (error) => {
-    return Promise.reject(error);
-  }
+  (error) => Promise.reject(error)
 );
 
 // Response interceptor to handle errors
@@ -53,9 +49,9 @@ axiosInstance.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response?.status === 401) {
-      if (typeof window !== 'undefined') {
+      if (typeof window !== "undefined") {
         localStorage.clear();
-        window.location.href = '/login';
+        window.location.href = "/login";
       }
     }
     return Promise.reject(error);
@@ -92,18 +88,20 @@ export default function FounderDashboard() {
     operations: null,
   });
 
-  const [timeFilter, setTimeFilter] = useState<'today' | 'week' | 'month'>('today');
-  const [branchFilter, setBranchFilter] = useState('all');
+  const [timeFilter, setTimeFilter] = useState<"today" | "week" | "month">(
+    "today"
+  );
+  const [branchFilter, setBranchFilter] = useState("all"); // reserved for future store_id filter
 
   // Apply dark mode on mount
   useEffect(() => {
-    const savedDarkMode = localStorage.getItem('darkMode') === 'true';
+    const savedDarkMode = localStorage.getItem("darkMode") === "true";
     setDarkMode(savedDarkMode);
   }, []);
 
   // Update dark mode in localStorage when it changes
   useEffect(() => {
-    localStorage.setItem('darkMode', darkMode.toString());
+    localStorage.setItem("darkMode", darkMode.toString());
   }, [darkMode]);
 
   const fetchDashboardData = async () => {
@@ -111,18 +109,19 @@ export default function FounderDashboard() {
       setLoading(true);
       setError(null);
 
-      // Fetch each endpoint individually with error handling
       const fetchEndpoint = async (endpoint: string, params?: any) => {
         try {
           const response = await axiosInstance.get(endpoint, { params });
           return response.data.data;
         } catch (error: any) {
-          console.error(`Error fetching ${endpoint}:`, error.response?.data || error.message);
+          console.error(
+            `Error fetching ${endpoint}:`,
+            error?.response?.data || error?.message || error
+          );
           return null;
         }
       };
 
-      // Fetch all dashboard data in parallel
       const [
         todayMetrics,
         last30Days,
@@ -132,17 +131,23 @@ export default function FounderDashboard() {
         slowMoving,
         lowStock,
         inventoryAge,
-        operations
+        operations,
       ] = await Promise.all([
-        fetchEndpoint('/dashboard/today-metrics'),
-        fetchEndpoint('/dashboard/last-30-days-sales'),
-        fetchEndpoint('/dashboard/sales-by-channel', { period: timeFilter }),
-        fetchEndpoint('/dashboard/top-stores', { period: timeFilter, limit: 10 }),
-        fetchEndpoint('/dashboard/today-top-products', { limit: 5 }),
-        fetchEndpoint('/dashboard/slow-moving-products', { limit: 10, days: 90 }),
-        fetchEndpoint('/dashboard/low-stock-products', { threshold: 10 }),
-        fetchEndpoint('/dashboard/inventory-age-by-value'),
-        fetchEndpoint('/dashboard/operations-today')
+        fetchEndpoint("/dashboard/today-metrics"),
+        fetchEndpoint("/dashboard/last-30-days-sales"),
+        fetchEndpoint("/dashboard/sales-by-channel", { period: timeFilter }),
+        fetchEndpoint("/dashboard/top-stores", {
+          period: timeFilter,
+          limit: 10,
+        }),
+        fetchEndpoint("/dashboard/today-top-products", { limit: 5 }),
+        fetchEndpoint("/dashboard/slow-moving-products", {
+          limit: 10,
+          days: 90,
+        }),
+        fetchEndpoint("/dashboard/low-stock-products", { threshold: 10 }),
+        fetchEndpoint("/dashboard/inventory-age-by-value"),
+        fetchEndpoint("/dashboard/operations-today"),
       ]);
 
       setData({
@@ -157,13 +162,14 @@ export default function FounderDashboard() {
         operations,
       });
 
-      // Check if critical data failed
       if (!todayMetrics && !last30Days && !salesByChannel) {
-        setError('Failed to load critical dashboard data. Please check your connection.');
+        setError(
+          "Failed to load critical dashboard data. Please check your connection."
+        );
       }
     } catch (err: any) {
-      console.error('Error fetching dashboard data:', err);
-      setError(err.response?.data?.message || 'Failed to load dashboard data');
+      console.error("Error fetching dashboard data:", err);
+      setError(err?.response?.data?.message || "Failed to load dashboard data");
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -172,6 +178,7 @@ export default function FounderDashboard() {
 
   useEffect(() => {
     fetchDashboardData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [timeFilter, branchFilter]);
 
   const handleRefresh = () => {
@@ -180,32 +187,40 @@ export default function FounderDashboard() {
   };
 
   const formatCurrency = (amount: number) => {
-    if (!amount && amount !== 0) return '৳ 0';
-    return `৳ ${amount.toLocaleString('en-BD')}`;
+    if (amount === null || amount === undefined || Number.isNaN(amount)) {
+      return "৳ 0";
+    }
+    return `৳ ${amount.toLocaleString("en-BD")}`;
   };
 
   const formatPercentage = (value: number) => {
-    if (!value && value !== 0) return '0%';
+    if (value === null || value === undefined || Number.isNaN(value)) {
+      return "0%";
+    }
     return `${value.toFixed(1)}%`;
   };
 
   // Loading state
   if (loading && !data.todayMetrics) {
     return (
-      <div className={darkMode ? 'dark' : ''}>
+      <div className={darkMode ? "dark" : ""}>
         <div className="flex h-screen bg-gray-50 dark:bg-gray-900">
           <Sidebar isOpen={sidebarOpen} setIsOpen={setSidebarOpen} />
           <div className="flex-1 flex flex-col overflow-hidden">
-            <Header 
-              darkMode={darkMode} 
-              setDarkMode={setDarkMode} 
-              toggleSidebar={() => setSidebarOpen(!sidebarOpen)} 
+            <Header
+              darkMode={darkMode}
+              setDarkMode={setDarkMode}
+              toggleSidebar={() => setSidebarOpen(!sidebarOpen)}
             />
             <main className="flex-1 overflow-auto p-6 flex items-center justify-center">
               <div className="text-center">
                 <RefreshCw className="w-12 h-12 animate-spin mx-auto mb-4 text-blue-600" />
-                <p className="text-xl mb-2 text-gray-900 dark:text-white">Loading Dashboard...</p>
-                <p className="text-sm text-gray-600 dark:text-gray-400">Connecting to backend...</p>
+                <p className="text-xl mb-2 text-gray-900 dark:text-white">
+                  Loading Dashboard...
+                </p>
+                <p className="text-sm text-gray-600 dark:text-gray-400">
+                  Connecting to backend...
+                </p>
               </div>
             </main>
           </div>
@@ -217,19 +232,21 @@ export default function FounderDashboard() {
   // Error state (only if no data at all)
   if (error && !data.todayMetrics && !data.last30Days) {
     return (
-      <div className={darkMode ? 'dark' : ''}>
+      <div className={darkMode ? "dark" : ""}>
         <div className="flex h-screen bg-gray-50 dark:bg-gray-900">
           <Sidebar isOpen={sidebarOpen} setIsOpen={setSidebarOpen} />
           <div className="flex-1 flex flex-col overflow-hidden">
-            <Header 
-              darkMode={darkMode} 
-              setDarkMode={setDarkMode} 
-              toggleSidebar={() => setSidebarOpen(!sidebarOpen)} 
+            <Header
+              darkMode={darkMode}
+              setDarkMode={setDarkMode}
+              toggleSidebar={() => setSidebarOpen(!sidebarOpen)}
             />
             <main className="flex-1 overflow-auto p-6 flex items-center justify-center">
               <div className="text-center max-w-md">
                 <AlertTriangle className="w-12 h-12 text-red-600 mx-auto mb-4" />
-                <p className="text-xl mb-4 text-gray-900 dark:text-white">Error Loading Dashboard</p>
+                <p className="text-xl mb-4 text-gray-900 dark:text-white">
+                  Error Loading Dashboard
+                </p>
                 <p className="text-gray-600 dark:text-gray-400 mb-6">{error}</p>
                 <button
                   onClick={fetchDashboardData}
@@ -253,18 +270,19 @@ export default function FounderDashboard() {
   const lowStock = data.lowStock;
   const topProducts = data.topProducts;
   const slowMoving = data.slowMoving;
+  const topStores = data.topStores;
 
   return (
-    <div className={darkMode ? 'dark' : ''}>
+    <div className={darkMode ? "dark" : ""}>
       <div className="flex h-screen bg-gray-50 dark:bg-gray-900">
         <Sidebar isOpen={sidebarOpen} setIsOpen={setSidebarOpen} />
         <div className="flex-1 flex flex-col overflow-hidden">
-          <Header 
-            darkMode={darkMode} 
-            setDarkMode={setDarkMode} 
-            toggleSidebar={() => setSidebarOpen(!sidebarOpen)} 
+          <Header
+            darkMode={darkMode}
+            setDarkMode={setDarkMode}
+            toggleSidebar={() => setSidebarOpen(!sidebarOpen)}
           />
-          
+
           <main className="flex-1 overflow-auto">
             <div className="min-h-full bg-gradient-to-br from-gray-50 to-gray-100 dark:from-slate-900 dark:via-purple-900 dark:to-slate-900">
               {/* Background glow - only visible in dark mode */}
@@ -279,15 +297,19 @@ export default function FounderDashboard() {
                   <div className="rounded-2xl border border-amber-500/30 bg-amber-500/10 p-4 flex items-center gap-3">
                     <AlertTriangle className="w-5 h-5 text-amber-400" />
                     <div className="flex-1">
-                      <div className="font-semibold text-amber-400">Partial Data Load</div>
-                      <div className="text-sm text-slate-700 dark:text-slate-300">Some sections failed to load. Check console for details.</div>
+                      <div className="font-semibold text-amber-400">
+                        Partial Data Load
+                      </div>
+                      <div className="text-sm text-slate-700 dark:text-slate-300">
+                        Some sections failed to load. Check console for details.
+                      </div>
                     </div>
                     <button
                       onClick={handleRefresh}
                       disabled={refreshing}
                       className="px-4 py-2 bg-amber-500/20 hover:bg-amber-500/30 rounded-lg transition text-sm disabled:opacity-50"
                     >
-                      {refreshing ? 'Refreshing...' : 'Retry'}
+                      {refreshing ? "Refreshing..." : "Retry"}
                     </button>
                   </div>
                 )}
@@ -295,15 +317,13 @@ export default function FounderDashboard() {
                 {/* HEADER */}
                 <header className="flex items-center justify-between gap-4">
                   <div className="flex items-center gap-3">
-                    <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-sky-500 to-fuchsia-500 text-xl font-bold">
-                      D
-                    </div>
                     <div>
                       <h1 className="text-xl font-semibold tracking-tight">
                         Deshio • Founder Dashboard
                       </h1>
                       <p className="text-xs text-slate-500 dark:text-slate-400">
-                        Live snapshot of sales, inventory, and operations across all channels.
+                        Live snapshot of sales, inventory, and operations across
+                        all channels.
                       </p>
                     </div>
                   </div>
@@ -312,23 +332,25 @@ export default function FounderDashboard() {
                     {/* Filters */}
                     <div className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900/60 px-3 py-2 text-xs">
                       <div className="flex items-center gap-2">
-                        <span className="text-slate-500 dark:text-slate-400">Time</span>
+                        <span className="text-slate-500 dark:text-slate-400">
+                          Time
+                        </span>
                         <button
-                          onClick={() => setTimeFilter('today')}
+                          onClick={() => setTimeFilter("today")}
                           className={`rounded-full px-3 py-1 text-xs transition ${
-                            timeFilter === 'today'
-                              ? 'bg-slate-100 dark:bg-slate-800 font-medium text-slate-900 dark:text-slate-100 shadow-inner'
-                              : 'text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'
+                            timeFilter === "today"
+                              ? "bg-slate-100 dark:bg-slate-800 font-medium text-slate-900 dark:text-slate-100 shadow-inner"
+                              : "text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"
                           }`}
                         >
                           Today
                         </button>
                         <button
-                          onClick={() => setTimeFilter('month')}
+                          onClick={() => setTimeFilter("month")}
                           className={`rounded-full px-3 py-1 text-xs transition ${
-                            timeFilter === 'month'
-                              ? 'bg-slate-100 dark:bg-slate-800 font-medium text-slate-900 dark:text-slate-100 shadow-inner'
-                              : 'text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'
+                            timeFilter === "month"
+                              ? "bg-slate-100 dark:bg-slate-800 font-medium text-slate-900 dark:text-slate-100 shadow-inner"
+                              : "text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"
                           }`}
                         >
                           This Month
@@ -346,7 +368,11 @@ export default function FounderDashboard() {
                       disabled={refreshing}
                       className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition disabled:opacity-50"
                     >
-                      <RefreshCw className={`h-5 w-5 ${refreshing ? 'animate-spin' : ''}`} />
+                      <RefreshCw
+                        className={`h-5 w-5 ${
+                          refreshing ? "animate-spin" : ""
+                        }`}
+                      />
                     </button>
 
                     <button className="relative flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-900/70">
@@ -357,10 +383,6 @@ export default function FounderDashboard() {
                         </span>
                       )}
                     </button>
-
-                    <div className="flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-br from-sky-500 to-fuchsia-500 text-xs font-semibold text-white">
-                      FD
-                    </div>
                   </div>
                 </header>
 
@@ -381,8 +403,10 @@ export default function FounderDashboard() {
                     />
                     <KpiCard
                       label="Orders Today"
-                      value={metrics.order_count?.toString() || '0'}
-                      delta={`Avg: ${formatCurrency(metrics.average_order_value)}`}
+                      value={metrics.order_count?.toString() || "0"}
+                      delta={`Avg: ${formatCurrency(
+                        metrics.average_order_value
+                      )}`}
                       positive
                     />
                     <KpiCard
@@ -394,13 +418,19 @@ export default function FounderDashboard() {
                     <KpiCard
                       label="Est. Net Profit (MTD)"
                       value={formatCurrency(metrics.net_profit)}
-                      delta={`Net margin: ${formatPercentage(metrics.net_profit_percentage)}`}
+                      delta={`Net margin: ${formatPercentage(
+                        metrics.net_profit_percentage
+                      )}`}
                       positive
                     />
                     <KpiCard
                       label="Cash Snapshot"
-                      value={`Bank: ${formatCurrency(metrics.cash_snapshot?.accounts_receivable || 0)}`}
-                      delta={`Payables: ${formatCurrency(metrics.cash_snapshot?.accounts_payable || 0)}`}
+                      value={`Bank: ${formatCurrency(
+                        metrics.cash_snapshot?.accounts_receivable || 0
+                      )}`}
+                      delta={`Payables: ${formatCurrency(
+                        metrics.cash_snapshot?.accounts_payable || 0
+                      )}`}
                       neutral
                     />
                   </section>
@@ -411,7 +441,7 @@ export default function FounderDashboard() {
                   {/* LEFT COLUMN */}
                   <div className="flex flex-col gap-4">
                     {/* Daily sales chart */}
-                    {sales30Days && (
+                    {sales30Days && sales30Days.daily_sales && (
                       <div className="rounded-3xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-950/60 p-4 shadow-sm dark:shadow-[0_0_40px_rgba(15,23,42,0.8)] backdrop-blur">
                         <div className="mb-3 flex items-center justify-between gap-2">
                           <div>
@@ -419,71 +449,145 @@ export default function FounderDashboard() {
                               Daily Sales • Last 30 Days
                             </h2>
                             <p className="text-[11px] text-slate-500 dark:text-slate-400">
-                              Total: {formatCurrency(sales30Days.total_sales)} • {sales30Days.total_orders} orders
+                              Total: {formatCurrency(sales30Days.total_sales)} •{" "}
+                              {sales30Days.total_orders} orders
                             </p>
                           </div>
                         </div>
                         <div className="mt-2 h-40 rounded-2xl bg-gradient-to-b from-sky-500/10 via-slate-100 to-white dark:from-sky-500/15 dark:via-slate-900/40 dark:to-slate-950/80 p-3">
                           <div className="flex h-full items-end gap-1">
-                            {sales30Days.daily_sales?.map((day: any, i: number) => {
-                              const maxSales = Math.max(...sales30Days.daily_sales.map((d: any) => d.total_sales));
-                              const height = (day.total_sales / maxSales) * 100;
-                              return (
-                                <div
-                                  key={i}
-                                  className="flex-1 rounded-t-full bg-gradient-to-t from-sky-400/40 via-sky-400/70 to-fuchsia-400/80 hover:opacity-100 transition cursor-pointer"
-                                  style={{ height: `${Math.max(height, 8)}%` }}
-                                  title={`${day.date}: ${formatCurrency(day.total_sales)}`}
-                                />
+                            {(() => {
+                              const allSales =
+                                sales30Days.daily_sales.map(
+                                  (d: any) => d.total_sales
+                                ) || [];
+                              const maxSales = Math.max(
+                                ...allSales,
+                                1 // avoid division by 0 / -Infinity
                               );
-                            })}
+                              return sales30Days.daily_sales.map(
+                                (day: any, i: number) => {
+                                  const height =
+                                    (day.total_sales / maxSales) * 100;
+                                  return (
+                                    <div
+                                      key={i}
+                                      className="flex-1 rounded-t-full bg-gradient-to-t from-sky-400/40 via-sky-400/70 to-fuchsia-400/80 hover:opacity-100 transition cursor-pointer"
+                                      style={{
+                                        height: `${Math.max(height, 8)}%`,
+                                      }}
+                                      title={`${day.date}: ${formatCurrency(
+                                        day.total_sales
+                                      )}`}
+                                    />
+                                  );
+                                }
+                              );
+                            })()}
                           </div>
                         </div>
                       </div>
                     )}
 
-                    {/* Sales by channel */}
+                    {/* Sales by channel + Store performance */}
                     <div className="grid gap-4 md:grid-cols-2">
                       {channels && (
                         <div className="rounded-3xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-950/60 p-4 backdrop-blur">
                           <h2 className="mb-3 text-sm font-semibold text-slate-900 dark:text-slate-100">
-                            Sales by Channel • {timeFilter === 'today' ? 'Today' : 'This Month'}
+                            Sales by Channel •{" "}
+                            {timeFilter === "today" ? "Today" : "This Month"}
                           </h2>
                           <div className="flex items-center gap-3">
                             <div className="relative h-24 w-24">
                               <div className="absolute inset-0 rounded-full bg-[conic-gradient(at_top,_#0ea5e9_0,_#e879f9_70%,_#22c55e_100%)]" />
                               <div className="absolute inset-3 rounded-full bg-white dark:bg-slate-950" />
                               <div className="absolute inset-6 flex flex-col items-center justify-center text-[10px] text-slate-600 dark:text-slate-300">
-                                <span className="font-semibold text-slate-900 dark:text-slate-50">{channels.total_orders}</span>
+                                <span className="font-semibold text-slate-900 dark:text-slate-50">
+                                  {channels.total_orders}
+                                </span>
                                 <span>orders</span>
                               </div>
                             </div>
                             <div className="flex-1 space-y-2 text-[11px]">
-                              {channels.channels?.map((channel: any, index: number) => {
-                                const icons = [
-                                  <Store key="store" className="h-3.5 w-3.5" />,
-                                  <Globe2 key="globe" className="h-3.5 w-3.5" />,
-                                  <ShoppingBag key="bag" className="h-3.5 w-3.5" />
-                                ];
-                                return (
-                                  <ChannelRow
-                                    key={channel.channel}
-                                    icon={icons[index]}
-                                    label={channel.channel_label}
-                                    value={formatCurrency(channel.total_sales)}
-                                    percent={formatPercentage(channel.percentage)}
-                                  />
-                                );
-                              })}
+                              {channels.channels?.map(
+                                (channel: any, index: number) => {
+                                  const icons = [
+                                    <Store
+                                      key="store"
+                                      className="h-3.5 w-3.5"
+                                    />,
+                                    <Globe2
+                                      key="globe"
+                                      className="h-3.5 w-3.5"
+                                    />,
+                                    <ShoppingBag
+                                      key="bag"
+                                      className="h-3.5 w-3.5"
+                                    />,
+                                  ];
+                                  return (
+                                    <ChannelRow
+                                      key={channel.channel}
+                                      icon={icons[index]}
+                                      label={channel.channel_label}
+                                      value={formatCurrency(
+                                        channel.total_sales
+                                      )}
+                                      percent={formatPercentage(
+                                        channel.percentage
+                                      )}
+                                    />
+                                  );
+                                }
+                              )}
                             </div>
                           </div>
                         </div>
                       )}
 
-                      {/* Placeholder for map */}
+                      {/* Store performance – now using topStores data */}
                       <div className="rounded-3xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-950/60 p-4 backdrop-blur">
-                        <h2 className="mb-2 text-sm font-semibold text-slate-900 dark:text-slate-100">Store Performance</h2>
-                        <div className="text-xs text-slate-500 dark:text-slate-400">Multi-location analytics available with store data</div>
+                        <h2 className="mb-2 text-sm font-semibold text-slate-900 dark:text-slate-100">
+                          Store Performance
+                        </h2>
+                        {topStores?.top_stores &&
+                        topStores.top_stores.length > 0 ? (
+                          <div className="space-y-2 text-[11px]">
+                            <p className="text-[11px] text-slate-500 dark:text-slate-400 mb-1">
+                              Top stores by sales •{" "}
+                              {timeFilter === "today"
+                                ? "Today"
+                                : "This Month"}
+                            </p>
+                            {topStores.top_stores
+                              .slice(0, 4)
+                              .map((store: any) => (
+                                <StoreCard
+                                  key={store.store_id}
+                                  rank={store.rank}
+                                  name={store.store_name}
+                                  location={store.store_location}
+                                  type={store.store_type}
+                                  sales={formatCurrency(store.total_sales)}
+                                  contribution={formatPercentage(
+                                    store.contribution_percentage
+                                  )}
+                                  orders={store.order_count}
+                                />
+                              ))}
+                            <p className="mt-1 text-[10px] text-slate-500 dark:text-slate-400">
+                              Total period sales:{" "}
+                              {formatCurrency(
+                                topStores.total_sales_all_stores || 0
+                              )}
+                            </p>
+                          </div>
+                        ) : (
+                          <div className="text-xs text-slate-500 dark:text-slate-400">
+                            Multi-location analytics will appear here once
+                            store-wise sales data is available.
+                          </div>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -495,21 +599,27 @@ export default function FounderDashboard() {
                       <div className="rounded-3xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-950/60 p-4 backdrop-blur">
                         <div className="mb-3 flex items-center justify-between gap-2">
                           <div>
-                            <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-100">Top Products • Today</h2>
-                            <p className="text-[11px] text-slate-500 dark:text-slate-400">By revenue across all branches & channels.</p>
+                            <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-100">
+                              Top Products • Today
+                            </h2>
+                            <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                              By revenue across all branches & channels.
+                            </p>
                           </div>
                         </div>
                         <div className="grid gap-3 text-[11px] md:grid-cols-2 xl:grid-cols-3">
-                          {topProducts.top_products.slice(0, 5).map((product: any) => (
-                            <TopProductCard
-                              key={product.product_id}
-                              name={product.product_name}
-                              category={product.product_sku}
-                              sales={formatCurrency(product.total_revenue)}
-                              qty={product.total_quantity_sold}
-                              branches={product.order_count}
-                            />
-                          ))}
+                          {topProducts.top_products
+                            .slice(0, 5)
+                            .map((product: any) => (
+                              <TopProductCard
+                                key={product.product_id}
+                                name={product.product_name}
+                                category={product.product_sku}
+                                sales={formatCurrency(product.total_revenue)}
+                                qty={product.total_quantity_sold}
+                                branches={product.order_count}
+                              />
+                            ))}
                         </div>
                       </div>
                     )}
@@ -519,23 +629,31 @@ export default function FounderDashboard() {
                       {/* Slow moving */}
                       {slowMoving && slowMoving.slow_moving_products && (
                         <div className="rounded-3xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-950/60 p-4 backdrop-blur">
-                          <h2 className="mb-2 text-sm font-semibold text-slate-900 dark:text-slate-100">Slow-Moving / Overstock</h2>
+                          <h2 className="mb-2 text-sm font-semibold text-slate-900 dark:text-slate-100">
+                            Slow-Moving / Overstock
+                          </h2>
                           <div className="space-y-2 text-[11px]">
-                            {slowMoving.slow_moving_products.slice(0, 3).map((item: any) => (
-                              <div
-                                key={item.product_id}
-                                className="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2 dark:border-slate-800/80 dark:bg-slate-950/70"
-                              >
-                                <div className="flex items-center justify-between">
-                                  <span className="truncate text-slate-900 dark:text-slate-100">{item.product_name}</span>
-                                  <span className="text-[10px] text-fuchsia-700 dark:text-fuchsia-300">{formatCurrency(item.stock_value)}</span>
+                            {slowMoving.slow_moving_products
+                              .slice(0, 3)
+                              .map((item: any) => (
+                                <div
+                                  key={item.product_id}
+                                  className="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2 dark:border-slate-800/80 dark:bg-slate-950/70"
+                                >
+                                  <div className="flex items-center justify-between">
+                                    <span className="truncate text-slate-900 dark:text-slate-100">
+                                      {item.product_name}
+                                    </span>
+                                    <span className="text-[10px] text-fuchsia-700 dark:text-fuchsia-300">
+                                      {formatCurrency(item.stock_value)}
+                                    </span>
+                                  </div>
+                                  <div className="mt-1 flex items-center justify-between text-[10px] text-slate-500 dark:text-slate-400">
+                                    <span>{item.current_stock} pcs in stock</span>
+                                    <span>{item.days_of_supply} days supply</span>
+                                  </div>
                                 </div>
-                                <div className="mt-1 flex items-center justify-between text-[10px] text-slate-500 dark:text-slate-400">
-                                  <span>{item.current_stock} pcs in stock</span>
-                                  <span>{item.days_of_supply} days supply</span>
-                                </div>
-                              </div>
-                            ))}
+                              ))}
                           </div>
                         </div>
                       )}
@@ -545,36 +663,50 @@ export default function FounderDashboard() {
                         {/* Low stock */}
                         {lowStock && (
                           <div className="rounded-3xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-950/60 p-4 backdrop-blur">
-                            <h2 className="mb-2 text-sm font-semibold text-slate-900 dark:text-slate-100">Low Stock / OOS</h2>
+                            <h2 className="mb-2 text-sm font-semibold text-slate-900 dark:text-slate-100">
+                              Low Stock / OOS
+                            </h2>
                             <div className="space-y-2 text-[11px]">
-                              {lowStock.out_of_stock?.slice(0, 2).map((item: any) => (
-                                <div
-                                  key={item.product_id}
-                                  className="flex items-center justify-between rounded-2xl border border-rose-200 bg-rose-50 px-3 py-2 dark:border-slate-800/80 dark:bg-slate-950/70"
-                                >
-                                  <div className="flex-1">
-                                    <div className="truncate text-slate-900 dark:text-slate-100">{item.product_name}</div>
-                                    <div className="text-[10px] text-slate-500 dark:text-slate-400">{item.store_name}</div>
+                              {lowStock.out_of_stock
+                                ?.slice(0, 2)
+                                .map((item: any) => (
+                                  <div
+                                    key={`${item.product_id}-${item.store_id}-out`}
+                                    className="flex items-center justify-between rounded-2xl border border-rose-200 bg-rose-50 px-3 py-2 dark:border-slate-800/80 dark:bg-slate-950/70"
+                                  >
+                                    <div className="flex-1">
+                                      <div className="truncate text-slate-900 dark:text-slate-100">
+                                        {item.product_name}
+                                      </div>
+                                      <div className="text-[10px] text-slate-500 dark:text-slate-400">
+                                        {item.store_name}
+                                      </div>
+                                    </div>
+                                    <span className="rounded-full bg-rose-500/15 px-2 py-0.5 text-[10px] text-rose-600 dark:bg-rose-500/15 dark:text-rose-300">
+                                      Out of stock
+                                    </span>
                                   </div>
-                                  <span className="rounded-full bg-rose-500/15 px-2 py-0.5 text-[10px] text-rose-600 dark:bg-rose-500/15 dark:text-rose-300">
-                                    Out of stock
-                                  </span>
-                                </div>
-                              ))}
-                              {lowStock.low_stock?.slice(0, 1).map((item: any) => (
-                                <div
-                                  key={item.product_id}
-                                  className="flex items-center justify-between rounded-2xl border border-amber-200 bg-amber-50 px-3 py-2 dark:border-slate-800/80 dark:bg-slate-950/70"
-                                >
-                                  <div className="flex-1">
-                                    <div className="truncate text-slate-900 dark:text-slate-100">{item.product_name}</div>
-                                    <div className="text-[10px] text-slate-500 dark:text-slate-400">{item.store_name}</div>
+                                ))}
+                              {lowStock.low_stock
+                                ?.slice(0, 1)
+                                .map((item: any) => (
+                                  <div
+                                    key={`${item.product_id}-${item.store_id}-low`}
+                                    className="flex items-center justify-between rounded-2xl border border-amber-200 bg-amber-50 px-3 py-2 dark:border-slate-800/80 dark:bg-slate-950/70"
+                                  >
+                                    <div className="flex-1">
+                                      <div className="truncate text-slate-900 dark:text-slate-100">
+                                        {item.product_name}
+                                      </div>
+                                      <div className="text-[10px] text-slate-500 dark:text-slate-400">
+                                        {item.store_name}
+                                      </div>
+                                    </div>
+                                    <span className="rounded-full bg-amber-500/10 px-2 py-0.5 text-[10px] text-amber-700 dark:text-amber-300">
+                                      Low stock
+                                    </span>
                                   </div>
-                                  <span className="rounded-full bg-amber-500/10 px-2 py-0.5 text-[10px] text-amber-700 dark:text-amber-300">
-                                    Low stock
-                                  </span>
-                                </div>
-                              ))}
+                                ))}
                             </div>
                           </div>
                         )}
@@ -582,39 +714,56 @@ export default function FounderDashboard() {
                         {/* Inventory age */}
                         {inventoryAge && (
                           <div className="rounded-3xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-950/60 p-4 backdrop-blur">
-                            <h2 className="mb-2 text-sm font-semibold text-slate-900 dark:text-slate-100">Inventory Age (by value)</h2>
+                            <h2 className="mb-2 text-sm font-semibold text-slate-900 dark:text-slate-100">
+                              Inventory Age (by value)
+                            </h2>
                             <div className="mb-2 h-3 w-full overflow-hidden rounded-full bg-slate-100 dark:bg-slate-900">
                               <div className="flex h-full w-full">
-                                {inventoryAge.age_categories?.map((cat: any, i: number) => {
-                                  const colors = [
-                                    'bg-emerald-400/80',
-                                    'bg-sky-400/80',
-                                    'bg-amber-400/90',
-                                    'bg-rose-500/90'
-                                  ];
-                                  return (
-                                    <div
-                                      key={i}
-                                      className={`h-full ${colors[i]}`}
-                                      style={{ width: `${cat.percentage_of_total}%` }}
-                                      title={`${cat.label}: ${formatCurrency(cat.inventory_value)}`}
-                                    />
-                                  );
-                                })}
+                                {inventoryAge.age_categories?.map(
+                                  (cat: any, i: number) => {
+                                    const colors = [
+                                      "bg-emerald-400/80",
+                                      "bg-sky-400/80",
+                                      "bg-amber-400/90",
+                                      "bg-rose-500/90",
+                                    ];
+                                    return (
+                                      <div
+                                        key={i}
+                                        className={`h-full ${colors[i]}`}
+                                        style={{
+                                          width: `${cat.percentage_of_total}%`,
+                                        }}
+                                        title={`${cat.label}: ${formatCurrency(
+                                          cat.inventory_value
+                                        )}`}
+                                      />
+                                    );
+                                  }
+                                )}
                               </div>
                             </div>
                             <div className="grid grid-cols-2 gap-2 text-[11px]">
-                              {inventoryAge.age_categories?.map((cat: any, i: number) => {
-                                const tones = ['fresh', 'good', 'watch', 'danger'];
-                                return (
-                                  <AgeTile
-                                    key={i}
-                                    label={cat.label}
-                                    value={formatCurrency(cat.inventory_value)}
-                                    tone={tones[i] as any}
-                                  />
-                                );
-                              })}
+                              {inventoryAge.age_categories?.map(
+                                (cat: any, i: number) => {
+                                  const tones = [
+                                    "fresh",
+                                    "good",
+                                    "watch",
+                                    "danger",
+                                  ];
+                                  return (
+                                    <AgeTile
+                                      key={i}
+                                      label={cat.label}
+                                      value={formatCurrency(
+                                        cat.inventory_value
+                                      )}
+                                      tone={tones[i] as any}
+                                    />
+                                  );
+                                }
+                              )}
                             </div>
                           </div>
                         )}
@@ -629,61 +778,87 @@ export default function FounderDashboard() {
                   {operations && (
                     <div className="rounded-3xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-950/60 p-4 backdrop-blur">
                       <div className="mb-3 flex items-center justify-between">
-                        <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-100">Operations • Today</h2>
-                        <span className="text-[11px] text-slate-500 dark:text-slate-400">From order placed to delivered</span>
+                        <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-100">
+                          Operations • Today
+                        </h2>
+                        <span className="text-[11px] text-slate-500 dark:text-slate-400">
+                          From order placed to delivered
+                        </span>
                       </div>
                       <div className="mb-4 grid gap-2 text-[11px] md:grid-cols-5">
-                        {Object.entries(operations.operations_status || {}).slice(0, 5).map(([key, value]: [string, any]) => {
-                          const icons: Record<string, any> = {
-                            pending: <Clock className="h-3 w-3" />,
-                            processing: <Package className="h-3 w-3" />,
-                            ready_for_pickup: <Truck className="h-3 w-3" />,
-                            delivered: <CheckCircle2 className="h-3 w-3" />,
-                            cancelled: <RotateCcw className="h-3 w-3" />
-                          };
-                          return (
-                            <PipelineStage
-                              key={key}
-                              label={value.label}
-                              count={value.count}
-                              value={formatCurrency(value.count * 800)}
-                              icon={icons[key] || <Clock className="h-3 w-3" />}
-                              highlight={key === 'delivered'}
-                              warning={key === 'cancelled'}
-                            />
-                          );
-                        })}
+                        {Object.entries(
+                          operations.operations_status || {}
+                        )
+                          .slice(0, 5)
+                          .map(([key, value]: [string, any]) => {
+                            const icons: Record<string, any> = {
+                              pending: <Clock className="h-3 w-3" />,
+                              processing: <Package className="h-3 w-3" />,
+                              ready_for_pickup: <Truck className="h-3 w-3" />,
+                              delivered: <CheckCircle2 className="h-3 w-3" />,
+                              cancelled: <RotateCcw className="h-3 w-3" />,
+                            };
+                            return (
+                              <PipelineStage
+                                key={key}
+                                label={value.label}
+                                count={value.count}
+                                value={formatCurrency(value.count * 800)}
+                                icon={
+                                  icons[key] || <Clock className="h-3 w-3" />
+                                }
+                                highlight={key === "delivered"}
+                                warning={key === "cancelled"}
+                              />
+                            );
+                          })}
                       </div>
                     </div>
                   )}
 
-                  {/* Alerts placeholder */}
+                  {/* Alerts */}
                   <div className="rounded-3xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-950/60 p-4 backdrop-blur">
-                    <h2 className="mb-3 text-sm font-semibold text-slate-900 dark:text-slate-100">Alerts & Exceptions</h2>
+                    <h2 className="mb-3 text-sm font-semibold text-slate-900 dark:text-slate-100">
+                      Alerts & Exceptions
+                    </h2>
                     <div className="space-y-2 text-[11px]">
                       {lowStock?.summary && (
                         <>
                           {lowStock.summary.out_of_stock_count > 0 && (
                             <div className="rounded-2xl border border-rose-300 bg-rose-50 px-3 py-2 dark:border-rose-500/50 dark:bg-rose-500/10">
                               <div className="flex items-center justify-between mb-1">
-                                <span className="text-[10px] bg-rose-500/10 text-rose-700 px-2 py-0.5 rounded-full dark:bg-rose-500/20 dark:text-rose-200">Critical</span>
-                                <span className="text-[10px] text-slate-500 dark:text-slate-200">Just now</span>
+                                <span className="text-[10px] bg-rose-500/10 text-rose-700 px-2 py-0.5 rounded-full dark:bg-rose-500/20 dark:text-rose-200">
+                                  Critical
+                                </span>
+                                <span className="text-[10px] text-slate-500 dark:text-slate-200">
+                                  Just now
+                                </span>
                               </div>
-                              <div className="text-slate-900 dark:text-slate-50">Stock-out Alert</div>
+                              <div className="text-slate-900 dark:text-slate-50">
+                                Stock-out Alert
+                              </div>
                               <div className="text-[10px] text-slate-600 dark:text-slate-200">
-                                {lowStock.summary.out_of_stock_count} products out of stock across branches
+                                {lowStock.summary.out_of_stock_count} products
+                                out of stock across branches
                               </div>
                             </div>
                           )}
                           {lowStock.summary.low_stock_count > 0 && (
                             <div className="rounded-2xl border border-amber-300 bg-amber-50 px-3 py-2 dark:border-amber-500/40 dark:bg-amber-500/8">
                               <div className="flex items-center justify-between mb-1">
-                                <span className="text-[10px] bg-amber-500/10 text-amber-700 px-2 py-0.5 rounded-full dark:bg-amber-500/15 dark:text-amber-200">Warning</span>
-                                <span className="text-[10px] text-slate-500 dark:text-slate-200">Recent</span>
+                                <span className="text-[10px] bg-amber-500/10 text-amber-700 px-2 py-0.5 rounded-full dark:bg-amber-500/15 dark:text-amber-200">
+                                  Warning
+                                </span>
+                                <span className="text-[10px] text-slate-500 dark:text-slate-200">
+                                  Recent
+                                </span>
                               </div>
-                              <div className="text-slate-900 dark:text-slate-50">Low Stock Warning</div>
+                              <div className="text-slate-900 dark:text-slate-50">
+                                Low Stock Warning
+                              </div>
                               <div className="text-[10px] text-slate-600 dark:text-slate-200">
-                                {lowStock.summary.low_stock_count} products running low on inventory
+                                {lowStock.summary.low_stock_count} products
+                                running low on inventory
                               </div>
                             </div>
                           )}
@@ -704,16 +879,24 @@ export default function FounderDashboard() {
 /* Subcomponents */
 
 function KpiCard({ label, value, delta, positive, neutral }: any) {
-  const tone = neutral ? "text-slate-500 dark:text-slate-300" : positive ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400";
+  const tone = neutral
+    ? "text-slate-500 dark:text-slate-300"
+    : positive
+    ? "text-emerald-600 dark:text-emerald-400"
+    : "text-rose-600 dark:text-rose-400";
   const Icon = neutral ? Wallet2 : positive ? ArrowUpRight : ArrowDownRight;
 
   return (
     <div className="rounded-3xl border border-slate-200 bg-white p-3 shadow-sm dark:border-slate-800 dark:bg-slate-950/70 dark:shadow-[0_0_25px_rgba(15,23,42,0.9)] backdrop-blur">
       <div className="mb-1 flex items-center justify-between">
-        <span className="text-[11px] text-slate-500 dark:text-slate-400">{label}</span>
+        <span className="text-[11px] text-slate-500 dark:text-slate-400">
+          {label}
+        </span>
         <Icon className={`h-3.5 w-3.5 ${tone}`} />
       </div>
-      <div className="text-sm font-semibold text-slate-900 dark:text-slate-50">{value}</div>
+      <div className="text-sm font-semibold text-slate-900 dark:text-slate-50">
+        {value}
+      </div>
       <div className={`mt-1 text-[10px] ${tone}`}>{delta}</div>
     </div>
   );
@@ -725,12 +908,16 @@ function TopProductCard({ name, category, sales, qty, branches }: any) {
       <div className="mb-2">
         <div className="flex items-start justify-between gap-2">
           <div className="flex-1">
-            <div className="truncate text-[12px] font-semibold text-gray-900 dark:text-slate-50">{name}</div>
+            <div className="truncate text-[12px] font-semibold text-gray-900 dark:text-slate-50">
+              {name}
+            </div>
             <span className="mt-1 inline-flex items-center rounded-full bg-gray-100 dark:bg-slate-900 px-2 py-0.5 text-[10px] text-gray-700 dark:text-slate-300">
               {category}
             </span>
           </div>
-          <div className="text-right text-xs font-semibold text-purple-700 dark:text-fuchsia-300">{sales}</div>
+          <div className="text-right text-xs font-semibold text-purple-700 dark:text-fuchsia-300">
+            {sales}
+          </div>
         </div>
       </div>
       <div className="mt-1 flex items-center justify-between text-[10px] text-gray-600 dark:text-slate-300">
@@ -758,7 +945,45 @@ function ChannelRow({ icon, label, value, percent }: any) {
       </div>
       <div className="flex items-center gap-2 text-[10px]">
         <span className="text-slate-600 dark:text-slate-300">{value}</span>
-        <span className="rounded-full bg-slate-100 px-2 py-0.5 text-slate-500 dark:bg-slate-900 dark:text-slate-400">{percent}</span>
+        <span className="rounded-full bg-slate-100 px-2 py-0.5 text-slate-500 dark:bg-slate-900 dark:text-slate-400">
+          {percent}
+        </span>
+      </div>
+    </div>
+  );
+}
+
+function StoreCard({
+  rank,
+  name,
+  location,
+  type,
+  sales,
+  contribution,
+  orders,
+}: any) {
+  return (
+    <div className="flex items-center justify-between rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2 dark:border-slate-800/80 dark:bg-slate-950/70">
+      <div className="flex items-center gap-2">
+        <span className="flex h-6 w-6 items-center justify-center rounded-full bg-slate-900 text-[11px] font-semibold text-white dark:bg-slate-100 dark:text-slate-900">
+          {rank}
+        </span>
+        <div>
+          <div className="text-[11px] font-semibold text-slate-900 dark:text-slate-50">
+            {name}
+          </div>
+          <div className="text-[10px] text-slate-500 dark:text-slate-400">
+            {location} • {type}
+          </div>
+        </div>
+      </div>
+      <div className="text-right text-[10px]">
+        <div className="font-semibold text-slate-900 dark:text-slate-50">
+          {sales}
+        </div>
+        <div className="text-slate-500 dark:text-slate-400">
+          {orders} orders • {contribution} of total
+        </div>
       </div>
     </div>
   );
@@ -766,10 +991,13 @@ function ChannelRow({ icon, label, value, percent }: any) {
 
 function AgeTile({ label, value, tone }: any) {
   const toneStyles: Record<string, string> = {
-    fresh: "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-300 dark:border-emerald-500/40",
+    fresh:
+      "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-300 dark:border-emerald-500/40",
     good: "bg-sky-50 text-sky-700 border-sky-200 dark:bg-sky-500/10 dark:text-sky-300 dark:border-sky-500/40",
-    watch: "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-500/10 dark:text-amber-300 dark:border-amber-500/40",
-    danger: "bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-500/12 dark:text-rose-200 dark:border-rose-500/50",
+    watch:
+      "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-500/10 dark:text-amber-300 dark:border-amber-500/40",
+    danger:
+      "bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-500/12 dark:text-rose-200 dark:border-rose-500/50",
   };
 
   return (
@@ -780,8 +1008,16 @@ function AgeTile({ label, value, tone }: any) {
   );
 }
 
-function PipelineStage({ label, count, value, icon, highlight, warning }: any) {
-  const base = "rounded-2xl border px-3 py-2 flex flex-col gap-0.5 bg-white dark:bg-slate-950/70";
+function PipelineStage({
+  label,
+  count,
+  value,
+  icon,
+  highlight,
+  warning,
+}: any) {
+  const base =
+    "rounded-2xl border px-3 py-2 flex flex-col gap-0.5 bg-white dark:bg-slate-950/70";
   const color = highlight
     ? "border-emerald-300 bg-emerald-50 dark:border-emerald-500/50 dark:bg-emerald-500/10"
     : warning
@@ -794,8 +1030,12 @@ function PipelineStage({ label, count, value, icon, highlight, warning }: any) {
         <span className="text-slate-700 dark:text-slate-300">{label}</span>
         <span className="text-slate-700 dark:text-slate-200">{icon}</span>
       </div>
-      <div className="text-sm font-semibold text-slate-900 dark:text-slate-50">{count}</div>
-      <div className="text-[10px] text-slate-600 dark:text-slate-200">{value}</div>
+      <div className="text-sm font-semibold text-slate-900 dark:text-slate-50">
+        {count}
+      </div>
+      <div className="text-[10px] text-slate-600 dark:text-slate-200">
+        {value}
+      </div>
     </div>
   );
 }
