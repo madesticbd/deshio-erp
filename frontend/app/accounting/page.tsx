@@ -77,30 +77,35 @@ export default function AccountingSystem() {
     }
   };
 
-  const fetchJournalEntries = async () => {
-    try {
-      setLoading(true);
+const fetchJournalEntries = async () => {
+  try {
+    setLoading(true);
+    
+    const response = await accountingService.reports.getJournalEntries({
+      date_from: dateRange.start,
+      date_to: dateRange.end,
+    });
+    
+    if (response.success) {
+      console.log('🔍 RAW TRANSACTIONS FROM BACKEND:', response);
       
-      const response = await accountingService.reports.getJournalEntries({
-        date_from: dateRange.start,
-        date_to: dateRange.end,
-      });
+      // Sort by date descending (most recent first)
+      const sortedEntries = response.data.sort((a: JournalEntry, b: JournalEntry) => 
+        new Date(b.date).getTime() - new Date(a.date).getTime()
+      );
       
-      if (response.success) {
-        // Sort by date descending (most recent first)
-        const sortedEntries = response.data.sort((a: JournalEntry, b: JournalEntry) => 
-          new Date(b.date).getTime() - new Date(a.date).getTime()
-        );
-        setJournalEntries(sortedEntries);
-        console.log('✅ Loaded journal entries:', sortedEntries.length);
-      }
-    } catch (error: any) {
-      console.error('Error fetching journal entries:', error);
-      alert(error.response?.data?.message || 'Failed to fetch journal entries');
-    } finally {
-      setLoading(false);
+      console.log('📝 GROUPED JOURNAL ENTRIES:', sortedEntries);
+      
+      setJournalEntries(sortedEntries);
+      console.log('✅ Loaded journal entries:', sortedEntries.length);
     }
-  };
+  } catch (error: any) {
+    console.error('Error fetching journal entries:', error);
+    alert(error.response?.data?.message || 'Failed to fetch journal entries');
+  } finally {
+    setLoading(false);
+  }
+};
 
   const fetchTrialBalance = async () => {
     try {
