@@ -1,6 +1,6 @@
 // components/orders/OrdersTable.tsx
 
-import { Package, MoreVertical, Edit2,Plane } from 'lucide-react';
+import { Package, MoreVertical, Edit2, Plane, Truck } from 'lucide-react';
 import { Order } from '@/types/order';
 
 interface OrdersTableProps {
@@ -13,6 +13,7 @@ interface OrdersTableProps {
   onExchangeOrder: (order: Order) => void;
   onReturnOrder: (order: Order) => void;
   onCancelOrder: (orderId: number) => void;
+  onSendToPathao?: (order: Order) => void;
   selectedOrders?: Set<number>;
   onToggleSelect?: (orderId: number) => void;
   onToggleSelectAll?: () => void;
@@ -28,6 +29,7 @@ export default function OrdersTable({
   onExchangeOrder,
   onReturnOrder,
   onCancelOrder,
+  onSendToPathao,
   selectedOrders,
   onToggleSelect,
   onToggleSelectAll,
@@ -144,8 +146,9 @@ export default function OrdersTable({
                           
                           {activeMenu === order.id && (
                             <div className={`absolute right-0 ${
-                              index >= filteredOrders.length - 2 ? 'bottom-full mb-1' : 'top-full mt-1'
-                            } bg-white dark:bg-gray-800 shadow-xl rounded-lg border border-gray-200 dark:border-gray-700 py-1 w-48 z-50`}>
+                              index >= filteredOrders.length - 3 ? 'bottom-full mb-2' : 'top-full mt-2'
+                            } bg-white dark:bg-gray-800 shadow-2xl rounded-lg border border-gray-200 dark:border-gray-700 py-1 w-48 z-[100]`}
+                            style={{ zIndex: 100 }}>
                               <button
                                 onClick={() => onViewDetails(order)}
                                 className="w-full px-4 py-2 text-left text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
@@ -158,20 +161,43 @@ export default function OrdersTable({
                               >
                                 Edit Order
                               </button>
+                              {onSendToPathao && (
+                                <button
+                                  onClick={() => {
+                                    setActiveMenu(null);
+                                    onSendToPathao(order);
+                                  }}
+                                  className="w-full px-4 py-2 text-left text-sm text-green-600 dark:text-green-400 hover:bg-green-50 dark:hover:bg-green-900/20 transition-colors flex items-center gap-2"
+                                >
+                                  <Truck className="w-4 h-4" />
+                                  Send to Pathao
+                                </button>
+                              )}
+                              <div className="border-t border-gray-200 dark:border-gray-700 my-1"></div>
                               <button
-                                onClick={() => onExchangeOrder(order)}
+                                onClick={() => {
+                                  setActiveMenu(null);
+                                  onExchangeOrder(order);
+                                }}
                                 className="w-full px-4 py-2 text-left text-sm text-purple-600 dark:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-900/20 transition-colors"
                               >
                                 Exchange Product
                               </button>
                               <button
-                                onClick={() => onReturnOrder(order)}
+                                onClick={() => {
+                                  setActiveMenu(null);
+                                  onReturnOrder(order);
+                                }}
                                 className="w-full px-4 py-2 text-left text-sm text-orange-600 dark:text-orange-400 hover:bg-orange-50 dark:hover:bg-orange-900/20 transition-colors"
                               >
                                 Return Product
                               </button>
+                              <div className="border-t border-gray-200 dark:border-gray-700 my-1"></div>
                               <button
-                                onClick={() => onCancelOrder(order.id)}
+                                onClick={() => {
+                                  setActiveMenu(null);
+                                  onCancelOrder(order.id);
+                                }}
                                 className="w-full px-4 py-2 text-left text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
                               >
                                 Cancel Order
@@ -247,33 +273,60 @@ export default function OrdersTable({
                 </div>
                 
                 {activeMenu === order.id && (
-                  <div className="mt-3 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
+                  <div className="mt-3 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden relative z-50">
                     <button
-                      onClick={() => onViewDetails(order)}
+                      onClick={() => {
+                        setActiveMenu(null);
+                        onViewDetails(order);
+                      }}
                       className="w-full px-4 py-2.5 text-left text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors border-b border-gray-200 dark:border-gray-700"
                     >
                       View Details
                     </button>
                     <button
-                      onClick={() => onEditOrder(order)}
+                      onClick={() => {
+                        setActiveMenu(null);
+                        onEditOrder(order);
+                      }}
                       className="w-full px-4 py-2.5 text-left text-sm text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors border-b border-gray-200 dark:border-gray-700"
                     >
                       Edit Order
                     </button>
+                    {onSendToPathao && (
+                      <button
+                        onClick={() => {
+                          setActiveMenu(null);
+                          onSendToPathao(order);
+                        }}
+                        className="w-full px-4 py-2.5 text-left text-sm text-green-600 dark:text-green-400 hover:bg-green-50 dark:hover:bg-green-900/20 transition-colors border-b border-gray-200 dark:border-gray-700 flex items-center gap-2"
+                      >
+                        <Truck className="w-4 h-4" />
+                        Send to Pathao
+                      </button>
+                    )}
                     <button
-                      onClick={() => onExchangeOrder(order)}
+                      onClick={() => {
+                        setActiveMenu(null);
+                        onExchangeOrder(order);
+                      }}
                       className="w-full px-4 py-2.5 text-left text-sm text-purple-600 dark:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-900/20 transition-colors border-b border-gray-200 dark:border-gray-700"
                     >
                       Exchange Product
                     </button>
                     <button
-                      onClick={() => onReturnOrder(order)}
+                      onClick={() => {
+                        setActiveMenu(null);
+                        onReturnOrder(order);
+                      }}
                       className="w-full px-4 py-2.5 text-left text-sm text-orange-600 dark:text-orange-400 hover:bg-orange-50 dark:hover:bg-orange-900/20 transition-colors border-b border-gray-200 dark:border-gray-700"
                     >
                       Return Product
                     </button>
                     <button
-                      onClick={() => onCancelOrder(order.id)}
+                      onClick={() => {
+                        setActiveMenu(null);
+                        onCancelOrder(order.id);
+                      }}
                       className="w-full px-4 py-2.5 text-left text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
                     >
                       Cancel Order
