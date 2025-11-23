@@ -1,29 +1,49 @@
+'use client';
+
 import React from 'react';
 import { useRouter } from 'next/navigation';
 import { ChevronRight, ChevronDown } from 'lucide-react';
+import { CatalogCategory } from '@/services/catalogService';
 
-export default function CategorySidebar({ categories, expandedCategories, onToggleCategory, activeSlug }: any) {
+interface CategorySidebarProps {
+  categories: CatalogCategory[];
+  expandedCategories: Set<number>;
+  onToggleCategory: (categoryId: number) => void;
+  activeCategoryName: string;
+}
+
+export default function CategorySidebar({ 
+  categories, 
+  expandedCategories, 
+  onToggleCategory, 
+  activeCategoryName 
+}: CategorySidebarProps) {
   const router = useRouter();
 
-  const renderCategoryTree = (cats: any[], level: number = 0) => {
-    return cats.map((cat: any) => {
-      const hasSubcategories = cat.subcategories && cat.subcategories.length > 0;
+  const renderCategoryTree = (cats: CatalogCategory[], level: number = 0) => {
+    return cats.map((cat) => {
+      const hasSubcategories = cat.children && cat.children.length > 0;
       const isExpanded = expandedCategories.has(cat.id);
-      const isActive = activeSlug === cat.slug;
+      const isActive = activeCategoryName === cat.name;
 
       return (
         <div key={cat.id}>
           <div
             className={`flex items-center justify-between py-2.5 px-3 cursor-pointer transition-colors ${
-              isActive ? 'text-red-700 font-semibold' : 'text-gray-700 hover:text-gray-900'
+              isActive ? 'text-red-700 font-semibold bg-red-50' : 'text-gray-700 hover:text-gray-900 hover:bg-gray-50'
             }`}
             style={{ paddingLeft: `${level * 20 + 12}px` }}
           >
             <span
-              onClick={() => router.push(`/e-commerce/${cat.slug}`)}
+              onClick={() => router.push(`/e-commerce/${encodeURIComponent(cat.name)}`)}
               className="flex-1"
             >
-              {cat.title}
+              {cat.name}
+              {cat.product_count > 0 && (
+                <span className="ml-2 text-xs text-gray-500">
+                  ({cat.product_count})
+                </span>
+              )}
             </span>
             <div className="flex items-center gap-2">
               {hasSubcategories && (
@@ -32,7 +52,7 @@ export default function CategorySidebar({ categories, expandedCategories, onTogg
                     e.stopPropagation();
                     onToggleCategory(cat.id);
                   }}
-                  className="p-0.5"
+                  className="p-0.5 hover:bg-gray-200 rounded"
                 >
                   {isExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
                 </button>
@@ -40,7 +60,7 @@ export default function CategorySidebar({ categories, expandedCategories, onTogg
             </div>
           </div>
           {hasSubcategories && isExpanded && (
-            <div>{renderCategoryTree(cat.subcategories, level + 1)}</div>
+            <div>{renderCategoryTree(cat.children!, level + 1)}</div>
           )}
         </div>
       );
@@ -54,7 +74,13 @@ export default function CategorySidebar({ categories, expandedCategories, onTogg
           <h3 className="text-lg font-bold text-gray-900">PRODUCT CATEGORIES</h3>
         </div>
         <div className="p-4 max-h-[600px] overflow-y-auto">
-          {renderCategoryTree(categories)}
+          {categories.length > 0 ? (
+            renderCategoryTree(categories)
+          ) : (
+            <p className="text-sm text-gray-500 text-center py-4">
+              No categories available
+            </p>
+          )}
         </div>
       </div>
     </aside>

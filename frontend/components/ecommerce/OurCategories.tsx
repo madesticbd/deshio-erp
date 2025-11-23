@@ -2,13 +2,15 @@
 
 import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import categoryService, { CategoryTree } from '@/services/categoryService';
+import catalogService, { CatalogCategory } from '@/services/catalogService';
 
 interface CategoryData {
   id: number;
-  title: string;
-  slug: string;
+  name: string;
+  description?: string;
   image_url?: string;
+  color?: string;
+  icon?: string;
   productCount: number;
 }
 
@@ -24,20 +26,22 @@ export default function OurCategories() {
         setLoading(true);
         setError(null);
 
-        // Fetch categories using the category service (automatically normalizes image URLs)
-        const categoriesData = await categoryService.getTree(true);
+        // Fetch categories using the PUBLIC catalog service (no auth required)
+        const categoriesData = await catalogService.getCategories();
 
         // Flatten all categories and subcategories
         const allCategories: CategoryData[] = [];
 
-        const flattenCategories = (cats: CategoryTree[]) => {
+        const flattenCategories = (cats: CatalogCategory[]) => {
           cats.forEach(cat => {
             allCategories.push({
               id: cat.id,
-              title: cat.title,
-              slug: cat.slug,
-              image_url: cat.image_url, // Already normalized by service
-              productCount: cat.active_products?.length || 0,
+              name: cat.name,
+              description: cat.description,
+              image_url: cat.image_url,
+              color: cat.color,
+              icon: cat.icon,
+              productCount: cat.product_count || 0,
             });
 
             if (cat.children && cat.children.length > 0) {
@@ -111,27 +115,35 @@ export default function OurCategories() {
             <div 
               key={cat.id} 
               className="group text-center cursor-pointer"
-              onClick={() => router.push(`/e-commerce/${encodeURIComponent(cat.title)}`)}
+              onClick={() => router.push(`e-commerce/${encodeURIComponent(cat.name)}`)}
             >
               {/* Category Image */}
-              <div className="relative aspect-square rounded-full overflow-hidden mb-5 border-4 border-gray-100 group-hover:border-red-700 transition-all duration-300 shadow-lg group-hover:shadow-2xl">
-                <img
-                  src={cat.image_url || `data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="200" height="200"%3E%3Crect fill="%23f3f4f6" width="200" height="200"/%3E%3Ctext x="50%25" y="50%25" text-anchor="middle" dy=".3em" fill="%239ca3af" font-size="18"%3E${encodeURIComponent(cat.title)}%3C/text%3E%3C/svg%3E`}
-                  alt={cat.title}
-                  className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
-                  onError={(e) => {
-                    e.currentTarget.src =
-                      'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="200" height="200"%3E%3Crect fill="%23f3f4f6" width="200" height="200"/%3E%3Ctext x="50%25" y="50%25" text-anchor="middle" dy=".3em" fill="%239ca3af" font-size="18"%3E' +
-                      encodeURIComponent(cat.title) +
-                      '%3C/text%3E%3C/svg%3E';
-                  }}
-                />
-                <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-all duration-300" />
+              <div className="relative aspect-square rounded-full overflow-hidden mb-5 border-4 border-gray-100 group-hover:border-red-700 transition-all duration-300 shadow-lg group-hover:shadow-2xl bg-gradient-to-br from-indigo-100 to-purple-100">
+                {cat.image_url ? (
+                  <>
+                    <img
+                      src={cat.image_url}
+                      alt={cat.name}
+                      className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
+                    />
+                    <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-all duration-300" />
+                  </>
+                ) : (
+                  <>
+                    {/* Fallback to first letter if no image */}
+                    <div className="w-full h-full flex items-center justify-center">
+                      <span className="text-6xl font-bold text-indigo-600 group-hover:scale-110 transition-transform duration-300">
+                        {cat.name.charAt(0).toUpperCase()}
+                      </span>
+                    </div>
+                    <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-all duration-300" />
+                  </>
+                )}
               </div>
 
               {/* Category Info */}
               <h3 className="font-bold text-gray-900 mb-1 text-lg group-hover:text-red-700 transition-colors">
-                {cat.title}
+                {cat.name}
               </h3>
               <p className="text-sm text-gray-500">{cat.productCount} Products</p>
             </div>

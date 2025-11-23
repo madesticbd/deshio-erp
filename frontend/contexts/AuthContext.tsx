@@ -34,16 +34,23 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
   // Monitor token validity and redirect if expired
   useEffect(() => {
-    // Public routes that don't need authentication
-    const publicRoutes = ['/login', '/signup', '/forgot-password'];
-    const isPublicRoute = publicRoutes.some(route => pathname?.startsWith(route));
-
-    // Skip checks on public routes or during initial load
-    if (isPublicRoute || isLoading) {
+    // Public frontend routes that don't need authentication
+    const publicRoutes = ['/login', '/forgot-password', '/e-commerce', '/catalog'];
+    
+    // Check if current path is public (exact match or starts with route/)
+    const isPublicRoute = publicRoutes.some(route => 
+      pathname === route || pathname?.startsWith(route + '/')
+    );
+    
+    // Home page is also public
+    const isHomePage = pathname === '/';
+    
+    // Skip auth checks for public routes, home page, or during initial load
+    if (isPublicRoute || isHomePage || isLoading) {
       return;
     }
 
-    // Check token validity periodically (every 30 seconds)
+    // Check token validity periodically (every 30 seconds) for protected routes
     const interval = setInterval(() => {
       if (!authService.isAuthenticated() && user) {
         console.log('⏰ Token expired, logging out');

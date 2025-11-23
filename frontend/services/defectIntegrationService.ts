@@ -147,7 +147,7 @@ class DefectIntegrationService {
         store_id: formData.store_id,
         defect_type: formData.is_used_item ? 'other' : formData.defect_type,
         defect_description: formData.is_used_item 
-          ? 'USED_ITEM - Product has been used/opened by customer' 
+          ? 'USED_ITEM - Product has been used' 
           : formData.defect_description,
         severity: formData.severity,
         original_price: originalPrice,

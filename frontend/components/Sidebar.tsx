@@ -13,6 +13,7 @@ import {
   Image,
   X,
   AlertTriangle,
+  Truck,
 } from 'lucide-react';
 import { useState } from 'react';
 // ──────────────────────────────
@@ -50,6 +51,13 @@ export default function Sidebar({ isOpen, setIsOpen }: SidebarProps) {
     { icon: LayoutDashboard, label: 'Dashboard', href: '/dashboard' },
     { icon: Store, label: 'Store', href: '/store' },
     { icon: FolderTree, label: 'Category', href: '/category' },
+    { icon: Truck,
+       label: 'Vendor Management',
+       subMenu:[
+        { label: 'Vendor Payment', href: '/vendor' },
+        { label: 'Purchase Order', href: '/purchase-order' },
+       ]
+    },
     { icon: Image, label: 'Gallery', href: '/gallery' },
     {
       icon: Package,
@@ -81,8 +89,7 @@ export default function Sidebar({ isOpen, setIsOpen }: SidebarProps) {
     { icon: AlertTriangle, label: 'Defect Panel', href: '/defects' },
     { icon: CreditCard, label: 'Transaction', href: '/transaction' },
     { icon: CreditCard, label: 'Accounting', href: '/accounting' },
-    { icon: CreditCard, label: 'Vendor Management', href: '/vendor' },
-    { icon: CreditCard, label: 'Purchase Order', href: '/purchase-order' },
+    
     { icon: CreditCard, label: 'Employee Management', href: '/employees' },
   ];
 

@@ -42,8 +42,8 @@ const Navbar = () => {
         <div className="flex justify-between items-center h-16">
           {/* Logo */}
           <div className="flex-shrink-0">
-            <Link href="/" className="flex items-center space-x-2">
-              <div className="bg-gradient-to-r from-purple-600 to-pink-600 text-white font-bold text-xl px-3 py-1 rounded-lg shadow-md">
+            <Link href="/e-commerce" className="flex items-center space-x-2">
+              <div className="text-red-800 font-bold text-3xl">
                 DESHIO
               </div>
             </Link>
@@ -51,13 +51,13 @@ const Navbar = () => {
 
           {/* Desktop Navigation */}
           <div className="hidden md:flex items-center space-x-8">
-            <Link href="/" className="text-gray-700 hover:text-indigo-600 transition">
+            <Link href="/e-commerce" className="text-gray-700 hover:text-red-800 transition">
               Home
             </Link>
 
             {/* Categories Dropdown */}
             <div className="relative group">
-              <button className="text-gray-700 hover:text-indigo-600 transition flex items-center">
+              <button className="text-gray-700 hover:text-red-800 transition flex items-center">
                 Categories
                 <ChevronDown className="ml-1 h-4 w-4" />
               </button>
@@ -69,8 +69,8 @@ const Navbar = () => {
                     {categories.map((category) => (
                       <div key={category.id}>
                         <Link
-                          href={`/products?category=${category.slug}`}
-                          className="block px-4 py-2 text-sm text-gray-700 hover:bg-indigo-50 hover:text-indigo-600 transition"
+                          href={`/e-commerce/${encodeURIComponent(category.name)}`}
+                          className="block px-4 py-2 text-sm text-gray-700 hover:bg-red-80 hover:text-red-800 transition"
                         >
                           {category.name}
                           {category.product_count > 0 && (
@@ -86,8 +86,8 @@ const Navbar = () => {
                             {category.children.map((child) => (
                               <Link
                                 key={child.id}
-                                href={`/products?category=${child.slug}`}
-                                className="block px-4 py-1.5 text-xs text-gray-600 hover:bg-indigo-50 hover:text-indigo-600 transition"
+                                href={`/categories/${encodeURIComponent(child.name)}`}
+                                className="block px-4 py-1.5 text-xs text-gray-600 hover:bg-red-80 hover:text-red-800 transition"
                               >
                                 {child.name}
                                 {child.product_count > 0 && (
@@ -106,32 +106,32 @@ const Navbar = () => {
               )}
             </div>
 
-            <Link href="/products" className="text-gray-700 hover:text-indigo-600 transition">
+            <Link href="/products" className="text-gray-700 hover:text-red-800 transition">
               All Products
             </Link>
 
-            <Link href="/about" className="text-gray-700 hover:text-indigo-600 transition">
+            <Link href="/about" className="text-gray-700 hover:text-red-800 transition">
               About
             </Link>
 
-            <Link href="/contact" className="text-gray-700 hover:text-indigo-600 transition">
+            <Link href="/contact" className="text-gray-700 hover:text-red-800 transition">
               Contact
             </Link>
           </div>
 
           {/* Right Side Icons */}
           <div className="hidden md:flex items-center space-x-4">
-            <Link href="/search" className="text-gray-700 hover:text-indigo-600 transition">
+            <Link href="/search" className="text-gray-700 hover:text-red-800 transition">
               <Search className="h-5 w-5" />
             </Link>
 
-            <Link href="/account" className="text-gray-700 hover:text-indigo-600 transition">
+            <Link href="/account" className="text-gray-700 hover:text-red-800 transition">
               <User className="h-5 w-5" />
             </Link>
 
-            <Link href="/cart" className="text-gray-700 hover:text-indigo-600 transition relative">
+            <Link href="/cart" className="text-gray-700 hover:text-red-800 transition relative">
               <ShoppingCart className="h-5 w-5" />
-              <span className="absolute -top-2 -right-2 bg-indigo-600 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
+              <span className="absolute -top-2 -right-2 bg-red-800 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
                 0
               </span>
             </Link>
@@ -141,7 +141,7 @@ const Navbar = () => {
           <div className="md:hidden">
             <button
               onClick={toggleMobileMenu}
-              className="text-gray-700 hover:text-indigo-600 focus:outline-none"
+              className="text-gray-700 hover:text-red-800 focus:outline-none"
             >
               {isOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
             </button>
@@ -155,7 +155,7 @@ const Navbar = () => {
           <div className="px-4 pt-2 pb-4 space-y-2">
             <Link
               href="/"
-              className="block py-2 text-gray-700 hover:text-indigo-600 transition"
+              className="block py-2 text-gray-700 hover:text-red-800 transition"
               onClick={() => setIsOpen(false)}
             >
               Home
@@ -173,26 +173,32 @@ const Navbar = () => {
               ) : (
                 categories.map((category) => (
                   <div key={category.id} className="mb-2">
-                    <button
-                      onClick={() => handleDropdownToggle(category.id)}
-                      className="flex items-center justify-between w-full py-2 text-left text-gray-700 hover:text-indigo-600"
-                    >
-                      <span>
+                    <div className="flex items-center justify-between">
+                      <Link
+                        href={`/categories/${encodeURIComponent(category.name)}`}
+                        className="flex-1 py-2 text-gray-700 hover:text-red-800"
+                        onClick={() => setIsOpen(false)}
+                      >
                         {category.name}
                         {category.product_count > 0 && (
                           <span className="ml-2 text-xs text-gray-500">
                             ({category.product_count})
                           </span>
                         )}
-                      </span>
+                      </Link>
                       {category.children && category.children.length > 0 && (
-                        <ChevronDown
-                          className={`h-4 w-4 transition-transform ${
-                            activeDropdown === category.id ? 'rotate-180' : ''
-                          }`}
-                        />
+                        <button
+                          onClick={() => handleDropdownToggle(category.id)}
+                          className="p-2 text-gray-700 hover:text-red-800"
+                        >
+                          <ChevronDown
+                            className={`h-4 w-4 transition-transform ${
+                              activeDropdown === category.id ? 'rotate-180' : ''
+                            }`}
+                          />
+                        </button>
                       )}
-                    </button>
+                    </div>
 
                     {/* Sub-categories */}
                     {activeDropdown === category.id &&
@@ -202,8 +208,8 @@ const Navbar = () => {
                           {category.children.map((child) => (
                             <Link
                               key={child.id}
-                              href={`/products?category=${child.slug}`}
-                              className="block py-1.5 text-sm text-gray-600 hover:text-indigo-600"
+                              href={`/categories/${encodeURIComponent(child.name)}`}
+                              className="block py-1.5 text-sm text-gray-600 hover:text-red-800"
                               onClick={() => setIsOpen(false)}
                             >
                               {child.name}
@@ -223,7 +229,7 @@ const Navbar = () => {
 
             <Link
               href="/products"
-              className="block py-2 text-gray-700 hover:text-indigo-600 transition"
+              className="block py-2 text-gray-700 hover:text-red-800 transition"
               onClick={() => setIsOpen(false)}
             >
               All Products
@@ -231,7 +237,7 @@ const Navbar = () => {
 
             <Link
               href="/about"
-              className="block py-2 text-gray-700 hover:text-indigo-600 transition"
+              className="block py-2 text-gray-700 hover:text-red-800 transition"
               onClick={() => setIsOpen(false)}
             >
               About
@@ -239,7 +245,7 @@ const Navbar = () => {
 
             <Link
               href="/contact"
-              className="block py-2 text-gray-700 hover:text-indigo-600 transition"
+              className="block py-2 text-gray-700 hover:text-red-800 transition"
               onClick={() => setIsOpen(false)}
             >
               Contact
@@ -249,7 +255,7 @@ const Navbar = () => {
             <div className="flex items-center space-x-4 pt-4 border-t border-gray-200">
               <Link
                 href="/search"
-                className="text-gray-700 hover:text-indigo-600 transition"
+                className="text-gray-700 hover:text-red-800 transition"
                 onClick={() => setIsOpen(false)}
               >
                 <Search className="h-5 w-5" />
@@ -257,7 +263,7 @@ const Navbar = () => {
 
               <Link
                 href="/account"
-                className="text-gray-700 hover:text-indigo-600 transition"
+                className="text-gray-700 hover:text-red-800 transition"
                 onClick={() => setIsOpen(false)}
               >
                 <User className="h-5 w-5" />
@@ -265,11 +271,11 @@ const Navbar = () => {
 
               <Link
                 href="/cart"
-                className="text-gray-700 hover:text-indigo-600 transition relative"
+                className="text-gray-700 hover:text-red-800 transition relative"
                 onClick={() => setIsOpen(false)}
               >
                 <ShoppingCart className="h-5 w-5" />
-                <span className="absolute -top-2 -right-2 bg-indigo-600 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
+                <span className="absolute -top-2 -right-2 bg-red-800 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
                   0
                 </span>
               </Link>

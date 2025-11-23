@@ -29,10 +29,26 @@ export interface Product {
   created_at: string;
 }
 
+// Simplified product for featured/new arrivals/search results
+export interface SimpleProduct {
+  id: number;
+  name: string;
+  sku: string;
+  selling_price: number;
+  images: ProductImage[];
+  category?: string | ProductCategory | null;
+  in_stock?: boolean;
+  added_days_ago?: number; // Only for new arrivals
+}
+
 export interface CatalogCategory {
   id: number;
   name: string;
   description?: string;
+  image?: string;
+  image_url?: string;
+  color?: string;
+  icon?: string;
   product_count: number;
   children?: CatalogCategory[];
 }
@@ -62,13 +78,13 @@ export interface ProductsResponse {
 
 export interface ProductDetailResponse {
   product: Product;
-  related_products: Product[];
+  related_products: SimpleProduct[]; // Backend returns simplified products
 }
 
 export interface GetProductsParams {
   per_page?: number;
   page?: number;
-  category?: string; // Category name
+  category?: string;
   min_price?: number;
   max_price?: number;
   sort_by?: 'created_at' | 'name';
@@ -84,7 +100,7 @@ export interface SearchParams {
 }
 
 export interface SearchResponse {
-  products: Product[];
+  products: SimpleProduct[]; // Backend returns simplified products
   suggestions: string[];
   search_query: string;
   pagination: PaginationMeta;
@@ -127,36 +143,76 @@ class CatalogService {
     return baseUrl + url;
   }
 
-  // Normalize product images
+  // Normalize product images (for full Product objects)
   private normalizeProduct(product: any): Product {
-    if (product.images && Array.isArray(product.images)) {
-      product.images = product.images.map((img: any) => ({
-        ...img,
-        url: this.normalizeImageUrl(img.url)
-      }));
+    // Handle both arrays and Laravel collection objects
+    if (product.images) {
+      // Convert to array if it's a collection object
+      const imagesArray = Array.isArray(product.images) 
+        ? product.images 
+        : Object.values(product.images);
+      
+      product.images = imagesArray.map((img: any) => {
+        // Handle nested image object structure
+        const imageUrl = img.url || img.image_url || '';
+        return {
+          ...img,
+          url: this.normalizeImageUrl(imageUrl)
+        };
+      });
+    } else {
+      product.images = [];
     }
     return product;
   }
 
+  // Normalize simple product images (for SimpleProduct objects)
+  private normalizeSimpleProduct(product: any): SimpleProduct {
+    // Handle both arrays and Laravel collection objects
+    if (product.images) {
+      // Convert to array if it's a collection object
+      const imagesArray = Array.isArray(product.images) 
+        ? product.images 
+        : Object.values(product.images);
+      
+      product.images = imagesArray.map((img: any) => {
+        // Handle nested image object structure
+        const imageUrl = img.url || img.image_url || '';
+        return {
+          ...img,
+          url: this.normalizeImageUrl(imageUrl)
+        };
+      });
+    } else {
+      product.images = [];
+    }
+    return product;
+  }
+
+  // Normalize category images
+  private normalizeCategory(category: any): CatalogCategory {
+    if (category.image_url) {
+      category.image_url = this.normalizeImageUrl(category.image_url);
+    }
+    if (category.children && Array.isArray(category.children)) {
+      category.children = category.children.map((child: any) => this.normalizeCategory(child));
+    }
+    return category;
+  }
+
   /**
    * GET PRODUCTS (with filters, pagination, sorting)
-   * Category parameter accepts category name (backend uses LIKE search)
    */
   async getProducts(params: GetProductsParams = {}): Promise<ProductsResponse> {
     try {
       const queryString = this.buildQueryString(params);
       const url = this.baseUrl + '/products' + queryString;
       
-      console.log('🔍 Fetching products from:', url);
-      console.log('📦 Params:', params);
-      
       const response = await axiosInstance.get<ApiResponse<ProductsResponse>>(url);
       const data = response.data.data;
       
       // Normalize image URLs
       data.products = data.products.map(product => this.normalizeProduct(product));
-      
-      console.log('✅ Products fetched:', data.products.length);
       
       return data;
     } catch (error: any) {
@@ -166,7 +222,7 @@ class CatalogService {
   }
 
   /**
-   * GET SINGLE PRODUCT (by ID only - backend doesn't support slug)
+   * GET SINGLE PRODUCT (by ID)
    */
   async getProduct(identifier: number): Promise<ProductDetailResponse> {
     try {
@@ -177,7 +233,7 @@ class CatalogService {
       
       // Normalize image URLs
       data.product = this.normalizeProduct(data.product);
-      data.related_products = data.related_products.map(product => this.normalizeProduct(product));
+      data.related_products = data.related_products.map(product => this.normalizeSimpleProduct(product));
       
       return data;
     } catch (error: any) {
@@ -188,7 +244,6 @@ class CatalogService {
 
   /**
    * GET CATEGORIES (with product counts and children)
-   * Returns empty array on failure to prevent navigation breaking
    */
   async getCategories(): Promise<CatalogCategory[]> {
     try {
@@ -197,21 +252,20 @@ class CatalogService {
       const response = await axiosInstance.get<ApiResponse<{ categories: CatalogCategory[] }>>(url);
       const categories = response.data.data.categories;
       
-      return categories;
+      // Normalize category image URLs
+      return categories.map(category => this.normalizeCategory(category));
     } catch (error: any) {
-      // Log warning but return empty array to not break the UI
-      console.warn('Categories endpoint failed, navigation will work without dynamic categories:', error.response?.data?.message || error.message);
-      
-      // Return empty array instead of throwing - this prevents the navigation from breaking
+      console.warn('Categories endpoint failed:', error.response?.data?.message || error.message);
       return [];
     }
   }
 
   /**
    * GET FEATURED PRODUCTS
+   * Returns simplified product objects
    */
   async getFeaturedProducts(limit: number = 8): Promise<{
-    featured_products: Product[];
+    featured_products: SimpleProduct[];
     total_featured: number;
   }> {
     try {
@@ -219,13 +273,13 @@ class CatalogService {
       const url = this.baseUrl + '/featured-products' + queryString;
       
       const response = await axiosInstance.get<ApiResponse<{
-        featured_products: Product[];
+        featured_products: SimpleProduct[];
         total_featured: number;
       }>>(url);
       const data = response.data.data;
       
-      // Normalize image URLs
-      data.featured_products = data.featured_products.map(product => this.normalizeProduct(product));
+      // Normalize image URLs for simplified products
+      data.featured_products = data.featured_products.map(product => this.normalizeSimpleProduct(product));
       
       return data;
     } catch (error: any) {
@@ -236,9 +290,10 @@ class CatalogService {
 
   /**
    * GET NEW ARRIVALS
+   * Returns simplified product objects with added_days_ago field
    */
   async getNewArrivals(limit: number = 8, days: number = 30): Promise<{
-    new_arrivals: Product[];
+    new_arrivals: SimpleProduct[];
     total_new_arrivals: number;
     days_range: number;
   }> {
@@ -247,14 +302,14 @@ class CatalogService {
       const url = this.baseUrl + '/new-arrivals' + queryString;
       
       const response = await axiosInstance.get<ApiResponse<{
-        new_arrivals: Product[];
+        new_arrivals: SimpleProduct[];
         total_new_arrivals: number;
         days_range: number;
       }>>(url);
       const data = response.data.data;
       
-      // Normalize image URLs
-      data.new_arrivals = data.new_arrivals.map(product => this.normalizeProduct(product));
+      // Normalize image URLs for simplified products
+      data.new_arrivals = data.new_arrivals.map(product => this.normalizeSimpleProduct(product));
       
       return data;
     } catch (error: any) {
@@ -265,6 +320,7 @@ class CatalogService {
 
   /**
    * SEARCH PRODUCTS (with suggestions)
+   * Returns simplified product objects
    */
   async searchProducts(params: SearchParams): Promise<SearchResponse> {
     try {
@@ -274,8 +330,8 @@ class CatalogService {
       const response = await axiosInstance.get<ApiResponse<SearchResponse>>(url);
       const data = response.data.data;
       
-      // Normalize image URLs
-      data.products = data.products.map(product => this.normalizeProduct(product));
+      // Normalize image URLs for simplified products
+      data.products = data.products.map(product => this.normalizeSimpleProduct(product));
       
       return data;
     } catch (error: any) {
