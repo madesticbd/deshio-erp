@@ -12,14 +12,14 @@ export interface CreateOrderPayload {
   store_id: number;
   salesman_id?: number;
   items: Array<{
-    barcode?: string;
-    barcode_id?: number; // ✅ ADD THIS
     product_id: number;
     batch_id: number;
     quantity: number;
     unit_price: number;
     discount_amount?: number;
     tax_amount?: number;
+    // Only for counter orders - barcodes scanned at POS
+    barcode?: string;
   }>;
   discount_amount?: number;
   shipping_amount?: number;
@@ -29,22 +29,19 @@ export interface CreateOrderPayload {
     payment_method_id: number;
     amount: number;
     payment_type?: 'full' | 'partial' | 'installment' | 'advance';
-    cash_received?: Array<{
-      denomination: number;
-      quantity: number;
-      type: 'note' | 'coin';
-    }>;
-    cash_change?: Array<{
-      denomination: number;
-      quantity: number;
-      type: 'note' | 'coin';
-    }>;
   };
   installment_plan?: {
     total_installments: number;
     installment_amount: number;
     start_date?: string;
   };
+}
+
+export interface FulfillmentPayload {
+  fulfillments: Array<{
+    order_item_id: number;
+    barcodes: string[];
+  }>;
 }
 
 export interface OrderItem {
@@ -61,7 +58,6 @@ export interface OrderItem {
   discount_amount: string;
   tax_amount: string;
   total_amount: string;
-  shipping_amount: string;
 }
 
 export interface OrderPayment {
@@ -72,11 +68,6 @@ export interface OrderPayment {
   status: string;
   processed_by?: string;
   created_at: string;
-  splits?: Array<{
-    payment_method: string;
-    amount: string;
-    status: string;
-  }>;
 }
 
 export interface Order {
@@ -86,6 +77,7 @@ export interface Order {
   order_type_label: string;
   status: string;
   payment_status: string;
+  fulfillment_status?: string | null;
   customer: {
     id: number;
     name: string;
@@ -101,6 +93,10 @@ export interface Order {
     id: number;
     name: string;
   };
+  fulfilled_by?: {
+    id: number;
+    name: string;
+  };
   subtotal: string;
   tax_amount: string;
   discount_amount: string;
@@ -111,25 +107,19 @@ export interface Order {
   is_installment: boolean;
   order_date: string;
   created_at: string;
+  fulfilled_at?: string;
+  confirmed_at?: string;
   items?: OrderItem[];
   payments?: OrderPayment[];
-  installment_info?: {
-    total_installments: number;
-    paid_installments: number;
-    installment_amount: string;
-    next_payment_due?: string;
-    is_overdue: boolean;
-    days_overdue: number;
-  };
   notes?: string;
   shipping_address?: any;
-  confirmed_at?: string;
 }
 
 export interface OrderFilters {
   order_type?: string;
   status?: string;
   payment_status?: string;
+  fulfillment_status?: string;
   store_id?: number;
   customer_id?: number;
   created_by?: number;
@@ -163,15 +153,13 @@ export interface OrderStatistics {
     paid: number;
     overdue: number;
   };
+  by_fulfillment_status?: {
+    pending_fulfillment: number;
+    fulfilled: number;
+  };
   total_revenue: string;
   total_outstanding: string;
   installment_orders: number;
-  top_salesmen?: Array<{
-    employee_id: number;
-    employee_name: string;
-    order_count: number;
-    total_sales: string;
-  }>;
 }
 
 const orderService = {
@@ -236,7 +224,73 @@ const orderService = {
     }
   },
 
-  /** Add item to order using barcode (supports single or multiple barcodes) */
+  /** 
+   * Fulfill order by scanning barcodes (warehouse operation)
+   * This is for social_commerce and ecommerce orders only
+   */
+  async fulfill(orderId: number, payload: FulfillmentPayload): Promise<{
+    order_number: string;
+    fulfillment_status: string;
+    fulfilled_at: string;
+    fulfilled_by: string;
+    fulfilled_items: Array<{
+      item_id: number;
+      product_name: string;
+      original_quantity?: number;
+      barcodes: string[];
+    }>;
+    next_step: string;
+  }> {
+    try {
+      const response = await axiosInstance.patch(`/orders/${orderId}/fulfill`, payload);
+      const result = response.data;
+      
+      if (!result.success) {
+        throw new Error(result.message || 'Failed to fulfill order');
+      }
+      
+      return result.data;
+    } catch (error: any) {
+      console.error('Fulfill order error:', error);
+      throw new Error(error.response?.data?.message || 'Failed to fulfill order');
+    }
+  },
+
+  /** Complete order and reduce inventory */
+  async complete(orderId: number): Promise<Order> {
+    try {
+      const response = await axiosInstance.patch(`/orders/${orderId}/complete`);
+      const result = response.data;
+      
+      if (!result.success) {
+        throw new Error(result.message || 'Failed to complete order');
+      }
+      
+      return result.data;
+    } catch (error: any) {
+      console.error('Complete order error:', error);
+      throw new Error(error.response?.data?.message || 'Failed to complete order');
+    }
+  },
+
+  /** Cancel order */
+  async cancel(orderId: number, reason?: string): Promise<Order> {
+    try {
+      const response = await axiosInstance.patch(`/orders/${orderId}/cancel`, { reason });
+      const result = response.data;
+      
+      if (!result.success) {
+        throw new Error(result.message || 'Failed to cancel order');
+      }
+      
+      return result.data;
+    } catch (error: any) {
+      console.error('Cancel order error:', error);
+      throw new Error(error.response?.data?.message || 'Failed to cancel order');
+    }
+  },
+
+  /** Add item to order using barcode (for counter orders at POS) */
   async addItem(
     orderId: number,
     payload: {
@@ -332,40 +386,6 @@ const orderService = {
     }
   },
 
-  /** Complete order and reduce inventory */
-  async complete(orderId: number): Promise<Order> {
-    try {
-      const response = await axiosInstance.patch(`/orders/${orderId}/complete`);
-      const result = response.data;
-      
-      if (!result.success) {
-        throw new Error(result.message || 'Failed to complete order');
-      }
-      
-      return result.data;
-    } catch (error: any) {
-      console.error('Complete order error:', error);
-      throw new Error(error.response?.data?.message || 'Failed to complete order');
-    }
-  },
-
-  /** Cancel order */
-  async cancel(orderId: number, reason?: string): Promise<Order> {
-    try {
-      const response = await axiosInstance.patch(`/orders/${orderId}/cancel`, { reason });
-      const result = response.data;
-      
-      if (!result.success) {
-        throw new Error(result.message || 'Failed to cancel order');
-      }
-      
-      return result.data;
-    } catch (error: any) {
-      console.error('Cancel order error:', error);
-      throw new Error(error.response?.data?.message || 'Failed to cancel order');
-    }
-  },
-
   /** Get order statistics */
   async getStatistics(params?: {
     date_from?: string;
@@ -387,6 +407,67 @@ const orderService = {
       throw new Error(error.response?.data?.message || 'Failed to fetch statistics');
     }
   },
+
+  /** Get orders pending fulfillment (for warehouse) */
+  async getPendingFulfillment(params?: {
+    store_id?: number;
+    per_page?: number;
+  }): Promise<{
+    data: Order[];
+    total: number;
+  }> {
+    try {
+      const response = await axiosInstance.get('/orders', {
+        params: {
+          ...params,
+          fulfillment_status: 'pending_fulfillment',
+          status: 'pending'
+        }
+      });
+      const result = response.data;
+
+      if (result.success) {
+        return {
+          data: result.data.data || [],
+          total: result.data.total || 0
+        };
+      }
+
+      return { data: [], total: 0 };
+    } catch (error: any) {
+      console.error('Get pending fulfillment orders error:', error);
+      throw new Error(error.response?.data?.message || 'Failed to fetch orders');
+    }
+  },
+
+  /** Validate barcode for fulfillment */
+  async validateBarcode(params: {
+    barcode: string;
+    product_id: number;
+    batch_id: number;
+    store_id: number;
+  }): Promise<{
+    valid: boolean;
+    barcode_id?: number;
+    message?: string;
+  }> {
+    try {
+      const response = await axiosInstance.post('/orders/validate-barcode', params);
+      const result = response.data;
+      
+      return {
+        valid: result.success,
+        barcode_id: result.data?.barcode_id,
+        message: result.message
+      };
+    } catch (error: any) {
+      console.error('Validate barcode error:', error);
+      return {
+        valid: false,
+        message: error.response?.data?.message || 'Invalid barcode'
+      };
+    }
+  }
 };
 
 export default orderService;

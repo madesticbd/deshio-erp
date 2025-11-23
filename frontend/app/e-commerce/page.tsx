@@ -4,8 +4,8 @@ import React from 'react';
 import Navigation from '@/components/ecommerce/Navigation';
 import HeroSection from '@/components/ecommerce/HeroSection';
 import OurCategories from '@/components/ecommerce/OurCategories';
-import BestSellerProducts from '@/components/ecommerce/BestSellerProducts';
-import FeaturesSection from '@/components/ecommerce/FeaturesSection';
+import FeaturedProducts from '@/components/ecommerce/FeaturedProducts';
+import NewArrivals from '@/components/ecommerce/NewArrivals';
 import Footer from '@/components/ecommerce/Footer';
 
 export default function HomePage() {
@@ -20,12 +20,12 @@ export default function HomePage() {
       {/* Categories Section */}
       <OurCategories />
       
-      {/* Best Sellers Section */}
-      <BestSellerProducts />
+      {/* Featured Products Section */}
+      <FeaturedProducts />
       
-      {/* Features Section */}
-      <FeaturesSection />
-      
+      {/* New Arrivals Section */}
+      <NewArrivals />
+            
       {/* Footer */}
       <Footer />
     </div>

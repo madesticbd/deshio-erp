@@ -11,7 +11,7 @@ interface DispatchTableProps {
   onMarkDelivered: (id: number) => void;
   onCancel: (id: number) => void;
   onScanBarcodes?: (dispatch: ProductDispatch) => void;
-  currentStoreId?: number; // Add current store context
+  currentStoreId?: number;
 }
 
 const DispatchTable: React.FC<DispatchTableProps> = ({
@@ -68,31 +68,6 @@ const DispatchTable: React.FC<DispatchTableProps> = ({
       month: 'short',
       day: 'numeric',
     });
-  };
-
-  const getScanningProgress = (dispatch: ProductDispatch) => {
-    if (!dispatch.items || dispatch.items.length === 0) {
-      return { scanned: 0, total: 0, percentage: 0, allScanned: false };
-    }
-
-    let totalScanned = 0;
-    let totalRequired = 0;
-
-    dispatch.items.forEach(item => {
-      if (item.barcode_scanning) {
-        totalScanned += item.barcode_scanning.scanned_count;
-        totalRequired += item.barcode_scanning.required_quantity;
-      } else {
-        totalRequired += item.quantity;
-      }
-    });
-
-    return {
-      scanned: totalScanned,
-      total: totalRequired,
-      percentage: totalRequired > 0 ? (totalScanned / totalRequired) * 100 : 0,
-      allScanned: totalScanned === totalRequired && totalRequired > 0,
-    };
   };
 
   // Check if current user/store is the source or destination
@@ -161,7 +136,6 @@ const DispatchTable: React.FC<DispatchTableProps> = ({
               </tr>
             ) : (
               dispatches.map((dispatch) => {
-                const scanProgress = getScanningProgress(dispatch);
                 const atDestination = isDestinationStore(dispatch);
                 const atSource = isSourceStore(dispatch);
                 
@@ -195,23 +169,8 @@ const DispatchTable: React.FC<DispatchTableProps> = ({
                     </td>
                     <td className="py-3 px-4">
                       <div className="text-sm text-gray-900 dark:text-white">
-                        {dispatch.total_items}
+                        {dispatch.total_items} items
                       </div>
-                      {dispatch.status === 'in_transit' && scanProgress.total > 0 && (
-                        <div className="mt-1">
-                          <div className="w-16 bg-gray-200 dark:bg-gray-700 rounded-full h-1.5">
-                            <div
-                              className={`h-1.5 rounded-full transition-all duration-300 ${
-                                scanProgress.allScanned ? 'bg-green-500' : 'bg-blue-500'
-                              }`}
-                              style={{ width: `${scanProgress.percentage}%` }}
-                            />
-                          </div>
-                          <div className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-                            {scanProgress.scanned}/{scanProgress.total} scanned
-                          </div>
-                        </div>
-                      )}
                     </td>
                     <td className="py-3 px-4 text-sm font-medium text-gray-900 dark:text-white">
                       ৳{parseFloat(dispatch.total_value).toLocaleString()}
@@ -268,10 +227,10 @@ const DispatchTable: React.FC<DispatchTableProps> = ({
                           <>
                             <button
                               onClick={() => onMarkDispatched(dispatch.id)}
-                              className="px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded text-xs font-medium"
+                              className="px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded text-xs font-medium flex items-center gap-1"
                               title="Mark as Dispatched (Shipped)"
                             >
-                              <Truck className="w-3 h-3 inline mr-1" />
+                              <Truck className="w-3 h-3" />
                               Mark Dispatched
                             </button>
                             <button
@@ -284,29 +243,20 @@ const DispatchTable: React.FC<DispatchTableProps> = ({
                           </>
                         )}
 
-                        {/* DESTINATION STORE ACTIONS - SCAN WHEN RECEIVING */}
+                        {/* DESTINATION STORE ACTIONS */}
                         {atDestination && dispatch.status === 'in_transit' && (
                           <>
+                            {/* Optional Barcode Scanning for Verification */}
                             {onScanBarcodes && (
                               <button
                                 onClick={() => onScanBarcodes(dispatch)}
-                                className="px-3 py-1 bg-purple-600 hover:bg-purple-700 text-white rounded text-xs font-medium flex items-center gap-1"
-                                title="Scan Barcodes to Verify Receipt"
+                                className="px-3 py-1 bg-purple-100 dark:bg-purple-900/30 hover:bg-purple-200 dark:hover:bg-purple-900/40 text-purple-700 dark:text-purple-300 rounded text-xs font-medium flex items-center gap-1 transition-colors"
+                                title="Optional: Scan Barcodes for Verification"
                               >
                                 <Scan className="w-3 h-3" />
-                                Scan ({scanProgress.scanned}/{scanProgress.total})
+                                Scan Barcodes
                               </button>
                             )}
-                            <button
-                              onClick={() => onMarkDelivered(dispatch.id)}
-                              className={`px-3 py-1 rounded text-xs font-medium transition-colors ${
-                                scanProgress.allScanned
-                                  ? 'bg-green-600 hover:bg-green-700 text-white cursor-pointer'
-                                  : 'bg-gray-300 dark:bg-gray-600 text-gray-500 dark:text-gray-400'
-                              }`}
-                            >
-                              { '✓ Mark Delivered' }
-                            </button>
                           </>
                         )}
 

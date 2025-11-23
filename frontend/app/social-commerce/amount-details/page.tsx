@@ -41,13 +41,11 @@ export default function AmountDetailsPage() {
     return `${day}-${month}-${year}`;
   };
 
-  // Helper function to calculate item amount
   const calculateItemAmount = (item: any): number => {
     if (item.amount !== undefined && item.amount !== null) {
       return parseFloat(item.amount);
     }
     
-    // Calculate from unit_price and quantity
     const unitPrice = parseFloat(item.unit_price || 0);
     const quantity = parseInt(item.quantity || 0);
     const discountAmount = parseFloat(item.discount_amount || 0);
@@ -61,14 +59,12 @@ export default function AmountDetailsPage() {
       const parsedOrder = JSON.parse(storedOrder);
       console.log('📦 Loaded order data:', parsedOrder);
       
-      // Ensure all items have amount calculated
       if (parsedOrder.items) {
         parsedOrder.items = parsedOrder.items.map((item: any) => ({
           ...item,
           amount: calculateItemAmount(item)
         }));
         
-        // Recalculate subtotal if needed
         if (!parsedOrder.subtotal || parsedOrder.subtotal === 0) {
           parsedOrder.subtotal = parsedOrder.items.reduce((sum: number, item: any) => 
             sum + calculateItemAmount(item), 0
@@ -81,7 +77,6 @@ export default function AmountDetailsPage() {
       window.location.href = '/social-commerce';
     }
 
-    // Fetch payment methods for social commerce
     const fetchPaymentMethods = async () => {
       try {
         const response = await axios.get('/payment-methods', {
@@ -142,7 +137,6 @@ export default function AmountDetailsPage() {
       console.log('📦 PLACING SOCIAL COMMERCE ORDER');
       console.log('═══════════════════════════════════');
 
-      // Step 1: Create the order
       console.log('📦 Step 1: Creating order...');
       const createOrderResponse = await axios.post('/orders', orderData);
 
@@ -152,8 +146,8 @@ export default function AmountDetailsPage() {
 
       const createdOrder = createOrderResponse.data.data;
       console.log('✅ Order created:', createdOrder.order_number);
+      console.log('Fulfillment status:', createdOrder.fulfillment_status);
 
-      // ✅ Step 1.5: Handle defective products if any
       const defectiveItems = orderData.defectiveItems || [];
       
       if (defectiveItems.length > 0) {
@@ -176,19 +170,17 @@ export default function AmountDetailsPage() {
             console.log(`✅ Defective ${defectItem.defectId} marked as sold`);
           } catch (defectError: any) {
             console.error(`❌ Failed to mark defective ${defectItem.defectId}:`, defectError);
-            // Don't fail the entire order, just log
             console.warn(`Warning: Could not update defect status for ${defectItem.productName}`);
           }
         }
       }
 
-      // Step 2: Process payment
       console.log('💰 Step 2: Processing payment...');
       const paymentData: any = {
         payment_method_id: parseInt(selectedPaymentMethod),
         amount: total,
         payment_type: 'full',
-        auto_complete: true,
+        auto_complete: false,
         notes: paymentNotes || `Social Commerce payment via ${selectedMethod?.name}`
       };
 
@@ -197,7 +189,6 @@ export default function AmountDetailsPage() {
         paymentData.external_reference = transactionReference;
       }
 
-      // Add payment data based on payment type
       if (selectedMethod?.type === 'mobile_banking' && transactionReference) {
         paymentData.payment_data = {
           mobile_number: orderData.customer.phone,
@@ -217,24 +208,19 @@ export default function AmountDetailsPage() {
       }
       console.log('✅ Payment processed');
 
-      // Step 3: Complete the order
-      console.log('🏁 Step 3: Completing order...');
-      const completeResponse = await axios.patch(`/orders/${createdOrder.id}/complete`, {});
-
-      if (!completeResponse.data.success) {
-        throw new Error(completeResponse.data.message || 'Failed to complete order');
-      }
-      console.log('✅ Order completed');
-
       console.log('═══════════════════════════════════');
-      console.log('✅ ORDER PROCESS COMPLETE');
+      console.log('✅ ORDER CREATED - PENDING FULFILLMENT');
+      console.log(`Order Number: ${createdOrder.order_number}`);
+      console.log(`Fulfillment Status: ${createdOrder.fulfillment_status}`);
+      console.log('Next step: Warehouse staff will scan barcodes');
       console.log('═══════════════════════════════════');
 
-      displayToast(`Order ${createdOrder.order_number} placed successfully!`, 'success');
+      displayToast(`Order ${createdOrder.order_number} created successfully! Pending warehouse fulfillment.`, 'success');
       sessionStorage.removeItem('pendingOrder');
+      
       setTimeout(() => {
         window.location.href = '/orders';
-      }, 3000); // Redirect after toast duration
+      }, 3000);
 
     } catch (error: any) {
       console.error('═══════════════════════════════════');
@@ -340,11 +326,6 @@ export default function AmountDetailsPage() {
                               {item.discount_amount > 0 && (
                                 <p className="text-xs text-red-600 dark:text-red-400">
                                   Discount: -{parseFloat(item.discount_amount).toFixed(2)} Tk
-                                </p>
-                              )}
-                              {item.barcode && !isDefective && (
-                                <p className="text-xs text-gray-500 dark:text-gray-400 font-mono">
-                                  Barcode: {item.barcode}
                                 </p>
                               )}
                             </div>

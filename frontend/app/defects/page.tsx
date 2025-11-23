@@ -8,10 +8,8 @@ import SellDefectModal from '@/components/SellDefectModal';
 import ReturnToVendorModal from '@/components/ReturnToVendorModal';
 import Toast from '@/components/Toast';
 import defectIntegrationService from '@/services/defectIntegrationService';
-import barcodeOrderMapper from '@/services/barcodeOrderMapper';
 import storeService from '@/services/storeService';
 import defectiveProductService from '@/services/defectiveProductService';
-import { vendorService } from '@/services/vendorService';
 import type { DefectiveProduct } from '@/services/defectiveProductService';
 import type { Store } from '@/services/storeService';
 
@@ -41,37 +39,12 @@ const formatPrice = (price: number | undefined | null): string => {
   return numPrice.toFixed(2);
 };
 
-interface Order {
-  id: number;
-  order_number: string;
-  customerName?: string;
-  customerPhone?: string;
-  customer?: {
-    name: string;
-    phone: string;
-  };
-  total_amount?: string;
-  amounts?: {
-    total: number;
-  };
-  items: Array<{
-    id: number;
-    product_id: number;
-    product_name: string;
-    quantity: number;
-    unit_price: string;
-    barcodes?: string[];
-    available_for_return?: number;
-  }>;
-}
-
 export default function DefectsPage() {
   const [darkMode, setDarkMode] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [defects, setDefects] = useState<DefectItem[]>([]);
   const [stores, setStores] = useState<Store[]>([]);
   const [selectedStore, setSelectedStore] = useState<string>('all');
-  const [activeTab, setActiveTab] = useState<'identification' | 'returns'>('identification');
   const [expandedDefect, setExpandedDefect] = useState<string | null>(null);
   const [filterType, setFilterType] = useState<'all' | 'defects' | 'used'>('all');
   
@@ -82,16 +55,6 @@ export default function DefectsPage() {
   const [storeForDefect, setStoreForDefect] = useState('');
   const [scannedProduct, setScannedProduct] = useState<any>(null);
   const [defectImage, setDefectImage] = useState<File | null>(null);
-  
-  // Customer Returns
-  const [searchType, setSearchType] = useState<'phone' | 'orderId'>('phone');
-  const [searchValue, setSearchValue] = useState('');
-  const [customerOrders, setCustomerOrders] = useState<Order[]>([]);
-  const [selectedOrder, setSelectedOrder] = useState('');
-  const [selectedBarcodes, setSelectedBarcodes] = useState<string[]>([]);
-  const [storeForReturn, setStoreForReturn] = useState('');
-  const [customerReturnReason, setCustomerReturnReason] = useState('');
-  const [returnImage, setReturnImage] = useState<File | null>(null);
   
   const [loading, setLoading] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
@@ -179,7 +142,6 @@ export default function DefectsPage() {
           return isNaN(parsed) ? undefined : parsed;
         };
 
-        // Map status including returned_to_vendor
         let mappedStatus: 'pending' | 'approved' | 'sold' | 'returned_to_vendor';
         if (d.status === 'available_for_sale') {
           mappedStatus = 'approved';
@@ -239,12 +201,6 @@ export default function DefectsPage() {
     }
   };
 
-  const handleReturnImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) {
-      setReturnImage(e.target.files[0]);
-    }
-  };
-
   const handleMarkAsDefective = async () => {
     if (!barcodeInput.trim()) {
       alert('Please enter barcode');
@@ -268,7 +224,7 @@ export default function DefectsPage() {
         store_id: parseInt(storeForDefect),
         defect_type: isUsedItem ? 'other' : 'physical_damage',
         defect_description: isUsedItem 
-          ? 'USED_ITEM - Product has been used/opened by customer'
+          ? 'USED_ITEM - Product has been used'
           : returnReason,
         severity: isUsedItem ? 'minor' : 'moderate',
         is_used_item: isUsedItem,
@@ -288,123 +244,6 @@ export default function DefectsPage() {
     } catch (error: any) {
       console.error('Error:', error);
       alert(error.message || 'Error processing defect');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleSearchCustomer = async () => {
-    if (!searchValue.trim()) {
-      alert('Please enter search value');
-      return;
-    }
-
-    if (!storeForReturn) {
-      alert('Please select a store first');
-      return;
-    }
-
-    setLoading(true);
-    try {
-      const orders = await defectIntegrationService.searchCustomerOrders(
-        searchType,
-        searchValue
-      );
-
-      if (orders.length === 0) {
-        alert('No orders found');
-        setCustomerOrders([]);
-        return;
-      }
-
-      const enrichedOrders = await Promise.all(
-        orders.map(async (order) => {
-          try {
-            const orderWithBarcodes = await barcodeOrderMapper.getOrderWithBarcodes(order.id);
-            return orderWithBarcodes;
-          } catch (error) {
-            console.error('Error enriching order:', error);
-            return order;
-          }
-        })
-      );
-
-      setCustomerOrders(enrichedOrders as Order[]);
-      setSelectedOrder('');
-      setSelectedBarcodes([]);
-    } catch (error: any) {
-      console.error('Error searching:', error);
-      alert(error.message || 'Error searching orders');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleOrderSelect = (orderId: string) => {
-    setSelectedOrder(orderId);
-    setSelectedBarcodes([]);
-  };
-
-  const handleBarcodeToggle = (barcode: string) => {
-    setSelectedBarcodes(prev =>
-      prev.includes(barcode)
-        ? prev.filter(b => b !== barcode)
-        : [...prev, barcode]
-    );
-  };
-
-  const handleProcessReturn = async () => {
-    if (!selectedOrder || selectedBarcodes.length === 0 || !storeForReturn || !customerReturnReason) {
-      alert('Please select order, barcodes, store, and provide return reason');
-      return;
-    }
-
-    setLoading(true);
-    try {
-      const validation = await barcodeOrderMapper.validateBarcodesForReturn(
-        parseInt(selectedOrder),
-        selectedBarcodes
-      );
-
-      if (!validation.valid) {
-        alert('Validation errors: ' + validation.errors.join(', '));
-        return;
-      }
-
-      if (validation.warnings.length > 0) {
-        const proceed = confirm(
-          'Warnings found:\n' + validation.warnings.join('\n') + '\n\nContinue anyway?'
-        );
-        if (!proceed) return;
-      }
-
-      let imageUrl: string | undefined;
-      if (returnImage) {
-        imageUrl = await defectIntegrationService.uploadImage(returnImage);
-      }
-
-      await defectIntegrationService.createCustomerReturn({
-        order_id: parseInt(selectedOrder),
-        selected_barcodes: selectedBarcodes,
-        return_reason: customerReturnReason,
-        return_type: 'defective',
-        store_id: parseInt(storeForReturn),
-        customer_notes: `Customer return - ${customerReturnReason}`,
-        attachments: imageUrl ? [imageUrl] : undefined,
-      });
-
-      setSuccessMessage(`Successfully processed return for ${selectedBarcodes.length} items!`);
-      setSearchValue('');
-      setSelectedOrder('');
-      setCustomerOrders([]);
-      setSelectedBarcodes([]);
-      setCustomerReturnReason('');
-      setReturnImage(null);
-      fetchDefects();
-      setTimeout(() => setSuccessMessage(''), 5000);
-    } catch (error: any) {
-      console.error('Error processing return:', error);
-      alert(error.message || 'Error processing return');
     } finally {
       setLoading(false);
     }
@@ -575,18 +414,14 @@ export default function DefectsPage() {
           ? `Successfully returned ${successCount} item${successCount > 1 ? 's' : ''} to vendor!`
           : `Returned ${successCount} item${successCount > 1 ? 's' : ''} to vendor. ${errorCount} failed.`;
         
-        // Show Toast notification
         setToast({
           show: true,
           message: successMsg,
           type: errorCount === 0 ? 'success' : 'warning',
         });
         
-        // Refresh and clear
         await fetchDefects();
         setSelectedDefectsForVendor([]);
-        
-        // Close modal
         setReturnToVendorModalOpen(false);
       }
 
@@ -647,10 +482,10 @@ export default function DefectsPage() {
               {/* Header */}
               <div className="mb-6">
                 <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
-                  Defect & Return Management
+                  Defect Management
                 </h1>
                 <p className="text-gray-600 dark:text-gray-400">
-                  Manage defective items and process customer returns
+                  Identify and manage defective items
                 </p>
               </div>
 
@@ -697,338 +532,115 @@ export default function DefectsPage() {
                 </div>
               </div>
 
-              {/* Tabs */}
-              <div className="flex gap-2 mb-6 border-b border-gray-200 dark:border-gray-700">
-                <button
-                  onClick={() => setActiveTab('identification')}
-                  className={`px-4 py-2 font-medium ${
-                    activeTab === 'identification'
-                      ? 'text-blue-600 dark:text-blue-400 border-b-2 border-blue-600'
-                      : 'text-gray-600 dark:text-gray-400'
-                  }`}
-                >
-                  Defect Identification
-                </button>
-                <button
-                  onClick={() => setActiveTab('returns')}
-                  className={`px-4 py-2 font-medium ${
-                    activeTab === 'returns'
-                      ? 'text-blue-600 dark:text-blue-400 border-b-2 border-blue-600'
-                      : 'text-gray-600 dark:text-gray-400'
-                  }`}
-                >
-                  Customer Returns
-                </button>
-              </div>
-
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 {/* Left Panel - Form */}
                 <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
-                  {activeTab === 'identification' ? (
-                    <>
-                      <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
-                        <Barcode className="w-5 h-5" />
-                        Scan Barcode
-                      </h3>
-                      
-                      <div className="space-y-4">
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                            Barcode Scanner / Manual Entry
-                          </label>
-                          <input
-                            type="text"
-                            value={barcodeInput}
-                            onChange={(e) => handleBarcodeCheck(e.target.value)}
-                            placeholder="Scan or enter barcode..."
-                            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                          />
-                          {scannedProduct && (
-                            <div className="mt-2 p-3 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-700 rounded">
-                              <p className="text-sm font-medium text-green-800 dark:text-green-300">
-                                {scannedProduct.product?.name}
-                              </p>
-                              <p className="text-xs text-green-700 dark:text-green-400">
-                                Available: {scannedProduct.is_available ? 'Yes' : 'No'} • 
-                                Location: {scannedProduct.current_location?.name || 'N/A'}
-                              </p>
-                            </div>
-                          )}
+                  <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
+                    <Barcode className="w-5 h-5" />
+                    Scan Barcode
+                  </h3>
+                  
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                        Barcode Scanner / Manual Entry
+                      </label>
+                      <input
+                        type="text"
+                        value={barcodeInput}
+                        onChange={(e) => handleBarcodeCheck(e.target.value)}
+                        placeholder="Scan or enter barcode..."
+                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                      />
+                      {scannedProduct && (
+                        <div className="mt-2 p-3 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-700 rounded">
+                          <p className="text-sm font-medium text-green-800 dark:text-green-300">
+                            {scannedProduct.product?.name}
+                          </p>
+                          <p className="text-xs text-green-700 dark:text-green-400">
+                            Available: {scannedProduct.is_available ? 'Yes' : 'No'} • 
+                            Location: {scannedProduct.current_location?.name || 'N/A'}
+                          </p>
                         </div>
+                      )}
+                    </div>
 
-                        <div className="flex items-start gap-3 p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 rounded-lg">
-                          <input
-                            type="checkbox"
-                            id="isUsed"
-                            checked={isUsedItem}
-                            onChange={(e) => {
-                              setIsUsedItem(e.target.checked);
-                              if (e.target.checked) {
-                                setReturnReason('');
-                              }
-                            }}
-                            className="mt-0.5 w-4 h-4"
-                          />
-                          <label htmlFor="isUsed" className="flex-1 cursor-pointer">
-                            <div className="text-sm font-medium text-blue-900 dark:text-blue-300">
-                              Mark as Used Item
-                            </div>
-                            <div className="text-xs text-blue-700 dark:text-blue-400 mt-0.5">
-                              Check this if the item has been used/opened by customer
-                            </div>
-                          </label>
+                    <div className="flex items-start gap-3 p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 rounded-lg">
+                      <input
+                        type="checkbox"
+                        id="isUsed"
+                        checked={isUsedItem}
+                        onChange={(e) => {
+                          setIsUsedItem(e.target.checked);
+                          if (e.target.checked) {
+                            setReturnReason('');
+                          }
+                        }}
+                        className="mt-0.5 w-4 h-4"
+                      />
+                      <label htmlFor="isUsed" className="flex-1 cursor-pointer">
+                        <div className="text-sm font-medium text-blue-900 dark:text-blue-300">
+                          Mark as Used Item
                         </div>
-
-                        {!isUsedItem && (
-                          <div>
-                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                              Return Reason <span className="text-red-500">*</span>
-                            </label>
-                            <textarea
-                              value={returnReason}
-                              onChange={(e) => setReturnReason(e.target.value)}
-                              placeholder="Enter return reason..."
-                              rows={3}
-                              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                            />
-                          </div>
-                        )}
-
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                            Defect Image
-                          </label>
-                          <input
-                            type="file"
-                            accept="image/*"
-                            onChange={handleDefectImageChange}
-                            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:font-medium file:bg-gray-50 file:text-gray-700 hover:file:bg-gray-100"
-                          />
+                        <div className="text-xs text-blue-700 dark:text-blue-400 mt-0.5">
+                          Check this if the item has been used
                         </div>
+                      </label>
+                    </div>
 
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                            Store Location <span className="text-red-500">*</span>
-                          </label>
-                          <select
-                            value={storeForDefect}
-                            onChange={(e) => setStoreForDefect(e.target.value)}
-                            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                          >
-                            <option value="">Select store...</option>
-                            {stores.map(store => (
-                              <option key={store.id} value={store.id}>
-                                {store.name}
-                              </option>
-                            ))}
-                          </select>
-                        </div>
-
-                        <button
-                          onClick={handleMarkAsDefective}
-                          disabled={loading}
-                          className="w-full py-2 bg-gray-600 hover:bg-gray-700 disabled:bg-gray-400 text-white rounded-md"
-                        >
-                          {loading ? 'Processing...' : (isUsedItem ? 'Mark as Used' : 'Mark as Defective')}
-                        </button>
+                    {!isUsedItem && (
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                          Return Reason <span className="text-red-500">*</span>
+                        </label>
+                        <textarea
+                          value={returnReason}
+                          onChange={(e) => setReturnReason(e.target.value)}
+                          placeholder="Enter return reason..."
+                          rows={3}
+                          className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                        />
                       </div>
-                    </>
-                  ) : (
-                    <>
-                      <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
-                        <User className="w-5 h-5" />
-                        Customer Return
-                      </h3>
-                      
-                      <div className="space-y-4">
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                            Return to Store <span className="text-red-500">*</span>
-                          </label>
-                          <select
-                            value={storeForReturn}
-                            onChange={(e) => setStoreForReturn(e.target.value)}
-                            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                          >
-                            <option value="">Select store first...</option>
-                            {stores.map(store => (
-                              <option key={store.id} value={store.id}>
-                                {store.name}
-                              </option>
-                            ))}
-                          </select>
-                        </div>
+                    )}
 
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                            Return Reason <span className="text-red-500">*</span>
-                          </label>
-                          <textarea
-                            value={customerReturnReason}
-                            onChange={(e) => setCustomerReturnReason(e.target.value)}
-                            placeholder="Enter customer return reason..."
-                            rows={3}
-                            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                          />
-                        </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                        Defect Image
+                      </label>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={handleDefectImageChange}
+                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:font-medium file:bg-gray-50 file:text-gray-700 hover:file:bg-gray-100"
+                      />
+                    </div>
 
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                            Return Image
-                          </label>
-                          <input
-                            type="file"
-                            accept="image/*"
-                            onChange={handleReturnImageChange}
-                            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:font-medium file:bg-gray-50 file:text-gray-700 hover:file:bg-gray-100"
-                          />
-                        </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                        Store Location <span className="text-red-500">*</span>
+                      </label>
+                      <select
+                        value={storeForDefect}
+                        onChange={(e) => setStoreForDefect(e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                      >
+                        <option value="">Select store...</option>
+                        {stores.map(store => (
+                          <option key={store.id} value={store.id}>
+                            {store.name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
 
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                            Search Type
-                          </label>
-                          <div className="flex gap-2 mb-2">
-                            <button
-                              onClick={() => {
-                                setSearchType('phone');
-                                setSearchValue('');
-                                setCustomerOrders([]);
-                              }}
-                              className={`flex-1 py-2 px-3 border rounded text-sm font-medium ${
-                                searchType === 'phone'
-                                  ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300'
-                                  : 'border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300'
-                              }`}
-                            >
-                              Phone Number
-                            </button>
-                            <button
-                              onClick={() => {
-                                setSearchType('orderId');
-                                setSearchValue('');
-                                setCustomerOrders([]);
-                              }}
-                              className={`flex-1 py-2 px-3 border rounded text-sm font-medium ${
-                                searchType === 'orderId'
-                                  ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300'
-                                  : 'border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300'
-                              }`}
-                            >
-                              Order ID
-                            </button>
-                          </div>
-                        </div>
-
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                            {searchType === 'phone' ? 'Customer Phone Number' : 'Order ID'}
-                          </label>
-                          <div className="flex gap-2">
-                            <input
-                              type="text"
-                              value={searchValue}
-                              onChange={(e) => setSearchValue(e.target.value)}
-                              placeholder={searchType === 'phone' ? '018...' : 'Enter order ID...'}
-                              className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                              disabled={!storeForReturn}
-                            />
-                            <button
-                              onClick={handleSearchCustomer}
-                              disabled={!storeForReturn || loading}
-                              className="px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white rounded-md"
-                            >
-                              <Search className="w-4 h-4" />
-                            </button>
-                          </div>
-                        </div>
-
-                        {customerOrders.length > 0 && (
-                          <>
-                            <div>
-                              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                                Select Order
-                              </label>
-                              <select
-                                value={selectedOrder}
-                                onChange={(e) => handleOrderSelect(e.target.value)}
-                                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                              >
-                                <option value="">Select order...</option>
-                                {customerOrders.map(order => {
-                                  const name = order.customer?.name || 'Unknown';
-                                  const total = order.total_amount || '0';
-                                  return (
-                                    <option key={order.id} value={order.id}>
-                                      Order #{order.order_number} - {name} (৳{total})
-                                    </option>
-                                  );
-                                })}
-                              </select>
-                            </div>
-
-                            {selectedOrder && (
-                              <>
-                                <div>
-                                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                                    Select Products & Barcodes ({selectedBarcodes.length} selected)
-                                  </label>
-                                  <div className="border border-gray-300 dark:border-gray-600 rounded-md max-h-64 overflow-y-auto">
-                                    {customerOrders
-                                      .find(o => o.id.toString() === selectedOrder)
-                                      ?.items.map((item, idx) => (
-                                        <div key={idx} className="p-3 border-b border-gray-200 dark:border-gray-700 last:border-b-0">
-                                          <div className="mb-2">
-                                            <p className="font-medium text-gray-900 dark:text-white text-sm">
-                                              {item.product_name}
-                                            </p>
-                                            <p className="text-xs text-gray-600 dark:text-gray-400">
-                                              Qty: {item.quantity} × ৳{item.unit_price} • Available for return: {item.available_for_return || item.quantity}
-                                            </p>
-                                          </div>
-                                          <div className="space-y-1">
-                                            {item.barcodes && item.barcodes.length > 0 ? (
-                                              item.barcodes.map((barcode, bIdx) => (
-                                                <label
-                                                  key={bIdx}
-                                                  className="flex items-center gap-2 p-2 hover:bg-gray-50 dark:hover:bg-gray-700 rounded cursor-pointer"
-                                                >
-                                                  <input
-                                                    type="checkbox"
-                                                    checked={selectedBarcodes.includes(barcode)}
-                                                    onChange={() => handleBarcodeToggle(barcode)}
-                                                    className="w-4 h-4"
-                                                  />
-                                                  <span className="text-sm text-gray-600 dark:text-gray-400 font-mono">
-                                                    {barcode}
-                                                  </span>
-                                                </label>
-                                              ))
-                                            ) : (
-                                              <p className="text-xs text-orange-500 italic p-2">
-                                                No barcodes tracked for this item
-                                              </p>
-                                            )}
-                                          </div>
-                                        </div>
-                                      ))}
-                                  </div>
-                                </div>
-
-                                <button
-                                  onClick={handleProcessReturn}
-                                  disabled={loading || selectedBarcodes.length === 0}
-                                  className="w-full py-2 bg-gray-600 hover:bg-gray-700 disabled:bg-gray-400 text-white rounded-md"
-                                >
-                                  {loading ? 'Processing...' : `Return ${selectedBarcodes.length} Item(s)`}
-                                </button>
-                              </>
-                            )}
-                          </>
-                        )}
-                      </div>
-                    </>
-                  )}
+                    <button
+                      onClick={handleMarkAsDefective}
+                      disabled={loading}
+                      className="w-full py-2 bg-gray-600 hover:bg-gray-700 disabled:bg-gray-400 text-white rounded-md"
+                    >
+                      {loading ? 'Processing...' : (isUsedItem ? 'Mark as Used' : 'Mark as Defective')}
+                    </button>
+                  </div>
                 </div>
 
                 {/* Right Panel - Defects List */}
@@ -1113,7 +725,6 @@ export default function DefectsPage() {
                           <div key={defect.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
                             <div className="px-4 py-3">
                               <div className="flex items-start justify-between gap-4">
-                                {/* Checkbox for selection */}
                                 <div className="flex items-start gap-3 flex-1 min-w-0">
                                   <input
                                     type="checkbox"
@@ -1194,7 +805,6 @@ export default function DefectsPage() {
                               </div>
                             </div>
 
-                            {/* Expanded Details */}
                             {expandedDefect === defect.id && (
                               <div className="px-4 pb-4 pt-2 bg-gray-50 dark:bg-gray-900/50">
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
