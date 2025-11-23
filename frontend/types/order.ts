@@ -1,9 +1,9 @@
-// types/order.ts - Updated with Store field
 
 export interface Customer {
   name: string;
   email: string;
   phone: string;
+  address?: string;
 }
 
 export interface DeliveryAddress {
@@ -31,6 +31,15 @@ export interface Product {
   defectId?: string;
 }
 
+export interface OrderItem {
+  id: number;
+  name: string;
+  sku: string;
+  quantity: number;
+  price: number;
+  discount: number;
+}
+
 export interface Amounts {
   subtotal: number;
   totalDiscount: number;
@@ -38,35 +47,45 @@ export interface Amounts {
   vatRate: number;
   transportCost: number;
   total: number;
+  paid?: number;
+  due?: number;
 }
 
 export interface Payments {
-  sslCommerz: number;
-  advance: number;
+  sslCommerz?: number;
+  advance?: number;
   transactionId?: string;
-  totalPaid: number;
+  totalPaid?: number;
+  total: number;
+  paid: number;
   due: number;
 }
 
 export interface Store {
   id: string;
   name: string;
-  location: string;
-  type: string;
+  location?: string;
+  type?: string;
 }
 
 export interface Order {
   id: number;
+  orderNumber?: string; 
+  order_number?: string; 
   date: string;
   customer: Customer;
-  deliveryAddress: DeliveryAddress;
-  products: Product[];
+  deliveryAddress?: DeliveryAddress;
+  products?: Product[];
+  items?: OrderItem[];
   subtotal: number;
+  discount?: number;
+  shipping?: number;
   amounts?: Amounts;
   payments: Payments;
   salesBy: string;
   status?: string;
-  store?: Store; 
+  store?: Store | string; // Can be Store object or string
+  notes?: string;
   createdAt?: string;
   updatedAt?: string;
   isInternational?: boolean;
