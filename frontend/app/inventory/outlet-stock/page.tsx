@@ -4,7 +4,6 @@ import { useState, useEffect } from 'react';
 import { Package, TruckIcon, CheckCircle2, AlertCircle, X } from 'lucide-react';
 import Sidebar from '@/components/Sidebar';
 import Header from '@/components/Header';
-import { useSearchParams } from 'next/navigation';
 import storeService, { Store } from '@/services/storeService';
 import dispatchService, { ProductDispatch, DispatchStatistics } from '@/services/dispatchService';
 import DispatchStatisticsCards from '@/components/dispatch/DispatchStatisticsCards';
@@ -20,9 +19,6 @@ interface Toast {
 }
 
 export default function DispatchManagementPage() {
-  const searchParams = useSearchParams();
-  const storeId = searchParams.get('storeId');
-  
   const [darkMode, setDarkMode] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [store, setStore] = useState<Store | null>(null);
@@ -61,19 +57,8 @@ export default function DispatchManagementPage() {
   }, []);
 
   useEffect(() => {
-    if (storeId && stores.length > 0) {
-      const foundStore = stores.find(s => s.id.toString() === storeId);
-      if (foundStore) {
-        setStore(foundStore);
-        // Don't auto-set filters - let user see all relevant dispatches
-        // User can manually filter if needed
-      }
-    }
-  }, [storeId, stores]);
-
-  useEffect(() => {
     fetchDispatches();
-  }, [filterStatus, filterSourceStore, filterDestStore, storeId]);
+  }, [filterStatus, filterSourceStore, filterDestStore]);
 
   const fetchStores = async () => {
     try {
@@ -91,34 +76,13 @@ export default function DispatchManagementPage() {
       setLoading(true);
       const filters: any = {};
       
-      // If we have a storeId from URL, show dispatches where this store is involved
-      // (either as source or destination)
-      if (storeId && !filterSourceStore && !filterDestStore) {
-        // Show all dispatches where store is source OR destination
-        // We'll filter client-side since API doesn't support OR queries
-        const response = await dispatchService.getDispatches({
-          status: filterStatus || undefined,
-          search: searchTerm || undefined,
-        });
-        
-        // Filter to show only dispatches involving this store
-        const storeIdNum = parseInt(storeId);
-        const filteredDispatches = (response.data.data || []).filter((dispatch: ProductDispatch) => 
-          dispatch.source_store.id === storeIdNum || 
-          dispatch.destination_store.id === storeIdNum
-        );
-        
-        setDispatches(filteredDispatches);
-      } else {
-        // Use regular filters
-        if (filterStatus) filters.status = filterStatus;
-        if (filterSourceStore) filters.source_store_id = parseInt(filterSourceStore);
-        if (filterDestStore) filters.destination_store_id = parseInt(filterDestStore);
-        if (searchTerm) filters.search = searchTerm;
-        
-        const response = await dispatchService.getDispatches(filters);
-        setDispatches(response.data.data || []);
-      }
+      if (filterStatus) filters.status = filterStatus;
+      if (filterSourceStore) filters.source_store_id = parseInt(filterSourceStore);
+      if (filterDestStore) filters.destination_store_id = parseInt(filterDestStore);
+      if (searchTerm) filters.search = searchTerm;
+      
+      const response = await dispatchService.getDispatches(filters);
+      setDispatches(response.data.data || []);
     } catch (error) {
       console.error('Error fetching dispatches:', error);
       showToast('Failed to load dispatches', 'error');
@@ -351,17 +315,9 @@ export default function DispatchManagementPage() {
                 <div>
                   <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-1">
                     Dispatch Management
-                    {store && (
-                      <span className="ml-3 px-3 py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300 text-sm rounded-full font-normal">
-                        📍 {store.name}
-                      </span>
-                    )}
                   </h2>
                   <p className="text-sm text-gray-500 dark:text-gray-400">
-                    {store 
-                      ? `Showing dispatches from and to ${store.name}`
-                      : 'Manage inventory transfers between stores'
-                    }
+                    Manage inventory transfers between stores
                   </p>
                 </div>
                 <button

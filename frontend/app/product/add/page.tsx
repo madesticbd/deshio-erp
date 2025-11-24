@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
 import { ArrowLeft, Plus } from 'lucide-react';
 import Header from '@/components/Header';
 import Sidebar from '@/components/Sidebar';
@@ -22,17 +21,28 @@ import {
   FALLBACK_IMAGE_URL,
 } from '@/types/product';
 
-export default function AddEditProductPage() {
-  const router = useRouter();
-  const searchParams = useSearchParams();
-  const productId = searchParams.get('id');
-  const isEditMode = !!productId;
-  
-  const addVariationMode = searchParams.get('addVariation') === 'true';
-  const baseSku = searchParams.get('baseSku') || '';
-  const baseName = searchParams.get('baseName') || '';
-  const categoryId = searchParams.get('categoryId') || '';
+interface AddEditProductPageProps {
+  productId?: string;
+  mode?: 'create' | 'edit' | 'addVariation';
+  baseSku?: string;
+  baseName?: string;
+  categoryId?: string;
+  onBack?: () => void;
+  onSuccess?: () => void;
+}
 
+export default function AddEditProductPage({
+  productId,
+  mode = 'create',
+  baseSku = '',
+  baseName = '',
+  categoryId = '',
+  onBack,
+  onSuccess,
+}: AddEditProductPageProps) {
+  const isEditMode = mode === 'edit';
+  const addVariationMode = mode === 'addVariation';
+  
   const [darkMode, setDarkMode] = useState<boolean>(false);
   const [sidebarOpen, setSidebarOpen] = useState<boolean>(true);
   const [activeTab, setActiveTab] = useState<'general' | 'variations'>('general');
@@ -142,7 +152,9 @@ export default function AddEditProductPage() {
     } catch (error) {
       console.error('Failed to fetch product:', error);
       setToast({ message: 'Failed to load product', type: 'error' });
-      router.push('/product/list');
+      if (onBack) {
+        onBack();
+      }
     } finally {
       setLoading(false);
     }
@@ -350,7 +362,11 @@ export default function AddEditProductPage() {
         });
 
         setToast({ message: 'Product updated successfully!', type: 'success' });
-        setTimeout(() => router.push('/product/list'), 1500);
+        setTimeout(() => {
+          if (onSuccess) {
+            onSuccess();
+          }
+        }, 1500);
       } else {
         // CREATE MODE
         const baseData = {
@@ -494,13 +510,23 @@ export default function AddEditProductPage() {
           setToast({ message: 'Product created successfully!', type: 'success' });
         }
 
-        setTimeout(() => router.push('/product/list'), 1500);
+        setTimeout(() => {
+          if (onSuccess) {
+            onSuccess();
+          }
+        }, 1500);
       }
     } catch (error: any) {
       console.error('Failed to save product:', error);
       setToast({ message: error.message || 'Failed to save product', type: 'error' });
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleBack = () => {
+    if (onBack) {
+      onBack();
     }
   };
 
@@ -535,7 +561,7 @@ export default function AddEditProductPage() {
           <div className="max-w-4xl mx-auto p-6">
             <div className="flex items-center gap-4 mb-6">
               <button
-                onClick={() => router.back()}
+                onClick={handleBack}
                 className="p-2.5 hover:bg-white dark:hover:bg-gray-800 rounded-lg transition-colors border border-gray-200 dark:border-gray-700 shadow-sm"
               >
                 <ArrowLeft className="w-5 h-5 text-gray-600 dark:text-gray-400" />
@@ -837,7 +863,7 @@ export default function AddEditProductPage() {
             <div className="flex gap-3 mt-8 sticky bottom-0 bg-gray-50 dark:bg-gray-900 py-4 border-t border-gray-200 dark:border-gray-700">
               <button
                 type="button"
-                onClick={() => router.back()}
+                onClick={handleBack}
                 className="flex-1 px-6 py-3 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-white dark:hover:bg-gray-800 font-medium transition-colors shadow-sm"
               >
                 Cancel
