@@ -71,12 +71,15 @@ const DispatchTable: React.FC<DispatchTableProps> = ({
   };
 
   // Check if current user/store is the source or destination
+  // If no currentStoreId is set, show all actions (admin view)
   const isSourceStore = (dispatch: ProductDispatch) => {
-    return currentStoreId && dispatch.source_store.id === currentStoreId;
+    if (!currentStoreId) return true; // Show all actions if no specific store
+    return dispatch.source_store.id === currentStoreId;
   };
 
   const isDestinationStore = (dispatch: ProductDispatch) => {
-    return currentStoreId && dispatch.destination_store.id === currentStoreId;
+    if (!currentStoreId) return true; // Show all actions if no specific store
+    return dispatch.destination_store.id === currentStoreId;
   };
 
   if (loading) {
@@ -153,7 +156,7 @@ const DispatchTable: React.FC<DispatchTableProps> = ({
                           Track: {dispatch.tracking_number}
                         </div>
                       )}
-                      {dispatch.status === 'in_transit' && atDestination && (
+                      {dispatch.status === 'in_transit' && currentStoreId && atDestination && (
                         <div className="text-xs text-purple-600 dark:text-purple-400 font-medium mt-1">
                           📦 Receiving Store
                         </div>
@@ -258,13 +261,6 @@ const DispatchTable: React.FC<DispatchTableProps> = ({
                               </button>
                             )}
                           </>
-                        )}
-
-                        {/* SHOW STATUS INFO WHEN NOT AT RELEVANT STORE */}
-                        {dispatch.status === 'in_transit' && !atSource && !atDestination && (
-                          <div className="text-xs text-gray-500 dark:text-gray-400 px-2 py-1">
-                            In Transit
-                          </div>
                         )}
                       </div>
                     </td>

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useMemo, useEffect } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import { Plus, Search, ChevronLeft, ChevronRight, Filter, Grid, List, RefreshCw } from 'lucide-react';
 import Header from '@/components/Header';
 import Sidebar from '@/components/Sidebar';
@@ -17,9 +17,10 @@ import {
 
 export default function ProductPage() {
   const router = useRouter();
-  const searchParams = useSearchParams();
-  const selectMode = searchParams.get('selectMode') === 'true';
-  const redirectPath = searchParams.get('redirect') || '';
+  
+  // Read URL parameters
+  const [selectMode, setSelectMode] = useState(false);
+  const [redirectPath, setRedirectPath] = useState('');
   
   const [darkMode, setDarkMode] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(true);
@@ -33,6 +34,15 @@ export default function ProductPage() {
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' | 'warning' } | null>(null);
   const [showFilters, setShowFilters] = useState(false);
   const itemsPerPage = 10;
+
+  // Read URL parameters on mount
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      setSelectMode(params.get('selectMode') === 'true');
+      setRedirectPath(params.get('redirect') || '');
+    }
+  }, []);
 
   useEffect(() => {
     fetchData();

@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import { useSearchParams, useRouter } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import Header from '@/components/Header';
 import Sidebar from '@/components/Sidebar';
 import BatchForm from '@/components/BatchForm';
@@ -16,7 +16,6 @@ interface Product {
 
 export default function BatchPage() {
   const router = useRouter();
-  const searchParams = useSearchParams();
 
   const [darkMode, setDarkMode] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(true);
@@ -30,17 +29,20 @@ export default function BatchPage() {
 
   // Read URL parameters when redirected back from product selection
   useEffect(() => {
-    const pid = searchParams?.get('productId');
-    const pname = searchParams?.get('productName');
-    
-    if (pid) {
-      setSelectedProductId(Number(pid));
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      const pid = params.get('productId');
+      const pname = params.get('productName');
+      
+      if (pid) {
+        setSelectedProductId(Number(pid));
+      }
+      
+      if (pname) {
+        setSelectedProductName(decodeURIComponent(pname));
+      }
     }
-    
-    if (pname) {
-      setSelectedProductName(decodeURIComponent(pname));
-    }
-  }, [searchParams]);
+  }, []);
 
   useEffect(() => {
     loadInitialData();

@@ -24,9 +24,9 @@ import Sidebar from '@/components/Sidebar';
 import Header from '@/components/Header';
 
 export default function EmployeeDetailPage() {
-  const params = useParams();
+  const { id } = useParams();
   const router = useRouter();
-  const employeeId = Number(params?.id);
+  const employeeId = Number(id);
 
   const [employee, setEmployee] = useState<Employee | null>(null);
   const [hierarchy, setHierarchy] = useState<EmployeeHierarchy | null>(null);

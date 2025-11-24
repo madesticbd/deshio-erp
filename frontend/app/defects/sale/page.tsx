@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useSearchParams, useRouter } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import Header from '@/components/Header';
 import Sidebar from '@/components/Sidebar';
 import defectIntegrationService from '@/services/defectIntegrationService';
@@ -20,25 +20,41 @@ interface DefectItem {
 
 export default function SellDefectPage() {
   const router = useRouter();
-  const searchParams = useSearchParams();
   
   // ✅ Get parameters from URL
-  const defectId = searchParams.get('id');
-  const initialSellType = searchParams.get('sellType') || 'pos';
-  const initialPrice = searchParams.get('price') || '';
+  const [defectId, setDefectId] = useState<string | null>(null);
+  const [initialSellType, setInitialSellType] = useState('pos');
+  const [initialPrice, setInitialPrice] = useState('');
   
   const [darkMode, setDarkMode] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [defect, setDefect] = useState<DefectItem | null>(null);
-  const [sellingPrice, setSellingPrice] = useState(initialPrice);
-  const [saleType, setSaleType] = useState<'pos' | 'social'>(initialSellType as 'pos' | 'social');
+  const [sellingPrice, setSellingPrice] = useState('');
+  const [saleType, setSaleType] = useState<'pos' | 'social'>('pos');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+
+  // Read URL parameters on mount
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      const id = params.get('id');
+      const sellType = params.get('sellType') || 'pos';
+      const price = params.get('price') || '';
+      
+      setDefectId(id);
+      setInitialSellType(sellType);
+      setInitialPrice(price);
+      setSellingPrice(price);
+      setSaleType(sellType as 'pos' | 'social');
+    }
+  }, []);
 
   useEffect(() => {
     if (defectId) {
       fetchDefect();
-    } else {
+    } else if (defectId === null) {
+      // Only set error if we've attempted to read the URL
       setError('No defect ID provided');
     }
   }, [defectId]);

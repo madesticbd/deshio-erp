@@ -1,22 +1,24 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useSearchParams, useRouter } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import Sidebar from '@/components/Sidebar';
 import Header from '@/components/Header';
 import { ArrowLeft, Save, ChevronDown } from 'lucide-react';
 import Link from 'next/link';
 import storeService, { StoreFormData } from '@/services/storeService';
 
-export default function AddStorePage() {
+interface AddStorePageProps {
+  editId?: string | null;
+}
+
+export default function AddStorePage({ editId }: AddStorePageProps) {
   const [darkMode, setDarkMode] = useState(false);
   const [isTypeOpen, setIsTypeOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const searchParams = useSearchParams();
   const router = useRouter();
-  const editId = searchParams.get('id');
 
   const [formData, setFormData] = useState<StoreFormData>({
     name: '',

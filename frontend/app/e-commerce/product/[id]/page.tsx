@@ -6,7 +6,7 @@ import { ShoppingCart, Heart, Share2, Minus, Plus, ChevronLeft, ChevronRight, Ch
 import { useCart } from '@/app/e-commerce/CartContext';
 import Navigation from '@/components/ecommerce/Navigation';
 import CartSidebar from '@/components/ecommerce/cart/CartSidebar';
-import { useAuth } from '@/app/e-commerce/AuthContext';
+import { useAuth } from '@/contexts/AuthContext';
 import { wishlistUtils } from '@/lib/wishlistUtils';
 
 interface Product {

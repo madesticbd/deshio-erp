@@ -5,7 +5,6 @@ import { useRouter } from 'next/navigation';
 import { X } from 'lucide-react';
 import { useCart } from '../CartContext';
 import Navigation from '@/components/ecommerce/Navigation';
-import { useAuth } from '@/app/e-commerce/AuthContext';
 
 export default function CartPage() {
   const router = useRouter();
@@ -51,7 +50,7 @@ export default function CartPage() {
   const progress = Math.min(100, (subtotal / freeShippingThreshold) * 100);
   const shippingFee = subtotal >= freeShippingThreshold ? 0 : 60;
   const total = subtotal + shippingFee;
-  const { user, isAuthenticated } = useAuth();
+
 
   if (cartItems.length === 0) {
     return (
