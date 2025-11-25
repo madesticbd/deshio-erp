@@ -902,7 +902,7 @@ export default function PurchaseHistoryPage() {
                                 <div className="space-y-2 text-sm">
                                   <div className="flex justify-between">
                                     <span className="text-gray-600 dark:text-gray-400">Subtotal</span>
-                                    <span className="text-gray-900 dark:text-white">৳{Number(String(order.subtotal_amount ?? "0").replace(/[^0-9.-]/g, "")).toFixed(2)}</span>
+                                    <span className="text-gray-900 dark:text-white">৳{Number(String(order.subtotal ?? "0").replace(/[^0-9.-]/g, "")).toFixed(2)}</span>
                                   </div>
                                   <div className="flex justify-between">
                                     <span className="text-gray-600 dark:text-gray-400">Discount</span>
@@ -918,7 +918,7 @@ export default function PurchaseHistoryPage() {
                                   </div>
                                   <div className="flex justify-between pt-2 border-t border-gray-200 dark:border-gray-700 font-medium">
                                     <span className="text-gray-900 dark:text-white">Total</span>
-                                    <span className="text-gray-900 dark:text-white">৳{Number(String(order.total_amount ?? "0").replace(/[^0-9.-]/g, "")).toFixed(2)}</span>
+                                    <span className="text-gray-900 dark:text-white">৳{Number(String(order.paid_amount ?? "0").replace(/[^0-9.-]/g, "")).toFixed(2)}</span>
                                   </div>
                                 </div>
                               </div>
