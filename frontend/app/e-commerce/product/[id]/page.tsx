@@ -35,6 +35,11 @@ export default function ProductDetailPage() {
   const [productVariants, setProductVariants] = useState<ProductVariant[]>([]);
   const [selectedVariant, setSelectedVariant] = useState<ProductVariant | null>(null);
   const [relatedProducts, setRelatedProducts] = useState<SimpleProduct[]>([]);
+  
+  // ✅ Suggested Products State
+  const [suggestedProducts, setSuggestedProducts] = useState<SimpleProduct[]>([]);
+  const [loadingSuggestions, setLoadingSuggestions] = useState(false);
+  
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [quantity, setQuantity] = useState(1);
@@ -43,47 +48,7 @@ export default function ProductDetailPage() {
   const [cartSidebarOpen, setCartSidebarOpen] = useState(false);
   const [isInWishlist, setIsInWishlist] = useState(false);
 
-  // Hardcoded "You May Also Like" products for now
-  const youMayAlsoLike: SimpleProduct[] = [
-    {
-      id: 101,
-      name: 'Nike Air Max 270',
-      sku: 'NIKE-AM270',
-      selling_price: 15000.00,
-      in_stock: true,
-      images: [{ id: 1, url: '/placeholder-product.jpg', is_primary: true }],
-      category: 'Sneakers'
-    },
-    {
-      id: 102,
-      name: 'Nike Sportswear Windrunner',
-      sku: 'NIKE-WR-BLK',
-      selling_price: 8500.00,
-      in_stock: true,
-      images: [{ id: 2, url: '/placeholder-product.jpg', is_primary: true }],
-      category: 'Jackets'
-    },
-    {
-      id: 103,
-      name: 'Nike Air Force 1',
-      sku: 'NIKE-AF1',
-      selling_price: 12000.00,
-      in_stock: true,
-      images: [{ id: 3, url: '/placeholder-product.jpg', is_primary: true }],
-      category: 'Sneakers'
-    },
-    {
-      id: 104,
-      name: 'New Balance FuelCell Rebel',
-      sku: 'NB-FCR',
-      selling_price: 13500.00,
-      in_stock: true,
-      images: [{ id: 4, url: '/placeholder-product.jpg', is_primary: true }],
-      category: 'Running Shoes'
-    }
-  ];
-
-  // Helper functions (from CategoryProductsPage)
+  // Helper functions
   const getBaseName = (name: string): string => {
     const match = name.match(/^(.+?)\s*-\s*([A-Za-z\s]+)$/);
     if (match) {
@@ -98,10 +63,41 @@ export default function ProductDetailPage() {
   };
 
   const extractSizeFromName = (name: string): string | undefined => {
-    // This is a simple example - adjust pattern based on your actual size format
     const match = name.match(/\b(XS|S|M|L|XL|XXL|\d+)\b/i);
     return match ? match[0] : undefined;
   };
+
+  // Fetch suggested products
+  useEffect(() => {
+    if (!productId) return;
+
+    const fetchSuggestedProducts = async () => {
+      try {
+        setLoadingSuggestions(true);
+        console.log('🔍 Fetching suggested products...');
+        
+        const response = await catalogService.getSuggestedProducts(4);
+        
+        console.log('📦 Suggested Products Response:', response);
+        
+        if (response.suggested_products && response.suggested_products.length > 0) {
+          console.log('✅ Loaded', response.suggested_products.length, 'suggested products');
+          setSuggestedProducts(response.suggested_products);
+        } else {
+          console.warn('⚠️ No suggested products returned');
+          setSuggestedProducts([]);
+        }
+      } catch (err: any) {
+        console.error('❌ Error fetching suggested products:', err);
+        console.error('Error details:', err.response?.data || err.message);
+        setSuggestedProducts([]);
+      } finally {
+        setLoadingSuggestions(false);
+      }
+    };
+
+    fetchSuggestedProducts();
+  }, [productId]);
 
   // Fetch product data and variations
   useEffect(() => {
@@ -116,20 +112,17 @@ export default function ProductDetailPage() {
         setLoading(true);
         setError(null);
 
-        // Fetch the main product
         const response: ProductDetailResponse = await catalogService.getProduct(productId);
         const mainProduct = response.product;
         setProduct(mainProduct);
         setRelatedProducts(response.related_products || []);
 
-        // Fetch all products to find variations with same SKU
         const allProductsResponse = await catalogService.getProducts({
           per_page: 100,
         });
         
         setAllProducts(allProductsResponse.products);
 
-        // Find all products with the same SKU (variations)
         const variations = allProductsResponse.products
           .filter(p => p.sku === mainProduct.sku)
           .map(p => ({
@@ -144,7 +137,6 @@ export default function ProductDetailPage() {
             images: p.images,
           }))
           .sort((a, b) => {
-            // Sort by color first, then size
             const aColor = a.color || '';
             const bColor = b.color || '';
             const aSize = a.size || '';
@@ -156,7 +148,6 @@ export default function ProductDetailPage() {
 
         setProductVariants(variations);
 
-        // Set the current product as selected variant
         const currentVariant = variations.find(v => v.id === productId);
         if (currentVariant) {
           setSelectedVariant(currentVariant);
@@ -236,6 +227,46 @@ export default function ProductDetailPage() {
         image: selectedVariant.images[0]?.url || '',
         price: selectedVariant.selling_price,
         sku: selectedVariant.sku,
+      });
+    }
+  };
+
+  // ✅ Handler for adding suggested products to cart
+  const handleAddSuggestedToCart = (item: SimpleProduct, e: React.MouseEvent) => {
+    e.stopPropagation();
+    
+    if (item.in_stock) {
+      const cartItem = {
+        id: item.id,
+        name: item.name,
+        image: item.images?.[0]?.url || '/placeholder-product.jpg',
+        price: item.selling_price.toString(),
+        sku: item.sku,
+        quantity: 1,
+        color: '',
+        size: '',
+      };
+
+      addToCart(cartItem, 1);
+      setCartSidebarOpen(true);
+    }
+  };
+
+  // ✅ Handler for toggling wishlist for suggested products
+  const handleToggleSuggestedWishlist = (item: SimpleProduct, e: React.MouseEvent) => {
+    e.stopPropagation();
+    
+    const isItemInWishlist = wishlistUtils.isInWishlist(item.id);
+    
+    if (isItemInWishlist) {
+      wishlistUtils.remove(item.id);
+    } else {
+      wishlistUtils.add({
+        id: item.id,
+        name: item.name,
+        image: item.images?.[0]?.url || '/placeholder-product.jpg',
+        price: item.selling_price,
+        sku: item.sku,
       });
     }
   };
@@ -370,7 +401,6 @@ export default function ProductDetailPage() {
         <div className="grid lg:grid-cols-2 gap-12">
           {/* Image Gallery */}
           <div className="space-y-4">
-            {/* Main Image */}
             <div className="relative aspect-square bg-white rounded-lg overflow-hidden group border border-gray-200">
               <img
                 src={primaryImage}
@@ -408,7 +438,6 @@ export default function ProductDetailPage() {
               )}
             </div>
 
-            {/* Thumbnail Images */}
             {currentImages.length > 1 && (
               <div className="grid grid-cols-4 gap-3">
                 {currentImages.map((img, index) => (
@@ -434,7 +463,6 @@ export default function ProductDetailPage() {
 
           {/* Product Info */}
           <div className="space-y-6">
-            {/* Product Name & Price */}
             <div>
               <h1 className="text-3xl font-bold text-gray-900 mb-4">{baseName}</h1>
               
@@ -462,14 +490,12 @@ export default function ProductDetailPage() {
               )}
             </div>
 
-            {/* SKU */}
             {selectedVariant.sku && (
               <div className="text-sm text-gray-600">
                 SKU: <span className="font-medium text-gray-900">{selectedVariant.sku}</span>
               </div>
             )}
 
-            {/* Description */}
             {(product.short_description || product.description) && (
               <div className="border-t border-b py-4">
                 <h3 className="font-semibold text-gray-900 mb-2">Description</h3>
@@ -479,7 +505,6 @@ export default function ProductDetailPage() {
               </div>
             )}
 
-            {/* Available Sizes */}
             {availableSizes.length > 0 && (
               <div>
                 <label className="block text-sm font-semibold text-gray-900 mb-3">
@@ -517,7 +542,6 @@ export default function ProductDetailPage() {
               </div>
             )}
 
-            {/* Available Colors */}
             {availableColors.length > 0 && (
               <div>
                 <label className="block text-sm font-semibold text-gray-900 mb-3">
@@ -555,7 +579,6 @@ export default function ProductDetailPage() {
               </div>
             )}
 
-            {/* Quantity & Add to Cart */}
             <div className="space-y-4 pt-4">
               <div className="flex items-center gap-4">
                 <label className="text-sm font-semibold text-gray-900">Quantity:</label>
@@ -627,7 +650,6 @@ export default function ProductDetailPage() {
               </div>
             </div>
 
-            {/* Product Meta */}
             <div className="border-t pt-6 space-y-3 text-sm">
               {product.category && (
                 <div className="flex">
@@ -645,79 +667,107 @@ export default function ProductDetailPage() {
           </div>
         </div>
 
-        {/* You May Also Like Section */}
-        <div className="mt-20">
-          <h2 className="text-2xl font-bold text-gray-900 mb-8">YOU MAY ALSO LIKE</h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-            {youMayAlsoLike.map((item) => {
-              const itemImage = item.images[0]?.url || '/placeholder-product.jpg';
-              
-              return (
-                <div
-                  key={item.id}
-                  className="bg-white rounded-lg border border-gray-200 overflow-hidden hover:shadow-xl transition-shadow duration-300 cursor-pointer group"
-                  onClick={() => router.push(`/e-commerce/product/${item.id}`)}
-                >
-                  {/* Product Image */}
-                  <div className="relative aspect-square overflow-hidden bg-gray-50">
-                    <img
-                      src={itemImage}
-                      alt={item.name}
-                      className="w-full h-full object-contain p-4 group-hover:scale-110 transition-transform duration-500"
-                    />
-                    
-                    {/* Quick Actions */}
-                    <div className="absolute bottom-2 right-2 flex space-x-2 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                        }}
-                        className="bg-white p-2 rounded-full shadow-md hover:bg-gray-100"
-                      >
-                        <Heart className="h-4 w-4 text-gray-700" />
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Product Info */}
-                  <div className="p-4">
-                    <h3 className="text-sm font-semibold text-gray-900 mb-2 line-clamp-2 min-h-[2.5rem]">
-                      {item.name}
-                    </h3>
-
-                    {/* Category */}
-                    {item.category && (
-                      <p className="text-xs text-gray-500 mb-2">
-                        {typeof item.category === 'string' ? item.category : item.category.name}
-                      </p>
-                    )}
-
-                    {/* Price */}
-                    <div className="flex items-center justify-between">
-                      <span className="text-lg font-bold text-gray-900">
-                        ৳{item.selling_price.toFixed(2)}
-                      </span>
+        {/* ✅ You May Also Like Section - Connected to Backend API */}
+        {!loadingSuggestions && suggestedProducts.length > 0 && (
+          <div className="mt-20">
+            <h2 className="text-2xl font-bold text-gray-900 mb-8">YOU MAY ALSO LIKE</h2>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+              {suggestedProducts.map((item) => {
+                const itemImage = item.images?.[0]?.url || '/placeholder-product.jpg';
+                const isItemInWishlist = wishlistUtils.isInWishlist(item.id);
+                
+                return (
+                  <div
+                    key={item.id}
+                    className="bg-white rounded-lg border border-gray-200 overflow-hidden hover:shadow-xl transition-shadow duration-300 cursor-pointer group"
+                    onClick={() => router.push(`/e-commerce/product/${item.id}`)}
+                  >
+                    <div className="relative aspect-square overflow-hidden bg-gray-50">
+                      <img
+                        src={itemImage}
+                        alt={item.name}
+                        className="w-full h-full object-contain p-4 group-hover:scale-110 transition-transform duration-500"
+                      />
                       
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                        }}
-                        disabled={!item.in_stock}
-                        className={`p-2 rounded-full ${
-                          item.in_stock
-                            ? 'bg-teal-600 text-white hover:bg-teal-700'
-                            : 'bg-gray-200 text-gray-400 cursor-not-allowed'
-                        } transition-colors`}
-                      >
-                        <ShoppingCart className="h-4 w-4" />
-                      </button>
+                      {!item.in_stock && (
+                        <div className="absolute top-2 left-2 bg-red-600 text-white px-3 py-1 rounded-md text-xs font-bold">
+                          OUT OF STOCK
+                        </div>
+                      )}
+                      
+                      <div className="absolute bottom-2 right-2 flex space-x-2 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                        <button
+                          onClick={(e) => handleToggleSuggestedWishlist(item, e)}
+                          className={`p-2 rounded-full shadow-md transition-colors ${
+                            isItemInWishlist
+                              ? 'bg-red-500 text-white'
+                              : 'bg-white hover:bg-gray-100'
+                          }`}
+                          title={isItemInWishlist ? 'Remove from wishlist' : 'Add to wishlist'}
+                        >
+                          <Heart 
+                            className={`h-4 w-4 ${isItemInWishlist ? 'fill-current' : 'text-gray-700'}`} 
+                          />
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="p-4">
+                      <h3 className="text-sm font-semibold text-gray-900 mb-2 line-clamp-2 min-h-[2.5rem]">
+                        {item.name}
+                      </h3>
+
+                      {item.category && (
+                        <p className="text-xs text-gray-500 mb-2">
+                          {typeof item.category === 'string' ? item.category : item.category.name}
+                        </p>
+                      )}
+
+                      <div className="flex items-center justify-between">
+                        <span className="text-lg font-bold text-gray-900">
+                          ৳{item.selling_price.toLocaleString('en-BD', { minimumFractionDigits: 2 })}
+                        </span>
+                        
+                        <button
+                          onClick={(e) => handleAddSuggestedToCart(item, e)}
+                          disabled={!item.in_stock}
+                          className={`p-2 rounded-full ${
+                            item.in_stock
+                              ? 'bg-teal-600 text-white hover:bg-teal-700'
+                              : 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                          } transition-colors`}
+                          title={item.in_stock ? 'Add to cart' : 'Out of stock'}
+                        >
+                          <ShoppingCart className="h-4 w-4" />
+                        </button>
+                      </div>
                     </div>
                   </div>
-                </div>
-              );
-            })}
+                );
+              })}
+            </div>
           </div>
-        </div>
+        )}
+
+        {/* Loading State */}
+        {loadingSuggestions && (
+          <div className="mt-20">
+            <h2 className="text-2xl font-bold text-gray-900 mb-8">YOU MAY ALSO LIKE</h2>
+            <div className="flex justify-center py-12">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-teal-600"></div>
+            </div>
+          </div>
+        )}
+
+        {/* Empty State */}
+        {!loadingSuggestions && suggestedProducts.length === 0 && (
+          <div className="mt-20">
+            <h2 className="text-2xl font-bold text-gray-900 mb-8">YOU MAY ALSO LIKE</h2>
+            <div className="bg-white rounded-lg border border-gray-200 p-12 text-center">
+              <p className="text-gray-500">No suggested products available at the moment.</p>
+            </div>
+          </div>
+        )}
 
         {/* Additional Features */}
         <div className="mt-16 border-t pt-12">
