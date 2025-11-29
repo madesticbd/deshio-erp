@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { Upload, X, Star, Image as ImageIcon, Loader2, MoveVertical } from 'lucide-react';
 import productImageService from '@/services/productImageService';
 
@@ -39,20 +39,54 @@ export default function ImageGalleryManager({
   maxImages = 10,
   allowReorder = true,
 }: ImageGalleryManagerProps) {
-  const [images, setImages] = useState<ImageItem[]>(() =>
-    existingImages.map((img, index) => ({
-      id: img.id,
-      preview: img.image_url,
-      alt_text: img.alt_text || '',
-      is_primary: img.is_primary,
-      sort_order: img.sort_order || index,
-      uploaded: true,
-    }))
-  );
+  const [images, setImages] = useState<ImageItem[]>([]);
   
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isLoadingImages, setIsLoadingImages] = useState(false);
+
+  // Fetch existing images when productId changes
+  useEffect(() => {
+    if (productId) {
+      loadExistingImages();
+    } else if (existingImages.length > 0) {
+      // Use prop images if no productId (for backward compatibility)
+      const mappedImages = existingImages.map((img, index) => ({
+        id: img.id,
+        preview: img.image_url,
+        alt_text: img.alt_text || '',
+        is_primary: img.is_primary,
+        sort_order: img.sort_order || index,
+        uploaded: true,
+      }));
+      setImages(mappedImages);
+    }
+  }, [productId]);
+
+  const loadExistingImages = async () => {
+    if (!productId) return;
+    
+    setIsLoadingImages(true);
+    try {
+      const fetchedImages = await productImageService.getProductImages(productId);
+      const mappedImages = fetchedImages.map((img) => ({
+        id: img.id,
+        preview: img.image_url,
+        alt_text: img.alt_text || '',
+        is_primary: img.is_primary,
+        sort_order: img.sort_order,
+        uploaded: true,
+      }));
+      setImages(mappedImages);
+      onImagesChange?.(mappedImages);
+    } catch (err: any) {
+      console.error('Failed to load existing images:', err);
+      setError('Failed to load existing images');
+    } finally {
+      setIsLoadingImages(false);
+    }
+  };
 
   const notifyChange = useCallback(
     (updatedImages: ImageItem[]) => {
@@ -264,13 +298,30 @@ export default function ImageGalleryManager({
   return (
     <div className="space-y-4">
       {error && (
-        <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-3">
-          <p className="text-sm text-red-800 dark:text-red-400">{error}</p>
+        <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-3 flex items-start gap-2">
+          <X className="w-4 h-4 text-red-600 dark:text-red-400 mt-0.5 flex-shrink-0" />
+          <div className="flex-1">
+            <p className="text-sm text-red-800 dark:text-red-400">{error}</p>
+          </div>
+          <button
+            onClick={() => setError(null)}
+            className="text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      )}
+
+      {/* Loading State */}
+      {isLoadingImages && (
+        <div className="text-center py-8 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
+          <Loader2 className="w-8 h-8 text-gray-400 animate-spin mx-auto mb-3" />
+          <p className="text-sm text-gray-600 dark:text-gray-400">Loading images...</p>
         </div>
       )}
 
       {/* Upload Zone */}
-      {images.length < maxImages && (
+      {images.length < maxImages && !isLoadingImages && (
         <div
           onDrop={handleDrop}
           onDragOver={handleDragOver}
@@ -299,7 +350,7 @@ export default function ImageGalleryManager({
                   <Upload className="w-10 h-10 text-gray-400" />
                   <div>
                     <p className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                      Click to upload or drag and drop
+                      {productId ? 'Upload more images' : 'Click to upload or drag and drop'}
                     </p>
                     <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
                       PNG, JPG, GIF, WebP up to 5MB (Max {maxImages} images)
@@ -313,7 +364,7 @@ export default function ImageGalleryManager({
       )}
 
       {/* Image Gallery */}
-      {images.length > 0 && (
+      {images.length > 0 && !isLoadingImages && (
         <div className="space-y-3">
           <div className="flex items-center justify-between">
             <h3 className="text-sm font-semibold text-gray-900 dark:text-white">
@@ -330,7 +381,7 @@ export default function ImageGalleryManager({
           <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
             {images.map((image, index) => (
               <div
-                key={index}
+                key={image.id || index}
                 draggable={allowReorder}
                 onDragStart={() => handleDragStart(index)}
                 onDragEnter={() => handleDragEnter(index)}
@@ -403,11 +454,11 @@ export default function ImageGalleryManager({
         </div>
       )}
 
-      {images.length === 0 && (
+      {images.length === 0 && !isLoadingImages && (
         <div className="text-center py-8 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
           <ImageIcon className="w-12 h-12 text-gray-400 mx-auto mb-3" />
           <p className="text-sm text-gray-600 dark:text-gray-400">
-            No images yet. Upload some to get started!
+            {productId ? 'No images uploaded yet.' : 'No images yet. Upload some to get started!'}
           </p>
         </div>
       )}

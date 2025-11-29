@@ -14,6 +14,8 @@ const PUBLIC_ROUTES = [
   '/login',
   '/forgot-password',
   '/reset-password',
+  '/customer-auth',
+  '/payement-method',
 ];
 
 // Helper function to check if route is public

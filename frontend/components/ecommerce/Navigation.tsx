@@ -129,7 +129,7 @@ const Navbar = () => {
               <User className="h-5 w-5" />
             </Link>
 
-            <Link href="/cart" className="text-gray-700 hover:text-red-800 transition relative">
+            <Link href="/e-commerce/cart" className="text-gray-700 hover:text-red-800 transition relative">
               <ShoppingCart className="h-5 w-5" />
               <span className="absolute -top-2 -right-2 bg-red-800 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
                 0

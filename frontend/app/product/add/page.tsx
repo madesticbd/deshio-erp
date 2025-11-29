@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation'; // ✅ Correct for Next.js 13+ app router
+import { useRouter } from 'next/navigation'; 
 import { ArrowLeft, Plus } from 'lucide-react';
 import Header from '@/components/Header';
 import Sidebar from '@/components/Sidebar';
@@ -172,12 +172,14 @@ export default function AddEditProductPage({
     }
   };
 
-  const fetchProduct = async () => {
+const fetchProduct = async () => {
     if (!productId) return;
 
     try {
       setLoading(true);
       const product = await productService.getById(productId);
+
+      console.log('Fetched product:', product);
 
       setFormData({
         name: product.name,
@@ -188,8 +190,15 @@ export default function AddEditProductPage({
       setSelectedVendorId(String(product.vendor_id));
       setCategorySelection({ level0: String(product.category_id) });
 
-      if (product.images && product.images.length > 0) {
-        setProductImages(product.images);
+      // Fetch existing images from the API
+      console.log('Fetching images for product ID:', productId);
+      const existingImages = await productImageService.getProductImages(parseInt(productId));
+      console.log('Fetched images:', existingImages);
+      
+      if (existingImages && existingImages.length > 0) {
+        setProductImages(existingImages);
+      } else {
+        setProductImages([]);
       }
 
       const hasColor = product.custom_fields?.some(cf => cf.field_id === 6 && cf.value) ?? false;
