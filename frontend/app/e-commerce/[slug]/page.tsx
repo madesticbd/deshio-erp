@@ -226,7 +226,7 @@ export default function CategoryProductsPage() {
   };
 
   const handleProductClick = (productId: number) => {
-    router.push(`/products/${productId}`);
+    router.push(`/e-commerce/product/${productId}`);
   };
 
   if (loading) {
