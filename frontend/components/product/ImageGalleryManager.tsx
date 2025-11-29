@@ -70,14 +70,54 @@ export default function ImageGalleryManager({
     setIsLoadingImages(true);
     try {
       const fetchedImages = await productImageService.getProductImages(productId);
-      const mappedImages = fetchedImages.map((img) => ({
-        id: img.id,
-        preview: img.image_url,
-        alt_text: img.alt_text || '',
-        is_primary: img.is_primary,
-        sort_order: img.sort_order,
-        uploaded: true,
-      }));
+      
+      // Process images with proper URL construction (matching Gallery page)
+      const baseUrl = process.env.NEXT_PUBLIC_API_URL?.replace('/api', '') || '';
+      console.log('ImageGalleryManager - Base URL:', baseUrl);
+      
+      const mappedImages = fetchedImages
+        .filter(img => img.is_active)
+        .sort((a, b) => {
+          if (a.is_primary && !b.is_primary) return -1;
+          if (!a.is_primary && b.is_primary) return 1;
+          return (a.sort_order || 0) - (b.sort_order || 0);
+        })
+        .map((img) => {
+          // Get the image path from image_url or image_path
+          let imagePath = img.image_url || img.image_path || '';
+          console.log('ImageGalleryManager - Original path:', imagePath);
+          
+          let fullUrl = imagePath;
+
+          // If it's not already a full URL
+          if (imagePath && !imagePath.startsWith('http')) {
+            // If it starts with /storage/, use it as is (Laravel's public symlink)
+            if (imagePath.startsWith('/storage/')) {
+              fullUrl = `${baseUrl}${imagePath}`;
+            } 
+            // If it starts with storage/ (without leading slash)
+            else if (imagePath.startsWith('storage/')) {
+              fullUrl = `${baseUrl}/${imagePath}`;
+            }
+            // If it's just a filename or relative path
+            else {
+              fullUrl = `${baseUrl}/storage/${imagePath}`;
+            }
+          }
+
+          console.log('ImageGalleryManager - Constructed URL:', fullUrl);
+
+          return {
+            id: img.id,
+            preview: fullUrl,
+            alt_text: img.alt_text || '',
+            is_primary: img.is_primary,
+            sort_order: img.sort_order,
+            uploaded: true,
+          };
+        });
+      
+      console.log('ImageGalleryManager - Final mapped images:', mappedImages);
       setImages(mappedImages);
       onImagesChange?.(mappedImages);
     } catch (err: any) {
@@ -147,9 +187,24 @@ export default function ImageGalleryManager({
               }
             );
 
+            // Construct proper URL for the uploaded image
+            const baseUrl = process.env.NEXT_PUBLIC_API_URL?.replace('/api', '') || '';
+            let imagePath = uploadedImage.image_url || uploadedImage.image_path || '';
+            let fullUrl = imagePath;
+
+            if (imagePath && !imagePath.startsWith('http')) {
+              if (imagePath.startsWith('/storage/')) {
+                fullUrl = `${baseUrl}${imagePath}`;
+              } else if (imagePath.startsWith('storage/')) {
+                fullUrl = `${baseUrl}/${imagePath}`;
+              } else {
+                fullUrl = `${baseUrl}/storage/${imagePath}`;
+              }
+            }
+
             uploadedImages.push({
               id: uploadedImage.id,
-              preview: uploadedImage.image_url,
+              preview: fullUrl,
               alt_text: uploadedImage.alt_text || '',
               is_primary: uploadedImage.is_primary,
               sort_order: uploadedImage.sort_order,
@@ -400,6 +455,10 @@ export default function ImageGalleryManager({
                     src={image.preview}
                     alt={image.alt_text || `Product image ${index + 1}`}
                     className="w-full h-full object-cover"
+                    onError={(e) => {
+                      console.error('Image failed to load:', image.preview);
+                      e.currentTarget.src = '/placeholder-image.jpg';
+                    }}
                   />
                 </div>
 

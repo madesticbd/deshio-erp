@@ -172,7 +172,7 @@ export default function AddEditProductPage({
     }
   };
 
-const fetchProduct = async () => {
+  const fetchProduct = async () => {
     if (!productId) return;
 
     try {
@@ -190,16 +190,8 @@ const fetchProduct = async () => {
       setSelectedVendorId(String(product.vendor_id));
       setCategorySelection({ level0: String(product.category_id) });
 
-      // Fetch existing images from the API
-      console.log('Fetching images for product ID:', productId);
-      const existingImages = await productImageService.getProductImages(parseInt(productId));
-      console.log('Fetched images:', existingImages);
-      
-      if (existingImages && existingImages.length > 0) {
-        setProductImages(existingImages);
-      } else {
-        setProductImages([]);
-      }
+      // ImageGalleryManager will fetch and display images automatically when productId is provided
+      // No need to manually fetch images here
 
       const hasColor = product.custom_fields?.some(cf => cf.field_id === 6 && cf.value) ?? false;
       setIsVariationProduct(hasColor);
@@ -803,7 +795,6 @@ const fetchProduct = async () => {
                       </h2>
                       <ImageGalleryManager
                         productId={isEditMode ? parseInt(productId!) : undefined}
-                        existingImages={productImages}
                         onImagesChange={(images) => {
                           setProductImages(images);
                         }}

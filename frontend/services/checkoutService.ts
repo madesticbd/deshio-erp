@@ -186,59 +186,7 @@ class CheckoutService {
           : 'Delivery available in 2-3 business days (Outside Dhaka)',
       };
     }
-  }
-
-  /**
-   * Create order from cart (requires authentication)
-   * The cart already contains the items, we just need to provide shipping/payment info
-   */
-  async createGuestOrder(orderData: CreateOrderRequest): Promise<{
-    order: Order;
-    order_summary: any;
-  }> {
-    try {
-      // Use the authenticated customer orders endpoint
-      const response = await axiosInstance.post('/customer/orders/create-from-cart', {
-        payment_method: orderData.payment_method,
-        shipping_address: orderData.shipping_address,
-        billing_address: orderData.billing_address || orderData.shipping_address,
-        notes: orderData.notes,
-        coupon_code: orderData.coupon_code,
-        delivery_preference: orderData.delivery_preference || 'standard',
-      });
-      
-      return response.data.data;
-    } catch (error: any) {
-      console.error('Failed to create order:', error);
-      throw error;
-    }
-  }
-
-  /**
-   * Create order from cart (for authenticated users)
-   */
-  async createOrderFromCart(orderData: {
-    payment_method: string;
-    shipping_address_id?: number;
-    billing_address_id?: number;
-    shipping_address?: Address;
-    billing_address?: Address;
-    notes?: string;
-    coupon_code?: string;
-    delivery_preference?: string;
-  }): Promise<{
-    order: Order;
-    order_summary: any;
-  }> {
-    try {
-      const response = await axiosInstance.post('/customer/orders/create-from-cart', orderData);
-      return response.data.data;
-    } catch (error: any) {
-      console.error('Failed to create order from cart:', error);
-      throw error;
-    }
-  }
-
+  } 
   /**
    * Get order by order number (for tracking)
    */
