@@ -1,30 +1,71 @@
 'use client';
 
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { X, ShoppingCart, Loader2 } from 'lucide-react';
-import { useCart } from '../CartContext';
+import { X, ShoppingCart, Loader2, AlertCircle } from 'lucide-react';
 import Navigation from '@/components/ecommerce/Navigation';
+import cartService, { CartItem, Cart } from '@/services/cartService';
 
 export default function CartPage() {
   const router = useRouter();
-  const { cartItems, updateQuantity, removeFromCart, getCartTotal, isLoading } = useCart();
-  const [selectedItems, setSelectedItems] = React.useState<Set<number>>(new Set());
-  const [isUpdating, setIsUpdating] = React.useState<Set<number>>(new Set());
-  const [couponCode, setCouponCode] = React.useState('');
+  
+  // State
+  const [cart, setCart] = useState<Cart | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isUpdating, setIsUpdating] = useState<Set<number>>(new Set());
+  const [selectedItems, setSelectedItems] = useState<Set<number>>(new Set());
+  const [couponCode, setCouponCode] = useState('');
+  const [error, setError] = useState<string | null>(null);
+
+  // Check authentication
+  const isAuthenticated = () => {
+    const token = localStorage.getItem('auth_token');
+    return !!token;
+  };
+
+  // Fetch cart on mount
+  useEffect(() => {
+    if (!isAuthenticated()) {
+      router.push('/e-commerce/login');
+      return;
+    }
+
+    fetchCart();
+  }, []);
 
   // Select all items by default when cart items change
-  React.useEffect(() => {
-    if (cartItems.length > 0) {
-      setSelectedItems(new Set(cartItems.map((item: any) => item.id)));
+  useEffect(() => {
+    if (cart?.cart_items && cart.cart_items.length > 0) {
+      setSelectedItems(new Set(cart.cart_items.map(item => item.id)));
     }
-  }, [cartItems.length]);
+  }, [cart?.cart_items?.length]);
+
+  const fetchCart = async () => {
+    try {
+      setIsLoading(true);
+      setError(null);
+      const cartData = await cartService.getCart();
+      setCart(cartData);
+    } catch (err: any) {
+      console.error('Error fetching cart:', err);
+      setError(err.message || 'Failed to load cart');
+      
+      // If authentication error, redirect to login
+      if (err.message?.includes('401') || err.message?.includes('Unauthenticated')) {
+        router.push('/e-commerce/login');
+      }
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const toggleSelectAll = () => {
-    if (selectedItems.size === cartItems.length) {
+    if (!cart?.cart_items) return;
+    
+    if (selectedItems.size === cart.cart_items.length) {
       setSelectedItems(new Set());
     } else {
-      setSelectedItems(new Set(cartItems.map((item: any) => item.id)));
+      setSelectedItems(new Set(cart.cart_items.map(item => item.id)));
     }
   };
 
@@ -38,71 +79,142 @@ export default function CartPage() {
     setSelectedItems(newSelected);
   };
 
-  const handleUpdateQuantity = async (itemId: number, newQuantity: number) => {
-    setIsUpdating(prev => new Set(prev).add(itemId));
+  const handleUpdateQuantity = async (cartItemId: number, newQuantity: number) => {
+    if (newQuantity < 1) return;
+
+    setIsUpdating(prev => new Set(prev).add(cartItemId));
+    
     try {
-      await updateQuantity(itemId, newQuantity);
-    } catch (error) {
-      console.error('Error updating quantity:', error);
+      await cartService.updateQuantity(cartItemId, { quantity: newQuantity });
+      
+      // Refresh cart to get updated totals
+      await fetchCart();
+    } catch (err: any) {
+      console.error('Error updating quantity:', err);
+      alert(err.message || 'Failed to update quantity');
     } finally {
       setIsUpdating(prev => {
         const next = new Set(prev);
-        next.delete(itemId);
+        next.delete(cartItemId);
         return next;
       });
     }
   };
 
-  const handleRemoveItem = async (itemId: number) => {
-    setIsUpdating(prev => new Set(prev).add(itemId));
+  const handleRemoveItem = async (cartItemId: number) => {
+    if (!confirm('Are you sure you want to remove this item?')) return;
+
+    setIsUpdating(prev => new Set(prev).add(cartItemId));
+    
     try {
-      await removeFromCart(itemId);
+      await cartService.removeFromCart(cartItemId);
+      
       // Remove from selected items
       setSelectedItems(prev => {
         const next = new Set(prev);
-        next.delete(itemId);
+        next.delete(cartItemId);
         return next;
       });
-    } catch (error) {
-      console.error('Error removing item:', error);
+      
+      // Refresh cart
+      await fetchCart();
+    } catch (err: any) {
+      console.error('Error removing item:', err);
+      alert(err.message || 'Failed to remove item');
     } finally {
       setIsUpdating(prev => {
         const next = new Set(prev);
-        next.delete(itemId);
+        next.delete(cartItemId);
         return next;
       });
     }
   };
 
   const handleDeleteSelected = async () => {
+    if (selectedItems.size === 0) return;
+    
+    if (!confirm(`Are you sure you want to remove ${selectedItems.size} item(s)?`)) return;
+
     const itemsToDelete = Array.from(selectedItems);
     setIsUpdating(new Set(itemsToDelete));
     
     try {
-      await Promise.all(itemsToDelete.map(id => removeFromCart(id)));
+      await Promise.all(itemsToDelete.map(id => cartService.removeFromCart(id)));
       setSelectedItems(new Set());
-    } catch (error) {
-      console.error('Error deleting items:', error);
+      
+      // Refresh cart
+      await fetchCart();
+    } catch (err: any) {
+      console.error('Error deleting items:', err);
+      alert(err.message || 'Failed to delete items');
     } finally {
       setIsUpdating(new Set());
     }
   };
 
+  const handleClearCart = async () => {
+    if (!confirm('Are you sure you want to clear your entire cart?')) return;
+
+    setIsLoading(true);
+    try {
+      await cartService.clearCart();
+      setSelectedItems(new Set());
+      await fetchCart();
+    } catch (err: any) {
+      console.error('Error clearing cart:', err);
+      alert(err.message || 'Failed to clear cart');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const getSelectedTotal = (): number => {
-    return cartItems
-      .filter((item: any) => selectedItems.has(item.id))
-      .reduce((total: number, item: any) => {
-        const price = parseFloat(item.price || '0');
-        return total + (price * item.quantity);
+    if (!cart?.cart_items) return 0;
+    
+    return cart.cart_items
+      .filter(item => selectedItems.has(item.id))
+      .reduce((total, item) => {
+        const itemTotal = parseFloat(item.total_price);
+        return total + itemTotal;
       }, 0);
   };
 
+  // Calculate totals
   const subtotal = getSelectedTotal();
   const freeShippingThreshold = 5000;
   const remaining = Math.max(0, freeShippingThreshold - subtotal);
   const progress = Math.min(100, (subtotal / freeShippingThreshold) * 100);
   const shippingFee = subtotal >= freeShippingThreshold ? 0 : 60;
   const total = subtotal + shippingFee;
+
+  const handleProceedToCheckout = async () => {
+    if (selectedItems.size === 0) {
+      alert('Please select at least one item to checkout');
+      return;
+    }
+
+    try {
+      // Validate cart before checkout
+      const validation = await cartService.validateCart();
+      
+      if (!validation.is_valid) {
+        // Show validation issues
+        const issues = validation.issues.map(issue => issue.issue).join('\n');
+        alert(`Cart validation failed:\n${issues}`);
+        
+        // Refresh cart to get updated state
+        await fetchCart();
+        return;
+      }
+
+      // Save selected item IDs to localStorage for checkout
+      localStorage.setItem('checkout-selected-items', JSON.stringify(Array.from(selectedItems)));
+      router.push('/e-commerce/checkout');
+    } catch (err: any) {
+      console.error('Error validating cart:', err);
+      alert('Failed to validate cart. Please try again.');
+    }
+  };
 
   if (isLoading) {
     return (
@@ -118,7 +230,28 @@ export default function CartPage() {
     );
   }
 
-  if (cartItems.length === 0) {
+  if (error && !cart) {
+    return (
+      <div className="min-h-screen bg-white">
+        <Navigation />
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20">
+          <div className="text-center">
+            <AlertCircle className="h-24 w-24 text-red-500 mx-auto mb-4" />
+            <h1 className="text-3xl font-bold text-gray-900 mb-4">Error Loading Cart</h1>
+            <p className="text-gray-600 mb-8">{error}</p>
+            <button
+              onClick={fetchCart}
+              className="bg-red-700 text-white px-8 py-3 rounded font-semibold hover:bg-red-800 transition-colors"
+            >
+              Try Again
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (!cart?.cart_items || cart.cart_items.length === 0) {
     return (
       <div className="min-h-screen bg-white">
         <Navigation />
@@ -128,7 +261,7 @@ export default function CartPage() {
             <h1 className="text-3xl font-bold text-gray-900 mb-4">Your cart is empty</h1>
             <p className="text-gray-600 mb-8">Add some products to get started!</p>
             <button
-              onClick={() => router.push('/')}
+              onClick={() => router.push('/e-commerce')}
               className="bg-red-700 text-white px-8 py-3 rounded font-semibold hover:bg-red-800 transition-colors"
             >
               Continue Shopping
@@ -167,26 +300,36 @@ export default function CartPage() {
               <label className="flex items-center gap-3 cursor-pointer">
                 <input
                   type="checkbox"
-                  checked={selectedItems.size === cartItems.length && cartItems.length > 0}
+                  checked={selectedItems.size === cart.cart_items.length && cart.cart_items.length > 0}
                   onChange={toggleSelectAll}
                   className="w-5 h-5 cursor-pointer accent-red-700"
                 />
                 <span className="text-gray-700 font-medium">
-                  SELECT ALL ({cartItems.length} ITEM{cartItems.length !== 1 ? 'S' : ''})
+                  SELECT ALL ({cart.cart_items.length} ITEM{cart.cart_items.length !== 1 ? 'S' : ''})
                 </span>
               </label>
-              <button
-                onClick={handleDeleteSelected}
-                disabled={selectedItems.size === 0 || isUpdating.size > 0}
-                className="flex items-center gap-2 text-gray-600 hover:text-red-600 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-              >
-                {isUpdating.size > 0 ? (
-                  <Loader2 size={18} className="animate-spin" />
-                ) : (
+              <div className="flex gap-2">
+                <button
+                  onClick={handleDeleteSelected}
+                  disabled={selectedItems.size === 0 || isUpdating.size > 0}
+                  className="flex items-center gap-2 text-gray-600 hover:text-red-600 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                  {isUpdating.size > 0 ? (
+                    <Loader2 size={18} className="animate-spin" />
+                  ) : (
+                    <X size={18} />
+                  )}
+                  <span className="text-sm font-medium">DELETE SELECTED</span>
+                </button>
+                <button
+                  onClick={handleClearCart}
+                  disabled={isUpdating.size > 0}
+                  className="flex items-center gap-2 text-gray-600 hover:text-red-600 transition-colors disabled:opacity-40 disabled:cursor-not-allowed ml-4"
+                >
                   <X size={18} />
-                )}
-                <span className="text-sm font-medium">DELETE</span>
-              </button>
+                  <span className="text-sm font-medium">CLEAR CART</span>
+                </button>
+              </div>
             </div>
 
             {/* Table Header */}
@@ -200,10 +343,11 @@ export default function CartPage() {
 
             {/* Cart Items */}
             <div className="space-y-4 mt-6">
-              {cartItems.map((item: any) => {
-                const price = parseFloat(item.price || '0');
-                const itemTotal = price * item.quantity;
+              {cart.cart_items.map((item: CartItem) => {
+                const price = parseFloat(item.unit_price);
+                const itemTotal = parseFloat(item.total_price);
                 const isItemUpdating = isUpdating.has(item.id);
+                const productImage = item.product.images?.[0]?.image_url || '/placeholder-product.jpg';
 
                 return (
                   <div 
@@ -227,8 +371,8 @@ export default function CartPage() {
                     <div className="md:col-span-5 flex items-center gap-4">
                       <div className="relative">
                         <img
-                          src={item.product_image || item.image}
-                          alt={item.product_name || item.name}
+                          src={productImage}
+                          alt={item.product.name}
                           className="w-24 h-24 object-cover rounded"
                           onError={(e) => {
                             e.currentTarget.src = '/placeholder-product.jpg';
@@ -248,17 +392,29 @@ export default function CartPage() {
                       </div>
                       <div>
                         <h3 className="font-semibold text-gray-900">
-                          {item.product_name || item.name}
+                          {item.product.name}
                         </h3>
-                        {item.sku && (
-                          <p className="text-sm text-gray-500 mt-1">SKU: {item.sku}</p>
+                        {item.product.category && (
+                          <p className="text-sm text-gray-500 mt-1">
+                            {typeof item.product.category === 'string' 
+                              ? item.product.category 
+                              : item.product.category}
+                          </p>
                         )}
-                        {(item.color || item.size) && (
-                          <div className="text-sm text-gray-600 mt-1">
-                            {item.color && <span>Color: {item.color}</span>}
-                            {item.color && item.size && <span> | </span>}
-                            {item.size && <span>Size: {item.size}</span>}
-                          </div>
+                        {!item.product.in_stock && (
+                          <p className="text-sm text-red-600 font-medium mt-1">
+                            Out of Stock
+                          </p>
+                        )}
+                        {item.product.in_stock && item.product.stock_quantity < 5 && (
+                          <p className="text-sm text-orange-600 font-medium mt-1">
+                            Only {item.product.stock_quantity} left in stock
+                          </p>
+                        )}
+                        {item.notes && (
+                          <p className="text-sm text-gray-500 mt-1 italic">
+                            Note: {item.notes}
+                          </p>
                         )}
                       </div>
                     </div>
@@ -266,7 +422,9 @@ export default function CartPage() {
                     {/* Price */}
                     <div className="md:col-span-2 text-left md:text-center">
                       <span className="md:hidden font-semibold mr-2">Price:</span>
-                      <span className="text-gray-900">৳{price.toLocaleString('en-BD', { minimumFractionDigits: 2 })}</span>
+                      <span className="text-gray-900">
+                        ৳{price.toLocaleString('en-BD', { minimumFractionDigits: 2 })}
+                      </span>
                     </div>
 
                     {/* Quantity */}
@@ -284,17 +442,18 @@ export default function CartPage() {
                           value={item.quantity}
                           onChange={(e) => {
                             const val = parseInt(e.target.value) || 1;
-                            if (val > 0) {
+                            if (val > 0 && val <= item.product.stock_quantity) {
                               handleUpdateQuantity(item.id, val);
                             }
                           }}
                           disabled={isItemUpdating}
                           className="w-16 text-center border-x border-gray-300 outline-none py-2 disabled:bg-gray-50"
                           min="1"
+                          max={item.product.stock_quantity}
                         />
                         <button
                           onClick={() => handleUpdateQuantity(item.id, item.quantity + 1)}
-                          disabled={isItemUpdating}
+                          disabled={isItemUpdating || item.quantity >= item.product.stock_quantity}
                           className="px-3 py-2 hover:bg-gray-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                           +
@@ -327,8 +486,10 @@ export default function CartPage() {
                 onClick={() => {
                   // TODO: Implement coupon application via API
                   console.log('Apply coupon:', couponCode);
+                  alert('Coupon functionality coming soon!');
                 }}
-                className="bg-red-700 text-white px-8 py-3 rounded font-semibold hover:bg-red-800 transition-colors whitespace-nowrap"
+                disabled={!couponCode.trim()}
+                className="bg-red-700 text-white px-8 py-3 rounded font-semibold hover:bg-red-800 transition-colors whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 APPLY COUPON
               </button>
@@ -358,13 +519,19 @@ export default function CartPage() {
                     <span className="text-gray-700">Shipping</span>
                     <span className="font-semibold text-gray-900">
                       {shippingFee > 0 ? (
-                        `Shipping to Dhaka`
+                        `৳${shippingFee.toFixed(2)}`
                       ) : (
                         <span className="text-green-600">Free shipping</span>
                       )}
                     </span>
                   </div>
-                  <button className="text-sm text-red-700 hover:underline mt-2">
+                  <button 
+                    onClick={() => {
+                      // TODO: Implement address change
+                      alert('Address change functionality coming soon!');
+                    }}
+                    className="text-sm text-red-700 hover:underline mt-2"
+                  >
                     Change address
                   </button>
                 </div>
@@ -377,21 +544,15 @@ export default function CartPage() {
                 </div>
 
                 <button 
-                  onClick={() => {
-                    if (selectedItems.size > 0) {
-                      // Save selected item IDs to localStorage for checkout
-                      localStorage.setItem('checkout-selected-items', JSON.stringify(Array.from(selectedItems)));
-                      router.push('/e-commerce/checkout');
-                    }
-                  }}
-                  disabled={selectedItems.size === 0}
+                  onClick={handleProceedToCheckout}
+                  disabled={selectedItems.size === 0 || isUpdating.size > 0}
                   className="w-full bg-red-700 text-white py-4 rounded font-bold text-lg hover:bg-red-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   PROCEED TO CHECKOUT ({selectedItems.size})
                 </button>
 
                 <button
-                  onClick={() => router.push('/')}
+                  onClick={() => router.push('/e-commerce')}
                   className="w-full bg-white text-red-700 border-2 border-red-700 py-3 rounded font-semibold hover:bg-red-50 transition-colors mt-3"
                 >
                   Continue Shopping

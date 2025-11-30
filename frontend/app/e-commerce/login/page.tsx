@@ -2,10 +2,12 @@
 import React, { useState, useEffect } from 'react';
 import { Eye, EyeOff, ArrowLeft, AlertCircle, CheckCircle } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-import axiosInstance from '@/lib/axios';
+import { useCustomerAuth } from '@/contexts/CustomerAuthContext';
+import cartService from '@/services/cartService';
 
 export default function LoginRegisterPage() {
   const router = useRouter();
+  const { login, register, isAuthenticated } = useCustomerAuth();
 
   const [activeTab, setActiveTab] = useState('login');
   const [showPassword, setShowPassword] = useState(false);
@@ -27,18 +29,83 @@ export default function LoginRegisterPage() {
   const [alert, setAlert] = useState({ show: false, type: '', message: '' });
   const [isLoading, setIsLoading] = useState(false);
 
-  // Check if redirected from checkout
-  const [isFromCheckout, setIsFromCheckout] = useState(false);
+  // Check if redirected from add to cart
+  const [redirectMessage, setRedirectMessage] = useState('');
+  const [pendingCartItem, setPendingCartItem] = useState<any>(null);
+
+  // Redirect if already authenticated
+  useEffect(() => {
+    if (isAuthenticated) {
+      handlePostLoginRedirect();
+    }
+  }, [isAuthenticated, router]);
 
   useEffect(() => {
     const checkRedirect = () => {
-      const redirectFlag = localStorage.getItem('checkout-redirect');
-      if (redirectFlag === 'true') {
-        setIsFromCheckout(true);
+      const cartRedirect = localStorage.getItem('cart-redirect');
+      const pendingItem = localStorage.getItem('pending-cart-item');
+      
+      if (cartRedirect === 'true') {
+        if (pendingItem) {
+          setPendingCartItem(JSON.parse(pendingItem));
+          setRedirectMessage('Please login to add this item to your cart and continue shopping.');
+        } else {
+          setRedirectMessage('Please login to view your cart and complete your purchase.');
+        }
       }
     };
     checkRedirect();
   }, []);
+
+  const handlePostLoginRedirect = async () => {
+    const cartRedirect = localStorage.getItem('cart-redirect');
+    const pendingItem = localStorage.getItem('pending-cart-item');
+    
+    // Clean up flags
+    localStorage.removeItem('cart-redirect');
+    localStorage.removeItem('pending-cart-item');
+    
+    // If there's a pending cart item, add it first
+    if (pendingItem) {
+      try {
+        const item = JSON.parse(pendingItem);
+        console.log('Adding pending cart item:', item);
+        
+        await cartService.addToCart({
+          product_id: item.product_id,
+          quantity: item.quantity
+        });
+        
+        console.log('Pending item added successfully');
+        
+        // Show success message
+        showAlert('success', 'Item added to cart!');
+        
+        // Dispatch cart update event
+        window.dispatchEvent(new Event('cart-updated'));
+        
+        // Redirect to cart after a short delay
+        setTimeout(() => {
+          router.push('/e-commerce/cart');
+        }, 1000);
+        
+      } catch (error: any) {
+        console.error('Error adding pending cart item:', error);
+        showAlert('error', 'Failed to add item to cart. Please try again.');
+        
+        // Still redirect to cart
+        setTimeout(() => {
+          router.push('/e-commerce/cart');
+        }, 1500);
+      }
+    } else if (cartRedirect === 'true') {
+      // No pending item, just redirect to cart
+      router.push('/e-commerce/cart');
+    } else {
+      // Normal login, go to account
+      router.push('/e-commerce/my-account');
+    }
+  };
 
   const showAlert = (type: string, message: string) => {
     setAlert({ show: true, type, message });
@@ -53,42 +120,16 @@ export default function LoginRegisterPage() {
 
     setIsLoading(true);
     try {
-      const response = await axiosInstance.post('/customer-auth/login', {
-        email: loginEmail,
-        password: loginPassword,
-        remember_me: rememberMe
-      });
-
-      if (response.data.success) {
-        const { customer, token } = response.data.data;
-        
-        // Store authentication data
-        localStorage.setItem('auth_token', token);
-        localStorage.setItem('user', JSON.stringify(customer));
-        
-        showAlert('success', 'Login successful! Redirecting...');
-        
-        // Check if redirected from checkout
-        const wasFromCheckout = localStorage.getItem('checkout-redirect');
-        
-        // Remove redirect flag
-        localStorage.removeItem('checkout-redirect');
-        
-        // Redirect after 1 second
-        setTimeout(() => {
-          if (wasFromCheckout === 'true') {
-            router.push('/e-commerce/checkout');
-          } else {
-            router.push('/e-commerce/my-account');
-          }
-        }, 1000);
-      } else {
-        showAlert('error', response.data.message || 'Invalid credentials');
-      }
+      // Use customerAuthService via context
+      await login(loginEmail, loginPassword, rememberMe);
+      
+      showAlert('success', 'Login successful! Redirecting...');
+      
+      // The redirect logic is handled in the useEffect above
+      // which triggers when isAuthenticated becomes true
+      
     } catch (error: any) {
-      const errorMessage = error.response?.data?.message || 'Login failed. Please try again.';
-      showAlert('error', errorMessage);
-      console.error('Login error:', error);
+      showAlert('error', error.message);
     } finally {
       setIsLoading(false);
     }
@@ -131,7 +172,8 @@ export default function LoginRegisterPage() {
     setIsLoading(true);
     
     try {
-      const response = await axiosInstance.post('/customer-auth/register', {
+      // Use customerAuthService via context
+      await register({
         name: registerName,
         email: registerEmail,
         phone: registerPhone,
@@ -140,36 +182,22 @@ export default function LoginRegisterPage() {
         country: 'Bangladesh'
       });
 
-      if (response.data.success) {
-        showAlert('success', 'Registration successful! Please login to continue.');
-        
-        // Clear form
-        setRegisterName('');
-        setRegisterEmail('');
-        setRegisterPhone('');
-        setRegisterPassword('');
-        setRegisterConfirmPassword('');
-        
-        // Switch to login tab after 1.5 seconds
-        setTimeout(() => {
-          setActiveTab('login');
-          setLoginEmail(registerEmail); // Pre-fill email
-        }, 1500);
-      } else {
-        showAlert('error', response.data.message || 'Registration failed');
-      }
+      showAlert('success', 'Registration successful! Please login to continue.');
+      
+      // Clear form
+      setRegisterName('');
+      setRegisterEmail('');
+      setRegisterPhone('');
+      setRegisterPassword('');
+      setRegisterConfirmPassword('');
+      
+      // Switch to login tab after 1.5 seconds
+      setTimeout(() => {
+        setActiveTab('login');
+        setLoginEmail(registerEmail); // Pre-fill email
+      }, 1500);
     } catch (error: any) {
-      const errorMessage = error.response?.data?.message || 'Registration failed. Please try again.';
-      const errors = error.response?.data?.errors;
-      
-      if (errors) {
-        const firstError = Object.values(errors)[0];
-        showAlert('error', Array.isArray(firstError) ? firstError[0] : errorMessage);
-      } else {
-        showAlert('error', errorMessage);
-      }
-      
-      console.error('Registration error:', error);
+      showAlert('error', error.message);
     } finally {
       setIsLoading(false);
     }
@@ -205,16 +233,25 @@ export default function LoginRegisterPage() {
         </div>
       </div>
 
-      {/* Checkout Redirect Notice */}
-      {isFromCheckout && (
+      {/* Cart Redirect Notice */}
+      {redirectMessage && (
         <div className="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8 mb-4">
           <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 flex items-start gap-3">
             <AlertCircle className="text-blue-600 flex-shrink-0 mt-0.5" size={20} />
             <div>
               <h3 className="font-medium text-blue-900">Login Required</h3>
-              <p className="text-sm text-blue-700 mt-1">
-                Please login or create an account to continue with your checkout.
-              </p>
+              <p className="text-sm text-blue-700 mt-1">{redirectMessage}</p>
+              {pendingCartItem && (
+                <div className="mt-2 flex items-center gap-2 text-sm text-blue-800">
+                  <img 
+                    src={pendingCartItem.image} 
+                    alt={pendingCartItem.name}
+                    className="w-10 h-10 object-cover rounded"
+                  />
+                  <span className="font-medium">{pendingCartItem.name}</span>
+                  <span>×{pendingCartItem.quantity}</span>
+                </div>
+              )}
             </div>
           </div>
         </div>
