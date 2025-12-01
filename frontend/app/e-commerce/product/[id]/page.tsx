@@ -7,6 +7,7 @@ import { useCart } from '@/app/e-commerce/CartContext';
 import Navigation from '@/components/ecommerce/Navigation';
 import CartSidebar from '@/components/ecommerce/cart/CartSidebar';
 import catalogService, { Product, ProductDetailResponse, SimpleProduct, ProductImage } from '@/services/catalogService';
+import cartService from '@/services/cartService';
 import { wishlistUtils } from '@/lib/wishlistUtils';
 
 // Types for product variations
@@ -47,6 +48,12 @@ export default function ProductDetailPage() {
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
   const [cartSidebarOpen, setCartSidebarOpen] = useState(false);
   const [isInWishlist, setIsInWishlist] = useState(false);
+
+  // Check if user is authenticated
+  const isAuthenticated = () => {
+    const token = localStorage.getItem('auth_token');
+    return !!token;
+  };
 
   // Helper functions
   const getBaseName = (name: string): string => {
@@ -230,28 +237,148 @@ export default function ProductDetailPage() {
       });
     }
   };
+  // Add this near the top of ProductDetailPage.tsx, in the handleAddToCart function
 
-  // ✅ Handler for adding suggested products to cart
-  const handleAddSuggestedToCart = (item: SimpleProduct, e: React.MouseEvent) => {
-    e.stopPropagation();
+const handleAddToCart = async () => {
+  if (!selectedVariant || !selectedVariant.in_stock) return;
+
+  // Check authentication
+  if (!isAuthenticated()) {
+    // Store product info for adding after login
+    const pendingCartItem = {
+      product_id: selectedVariant.id,
+      quantity: quantity,
+      name: selectedVariant.name,
+      price: selectedVariant.selling_price,
+      image: selectedVariant.images[0]?.url || ''
+    };
     
-    if (item.in_stock) {
-      const cartItem = {
-        id: item.id,
-        name: item.name,
-        image: item.images?.[0]?.url || '/placeholder-product.jpg',
-        price: item.selling_price.toString(),
-        sku: item.sku,
-        quantity: 1,
-        color: '',
-        size: '',
-      };
+    localStorage.setItem('pending-cart-item', JSON.stringify(pendingCartItem));
+    localStorage.setItem('cart-redirect', 'true');
+    
+    // Redirect to login
+    router.push('/e-commerce/login');
+    return;
+  }
 
-      addToCart(cartItem, 1);
+  setIsAdding(true);
+
+  try {
+    // Add to backend cart
+    await cartService.addToCart({
+      product_id: selectedVariant.id,
+      quantity: quantity
+    });
+
+    // Also update local cart context for immediate UI feedback
+    const cartItem = {
+      id: selectedVariant.id,
+      name: selectedVariant.name,
+      image: selectedVariant.images[0]?.url || '',
+      price: selectedVariant.selling_price.toString(),
+      sku: selectedVariant.sku,
+      quantity: quantity,
+      color: selectedVariant.color || '',
+      size: selectedVariant.size || '',
+    };
+
+    addToCart(cartItem, quantity);
+
+    setTimeout(() => {
+      setIsAdding(false);
       setCartSidebarOpen(true);
+    }, 1200);
+  } catch (error: any) {
+    console.error('Error adding to cart:', error);
+    setIsAdding(false);
+    
+    // If error is due to authentication, redirect to login
+    if (error.message?.includes('401') || error.message?.includes('Unauthenticated')) {
+      // Store product info before redirecting
+      const pendingCartItem = {
+        product_id: selectedVariant.id,
+        quantity: quantity,
+        name: selectedVariant.name,
+        price: selectedVariant.selling_price,
+        image: selectedVariant.images[0]?.url || ''
+      };
+      
+      localStorage.setItem('pending-cart-item', JSON.stringify(pendingCartItem));
+      localStorage.setItem('cart-redirect', 'true');
+      router.push('/e-commerce/login');
+    } else {
+      alert('Failed to add item to cart. Please try again.');
     }
-  };
+  }
+};
 
+// Similar update for handleAddSuggestedToCart
+const handleAddSuggestedToCart = async (item: SimpleProduct, e: React.MouseEvent) => {
+  e.stopPropagation();
+  
+  if (!item.in_stock) return;
+
+  // Check authentication
+  if (!isAuthenticated()) {
+    // Store product info for adding after login
+    const pendingCartItem = {
+      product_id: item.id,
+      quantity: 1,
+      name: item.name,
+      price: item.selling_price,
+      image: item.images?.[0]?.url || '/placeholder-product.jpg'
+    };
+    
+    localStorage.setItem('pending-cart-item', JSON.stringify(pendingCartItem));
+    localStorage.setItem('cart-redirect', 'true');
+    
+    // Redirect to login
+    router.push('/e-commerce/login');
+    return;
+  }
+
+  try {
+    // Add to backend cart
+    await cartService.addToCart({
+      product_id: item.id,
+      quantity: 1
+    });
+
+    // Also update local cart context for immediate UI feedback
+    const cartItem = {
+      id: item.id,
+      name: item.name,
+      image: item.images?.[0]?.url || '/placeholder-product.jpg',
+      price: item.selling_price.toString(),
+      sku: item.sku,
+      quantity: 1,
+      color: '',
+      size: '',
+    };
+
+    addToCart(cartItem, 1);
+    setCartSidebarOpen(true);
+  } catch (error: any) {
+    console.error('Error adding to cart:', error);
+    
+    // If error is due to authentication, redirect to login
+    if (error.message?.includes('401') || error.message?.includes('Unauthenticated')) {
+      const pendingCartItem = {
+        product_id: item.id,
+        quantity: 1,
+        name: item.name,
+        price: item.selling_price,
+        image: item.images?.[0]?.url || '/placeholder-product.jpg'
+      };
+      
+      localStorage.setItem('pending-cart-item', JSON.stringify(pendingCartItem));
+      localStorage.setItem('cart-redirect', 'true');
+      router.push('/e-commerce/login');
+    } else {
+      alert('Failed to add item to cart. Please try again.');
+    }
+  }
+};
   // ✅ Handler for toggling wishlist for suggested products
   const handleToggleSuggestedWishlist = (item: SimpleProduct, e: React.MouseEvent) => {
     e.stopPropagation();
@@ -271,29 +398,7 @@ export default function ProductDetailPage() {
     }
   };
 
-  const handleAddToCart = async () => {
-    if (!selectedVariant || !selectedVariant.in_stock) return;
 
-    setIsAdding(true);
-
-    const cartItem = {
-      id: selectedVariant.id,
-      name: selectedVariant.name,
-      image: selectedVariant.images[0]?.url || '',
-      price: selectedVariant.selling_price.toString(),
-      sku: selectedVariant.sku,
-      quantity: quantity,
-      color: selectedVariant.color || '',
-      size: selectedVariant.size || '',
-    };
-
-    addToCart(cartItem, quantity);
-
-    setTimeout(() => {
-      setIsAdding(false);
-      setCartSidebarOpen(true);
-    }, 1200);
-  };
 
   const handleQuantityChange = (delta: number) => {
     if (!selectedVariant) return;
