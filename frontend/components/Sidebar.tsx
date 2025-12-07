@@ -87,11 +87,11 @@ export default function Sidebar({ isOpen, setIsOpen }: SidebarProps) {
         { label: 'Pack Orders', href: '/social-commerce/package' },
        ]
     },
-  
+    {icon: Package, label: 'Preorders', href: '/pre-order' },
     {icon: Package, label: 'Orders', href: '/orders' },
     { icon: ClipboardList, label: 'Purchase History', href: '/purchase-history' },
     { icon: Search, label: 'Lookup', href: '/lookup' },
-    { icon: AlertTriangle, label: 'Defect Panel', href: '/defects' },
+    { icon: AlertTriangle, label: 'Extra Panel', href: '/defects' },
     { icon: CreditCard, label: 'Transaction', href: '/transaction' },
     { icon: CreditCard, label: 'Accounting', href: '/accounting' },
     
