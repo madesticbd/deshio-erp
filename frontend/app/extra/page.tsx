@@ -52,6 +52,7 @@ export default function DefectsPage() {
   const [barcodeInput, setBarcodeInput] = useState('');
   const [returnReason, setReturnReason] = useState('');
   const [isUsedItem, setIsUsedItem] = useState(false);
+  const [isDefect, setIsDefect] = useState(false);
   const [storeForDefect, setStoreForDefect] = useState('');
   const [scannedProduct, setScannedProduct] = useState<any>(null);
   const [defectImage, setDefectImage] = useState<File | null>(null);
@@ -207,8 +208,13 @@ export default function DefectsPage() {
       return;
     }
 
-    if (!isUsedItem && !returnReason) {
-      alert('Please enter return reason or mark as used');
+    if (!isDefect && !isUsedItem) {
+      alert('Please select at least one: Defect or Used Item');
+      return;
+    }
+
+    if (isDefect && !returnReason) {
+      alert('Please enter defect reason');
       return;
     }
 
@@ -219,23 +225,37 @@ export default function DefectsPage() {
 
     setLoading(true);
     try {
+      // Build description based on selections
+      let description = '';
+      if (isDefect && isUsedItem) {
+        description = `DEFECT + USED_ITEM - ${returnReason}`;
+      } else if (isUsedItem) {
+        description = 'USED_ITEM - Product has been used';
+      } else if (isDefect) {
+        description = `DEFECT - ${returnReason}`;
+      } else {
+        description = returnReason;
+      }
+
       await defectIntegrationService.markAsDefective({
         barcode: barcodeInput,
         store_id: parseInt(storeForDefect),
-        defect_type: isUsedItem ? 'other' : 'physical_damage',
-        defect_description: isUsedItem 
-          ? 'USED_ITEM - Product has been used'
-          : returnReason,
-        severity: isUsedItem ? 'minor' : 'moderate',
+        defect_type: isDefect ? 'physical_damage' : 'other',
+        defect_description: description,
+        severity: isDefect ? 'moderate' : 'minor',
         is_used_item: isUsedItem,
         defect_images: defectImage ? [defectImage] : undefined,
         internal_notes: `Identified by employee at store ${storeForDefect}`,
       });
 
-      setSuccessMessage(isUsedItem ? 'Item marked as used successfully!' : 'Item marked as defective successfully!');
+      const statusText = isDefect && isUsedItem ? 'defective and used' : 
+                        isDefect ? 'defective' : 'used';
+      setSuccessMessage(`Item marked as ${statusText} successfully!`);
+      
       setBarcodeInput('');
       setReturnReason('');
       setIsUsedItem(false);
+      setIsDefect(false);
       setStoreForDefect('');
       setScannedProduct(null);
       setDefectImage(null);
@@ -243,7 +263,7 @@ export default function DefectsPage() {
       setTimeout(() => setSuccessMessage(''), 3000);
     } catch (error: any) {
       console.error('Error:', error);
-      alert(error.message || 'Error processing defect');
+      alert(error.message || 'Error processing item');
     } finally {
       setLoading(false);
     }
@@ -351,7 +371,7 @@ export default function DefectsPage() {
   };
 
   const handleRemove = async (defectId: string) => {
-    if (!confirm('Are you sure you want to remove this defect?')) return;
+    if (!confirm('Are you sure you want to remove this item?')) return;
 
     try {
       await defectiveProductService.dispose(parseInt(defectId), {
@@ -359,11 +379,11 @@ export default function DefectsPage() {
       });
       
       fetchDefects();
-      setSuccessMessage('Defect removed successfully');
+      setSuccessMessage('Item removed successfully');
       setTimeout(() => setSuccessMessage(''), 3000);
     } catch (error: any) {
-      console.error('Error removing defect:', error);
-      alert(error.message || 'Error removing defect');
+      console.error('Error removing item:', error);
+      alert(error.message || 'Error removing item');
     }
   };
 
@@ -457,8 +477,18 @@ export default function DefectsPage() {
     if (!isPending) return false;
     
     if (filterType === 'all') return true;
-    if (filterType === 'used') return d.returnReason?.includes('USED_ITEM');
-    if (filterType === 'defects') return !d.returnReason?.includes('USED_ITEM');
+    
+    const hasUsedTag = d.returnReason?.includes('USED_ITEM');
+    // An item is a defect if:
+    // 1. It has "DEFECT" tag in description, OR
+    // 2. It has a description that's not just "USED_ITEM", OR  
+    // 3. It doesn't have USED_ITEM tag and has some description
+    const hasDefectTag = d.returnReason?.includes('DEFECT') || 
+                         (d.returnReason && !d.returnReason.startsWith('USED_ITEM') && d.returnReason.trim().length > 0);
+    
+    if (filterType === 'used') return hasUsedTag;
+    if (filterType === 'defects') return hasDefectTag;
+    
     return true;
   });
   
@@ -482,10 +512,10 @@ export default function DefectsPage() {
               {/* Header */}
               <div className="mb-6">
                 <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
-                  Defect Management
+                  Extra Items Management
                 </h1>
                 <p className="text-gray-600 dark:text-gray-400">
-                  Identify and manage defective items
+                  Manage defective and used items
                 </p>
               </div>
 
@@ -513,7 +543,7 @@ export default function DefectsPage() {
                     <div>
                       <h3 className="font-semibold text-gray-900 dark:text-white">Store Selection</h3>
                       <p className="text-sm text-gray-500 dark:text-gray-400">
-                        Select store to view defects • Barcode scanning auto-detects store
+                        Select store to view items • Barcode scanning auto-detects store
                       </p>
                     </div>
                   </div>
@@ -565,38 +595,54 @@ export default function DefectsPage() {
                       )}
                     </div>
 
-                    <div className="flex items-start gap-3 p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 rounded-lg">
-                      <input
-                        type="checkbox"
-                        id="isUsed"
-                        checked={isUsedItem}
-                        onChange={(e) => {
-                          setIsUsedItem(e.target.checked);
-                          if (e.target.checked) {
-                            setReturnReason('');
-                          }
-                        }}
-                        className="mt-0.5 w-4 h-4"
-                      />
-                      <label htmlFor="isUsed" className="flex-1 cursor-pointer">
-                        <div className="text-sm font-medium text-blue-900 dark:text-blue-300">
-                          Mark as Used Item
-                        </div>
-                        <div className="text-xs text-blue-700 dark:text-blue-400 mt-0.5">
-                          Check this if the item has been used
-                        </div>
-                      </label>
+                    {/* Checkboxes */}
+                    <div className="space-y-3">
+                      <div className="flex items-start gap-3 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-700 rounded-lg">
+                        <input
+                          type="checkbox"
+                          id="isDefect"
+                          checked={isDefect}
+                          onChange={(e) => setIsDefect(e.target.checked)}
+                          className="mt-0.5 w-4 h-4"
+                        />
+                        <label htmlFor="isDefect" className="flex-1 cursor-pointer">
+                          <div className="text-sm font-medium text-red-900 dark:text-red-300">
+                            Mark as Defective
+                          </div>
+                          <div className="text-xs text-red-700 dark:text-red-400 mt-0.5">
+                            Check this if the item is defective or damaged
+                          </div>
+                        </label>
+                      </div>
+
+                      <div className="flex items-start gap-3 p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 rounded-lg">
+                        <input
+                          type="checkbox"
+                          id="isUsed"
+                          checked={isUsedItem}
+                          onChange={(e) => setIsUsedItem(e.target.checked)}
+                          className="mt-0.5 w-4 h-4"
+                        />
+                        <label htmlFor="isUsed" className="flex-1 cursor-pointer">
+                          <div className="text-sm font-medium text-blue-900 dark:text-blue-300">
+                            Mark as Used Item
+                          </div>
+                          <div className="text-xs text-blue-700 dark:text-blue-400 mt-0.5">
+                            Check this if the item has been used
+                          </div>
+                        </label>
+                      </div>
                     </div>
 
-                    {!isUsedItem && (
+                    {isDefect && (
                       <div>
                         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                          Return Reason <span className="text-red-500">*</span>
+                          Defect Reason <span className="text-red-500">*</span>
                         </label>
                         <textarea
                           value={returnReason}
                           onChange={(e) => setReturnReason(e.target.value)}
-                          placeholder="Enter return reason..."
+                          placeholder="Enter defect reason..."
                           rows={3}
                           className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                         />
@@ -605,7 +651,7 @@ export default function DefectsPage() {
 
                     <div>
                       <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                        Defect Image
+                        Item Image {isDefect && <span className="text-xs text-gray-500">(Optional)</span>}
                       </label>
                       <input
                         type="file"
@@ -636,21 +682,21 @@ export default function DefectsPage() {
                     <button
                       onClick={handleMarkAsDefective}
                       disabled={loading}
-                      className="w-full py-2 bg-gray-600 hover:bg-gray-700 disabled:bg-gray-400 text-white rounded-md"
+                      className="w-full py-2 bg-gray-600 hover:bg-gray-700 disabled:bg-gray-400 text-white rounded-md transition-colors"
                     >
-                      {loading ? 'Processing...' : (isUsedItem ? 'Mark as Used' : 'Mark as Defective')}
+                      {loading ? 'Processing...' : 'Submit'}
                     </button>
                   </div>
                 </div>
 
-                {/* Right Panel - Defects List */}
+                {/* Right Panel - Items List */}
                 <div className="lg:col-span-2 space-y-6">
-                  {/* Pending Defects */}
+                  {/* Pending Items */}
                   <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
                     <div className="p-4 border-b border-gray-200 dark:border-gray-700">
                       <div className="flex items-center justify-between mb-3">
                         <h3 className="font-semibold text-gray-900 dark:text-white">
-                          Defective Items ({pendingDefects.length})
+                          Extra Items ({pendingDefects.length})
                         </h3>
                         <div className="flex items-center gap-2">
                           {selectedDefectsForVendor.length > 0 && (
@@ -718,178 +764,194 @@ export default function DefectsPage() {
                       {pendingDefects.length === 0 ? (
                         <div className="p-8 text-center">
                           <Package className="w-12 h-12 mx-auto mb-2 text-gray-400" />
-                          <p className="text-gray-500 dark:text-gray-400">No defective items found</p>
+                          <p className="text-gray-500 dark:text-gray-400">No extra items found</p>
                         </div>
                       ) : (
-                        pendingDefects.map((defect) => (
-                          <div key={defect.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
-                            <div className="px-4 py-3">
-                              <div className="flex items-start justify-between gap-4">
-                                <div className="flex items-start gap-3 flex-1 min-w-0">
-                                  <input
-                                    type="checkbox"
-                                    checked={selectedDefectsForVendor.includes(defect.id)}
-                                    onChange={() => toggleDefectSelection(defect.id)}
-                                    className="mt-1 w-4 h-4 text-orange-600 rounded focus:ring-orange-500"
-                                  />
-                                  
-                                  <div className="flex-1 min-w-0">
-                                    <div className="flex items-center gap-2 mb-1">
-                                      <h4 className="font-medium text-gray-900 dark:text-white text-sm truncate">
-                                        {defect.productName}
-                                      </h4>
-                                      {defect.returnReason?.includes('USED_ITEM') ? (
-                                        <span className="px-2 py-0.5 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 text-xs rounded font-medium">
-                                          Used
+                        pendingDefects.map((defect) => {
+                          const hasUsedTag = defect.returnReason?.includes('USED_ITEM');
+                          const hasDefectTag = defect.returnReason?.includes('DEFECT') || 
+                                              (defect.returnReason && !defect.returnReason.startsWith('USED_ITEM') && defect.returnReason.trim().length > 0);
+                          const isBoth = hasDefectTag && hasUsedTag;
+
+                          return (
+                            <div key={defect.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
+                              <div className="px-4 py-3">
+                                <div className="flex items-start justify-between gap-4">
+                                  <div className="flex items-start gap-3 flex-1 min-w-0">
+                                    <input
+                                      type="checkbox"
+                                      checked={selectedDefectsForVendor.includes(defect.id)}
+                                      onChange={() => toggleDefectSelection(defect.id)}
+                                      className="mt-1 w-4 h-4 text-orange-600 rounded focus:ring-orange-500"
+                                    />
+                                    
+                                    <div className="flex-1 min-w-0">
+                                      <div className="flex items-center gap-2 mb-1">
+                                        <h4 className="font-medium text-gray-900 dark:text-white text-sm truncate">
+                                          {defect.productName}
+                                        </h4>
+                                        {isBoth ? (
+                                          <>
+                                            <span className="px-2 py-0.5 bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400 text-xs rounded font-medium">
+                                              Defect
+                                            </span>
+                                            <span className="px-2 py-0.5 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 text-xs rounded font-medium">
+                                              Used
+                                            </span>
+                                          </>
+                                        ) : hasUsedTag ? (
+                                          <span className="px-2 py-0.5 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 text-xs rounded font-medium">
+                                            Used
+                                          </span>
+                                        ) : hasDefectTag ? (
+                                          <span className="px-2 py-0.5 bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400 text-xs rounded">
+                                            Defect
+                                          </span>
+                                        ) : null}
+                                      </div>
+                                      
+                                      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-gray-600 dark:text-gray-400">
+                                        <span className="flex items-center gap-1">
+                                          <Barcode className="w-3 h-3" />
+                                          {defect.barcode}
                                         </span>
+                                        <span className="flex items-center gap-1">
+                                          <MapPin className="w-3 h-3" />
+                                          {defect.store || 'N/A'}
+                                        </span>
+                                        <span className="flex items-center gap-1">
+                                          <Calendar className="w-3 h-3" />
+                                          {new Date(defect.addedAt).toLocaleDateString()}
+                                        </span>
+                                      </div>
+                                    </div>
+                                  </div>
+
+                                  <div className="flex items-center gap-2">
+                                    <button
+                                      onClick={() => toggleDefectDetails(defect.id)}
+                                      className="p-1.5 hover:bg-gray-100 dark:hover:bg-gray-600 rounded transition-colors"
+                                    >
+                                      {expandedDefect === defect.id ? (
+                                        <ChevronUp className="w-4 h-4 text-gray-600 dark:text-gray-400" />
                                       ) : (
-                                        <span className="px-2 py-0.5 bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400 text-xs rounded">
-                                          Defect
-                                        </span>
+                                        <ChevronDown className="w-4 h-4 text-gray-600 dark:text-gray-400" />
+                                      )}
+                                    </button>
+                                    <button
+                                      onClick={() => {
+                                        setSelectedDefectsForVendor([defect.id]);
+                                        setReturnToVendorModalOpen(true);
+                                      }}
+                                      className="p-1.5 text-purple-600 hover:bg-purple-50 dark:hover:bg-purple-900/20 rounded transition-colors"
+                                      title="Return to Vendor"
+                                    >
+                                      <Truck className="w-4 h-4" />
+                                    </button>
+                                    <button
+                                      onClick={() => handleSellClick(defect)}
+                                      className="p-1.5 text-green-600 hover:bg-green-50 dark:hover:bg-green-900/20 rounded transition-colors"
+                                      title="Sell"
+                                    >
+                                      <ShoppingCart className="w-4 h-4" />
+                                    </button>
+                                    <button
+                                      onClick={() => handleRemove(defect.id)}
+                                      className="p-1.5 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-colors"
+                                      title="Remove"
+                                    >
+                                      <Trash2 className="w-4 h-4" />
+                                    </button>
+                                  </div>
+                                </div>
+                              </div>
+
+                              {expandedDefect === defect.id && (
+                                <div className="px-4 pb-4 pt-2 bg-gray-50 dark:bg-gray-900/50">
+                                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    {defect.image ? (
+                                      <div className="space-y-2">
+                                        <h5 className="text-xs font-medium text-gray-700 dark:text-gray-300 flex items-center gap-1">
+                                          <ImageIcon className="w-3 h-3" />
+                                          Item Image
+                                        </h5>
+                                        <div className="relative aspect-video bg-gray-200 dark:bg-gray-700 rounded-lg overflow-hidden">
+                                          <img
+                                            src={defect.image}
+                                            alt="Item"
+                                            className="w-full h-full object-cover"
+                                          />
+                                        </div>
+                                      </div>
+                                    ) : (
+                                      <div className="flex items-center justify-center aspect-video bg-gray-200 dark:bg-gray-700 rounded-lg">
+                                        <div className="text-center">
+                                          <ImageIcon className="w-8 h-8 mx-auto mb-1 text-gray-400" />
+                                          <p className="text-xs text-gray-500">No image</p>
+                                        </div>
+                                      </div>
+                                    )}
+
+                                    <div className="space-y-3">
+                                      <div className="grid grid-cols-2 gap-2 text-xs">
+                                        <div>
+                                          <p className="text-gray-500 dark:text-gray-400 mb-0.5">Product ID</p>
+                                          <p className="text-gray-900 dark:text-white font-medium">#{defect.productId}</p>
+                                        </div>
+                                        <div>
+                                          <p className="text-gray-500 dark:text-gray-400 mb-0.5">Added By</p>
+                                          <p className="text-gray-900 dark:text-white font-medium">{defect.addedBy}</p>
+                                        </div>
+                                      </div>
+
+                                      {defect.returnReason && (
+                                        <div>
+                                          <p className="text-xs text-gray-500 dark:text-gray-400 mb-1 flex items-center gap-1">
+                                            Reason
+                                          </p>
+                                          <p className="text-sm text-gray-900 dark:text-white bg-white dark:bg-gray-800 p-2 rounded border border-gray-200 dark:border-gray-600">
+                                            {defect.returnReason}
+                                          </p>
+                                        </div>
+                                      )}
+
+                                      {(defect.costPrice || defect.originalSellingPrice) && (
+                                        <div className="grid grid-cols-2 gap-2 pt-2 border-t border-gray-200 dark:border-gray-700">
+                                          {defect.costPrice && (
+                                            <div>
+                                              <p className="text-xs text-gray-500 dark:text-gray-400 mb-0.5">Cost Price</p>
+                                              <p className="text-sm text-gray-900 dark:text-white font-medium">
+                                                ৳{formatPrice(defect.costPrice)}
+                                              </p>
+                                            </div>
+                                          )}
+                                          {defect.originalSellingPrice && (
+                                            <div>
+                                              <p className="text-xs text-gray-500 dark:text-gray-400 mb-0.5">Original Price</p>
+                                              <p className="text-sm text-gray-900 dark:text-white font-medium">
+                                                ৳{formatPrice(defect.originalSellingPrice)}
+                                              </p>
+                                            </div>
+                                          )}
+                                        </div>
                                       )}
                                     </div>
-                                    
-                                    <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-gray-600 dark:text-gray-400">
-                                      <span className="flex items-center gap-1">
-                                        <Barcode className="w-3 h-3" />
-                                        {defect.barcode}
-                                      </span>
-                                      <span className="flex items-center gap-1">
-                                        <MapPin className="w-3 h-3" />
-                                        {defect.store || 'N/A'}
-                                      </span>
-                                      <span className="flex items-center gap-1">
-                                        <Calendar className="w-3 h-3" />
-                                        {new Date(defect.addedAt).toLocaleDateString()}
-                                      </span>
-                                    </div>
                                   </div>
                                 </div>
-
-                                <div className="flex items-center gap-2">
-                                  <button
-                                    onClick={() => toggleDefectDetails(defect.id)}
-                                    className="p-1.5 hover:bg-gray-100 dark:hover:bg-gray-600 rounded transition-colors"
-                                  >
-                                    {expandedDefect === defect.id ? (
-                                      <ChevronUp className="w-4 h-4 text-gray-600 dark:text-gray-400" />
-                                    ) : (
-                                      <ChevronDown className="w-4 h-4 text-gray-600 dark:text-gray-400" />
-                                    )}
-                                  </button>
-                                  <button
-                                    onClick={() => {
-                                      setSelectedDefectsForVendor([defect.id]);
-                                      setReturnToVendorModalOpen(true);
-                                    }}
-                                    className="p-1.5 text-purple-600 hover:bg-purple-50 dark:hover:bg-purple-900/20 rounded transition-colors"
-                                    title="Return to Vendor"
-                                  >
-                                    <Truck className="w-4 h-4" />
-                                  </button>
-                                  <button
-                                    onClick={() => handleSellClick(defect)}
-                                    className="p-1.5 text-green-600 hover:bg-green-50 dark:hover:bg-green-900/20 rounded transition-colors"
-                                    title="Sell"
-                                  >
-                                    <ShoppingCart className="w-4 h-4" />
-                                  </button>
-                                  <button
-                                    onClick={() => handleRemove(defect.id)}
-                                    className="p-1.5 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-colors"
-                                    title="Remove"
-                                  >
-                                    <Trash2 className="w-4 h-4" />
-                                  </button>
-                                </div>
-                              </div>
+                              )}
                             </div>
-
-                            {expandedDefect === defect.id && (
-                              <div className="px-4 pb-4 pt-2 bg-gray-50 dark:bg-gray-900/50">
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                  {defect.image ? (
-                                    <div className="space-y-2">
-                                      <h5 className="text-xs font-medium text-gray-700 dark:text-gray-300 flex items-center gap-1">
-                                        <ImageIcon className="w-3 h-3" />
-                                        Defect Image
-                                      </h5>
-                                      <div className="relative aspect-video bg-gray-200 dark:bg-gray-700 rounded-lg overflow-hidden">
-                                        <img
-                                          src={defect.image}
-                                          alt="Defect"
-                                          className="w-full h-full object-cover"
-                                        />
-                                      </div>
-                                    </div>
-                                  ) : (
-                                    <div className="flex items-center justify-center aspect-video bg-gray-200 dark:bg-gray-700 rounded-lg">
-                                      <div className="text-center">
-                                        <ImageIcon className="w-8 h-8 mx-auto mb-1 text-gray-400" />
-                                        <p className="text-xs text-gray-500">No image</p>
-                                      </div>
-                                    </div>
-                                  )}
-
-                                  <div className="space-y-3">
-                                    <div className="grid grid-cols-2 gap-2 text-xs">
-                                      <div>
-                                        <p className="text-gray-500 dark:text-gray-400 mb-0.5">Product ID</p>
-                                        <p className="text-gray-900 dark:text-white font-medium">#{defect.productId}</p>
-                                      </div>
-                                      <div>
-                                        <p className="text-gray-500 dark:text-gray-400 mb-0.5">Added By</p>
-                                        <p className="text-gray-900 dark:text-white font-medium">{defect.addedBy}</p>
-                                      </div>
-                                    </div>
-
-                                    {defect.returnReason && (
-                                      <div>
-                                        <p className="text-xs text-gray-500 dark:text-gray-400 mb-1 flex items-center gap-1">
-                                          Reason
-                                        </p>
-                                        <p className="text-sm text-gray-900 dark:text-white bg-white dark:bg-gray-800 p-2 rounded border border-gray-200 dark:border-gray-600">
-                                          {defect.returnReason}
-                                        </p>
-                                      </div>
-                                    )}
-
-                                    {(defect.costPrice || defect.originalSellingPrice) && (
-                                      <div className="grid grid-cols-2 gap-2 pt-2 border-t border-gray-200 dark:border-gray-700">
-                                        {defect.costPrice && (
-                                          <div>
-                                            <p className="text-xs text-gray-500 dark:text-gray-400 mb-0.5">Cost Price</p>
-                                            <p className="text-sm text-gray-900 dark:text-white font-medium">
-                                              ৳{formatPrice(defect.costPrice)}
-                                            </p>
-                                          </div>
-                                        )}
-                                        {defect.originalSellingPrice && (
-                                          <div>
-                                            <p className="text-xs text-gray-500 dark:text-gray-400 mb-0.5">Original Price</p>
-                                            <p className="text-sm text-gray-900 dark:text-white font-medium">
-                                              ৳{formatPrice(defect.originalSellingPrice)}
-                                            </p>
-                                          </div>
-                                        )}
-                                      </div>
-                                    )}
-                                  </div>
-                                </div>
-                              </div>
-                            )}
-                          </div>
-                        ))
+                          );
+                        })
                       )}
                     </div>
                   </div>
 
-                  {/* Sold Defects */}
+                  {/* Sold Items */}
                   {soldDefects.length > 0 && (
                     <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
                       <div className="p-4 border-b border-gray-200 dark:border-gray-700">
                         <h3 className="font-semibold text-gray-900 dark:text-white">
-                          Sold Defective Items ({soldDefects.length})
+                          Sold Items ({soldDefects.length})
                         </h3>
                       </div>
 
@@ -914,7 +976,7 @@ export default function DefectsPage() {
                     </div>
                   )}
 
-                  {/* Returned to Vendor Defects */}
+                  {/* Returned to Vendor Items */}
                   {returnedDefects.length > 0 && (
                     <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
                       <div className="p-4 border-b border-gray-200 dark:border-gray-700">

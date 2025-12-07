@@ -91,7 +91,7 @@ export default function Sidebar({ isOpen, setIsOpen }: SidebarProps) {
     {icon: Package, label: 'Orders', href: '/orders' },
     { icon: ClipboardList, label: 'Purchase History', href: '/purchase-history' },
     { icon: Search, label: 'Lookup', href: '/lookup' },
-    { icon: AlertTriangle, label: 'Extra Panel', href: '/defects' },
+    { icon: AlertTriangle, label: 'Extra Panel', href: '/extra' },
     { icon: CreditCard, label: 'Transaction', href: '/transaction' },
     { icon: CreditCard, label: 'Accounting', href: '/accounting' },
     
