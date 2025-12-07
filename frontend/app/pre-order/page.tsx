@@ -5,8 +5,6 @@ import { Search, X, Globe, Package } from 'lucide-react';
 import Header from '@/components/Header';
 import Sidebar from '@/components/Sidebar';
 import storeService from '@/services/storeService';
-import productService from '@/services/productService';
-import productImageService from '@/services/productImageService';
 import axios from '@/lib/axios';
 
 interface CartProduct {
@@ -16,6 +14,7 @@ interface CartProduct {
   sku: string;
   quantity: number;
   imageUrl: string;
+  available_for_preorder: boolean;
 }
 
 export default function PreOrderPage() {
@@ -80,44 +79,6 @@ export default function PreOrderPage() {
     }
   };
 
-  const getImageUrl = (imagePath: string | null | undefined): string => {
-    if (!imagePath) return '/placeholder-image.jpg';
-    
-    if (imagePath.startsWith('http://') || imagePath.startsWith('https://')) {
-      return imagePath;
-    }
-    
-    const baseUrl = process.env.NEXT_PUBLIC_API_URL?.replace('/api', '') || '';
-    
-    if (imagePath.startsWith('/storage')) {
-      return `${baseUrl}${imagePath}`;
-    }
-    
-    return `${baseUrl}/storage/product-images/${imagePath}`;
-  };
-
-  const fetchPrimaryImage = async (productId: number): Promise<string> => {
-    try {
-      const images = await productImageService.getProductImages(productId);
-      
-      const primaryImage = images.find(img => img.is_primary && img.is_active);
-      
-      if (primaryImage) {
-        return getImageUrl(primaryImage.image_url || primaryImage.image_path);
-      }
-      
-      const firstActiveImage = images.find(img => img.is_active);
-      if (firstActiveImage) {
-        return getImageUrl(firstActiveImage.image_url || firstActiveImage.image_path);
-      }
-      
-      return '/placeholder-image.jpg';
-    } catch (error) {
-      console.error('Error fetching product images:', error);
-      return '/placeholder-image.jpg';
-    }
-  };
-
   const fetchStores = async () => {
     try {
       const response = await storeService.getStores({ is_active: true, per_page: 1000 });
@@ -142,19 +103,81 @@ export default function PreOrderPage() {
 
   const fetchProducts = async () => {
     try {
-      const response = await productService.getAll({ per_page: 1000, is_archived: false });
-      setAllProducts(response.data || []);
-    } catch (error) {
-      console.error('Error fetching products:', error);
+      console.log('🔍 Fetching products from Catalog API...');
+      console.log('⚠️ TEST MODE: Fetching ALL products (not filtered by stock)');
+      
+      // TEST: Fetch ALL products (comment out in_stock filter)
+      const response = await axios.get('/catalog/products', { 
+        params: { 
+          // in_stock: false,  // TEMPORARILY COMMENTED for testing
+          per_page: 1000 
+        } 
+      });
+      
+      console.log('📦 Full Catalog API response:', response);
+      console.log('📦 Response data:', response.data);
+      console.log('📦 response.data.data:', response.data.data);
+      console.log('📦 Type:', typeof response.data.data);
+      console.log('📦 Is Array?', Array.isArray(response.data.data));
+      
+      let productsData: any[] = [];
+      
+      // Handle different response structures
+      if (response.data?.data) {
+        // Structure: { success: true, data: { products: [...] } }
+        if (response.data.data.products && Array.isArray(response.data.data.products)) {
+          productsData = response.data.data.products;
+          console.log('✅ Structure: data.products array');
+        }
+        // Structure: { success: true, data: { data: [...] } }
+        else if (Array.isArray(response.data.data.data)) {
+          productsData = response.data.data.data;
+          console.log('✅ Structure: Nested data array');
+        }
+        // Structure: { success: true, data: [...] }
+        else if (Array.isArray(response.data.data)) {
+          productsData = response.data.data;
+          console.log('✅ Structure: Direct data array');
+        }
+        // Structure: { data: { items: [...] } }
+        else if (response.data.data.items && Array.isArray(response.data.data.items)) {
+          productsData = response.data.data.items;
+          console.log('✅ Structure: Items array');
+        }
+      }
+      // Structure: Direct array
+      else if (Array.isArray(response.data)) {
+        productsData = response.data;
+        console.log('✅ Structure: Top-level array');
+      }
+      
+      console.log('📊 Extracted products:', productsData.length, 'items');
+      
+      if (productsData.length > 0) {
+        console.log('🔍 Sample product structure:', productsData[0]);
+      }
+      
+      setAllProducts(productsData);
+      console.log('✅ Loaded', productsData.length, 'out-of-stock products');
+    } catch (error: any) {
+      console.error('❌ Error fetching products:', error);
+      console.error('❌ Error response:', error.response?.data);
+      console.error('❌ Error status:', error.response?.status);
       setAllProducts([]);
     }
   };
 
-  const performProductSearch = async (query: string) => {
+  const performProductSearch = async (query: string): Promise<any[]> => {
     const results: any[] = [];
     const queryLower = query.toLowerCase().trim();
     
-    console.log('🔍 Searching for products:', queryLower);
+    console.log('🔍 Searching for:', queryLower);
+    console.log('📊 Total products to search:', allProducts.length);
+
+    if (allProducts.length === 0) {
+      console.log('⚠️ No products loaded yet');
+      return [];
+    }
 
     for (const prod of allProducts) {
       const productName = (prod.name || '').toLowerCase();
@@ -175,19 +198,34 @@ export default function PreOrderPage() {
       }
       
       if (matches) {
-        const imageUrl = await fetchPrimaryImage(prod.id);
-
+        // Get image URL - handle different structures
+        let imageUrl = '/placeholder-image.jpg';
+        if (prod.images && Array.isArray(prod.images) && prod.images.length > 0) {
+          imageUrl = prod.images[0].url || prod.images[0].image_url || prod.images[0].image_path || '/placeholder-image.jpg';
+        } else if (prod.image_url) {
+          imageUrl = prod.image_url;
+        } else if (prod.image) {
+          imageUrl = prod.image;
+        }
+        
         results.push({
           id: prod.id,
           name: prod.name,
           sku: prod.sku,
           imageUrl: imageUrl,
+          available_for_preorder: prod.available_for_preorder !== false,
+          in_stock: prod.in_stock || false,
+          price_display: prod.price_display || prod.selling_price || 'TBA',
           relevance_score: relevanceScore
         });
+        
+        console.log('✅ Found match:', prod.name, '- Score:', relevanceScore);
       }
     }
     
     results.sort((a, b) => (b.relevance_score || 0) - (a.relevance_score || 0));
+    console.log('🎯 Search results:', results.length, 'matches');
+    
     return results;
   };
 
@@ -208,11 +246,97 @@ export default function PreOrderPage() {
     }
 
     const delayDebounce = setTimeout(async () => {
-      const results = await performProductSearch(searchQuery);
-      setSearchResults(results);
-      
-      if (results.length === 0) {
-        showToast('No products found', 'error');
+      try {
+        console.log('🔍 Starting search for:', searchQuery);
+        
+        // First try local search
+        const localResults = await performProductSearch(searchQuery);
+        
+        if (localResults.length > 0) {
+          console.log('✅ Local search found', localResults.length, 'results');
+          setSearchResults(localResults);
+          return;
+        }
+        
+        // If no local results, try API search
+        console.log('🌐 No local results, trying API search...');
+        console.log('⚠️ TEST MODE: Searching ALL products (not filtered by stock)');
+        
+        const response = await axios.get('/catalog/products', {
+          params: {
+            search: searchQuery,
+            // in_stock: false,  // TEMPORARILY COMMENTED for testing
+            per_page: 20
+          }
+        });
+        
+        console.log('📦 API search response:', response.data);
+        console.log('📦 response.data.data:', response.data.data);
+        console.log('📦 Type of response.data.data:', typeof response.data.data);
+        console.log('📦 Is Array?', Array.isArray(response.data.data));
+        
+        let products: any[] = [];
+        
+        // Handle different response structures
+        if (response.data?.data) {
+          // Structure: { success: true, data: { products: [...] } }
+          if (response.data.data.products && Array.isArray(response.data.data.products)) {
+            products = response.data.data.products;
+            console.log('✅ Found products array in data.products');
+          }
+          // Structure: { success: true, data: { data: [...] } }
+          else if (Array.isArray(response.data.data.data)) {
+            products = response.data.data.data;
+          } 
+          // Structure: { success: true, data: [...] }
+          else if (Array.isArray(response.data.data)) {
+            products = response.data.data;
+          } 
+          // Structure: { data: { items: [...] } }
+          else if (response.data.data.items && Array.isArray(response.data.data.items)) {
+            products = response.data.data.items;
+          }
+        } 
+        // Structure: Direct array
+        else if (Array.isArray(response.data)) {
+          products = response.data;
+        }
+        
+        console.log('📊 API returned', products.length, 'products');
+        
+        const apiResults = products.map(prod => {
+          // Get image URL - handle different structures
+          let imageUrl = '/placeholder-image.jpg';
+          if (prod.images && Array.isArray(prod.images) && prod.images.length > 0) {
+            imageUrl = prod.images[0].url || prod.images[0].image_url || prod.images[0].image_path || '/placeholder-image.jpg';
+          } else if (prod.image_url) {
+            imageUrl = prod.image_url;
+          } else if (prod.image) {
+            imageUrl = prod.image;
+          }
+          
+          return {
+            id: prod.id,
+            name: prod.name,
+            sku: prod.sku,
+            imageUrl: imageUrl,
+            available_for_preorder: prod.available_for_preorder !== false,
+            in_stock: prod.in_stock || false,
+            price_display: prod.price_display || prod.selling_price || 'TBA',
+            relevance_score: 50
+          };
+        });
+        
+        console.log('✅ Mapped', apiResults.length, 'API results');
+        setSearchResults(apiResults);
+        
+        if (apiResults.length === 0) {
+          console.log('ℹ️ No products found for:', searchQuery);
+        }
+      } catch (error: any) {
+        console.error('❌ Search error:', error);
+        console.error('❌ Error response:', error.response?.data);
+        setSearchResults([]);
       }
     }, 300);
 
@@ -271,7 +395,8 @@ export default function PreOrderPage() {
       productName: selectedProduct.name,
       sku: selectedProduct.sku,
       quantity: qty,
-      imageUrl: selectedProduct.imageUrl
+      imageUrl: selectedProduct.imageUrl,
+      available_for_preorder: selectedProduct.available_for_preorder !== false
     };
     
     setCart([...cart, newItem]);
@@ -310,10 +435,10 @@ export default function PreOrderPage() {
     }
     
     try {
-      console.log('📦 CREATING PRE-ORDER');
+      console.log('📦 CREATING PRE-ORDER (System will auto-detect out-of-stock items)');
 
       const orderData = {
-        order_type: 'preorder',
+        order_type: 'counter',  // Required field - using 'counter' for pre-orders
         store_id: parseInt(selectedStore),
         customer: {
           name: userName,
@@ -325,15 +450,14 @@ export default function PreOrderPage() {
         },
         items: cart.map(item => ({
           product_id: item.product_id,
+          batch_id: null,  // Required field - null for pre-orders since no specific batch
           quantity: item.quantity,
-          unit_price: 0,  // No price for pre-orders
+          unit_price: 0,  // TBA - No price for pre-orders
           discount_amount: 0
         })),
-        payment_status: 'pending',
-        total_amount: 0,  // No amount for pre-orders
         shipping_amount: 0,
-        expected_delivery_date: expectedDeliveryDate || undefined,
-        notes: `PRE-ORDER - Customer: ${userName}. ${preorderNotes ? preorderNotes + '. ' : ''}Products: ${cart.map(item => `${item.productName} (Qty: ${item.quantity})`).join(', ')}. ${isInternational ? 'International' : 'Domestic'} delivery.`
+        payment_method: 'cod',  // Default to COD for pre-orders
+        notes: `Pre-order request. Customer: ${userName}. Products: ${cart.map(item => `${item.productName} (Qty: ${item.quantity})`).join(', ')}. ${preorderNotes ? preorderNotes + '. ' : ''}Expected delivery: ${expectedDeliveryDate || 'TBD'}. ${isInternational ? 'International' : 'Domestic'} delivery.`
       };
 
       console.log('📦 Pre-order data:', orderData);
@@ -345,9 +469,15 @@ export default function PreOrderPage() {
       }
 
       const createdOrder = response.data.data;
-      console.log('✅ Pre-order created:', createdOrder.order_number);
+      console.log('✅ Order created:', createdOrder.order_number);
+      console.log('🎯 Is Pre-order?:', createdOrder.is_preorder);
+      console.log('📝 Pre-order notes:', createdOrder.preorder_notes);
 
-      showToast(`Pre-order ${createdOrder.order_number} created successfully!`, 'success');
+      if (createdOrder.is_preorder) {
+        showToast(`Pre-order ${createdOrder.order_number} created successfully! We'll contact you when stock arrives.`, 'success');
+      } else {
+        showToast(`Order ${createdOrder.order_number} created successfully!`, 'success');
+      }
       
       // Clear form
       setCart([]);
@@ -374,7 +504,27 @@ export default function PreOrderPage() {
 
     } catch (error: any) {
       console.error('❌ Pre-order creation failed:', error);
-      const errorMessage = error.response?.data?.message || error.message || 'Error creating pre-order. Please try again.';
+      console.error('❌ Error response:', error.response?.data);
+      console.error('❌ Validation errors:', error.response?.data?.errors);
+      console.error('❌ Error message:', error.response?.data?.message);
+      
+      let errorMessage = 'Error creating pre-order. Please try again.';
+      
+      if (error.response?.data?.errors) {
+        // Laravel validation errors
+        const validationErrors = error.response.data.errors;
+        const errorMessages = Object.entries(validationErrors)
+          .map(([field, messages]: [string, any]) => {
+            return `${field}: ${Array.isArray(messages) ? messages.join(', ') : messages}`;
+          })
+          .join('\n');
+        errorMessage = `Validation failed:\n${errorMessages}`;
+      } else if (error.response?.data?.message) {
+        errorMessage = error.response.data.message;
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+      
       showToast(errorMessage, 'error');
     }
   };
@@ -598,7 +748,14 @@ export default function PreOrderPage() {
                 <div className="space-y-4 md:space-y-6">
                   {/* Product Search */}
                   <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4 md:p-5">
-                    <h3 className="text-sm font-medium text-gray-900 dark:text-white mb-4">Search Products</h3>
+                    <div className="flex items-center justify-between mb-4">
+                      <h3 className="text-sm font-medium text-gray-900 dark:text-white">Search Products</h3>
+                      {allProducts.length > 0 && (
+                        <span className="text-xs text-gray-500 dark:text-gray-400">
+                          {allProducts.length} available
+                        </span>
+                      )}
+                    </div>
                     
                     <div className="flex gap-2 mb-4">
                       <input
@@ -613,9 +770,17 @@ export default function PreOrderPage() {
                       </button>
                     </div>
 
+                    {allProducts.length === 0 && !searchQuery && (
+                      <div className="text-center py-8">
+                        <Package className="w-12 h-12 mx-auto text-gray-300 dark:text-gray-600 mb-2" />
+                        <p className="text-sm text-gray-500 dark:text-gray-400">Loading products...</p>
+                      </div>
+                    )}
+
                     {searchQuery && searchResults.length === 0 && (
-                      <div className="text-center py-8 text-sm text-gray-500 dark:text-gray-400">
-                        No products found matching "{searchQuery}"
+                      <div className="text-center py-8">
+                        <p className="text-sm text-gray-500 dark:text-gray-400 mb-2">No products found matching "{searchQuery}"</p>
+                        <p className="text-xs text-gray-400 dark:text-gray-500">Try searching with different keywords</p>
                       </div>
                     )}
 
@@ -634,6 +799,12 @@ export default function PreOrderPage() {
                             />
                             <p className="text-xs text-gray-900 dark:text-white font-medium truncate">{product.name}</p>
                             <p className="text-xs text-gray-600 dark:text-gray-400">SKU: {product.sku}</p>
+                            <div className="mt-1 flex items-center justify-between">
+                              <p className="text-xs text-orange-600 dark:text-orange-400 font-medium">{product.price_display || 'TBA'}</p>
+                              {product.available_for_preorder && (
+                                <span className="text-[9px] px-1.5 py-0.5 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 rounded font-medium">PRE-ORDER</span>
+                              )}
+                            </div>
                           </div>
                         ))}
                       </div>
