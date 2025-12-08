@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Search, X, Globe, Package } from 'lucide-react';
+import { Search, X, Globe, Package, AlertCircle, CheckCircle } from 'lucide-react';
 import Header from '@/components/Header';
 import Sidebar from '@/components/Sidebar';
 import storeService from '@/services/storeService';
@@ -14,7 +14,6 @@ interface CartProduct {
   sku: string;
   quantity: number;
   imageUrl: string;
-  available_for_preorder: boolean;
 }
 
 export default function PreOrderPage() {
@@ -57,8 +56,8 @@ export default function PreOrderPage() {
   const [cart, setCart] = useState<CartProduct[]>([]);
   
   const [quantity, setQuantity] = useState('');
-
   const [selectedStore, setSelectedStore] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
 
   function getTodayDate() {
     const today = new Date();
@@ -103,66 +102,45 @@ export default function PreOrderPage() {
 
   const fetchProducts = async () => {
     try {
-      console.log('🔍 Fetching products from Catalog API...');
-      console.log('⚠️ TEST MODE: Fetching ALL products (not filtered by stock)');
+      console.log('🔍 Fetching OUT-OF-STOCK products for pre-order...');
       
-      // TEST: Fetch ALL products (comment out in_stock filter)
+      // FIXED: Use in_stock=false to get only out-of-stock products as per documentation
       const response = await axios.get('/catalog/products', { 
         params: { 
-          // in_stock: false,  // TEMPORARILY COMMENTED for testing
+          in_stock: false,  // Get only out-of-stock products
           per_page: 1000 
         } 
       });
       
-      console.log('📦 Full Catalog API response:', response);
-      console.log('📦 Response data:', response.data);
-      console.log('📦 response.data.data:', response.data.data);
-      console.log('📦 Type:', typeof response.data.data);
-      console.log('📦 Is Array?', Array.isArray(response.data.data));
+      console.log('📦 API response:', response.data);
       
       let productsData: any[] = [];
       
       // Handle different response structures
       if (response.data?.data) {
-        // Structure: { success: true, data: { products: [...] } }
         if (response.data.data.products && Array.isArray(response.data.data.products)) {
           productsData = response.data.data.products;
-          console.log('✅ Structure: data.products array');
-        }
-        // Structure: { success: true, data: { data: [...] } }
-        else if (Array.isArray(response.data.data.data)) {
+        } else if (Array.isArray(response.data.data.data)) {
           productsData = response.data.data.data;
-          console.log('✅ Structure: Nested data array');
-        }
-        // Structure: { success: true, data: [...] }
-        else if (Array.isArray(response.data.data)) {
+        } else if (Array.isArray(response.data.data)) {
           productsData = response.data.data;
-          console.log('✅ Structure: Direct data array');
-        }
-        // Structure: { data: { items: [...] } }
-        else if (response.data.data.items && Array.isArray(response.data.data.items)) {
+        } else if (response.data.data.items && Array.isArray(response.data.data.items)) {
           productsData = response.data.data.items;
-          console.log('✅ Structure: Items array');
         }
-      }
-      // Structure: Direct array
-      else if (Array.isArray(response.data)) {
+      } else if (Array.isArray(response.data)) {
         productsData = response.data;
-        console.log('✅ Structure: Top-level array');
       }
       
-      console.log('📊 Extracted products:', productsData.length, 'items');
+      console.log('📊 Loaded', productsData.length, 'out-of-stock products');
       
       if (productsData.length > 0) {
-        console.log('🔍 Sample product structure:', productsData[0]);
+        console.log('🔍 Sample product:', productsData[0]);
       }
       
       setAllProducts(productsData);
-      console.log('✅ Loaded', productsData.length, 'out-of-stock products');
     } catch (error: any) {
       console.error('❌ Error fetching products:', error);
       console.error('❌ Error response:', error.response?.data);
-      console.error('❌ Error status:', error.response?.status);
       setAllProducts([]);
     }
   };
@@ -172,10 +150,8 @@ export default function PreOrderPage() {
     const queryLower = query.toLowerCase().trim();
     
     console.log('🔍 Searching for:', queryLower);
-    console.log('📊 Total products to search:', allProducts.length);
 
     if (allProducts.length === 0) {
-      console.log('⚠️ No products loaded yet');
       return [];
     }
 
@@ -198,7 +174,6 @@ export default function PreOrderPage() {
       }
       
       if (matches) {
-        // Get image URL - handle different structures
         let imageUrl = '/placeholder-image.jpg';
         if (prod.images && Array.isArray(prod.images) && prod.images.length > 0) {
           imageUrl = prod.images[0].url || prod.images[0].image_url || prod.images[0].image_path || '/placeholder-image.jpg';
@@ -213,18 +188,14 @@ export default function PreOrderPage() {
           name: prod.name,
           sku: prod.sku,
           imageUrl: imageUrl,
-          available_for_preorder: prod.available_for_preorder !== false,
+          price_display: prod.price_display || 'TBA',
           in_stock: prod.in_stock || false,
-          price_display: prod.price_display || prod.selling_price || 'TBA',
           relevance_score: relevanceScore
         });
-        
-        console.log('✅ Found match:', prod.name, '- Score:', relevanceScore);
       }
     }
     
     results.sort((a, b) => (b.relevance_score || 0) - (a.relevance_score || 0));
-    console.log('🎯 Search results:', results.length, 'matches');
     
     return results;
   };
@@ -247,65 +218,39 @@ export default function PreOrderPage() {
 
     const delayDebounce = setTimeout(async () => {
       try {
-        console.log('🔍 Starting search for:', searchQuery);
-        
-        // First try local search
         const localResults = await performProductSearch(searchQuery);
         
         if (localResults.length > 0) {
-          console.log('✅ Local search found', localResults.length, 'results');
           setSearchResults(localResults);
           return;
         }
         
-        // If no local results, try API search
-        console.log('🌐 No local results, trying API search...');
-        console.log('⚠️ TEST MODE: Searching ALL products (not filtered by stock)');
-        
+        // Try API search if no local results
         const response = await axios.get('/catalog/products', {
           params: {
             search: searchQuery,
-            // in_stock: false,  // TEMPORARILY COMMENTED for testing
+            in_stock: false,
             per_page: 20
           }
         });
         
-        console.log('📦 API search response:', response.data);
-        console.log('📦 response.data.data:', response.data.data);
-        console.log('📦 Type of response.data.data:', typeof response.data.data);
-        console.log('📦 Is Array?', Array.isArray(response.data.data));
-        
         let products: any[] = [];
         
-        // Handle different response structures
         if (response.data?.data) {
-          // Structure: { success: true, data: { products: [...] } }
           if (response.data.data.products && Array.isArray(response.data.data.products)) {
             products = response.data.data.products;
-            console.log('✅ Found products array in data.products');
-          }
-          // Structure: { success: true, data: { data: [...] } }
-          else if (Array.isArray(response.data.data.data)) {
+          } else if (Array.isArray(response.data.data.data)) {
             products = response.data.data.data;
-          } 
-          // Structure: { success: true, data: [...] }
-          else if (Array.isArray(response.data.data)) {
+          } else if (Array.isArray(response.data.data)) {
             products = response.data.data;
-          } 
-          // Structure: { data: { items: [...] } }
-          else if (response.data.data.items && Array.isArray(response.data.data.items)) {
+          } else if (response.data.data.items && Array.isArray(response.data.data.items)) {
             products = response.data.data.items;
           }
-        } 
-        // Structure: Direct array
-        else if (Array.isArray(response.data)) {
+        } else if (Array.isArray(response.data)) {
           products = response.data;
         }
         
-        console.log('📊 API returned', products.length, 'products');
-        
         const apiResults = products.map(prod => {
-          // Get image URL - handle different structures
           let imageUrl = '/placeholder-image.jpg';
           if (prod.images && Array.isArray(prod.images) && prod.images.length > 0) {
             imageUrl = prod.images[0].url || prod.images[0].image_url || prod.images[0].image_path || '/placeholder-image.jpg';
@@ -320,22 +265,15 @@ export default function PreOrderPage() {
             name: prod.name,
             sku: prod.sku,
             imageUrl: imageUrl,
-            available_for_preorder: prod.available_for_preorder !== false,
+            price_display: prod.price_display || 'TBA',
             in_stock: prod.in_stock || false,
-            price_display: prod.price_display || prod.selling_price || 'TBA',
             relevance_score: 50
           };
         });
         
-        console.log('✅ Mapped', apiResults.length, 'API results');
         setSearchResults(apiResults);
-        
-        if (apiResults.length === 0) {
-          console.log('ℹ️ No products found for:', searchQuery);
-        }
       } catch (error: any) {
         console.error('❌ Search error:', error);
-        console.error('❌ Error response:', error.response?.data);
         setSearchResults([]);
       }
     }, 300);
@@ -395,8 +333,7 @@ export default function PreOrderPage() {
       productName: selectedProduct.name,
       sku: selectedProduct.sku,
       quantity: qty,
-      imageUrl: selectedProduct.imageUrl,
-      available_for_preorder: selectedProduct.available_for_preorder !== false
+      imageUrl: selectedProduct.imageUrl
     };
     
     setCart([...cart, newItem]);
@@ -422,42 +359,58 @@ export default function PreOrderPage() {
       return;
     }
     
+    // Address validation
     if (isInternational) {
-      if (!country || !internationalCity) {
-        alert('Please fill in international address');
+      const missingFields = [];
+      if (!country) missingFields.push('Country');
+      if (!internationalCity) missingFields.push('City');
+      if (!deliveryAddress) missingFields.push('Street Address');
+      
+      if (missingFields.length > 0) {
+        alert(`Please fill in the following international address fields:\n• ${missingFields.join('\n• ')}`);
         return;
       }
     } else {
-      if (!division || !district || !city) {
-        alert('Please fill in delivery address');
+      const missingFields = [];
+      if (!division) missingFields.push('Division');
+      if (!district) missingFields.push('District');
+      if (!city) missingFields.push('Upazilla');
+      if (!zone) missingFields.push('Zone');
+      
+      if (missingFields.length > 0) {
+        alert(`Please fill in the following delivery address fields:\n• ${missingFields.join('\n• ')}`);
         return;
       }
     }
     
     try {
+      setIsLoading(true);
       console.log('📦 CREATING PRE-ORDER (System will auto-detect out-of-stock items)');
 
+      // Build complete address string
+      const fullAddress = isInternational 
+        ? `${deliveryAddress ? deliveryAddress + ', ' : ''}${internationalCity}, ${state ? state + ', ' : ''}${country}${internationalPostalCode ? ' - ' + internationalPostalCode : ''}`
+        : `${deliveryAddress ? deliveryAddress + ', ' : ''}${area ? area + ', ' : ''}${zone ? zone + ', ' : ''}${city}, ${district}, ${division}${postalCode ? ' - ' + postalCode : ''}`;
+
       const orderData = {
-        order_type: 'counter',  // Required field - using 'counter' for pre-orders
+        order_type: 'counter',
         store_id: parseInt(selectedStore),
         customer: {
           name: userName,
           email: userEmail || undefined,
           phone: userPhone,
-          address: isInternational ? 
-            `${internationalCity}, ${state ? state + ', ' : ''}${country}` :
-            `${city}, ${district}, ${division}`
+          address: fullAddress
         },
         items: cart.map(item => ({
           product_id: item.product_id,
-          batch_id: null,  // Required field - null for pre-orders since no specific batch
+          batch_id: null,
           quantity: item.quantity,
           unit_price: 0,  // TBA - No price for pre-orders
           discount_amount: 0
         })),
         shipping_amount: 0,
-        payment_method: 'cod',  // Default to COD for pre-orders
-        notes: `Pre-order request. Customer: ${userName}. Products: ${cart.map(item => `${item.productName} (Qty: ${item.quantity})`).join(', ')}. ${preorderNotes ? preorderNotes + '. ' : ''}Expected delivery: ${expectedDeliveryDate || 'TBD'}. ${isInternational ? 'International' : 'Domestic'} delivery.`
+        payment_method: 'cod',
+        notes: `Pre-order request. ${preorderNotes ? preorderNotes + '. ' : ''}Expected delivery: ${expectedDeliveryDate || 'TBD'}. ${isInternational ? 'International' : 'Domestic'} delivery.`
       };
 
       console.log('📦 Pre-order data:', orderData);
@@ -471,10 +424,9 @@ export default function PreOrderPage() {
       const createdOrder = response.data.data;
       console.log('✅ Order created:', createdOrder.order_number);
       console.log('🎯 Is Pre-order?:', createdOrder.is_preorder);
-      console.log('📝 Pre-order notes:', createdOrder.preorder_notes);
 
       if (createdOrder.is_preorder) {
-        showToast(`Pre-order ${createdOrder.order_number} created successfully! We'll contact you when stock arrives.`, 'success');
+        showToast(`Pre-order ${createdOrder.order_number} created successfully! System detected out-of-stock items. We'll contact you when stock arrives.`, 'success');
       } else {
         showToast(`Order ${createdOrder.order_number} created successfully!`, 'success');
       }
@@ -505,13 +457,10 @@ export default function PreOrderPage() {
     } catch (error: any) {
       console.error('❌ Pre-order creation failed:', error);
       console.error('❌ Error response:', error.response?.data);
-      console.error('❌ Validation errors:', error.response?.data?.errors);
-      console.error('❌ Error message:', error.response?.data?.message);
       
       let errorMessage = 'Error creating pre-order. Please try again.';
       
       if (error.response?.data?.errors) {
-        // Laravel validation errors
         const validationErrors = error.response.data.errors;
         const errorMessages = Object.entries(validationErrors)
           .map(([field, messages]: [string, any]) => {
@@ -526,6 +475,8 @@ export default function PreOrderPage() {
       }
       
       showToast(errorMessage, 'error');
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -539,45 +490,63 @@ export default function PreOrderPage() {
           
           <main className="flex-1 overflow-auto p-4 md:p-6">
             <div className="max-w-7xl mx-auto">
-              <div className="flex items-center justify-between mb-4 md:mb-6">
+              {/* Header Section */}
+              <div className="flex items-center justify-between mb-6">
                 <div>
-                  <h1 className="text-xl md:text-2xl font-semibold text-gray-900 dark:text-white">Pre-Order Form</h1>
-                  <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Order products for future delivery</p>
+                  <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Pre-Order Management</h1>
+                  <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                    Order out-of-stock products for future delivery • System auto-detects pre-orders
+                  </p>
                 </div>
                 
-                <div className="flex items-center gap-2 px-4 py-2 bg-blue-100 dark:bg-blue-900/30 border border-blue-300 dark:border-blue-700 rounded-lg">
-                  <Package className="w-5 h-5 text-blue-600 dark:text-blue-400" />
-                  <span className="text-sm font-medium text-blue-900 dark:text-blue-300">
-                    No Payment Required
-                  </span>
+                <div className="flex items-center gap-2 px-4 py-2 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
+                  <AlertCircle className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+                  <div className="text-sm">
+                    <p className="font-medium text-blue-900 dark:text-blue-300">No Payment Required</p>
+                    <p className="text-xs text-blue-700 dark:text-blue-400">Price: TBA</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Info Banner */}
+              <div className="mb-6 p-4 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg flex items-start gap-3">
+                <Package className="w-5 h-5 text-amber-600 dark:text-amber-400 mt-0.5 flex-shrink-0" />
+                <div className="flex-1 text-sm">
+                  <p className="font-medium text-amber-900 dark:text-amber-300 mb-1">
+                    Showing {allProducts.length} out-of-stock products
+                  </p>
+                  <p className="text-amber-700 dark:text-amber-400">
+                    System automatically detects out-of-stock items and marks orders as pre-orders. No manual flagging needed!
+                  </p>
                 </div>
               </div>
               
-              <div className="mb-4 md:mb-6 flex flex-col sm:flex-row items-start sm:items-center gap-3">
-                <div className="w-full sm:w-auto">
-                  <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">Created By</label>
+              {/* Order Details Row */}
+              <div className="mb-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Created By</label>
                   <input
                     type="text"
                     value={salesBy}
                     readOnly
-                    className="w-full px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-white"
+                    className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-white"
                   />
                 </div>
-                <div className="w-full sm:w-auto">
-                  <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">Date <span className="text-red-500">*</span></label>
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Date <span className="text-red-500">*</span></label>
                   <input
                     type="text"
                     value={date}
                     onChange={(e) => setDate(e.target.value)}
-                    className="w-full px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                    className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
                   />
                 </div>
-                <div className="w-full sm:w-auto">
-                  <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">Store <span className="text-red-500">*</span></label>
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Store <span className="text-red-500">*</span></label>
                   <select
                     value={selectedStore}
                     onChange={(e) => setSelectedStore(e.target.value)}
-                    className="w-full px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                    className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
                   >
                     <option value="">Select Store</option>
                     {stores.map((store) => (
@@ -585,64 +554,64 @@ export default function PreOrderPage() {
                     ))}
                   </select>
                 </div>
-                <div className="w-full sm:w-auto">
-                  <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">Expected Delivery</label>
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Expected Delivery</label>
                   <input
                     type="date"
                     value={expectedDeliveryDate}
                     onChange={(e) => setExpectedDeliveryDate(e.target.value)}
-                    className="w-full px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                    className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
                   />
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 {/* Left Column - Customer Info & Address */}
-                <div className="space-y-4 md:space-y-6">
+                <div className="space-y-6">
                   {/* Customer Information */}
-                  <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4 md:p-5">
-                    <h3 className="text-sm font-medium text-gray-900 dark:text-white mb-4">Customer Information</h3>
+                  <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-5">
+                    <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-4">Customer Information</h3>
                     
-                    <div className="space-y-3">
+                    <div className="space-y-4">
                       <div>
-                        <label className="block text-xs text-gray-700 dark:text-gray-300 mb-1">Customer Name*</label>
+                        <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1.5">Customer Name <span className="text-red-500">*</span></label>
                         <input
                           type="text"
                           placeholder="Full Name"
                           value={userName}
                           onChange={(e) => setUserName(e.target.value)}
-                          className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400"
+                          className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                         />
                       </div>
 
                       <div>
-                        <label className="block text-xs text-gray-700 dark:text-gray-300 mb-1">Email</label>
+                        <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1.5">Email</label>
                         <input
                           type="email"
                           placeholder="sample@email.com (optional)"
                           value={userEmail}
                           onChange={(e) => setUserEmail(e.target.value)}
-                          className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400"
+                          className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                         />
                       </div>
 
                       <div>
-                        <label className="block text-xs text-gray-700 dark:text-gray-300 mb-1">Phone Number*</label>
+                        <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1.5">Phone Number <span className="text-red-500">*</span></label>
                         <input
                           type="text"
-                          placeholder="Phone Number"
+                          placeholder="01XXXXXXXXX"
                           value={userPhone}
                           onChange={(e) => setUserPhone(e.target.value)}
-                          className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400"
+                          className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                         />
                       </div>
                     </div>
                   </div>
 
                   {/* Delivery Address */}
-                  <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4 md:p-5">
+                  <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-5">
                     <div className="flex items-center justify-between mb-4">
-                      <h3 className="text-sm font-medium text-gray-900 dark:text-white">Delivery Address</h3>
+                      <h3 className="text-sm font-semibold text-gray-900 dark:text-white">Delivery Address</h3>
                       <button
                         onClick={() => {
                           setIsInternational(!isInternational);
@@ -650,10 +619,10 @@ export default function PreOrderPage() {
                           setCountry(''); setState(''); setInternationalCity(''); setInternationalPostalCode('');
                           setDeliveryAddress('');
                         }}
-                        className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                        className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
                           isInternational
                             ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 border border-blue-300 dark:border-blue-700'
-                            : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 border border-gray-300 dark:border-gray-600'
+                            : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 border border-gray-300 dark:border-gray-600 hover:bg-gray-200 dark:hover:bg-gray-600'
                         }`}
                       >
                         <Globe className="w-4 h-4" />
@@ -664,146 +633,151 @@ export default function PreOrderPage() {
                     {isInternational ? (
                       <div className="space-y-3">
                         <div>
-                          <label className="block text-xs text-gray-700 dark:text-gray-300 mb-1">Country*</label>
-                          <input type="text" placeholder="Enter Country" value={country} onChange={(e) => setCountry(e.target.value)} className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400" />
+                          <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1.5">Country <span className="text-red-500">*</span></label>
+                          <input type="text" placeholder="Enter Country" value={country} onChange={(e) => setCountry(e.target.value)} className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
                         </div>
                         <div>
-                          <label className="block text-xs text-gray-700 dark:text-gray-300 mb-1">State/Province</label>
-                          <input type="text" placeholder="Enter State" value={state} onChange={(e) => setState(e.target.value)} className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400" />
+                          <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1.5">State/Province</label>
+                          <input type="text" placeholder="Enter State" value={state} onChange={(e) => setState(e.target.value)} className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
                         </div>
                         <div>
-                          <label className="block text-xs text-gray-700 dark:text-gray-300 mb-1">City*</label>
-                          <input type="text" placeholder="Enter City" value={internationalCity} onChange={(e) => setInternationalCity(e.target.value)} className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400" />
+                          <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1.5">City <span className="text-red-500">*</span></label>
+                          <input type="text" placeholder="Enter City" value={internationalCity} onChange={(e) => setInternationalCity(e.target.value)} className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
                         </div>
                         <div>
-                          <label className="block text-xs text-gray-700 dark:text-gray-300 mb-1">Postal Code</label>
-                          <input type="text" placeholder="Enter Postal Code" value={internationalPostalCode} onChange={(e) => setInternationalPostalCode(e.target.value)} className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400" />
+                          <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1.5">Postal Code</label>
+                          <input type="text" placeholder="Enter Postal Code" value={internationalPostalCode} onChange={(e) => setInternationalPostalCode(e.target.value)} className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
                         </div>
                         <div>
-                          <label className="block text-xs text-gray-700 dark:text-gray-300 mb-1">Street Address*</label>
-                          <textarea placeholder="Full Address" value={deliveryAddress} onChange={(e) => setDeliveryAddress(e.target.value)} rows={3} className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400" />
+                          <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1.5">Street Address <span className="text-red-500">*</span></label>
+                          <textarea placeholder="Full Address" value={deliveryAddress} onChange={(e) => setDeliveryAddress(e.target.value)} rows={3} className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none" />
                         </div>
                       </div>
                     ) : (
                       <div className="space-y-3">
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div className="grid grid-cols-2 gap-3">
                           <div>
-                            <label className="block text-xs text-gray-700 dark:text-gray-300 mb-1">Division*</label>
-                            <select value={division} onChange={(e) => setDivision(e.target.value)} className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white">
+                            <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1.5">Division <span className="text-red-500">*</span></label>
+                            <select value={division} onChange={(e) => setDivision(e.target.value)} className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent">
                               <option value="">Select Division</option>
                               {divisions.map((d) => (<option key={d.id} value={d.name}>{d.name}</option>))}
                             </select>
                           </div>
                           <div>
-                            <label className="block text-xs text-gray-700 dark:text-gray-300 mb-1">District*</label>
-                            <select value={district} onChange={(e) => setDistrict(e.target.value)} disabled={!division} className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white disabled:opacity-50">
+                            <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1.5">District <span className="text-red-500">*</span></label>
+                            <select value={district} onChange={(e) => setDistrict(e.target.value)} disabled={!division} className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white disabled:opacity-50 disabled:cursor-not-allowed focus:ring-2 focus:ring-blue-500 focus:border-transparent">
                               <option value="">Select District</option>
                               {districts.map((d) => (<option key={d.id} value={d.name}>{d.name}</option>))}
                             </select>
                           </div>
                         </div>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div className="grid grid-cols-2 gap-3">
                           <div>
-                            <label className="block text-xs text-gray-700 dark:text-gray-300 mb-1">Upazilla*</label>
-                            <select value={city} onChange={(e) => setCity(e.target.value)} disabled={!district} className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white disabled:opacity-50">
+                            <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1.5">Upazilla <span className="text-red-500">*</span></label>
+                            <select value={city} onChange={(e) => setCity(e.target.value)} disabled={!district} className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white disabled:opacity-50 disabled:cursor-not-allowed focus:ring-2 focus:ring-blue-500 focus:border-transparent">
                               <option value="">Select Upazilla</option>
                               {upazillas.map((u) => (<option key={u.id} value={u.name}>{u.name}</option>))}
                             </select>
                           </div>
                           <div>
-                            <label className="block text-xs text-gray-700 dark:text-gray-300 mb-1">Zone*</label>
-                            <input type="text" placeholder="Search Zone..." value={zone} onChange={(e) => setZone(e.target.value)} className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400" />
+                            <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1.5">Zone <span className="text-red-500">*</span></label>
+                            <input type="text" placeholder="Search Zone..." value={zone} onChange={(e) => setZone(e.target.value)} className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
                           </div>
                         </div>
                         <div>
-                          <label className="block text-xs text-gray-700 dark:text-gray-300 mb-1">Area (Optional)</label>
-                          <input type="text" placeholder="Search Area..." value={area} onChange={(e) => setArea(e.target.value)} className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400" />
+                          <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1.5">Area</label>
+                          <input type="text" placeholder="Search Area..." value={area} onChange={(e) => setArea(e.target.value)} className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
                         </div>
                         <div>
-                          <label className="block text-xs text-gray-700 dark:text-gray-300 mb-1">Delivery Address</label>
-                          <textarea placeholder="Delivery Address" value={deliveryAddress} onChange={(e) => setDeliveryAddress(e.target.value)} rows={2} className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400" />
+                          <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1.5">Delivery Address</label>
+                          <textarea placeholder="House/Road details..." value={deliveryAddress} onChange={(e) => setDeliveryAddress(e.target.value)} rows={2} className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none" />
                         </div>
                         <div>
-                          <label className="block text-xs text-gray-700 dark:text-gray-300 mb-1">Postal Code</label>
-                          <input type="text" placeholder="e.g., 1212" value={postalCode} onChange={(e) => setPostalCode(e.target.value)} className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400" />
+                          <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1.5">Postal Code</label>
+                          <input type="text" placeholder="e.g., 1212" value={postalCode} onChange={(e) => setPostalCode(e.target.value)} className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
                         </div>
                       </div>
                     )}
                   </div>
 
                   {/* Pre-order Notes */}
-                  <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4 md:p-5">
-                    <h3 className="text-sm font-medium text-gray-900 dark:text-white mb-3">Pre-order Notes</h3>
+                  <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-5">
+                    <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-3">Pre-order Notes</h3>
                     <textarea
                       placeholder="Add any special instructions or notes for this pre-order..."
                       value={preorderNotes}
                       onChange={(e) => setPreorderNotes(e.target.value)}
                       rows={4}
-                      className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400"
+                      className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
                     />
                   </div>
                 </div>
 
                 {/* Right Column - Product Search & Cart */}
-                <div className="space-y-4 md:space-y-6">
+                <div className="space-y-6">
                   {/* Product Search */}
-                  <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4 md:p-5">
+                  <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-5">
                     <div className="flex items-center justify-between mb-4">
-                      <h3 className="text-sm font-medium text-gray-900 dark:text-white">Search Products</h3>
+                      <h3 className="text-sm font-semibold text-gray-900 dark:text-white">Search Out-of-Stock Products</h3>
                       {allProducts.length > 0 && (
-                        <span className="text-xs text-gray-500 dark:text-gray-400">
+                        <span className="text-xs px-2 py-1 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 rounded-full font-medium">
                           {allProducts.length} available
                         </span>
                       )}
                     </div>
                     
                     <div className="flex gap-2 mb-4">
-                      <input
-                        type="text"
-                        placeholder="Search product name or SKU..."
-                        value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
-                        className="flex-1 px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400"
-                      />
-                      <button className="px-4 py-2 bg-black hover:bg-gray-800 text-white rounded transition-colors flex-shrink-0">
-                        <Search size={18} />
-                      </button>
+                      <div className="relative flex-1">
+                        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+                        <input
+                          type="text"
+                          placeholder="Search product name or SKU..."
+                          value={searchQuery}
+                          onChange={(e) => setSearchQuery(e.target.value)}
+                          className="w-full pl-10 pr-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        />
+                      </div>
                     </div>
 
                     {allProducts.length === 0 && !searchQuery && (
-                      <div className="text-center py-8">
-                        <Package className="w-12 h-12 mx-auto text-gray-300 dark:text-gray-600 mb-2" />
-                        <p className="text-sm text-gray-500 dark:text-gray-400">Loading products...</p>
+                      <div className="text-center py-12">
+                        <Package className="w-16 h-16 mx-auto text-gray-300 dark:text-gray-600 mb-3" />
+                        <p className="text-sm text-gray-500 dark:text-gray-400 font-medium">Loading products...</p>
+                        <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">Fetching out-of-stock items</p>
                       </div>
                     )}
 
                     {searchQuery && searchResults.length === 0 && (
-                      <div className="text-center py-8">
-                        <p className="text-sm text-gray-500 dark:text-gray-400 mb-2">No products found matching "{searchQuery}"</p>
-                        <p className="text-xs text-gray-400 dark:text-gray-500">Try searching with different keywords</p>
+                      <div className="text-center py-12">
+                        <Search className="w-16 h-16 mx-auto text-gray-300 dark:text-gray-600 mb-3" />
+                        <p className="text-sm text-gray-500 dark:text-gray-400 font-medium">No products found</p>
+                        <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">Try searching with different keywords</p>
                       </div>
                     )}
 
                     {searchResults.length > 0 && (
-                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 max-h-60 md:max-h-80 overflow-y-auto mb-4 p-1">
+                      <div className="grid grid-cols-2 gap-3 max-h-80 overflow-y-auto p-1">
                         {searchResults.map((product) => (
                           <div
                             key={product.id}
                             onClick={() => handleProductSelect(product)}
-                            className="border border-gray-200 dark:border-gray-600 rounded p-2 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                            className="group border border-gray-200 dark:border-gray-700 rounded-lg p-3 cursor-pointer hover:border-blue-500 dark:hover:border-blue-500 hover:shadow-md transition-all"
                           >
-                            <img 
-                              src={product.imageUrl} 
-                              alt={product.name} 
-                              className="w-full h-24 sm:h-32 object-cover rounded mb-2" 
-                            />
-                            <p className="text-xs text-gray-900 dark:text-white font-medium truncate">{product.name}</p>
-                            <p className="text-xs text-gray-600 dark:text-gray-400">SKU: {product.sku}</p>
-                            <div className="mt-1 flex items-center justify-between">
-                              <p className="text-xs text-orange-600 dark:text-orange-400 font-medium">{product.price_display || 'TBA'}</p>
-                              {product.available_for_preorder && (
-                                <span className="text-[9px] px-1.5 py-0.5 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 rounded font-medium">PRE-ORDER</span>
-                              )}
+                            <div className="relative mb-2">
+                              <img 
+                                src={product.imageUrl} 
+                                alt={product.name} 
+                                className="w-full h-32 object-cover rounded" 
+                              />
+                              <span className="absolute top-1 right-1 text-[9px] px-2 py-0.5 bg-amber-500 text-white rounded-full font-bold uppercase tracking-wide">
+                                Pre-Order
+                              </span>
+                            </div>
+                            <p className="text-xs text-gray-900 dark:text-white font-medium truncate mb-1">{product.name}</p>
+                            <p className="text-[11px] text-gray-500 dark:text-gray-400 mb-2">SKU: {product.sku}</p>
+                            <div className="flex items-center justify-between">
+                              <p className="text-sm text-blue-600 dark:text-blue-400 font-bold">{product.price_display}</p>
+                              <CheckCircle className="w-4 h-4 text-gray-300 group-hover:text-blue-500 transition-colors" />
                             </div>
                           </div>
                         ))}
@@ -811,24 +785,33 @@ export default function PreOrderPage() {
                     )}
 
                     {selectedProduct && (
-                      <div className="mt-4 p-3 border rounded mb-4 bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800">
+                      <div className="mt-4 p-3 border-2 border-blue-200 dark:border-blue-800 rounded-lg bg-blue-50 dark:bg-blue-900/20">
                         <div className="flex items-center justify-between mb-2">
-                          <span className="text-sm font-medium text-gray-900 dark:text-white">Selected Product</span>
-                          <button onClick={() => {
-                            setSelectedProduct(null);
-                            setQuantity('');
-                          }} className="text-red-600 hover:text-red-700">
+                          <span className="text-xs font-semibold text-blue-900 dark:text-blue-300">Selected Product</span>
+                          <button 
+                            onClick={() => {
+                              setSelectedProduct(null);
+                              setQuantity('');
+                            }} 
+                            className="text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300"
+                          >
                             <X size={16} />
                           </button>
                         </div>
-                        <p className="text-sm font-medium text-gray-900 dark:text-white">{selectedProduct.name}</p>
-                        <p className="text-sm text-gray-600 dark:text-gray-400">SKU: {selectedProduct.sku}</p>
+                        <div className="flex gap-3">
+                          <img src={selectedProduct.imageUrl} alt={selectedProduct.name} className="w-16 h-16 object-cover rounded" />
+                          <div className="flex-1">
+                            <p className="text-sm font-medium text-gray-900 dark:text-white">{selectedProduct.name}</p>
+                            <p className="text-xs text-gray-600 dark:text-gray-400">SKU: {selectedProduct.sku}</p>
+                            <p className="text-sm text-blue-600 dark:text-blue-400 font-bold mt-1">{selectedProduct.price_display}</p>
+                          </div>
+                        </div>
                       </div>
                     )}
 
-                    <div className="space-y-3">
+                    <div className="space-y-3 mt-4">
                       <div>
-                        <label className="block text-xs text-gray-700 dark:text-gray-300 mb-1">Quantity*</label>
+                        <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1.5">Quantity <span className="text-red-500">*</span></label>
                         <input
                           type="number"
                           placeholder="0"
@@ -836,14 +819,14 @@ export default function PreOrderPage() {
                           onChange={(e) => setQuantity(e.target.value)}
                           disabled={!selectedProduct}
                           min="1"
-                          className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white disabled:opacity-50"
+                          className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white disabled:opacity-50 disabled:cursor-not-allowed focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                         />
                       </div>
 
                       <button
                         onClick={addToCart}
                         disabled={!selectedProduct}
-                        className="w-full px-4 py-2.5 bg-black hover:bg-gray-800 text-white text-sm font-medium rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="w-full px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-blue-600"
                       >
                         Add to Pre-order
                       </button>
@@ -852,36 +835,56 @@ export default function PreOrderPage() {
 
                   {/* Cart */}
                   <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
-                    <div className="p-4 border-b border-gray-200 dark:border-gray-700">
-                      <h3 className="text-sm font-medium text-gray-900 dark:text-white">Pre-order Items ({cart.length})</h3>
+                    <div className="p-4 bg-gray-50 dark:bg-gray-700/50 border-b border-gray-200 dark:border-gray-700">
+                      <div className="flex items-center justify-between">
+                        <h3 className="text-sm font-semibold text-gray-900 dark:text-white">Pre-order Cart</h3>
+                        <span className="px-2.5 py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 text-xs font-bold rounded-full">
+                          {cart.length} items
+                        </span>
+                      </div>
                     </div>
-                    <div className="max-h-60 md:max-h-96 overflow-y-auto overflow-x-auto">
+                    <div className="max-h-96 overflow-y-auto">
                       <table className="w-full text-sm">
                         <thead className="bg-gray-50 dark:bg-gray-700 border-b border-gray-200 dark:border-gray-600 sticky top-0">
                           <tr>
-                            <th className="px-3 py-2 text-left text-xs font-medium text-gray-700 dark:text-gray-300">Product</th>
-                            <th className="px-3 py-2 text-left text-xs font-medium text-gray-700 dark:text-gray-300">Quantity</th>
-                            <th className="px-3 py-2 text-left text-xs font-medium text-gray-700 dark:text-gray-300">Action</th>
+                            <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300">Product</th>
+                            <th className="px-4 py-3 text-center text-xs font-semibold text-gray-700 dark:text-gray-300">Qty</th>
+                            <th className="px-4 py-3 text-center text-xs font-semibold text-gray-700 dark:text-gray-300">Action</th>
                           </tr>
                         </thead>
                         <tbody>
                           {cart.length === 0 ? (
-                            <tr><td colSpan={3} className="px-4 py-8 text-center text-sm text-gray-500 dark:text-gray-400">No products in pre-order</td></tr>
+                            <tr>
+                              <td colSpan={3} className="px-4 py-12 text-center">
+                                <Package className="w-12 h-12 mx-auto text-gray-300 dark:text-gray-600 mb-2" />
+                                <p className="text-sm text-gray-500 dark:text-gray-400 font-medium">No products in cart</p>
+                                <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">Search and add products above</p>
+                              </td>
+                            </tr>
                           ) : (
                             cart.map((item) => (
-                              <tr key={item.id} className="border-b border-gray-200 dark:border-gray-700">
-                                <td className="px-3 py-2 text-sm text-gray-900 dark:text-white">
-                                  <div className="flex items-center gap-2">
-                                    <img src={item.imageUrl} alt={item.productName} className="w-10 h-10 object-cover rounded" />
+                              <tr key={item.id} className="border-b border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/50">
+                                <td className="px-4 py-3">
+                                  <div className="flex items-center gap-3">
+                                    <img src={item.imageUrl} alt={item.productName} className="w-12 h-12 object-cover rounded" />
                                     <div>
-                                      <p className="font-medium">{item.productName}</p>
-                                      <p className="text-xs text-gray-500">SKU: {item.sku}</p>
+                                      <p className="font-medium text-gray-900 dark:text-white">{item.productName}</p>
+                                      <p className="text-xs text-gray-500 dark:text-gray-400">SKU: {item.sku}</p>
                                     </div>
                                   </div>
                                 </td>
-                                <td className="px-3 py-2 text-sm text-gray-900 dark:text-white">{item.quantity}</td>
-                                <td className="px-3 py-2">
-                                  <button onClick={() => removeFromCart(item.id)} className="text-red-600 hover:text-red-700 text-xs font-medium">Remove</button>
+                                <td className="px-4 py-3 text-center">
+                                  <span className="inline-block px-3 py-1 bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-white rounded-full font-medium">
+                                    {item.quantity}
+                                  </span>
+                                </td>
+                                <td className="px-4 py-3 text-center">
+                                  <button 
+                                    onClick={() => removeFromCart(item.id)} 
+                                    className="text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 text-xs font-semibold px-3 py-1 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-colors"
+                                  >
+                                    Remove
+                                  </button>
                                 </td>
                               </tr>
                             ))
@@ -891,24 +894,41 @@ export default function PreOrderPage() {
                     </div>
                     
                     {cart.length > 0 && (
-                      <div className="p-4 bg-gray-50 dark:bg-gray-700 border-t border-gray-200 dark:border-gray-600">
-                        <div className="flex justify-between text-sm mb-3">
-                          <span className="text-gray-600 dark:text-gray-400">Total Items:</span>
-                          <span className="text-gray-900 dark:text-white font-medium">{cart.length}</span>
+                      <div className="p-4 bg-gray-50 dark:bg-gray-700/50 border-t border-gray-200 dark:border-gray-700">
+                        <div className="space-y-3 mb-4">
+                          <div className="flex justify-between text-sm">
+                            <span className="text-gray-600 dark:text-gray-400">Total Items:</span>
+                            <span className="text-gray-900 dark:text-white font-semibold">{cart.length}</span>
+                          </div>
+                          <div className="flex justify-between text-sm">
+                            <span className="text-gray-600 dark:text-gray-400">Total Quantity:</span>
+                            <span className="text-gray-900 dark:text-white font-semibold">{cart.reduce((sum, item) => sum + item.quantity, 0)}</span>
+                          </div>
+                          <div className="flex justify-between text-sm pb-3 border-b border-gray-300 dark:border-gray-600">
+                            <span className="text-gray-600 dark:text-gray-400">Total Amount:</span>
+                            <span className="text-blue-600 dark:text-blue-400 font-bold">TBA</span>
+                          </div>
                         </div>
-                        <div className="flex justify-between text-sm mb-3">
-                          <span className="text-gray-600 dark:text-gray-400">Total Quantity:</span>
-                          <span className="text-gray-900 dark:text-white font-medium">{cart.reduce((sum, item) => sum + item.quantity, 0)}</span>
-                        </div>
-                        <div className="mb-3 p-2 bg-blue-50 dark:bg-blue-900/20 rounded flex items-center gap-2 text-xs text-blue-700 dark:text-blue-400">
-                          <Package className="w-4 h-4 flex-shrink-0" />
-                          <span>No payment required. Order will be marked as pre-order.</span>
+                        <div className="mb-4 p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg flex items-start gap-2 text-xs text-blue-700 dark:text-blue-400">
+                          <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5" />
+                          <span>No payment required. System will automatically detect out-of-stock items and create pre-order.</span>
                         </div>
                         <button
                           onClick={handleConfirmPreOrder}
-                          className="w-full px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded transition-colors"
+                          disabled={isLoading}
+                          className="w-full px-4 py-3 bg-green-600 hover:bg-green-700 text-white text-sm font-bold rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                         >
-                          Confirm Pre-order
+                          {isLoading ? (
+                            <>
+                              <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                              Processing...
+                            </>
+                          ) : (
+                            <>
+                              <CheckCircle className="w-4 h-4" />
+                              Confirm Pre-order
+                            </>
+                          )}
                         </button>
                       </div>
                     )}
